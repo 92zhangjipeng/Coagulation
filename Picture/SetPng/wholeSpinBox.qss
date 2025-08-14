@@ -1,0 +1,33 @@
+/* QSpinBox 主控件样式 */
+QSpinBox {
+    padding-top: 2px; /* 上内边距 */
+    padding-bottom: 2px; /* 下内边距 */
+    padding-left: 4px; /* 左内边距 */
+    padding-right: 15px; /* 右内边距，为按钮预留空间，常见于证据 [[1, 5, 14]] */
+    border: 2px solid rgba(220,220,220); /* 边框：2px 实线，浅灰色 */
+    background-color: rgba(188,187,183); /* 背景色：灰色 */
+    border-radius: 3px; /* 圆角半径，证据支持类似设置 [[10, 14]] */
+    selection-color: rgb(235,235,235); /* 文本选择颜色：浅灰色 */
+    selection-background-color: rgb(83,121,180); /* 文本选择背景色：蓝色，证据中常见 [[1, 7]] */
+    font-family: '楷体'; /* 字体：楷体 */
+    font-size: 20px; /* 字体大小：20px */
+}
+
+/* 向上按钮样式 (通常用于增加数值) */
+QSpinBox::up-button {
+    subcontrol-origin: border; /* 参考边框定位，证据推荐此设置 [[1, 5, 14]] */
+    subcontrol-position: right; /* 位置：右对齐（垂直默认居中）。注意：证据建议使用双值如 top right 以避免问题 [[9, 14]] */
+    image: url(:/Picture/cssdown.png); /* 按钮图像（清理了空格）。警告：图像名 "cssdown" 可能表示向下箭头，但用于向上按钮，建议检查是否匹配功能 [[5, 17]] */
+    width: 20px; /* 宽度 */
+    height: 20px; /* 高度 */
+}
+
+/* 向下按钮样式 (通常用于减少数值) */
+QSpinBox::down-button {
+    subcontrol-origin: border; /* 参考边框定位 */
+    subcontrol-position: left; /* 位置：左对齐（垂直默认居中）。注意：此设置不常见（证据中通常为 bottom right），可能导致布局异常 [[1, 14]] */
+    image: url(:/Picture/cssup.png); /* 按钮图像（清理了空格）。警告：图像名 "cssup" 可能表示向上箭头，但用于向下按钮，建议检查是否反了 [[5, 17]] */
+    width: 20px; /* 宽度 */
+    height: 20px; /* 高度 */
+}
+

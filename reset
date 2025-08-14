@@ -1,0 +1,263 @@
+[33mcommit 14c05d5b6278d277946f5e72587590c98f676b66[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Apr 23 11:51:17 2024 +0800
+
+    测试曲线通过配置参数控制范围
+
+[33mcommit 9584241fa9322aaac45b8b0a81ed1bea27ae9158[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Apr 18 18:24:44 2024 +0800
+
+    曲线高中低值++
+
+[33mcommit f5e412c34b22c7c809bec4c9318aece719df6a6e[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Apr 11 11:39:44 2024 +0800
+
+    ADP曲线BUG
+
+[33mcommit 4c159dfb4f66fb14df34548f3fd5c0ef8eb2f2eb[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Apr 10 18:19:28 2024 +0800
+
+    生成ADP数据
+
+[33mcommit c82b81209d2e9ad4570eeaa59e840ecbe1755247[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Apr 10 18:19:02 2024 +0800
+
+    温控调光修改+制作ADP曲线
+    
+    git commit -a -m 生成ADP数据
+    
+    git commit -a -m 温控调光修改+制作ADP曲线
+
+[33mcommit d5b6479602e7bdeec2d803f814e622d6c47759b8[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Apr 10 15:11:17 2024 +0800
+
+    温控调光修改+制作ADP曲线
+    
+    git commit -a -m 温控调光修改+制作ADP曲线
+
+[33mcommit 50c0cde1243f5f2e36b3bebc0bf5ef0f60ac5467[m
+Author: jipeng <471851112@qq.com>
+Date:   Sun Apr 7 09:35:08 2024 +0800
+
+    改文档测试部分BUG
+
+[33mcommit 22afedf54d6775d4e13bfb052f7cb90decfae566[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Mar 29 18:44:04 2024 +0800
+
+    重写调光控温功能
+
+[33mcommit c625ab4feece3a53220fb75b6399420eeee0e7f0[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Mar 27 18:03:06 2024 +0800
+
+    ++选项控制开机初始化抓杯
+
+[33mcommit ed11eb248cec02824fc3512040a10ea2f813565c[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Mar 26 18:03:02 2024 +0800
+
+    LED调光采集通道数值模式
+
+[33mcommit 107e45dc2bc54fc23f55623eedb283c767e8f80c[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Mar 22 09:12:57 2024 +0800
+
+    控温BUG修改
+
+[33mcommit cf3cccca03bbca0e6d0741294e30ad8ea8ec9f85[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Mar 19 16:58:49 2024 +0800
+
+    提示从仪器内读取仪器类型异常
+
+[33mcommit 8a3e4361d72cbfa67026ea5099a37462846a307f[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Mar 15 18:31:53 2024 +0800
+
+    界面调整修改登录界面后
+
+[33mcommit d453574f9c65d72a0ab5264b6fac65c7e9ea20be[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Mar 14 18:04:05 2024 +0800
+
+    重写登录界面
+
+[33mcommit e2a27851affa8e1a27f3d43bc02d8ef2818c5633[m
+Author: jipeng <471851112@qq.com>
+Date:   Mon Mar 11 18:15:08 2024 +0800
+
+    初始化控温，调整led值
+
+[33mcommit e7d6e2900932a461a0e27416a2e640ba6ad40683[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Mar 1 17:43:20 2024 +0800
+
+    +水波纹进度显示控温 改设置界面
+
+[33mcommit 31782c36671da40682f47f3b12bac40aee758e79[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Feb 23 11:09:39 2024 +0800
+
+    添加设置模组图标
+
+[33mcommit 808076a320f5fb4dd947b6770230d1badaeace05[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Feb 21 18:57:15 2024 +0800
+
+    修改写入模组速度模式
+
+[33mcommit 6f5c04cf44c0fe6c487ac9c0bd1b0ae2c297b4dd[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Jan 30 16:28:11 2024 +0800
+
+    主界面显示未识别仪器型号
+
+[33mcommit a66744f667c814485d919d2a4b35688281b12148[m
+Author: jipeng <471851112@qq.com>
+Date:   Sat Jan 27 17:05:40 2024 +0800
+
+    ++调整模组光值和通道电机旋转速度功能
+
+[33mcommit 96e2c6c643796c46b4fb329e85b8ea22aed8e5e1[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Jan 25 09:38:55 2024 +0800
+
+    添加清除仪器数据命令
+
+[33mcommit e8b5b7a87261dcc32fac051fef785eb563bc3e86[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Jan 24 14:25:19 2024 +0800
+
+    修改暂停bug
+
+[33mcommit e74ef19b2c4bf5271e940cda7dad8455931db058[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Jan 24 10:35:33 2024 +0800
+
+    ++统计当月和指定功能
+
+[33mcommit ad0c503b7ea8ac1da16c0a492150bf37af255cb3[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Jan 23 18:28:53 2024 +0800
+
+    修改柱状图显示文字
+
+[33mcommit 5a6c3db27973a1937cd5839e7391e69d6a8817fe[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Jan 23 17:42:06 2024 +0800
+
+    修改查询功能&&添加统计单天显示柱状图
+
+[33mcommit 0ba8366e910005e97546bab81d02cf21ae820cb1[m
+Author: jipeng <471851112@qq.com>
+Date:   Tue Jan 23 09:35:40 2024 +0800
+
+    曲线0到180偏移正负6
+
+[33mcommit f1ebe0cd4a4f87681e6a7995768185aa4b649eff[m
+Author: jipeng <471851112@qq.com>
+Date:   Mon Jan 22 14:26:42 2024 +0800
+
+    改开始任务只能测试一次样本测试&&++暂停继续功能
+
+[33mcommit 6d8df210f8632cbc4af0b21bf79cebd23cd26547[m
+Author: jipeng <471851112@qq.com>
+Date:   Sun Jan 21 16:41:03 2024 +0800
+
+    改显示消耗试剂BUG
+
+[33mcommit 8ed974bfdc8c70f2934e0a44dfd2266633c52a1b[m
+Author: jipeng <471851112@qq.com>
+Date:   Sun Jan 21 14:32:28 2024 +0800
+
+    修改消耗耗材显示配置容量和限位到仪器
+
+[33mcommit ff03620ab59b304b01b78342dd17c292c17bbb5a[m
+Author: jipeng <471851112@qq.com>
+Date:   Sat Jan 20 19:59:38 2024 +0800
+
+    修改本地耗材使用更新
+
+[33mcommit 66734f26ecf76cbd203c6a505d2a431a9cd8e247[m
+Author: jipeng <471851112@qq.com>
+Date:   Sat Jan 20 13:21:46 2024 +0800
+
+    修改配置文件
+
+[33mcommit 73ff5ccba4892c50ac2eb86bfa9f738d892f129b[m
+Author: jipeng <471851112@qq.com>
+Date:   Sat Jan 20 11:54:56 2024 +0800
+
+    添加配置项 吸试剂 吸样本前是否吸空气
+
+[33mcommit 06ca7cba90df7b8e170d042170b17365ed5158e3[m
+Author: jipeng <471851112@qq.com>
+Date:   Sat Jan 20 11:33:35 2024 +0800
+
+    修改设置界面字体
+
+[33mcommit df207c227cb59f194d6d39a6c86bdafbc38a4bc2[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Jan 19 17:32:25 2024 +0800
+
+    注释掉试剂清洗液的使用更新，修改等待时间
+
+[33mcommit c45d16eb6ae1d95d6917948dd5485b2866c054fc[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Jan 19 14:17:11 2024 +0800
+
+    修正设置测试测试项目
+
+[33mcommit 5271c5eeb0f527eb8bfea078cdac842021b9edcc[m
+Author: jipeng <471851112@qq.com>
+Date:   Fri Jan 19 14:03:13 2024 +0800
+
+    修改添加样本方式
+
+[33mcommit 4b053f666d2f1acd9effbfc2a4b4ba7bda87e1da[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Jan 18 19:23:12 2024 +0800
+
+    重写添加任务准备去除dll库接口函数
+
+[33mcommit 8156ae43162ebbae4f4fe88f7b3b4d3bc8540d7d[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Jan 18 15:26:38 2024 +0800
+
+    修改试剂显示
+
+[33mcommit d68789e80dbd032862e9da6b0eec2ba8b79d3856[m
+Author: jipeng <471851112@qq.com>
+Date:   Thu Jan 18 09:32:48 2024 +0800
+
+    除123和1234的账号登录都吸空气动作
+
+[33mcommit 8bca6eef9270729412a342d69100e72d14c17878[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Jan 17 18:45:31 2024 +0800
+
+    样本测试完成删除dll数据根据测试样本号删除
+
+[33mcommit c95fe344b9a183fc4f1377bab762f3d9b7bcaa62[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Jan 17 18:01:31 2024 +0800
+
+    测试修改文件提交test1
+
+[33mcommit 8b7cd266e6cd2d4752633d1a86a9bb4557087f2a[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Jan 17 17:58:31 2024 +0800
+
+    测试修改文件提交
+
+[33mcommit 85e61535df8b95fa4a706bf8a665fbd3010e6089[m
+Author: jipeng <471851112@qq.com>
+Date:   Wed Jan 17 17:52:31 2024 +0800
+
+    第一次把项目提交

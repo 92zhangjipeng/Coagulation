@@ -1,0 +1,38 @@
+{
+    "General-general": {
+        "Hospital Name": "请问饿",
+        "Ignoring the insufficient balance of X1 cleaning fluid": false,
+        "Patient sample report template": 0,
+        "Print automatically after the test is complete": false,
+        "Quality control report template": 0,
+        "Quality control sample report template": 0,
+        "Reagent alarm limit": 0,
+        "Test cup alarm limit": 0,
+        "Unaudited records are automatically approved when a report is printed": false,
+        "User": [
+            "121"
+        ],
+        "X1Test cup alarm limit": 0,
+        "X2Test cup alarm limit": 0
+    },
+    "Universal Information Library": {
+        "Clinical_diagnosis": [
+        ],
+        "Cobe": [
+            "2|3",
+            "2222|3344"
+        ],
+        "Gender": [
+        ],
+        "Note": [
+        ],
+        "Send_doctor": [
+        ],
+        "Sick": [
+        ],
+        "Test_doctor": [
+        ],
+        "Ward": [
+        ]
+    }
+}

@@ -1,0 +1,23 @@
+# IDE/编辑器文件
+.vs/
+*.sdf
+*.sln
+*.vcxproj*
+*.user
+*.aps
+*.pro.user
+
+# 构建生成文件
+*.dll
+*.lib
+*.ilk
+*.exe
+Makefile*
+Debug/
+Release/
+*.o
+*.a
+
+# 其他
+*.ui
+*.qrc
