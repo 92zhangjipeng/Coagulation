@@ -4,6 +4,11 @@
 Makefile*
 *.aps
 
+# 编辑 .gitignore
+echo "Coagulation.opensdf" >> .gitignore
+echo "*.opensdf" >> .gitignore  # 忽略所有同类文件
+echo ".vs/" >> .gitignore       # 忽略 VS 临时目录（如果适用）
+
 # IDE
 .vs/
 *.sdf
