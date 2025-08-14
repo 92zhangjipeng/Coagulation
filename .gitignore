@@ -1,21 +1,23 @@
-# IDE/编辑器文件
+# Qt 相关
+*.user
+*.pro.user
+Makefile*
+*.aps
+
+# IDE
 .vs/
 *.sdf
 *.sln
 *.vcxproj*
-*.user
-*.aps
-*.pro.user
+*.vcxproj.filters
 
 # 构建生成文件
+Debug/
+Release/
 *.dll
 *.lib
 *.ilk
 *.exe
-Makefile*
-Debug/
-Release/
-*.o
 *.a
 
 # 其他
