@@ -28,6 +28,7 @@ USBListener::~USBListener() {
     stopListening();
 
 	if (m_deviceWasDisabled) {
+		QLOG_DEBUG() << "关闭软件USB电源管理恢复";
 		ReenableDevice();
 	}
 }
@@ -69,6 +70,7 @@ QString getDeviceInstancePathFromVidPid(DWORD vid, DWORD pid) {
     return resultPath;
 }
 
+
 void USBListener::ReenableDevice() {
 	SP_PROPCHANGE_PARAMS params = { 0 };
 	params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
@@ -84,7 +86,6 @@ void USBListener::ReenableDevice() {
 }
 
 
-
 bool  USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId,QString &outFailed) {
 	DWORD err;
 	QString formattedErr;
@@ -97,7 +98,6 @@ bool  USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanc
         return false;
     }
 	m_hDevInfo = hDevInfo;
-
 
     // 2. 枚举设备，查找匹配的实例ID
 	SP_DEVINFO_DATA devInfoData  = { sizeof(SP_DEVINFO_DATA) };
