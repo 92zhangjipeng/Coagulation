@@ -738,72 +738,98 @@ void MainWindow::initTestTaskThread()
             &TestProjectProcess::throwAnemiaCup);
 
     //空试管被夹起
-    connect(m_pdoingTesting.data(),&TestProjectProcess::EmptyTubeCatched,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::EmptyTubeCatched,
             mptesting.data(), &Testing::EmptyTubeClipMoved,
             Qt::QueuedConnection);
 
 
     //获取通道富血的初值 ==>获取到富血值后 吐试剂
-    connect(m_pdoingTesting.data(),&TestProjectProcess::readbloodyInitValue,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::readbloodyInitValue,
             mshowModuledata.data(),&displayChanneldata::slotreadbloodyInitValue,
             Qt::QueuedConnection);
 
 
-    connect(mshowModuledata.data(),&displayChanneldata::spitReagentTesting,
+    connect(mshowModuledata.data(),
+            &displayChanneldata::spitReagentTesting,
             m_pdoingTesting.data(),&TestProjectProcess::slotSpitReagentTesting,
             Qt::QueuedConnection);
 
     //吐完试剂后测试
-    connect(m_pdoingTesting.data(),&TestProjectProcess::openTestChnTest,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::openTestChnTest,
             mshowModuledata.data(),&displayChanneldata::slotopenTestChnTest,
             Qt::QueuedConnection);
 
     //样本吐出试剂开始测试清洗针
-    connect(mshowModuledata.data(), &displayChanneldata::addSampmeTestCleanPin,
+    connect(mshowModuledata.data(),
+            &displayChanneldata::addSampmeTestCleanPin,
             m_pdoingTesting.data(),&TestProjectProcess::slotaddSampmeTestCleanPin,
             Qt::QueuedConnection);
 
     //通道完成测试
-    connect(mshowModuledata.data(),&displayChanneldata::testComplete,
+    connect(mshowModuledata.data(),
+            &displayChanneldata::testComplete,
             m_pdoingTesting.data(),&TestProjectProcess::SampleReagTestFinish);
 
-    connect(this,&MainWindow::resumeaTestTask,m_pdoingTesting.data(),
+    connect(this,&MainWindow::resumeaTestTask,
+            m_pdoingTesting.data(),
             &TestProjectProcess::handleResumeaTestTask);
 
     //测试中添加样本
-    connect(mptesting.data(),&Testing::testingaddsample,
+    connect(mptesting.data(),
+            &Testing::testingaddsample,
             m_pdoingTesting.data(),&TestProjectProcess::slottestingaddsample);
 
     /*单个项目完成曲线图保存到数据库*/
-    connect(mshowModuledata.data(),&displayChanneldata::finishtestProgress,
+    connect(mshowModuledata.data(),
+            &displayChanneldata::finishtestProgress,
             m_graphplot.data(),&GraphPlot::CompleteOneSample);
 
 
-    connect(m_pdoingTesting.data(),&TestProjectProcess::setprogressinitboolwaittext,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::setprogressinitboolwaittext,
             mptesting.data(),&Testing::updateChannelProgressAndStatus);
 
-    connect(m_pdoingTesting.data(),&TestProjectProcess::sycn_SampleTestingChangInitColor,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::sycn_SampleTestingChangInitColor,
             mptesting.data(),&Testing::slot_sycn_SampleTestingChangInitColor);
 
     /*弃杯成功*/
-    connect(m_pdoingTesting.data(),&TestProjectProcess::throwtesttube,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::throwtesttube,
             mptesting.data(),&Testing::slot_throwtesttube);
 
     //断线重连
-    connect(mlocalSerial.data(),&SuoweiSerialPort::connectEquipmentagin,
+    connect(mlocalSerial.data(),
+            &SuoweiSerialPort::connectEquipmentagin,
             m_pdoingTesting.data(),&TestProjectProcess::slot_connectEquipmentagin);
 
 
     //测试过程中抓手吸 吐试杯失败
-    connect(m_pdoingTesting.data(),&TestProjectProcess::theGripperFailed,
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::theGripperFailed,
             this,&MainWindow::handletheGripperFailed);
 
     connect(this,&MainWindow::gripErrGiveupSample,
-            m_pdoingTesting.data(),&TestProjectProcess::handleGripErrGiveupSample,
+            m_pdoingTesting.data(),
+            &TestProjectProcess::handleGripErrGiveupSample,
             Qt::QueuedConnection);
 
-    connect(this,&MainWindow::pendingtimeoutSampleTest,m_pdoingTesting.data(),
-            &TestProjectProcess::handlePendingtimeoutSampleTest,Qt::QueuedConnection);
+    connect(this,&MainWindow::pendingtimeoutSampleTest,
+            m_pdoingTesting.data(),
+            &TestProjectProcess::handlePendingtimeoutSampleTest,
+            Qt::QueuedConnection);
+
+    // 在主窗口类中连接信号
+    connect(mshowModuledata.data(), &displayChanneldata::signalShowPPPError,
+            this, [this](int value) {
+
+        on_toolButton_quality_sample_clicked();//暂停
+        QMessageBox::warning(this,  "PPP异常警告",
+            QString("检测到PPP异常值: %1\n正常范围: 2000-3000\n机器已停止测试").arg(value));
+    });
 
 }
 

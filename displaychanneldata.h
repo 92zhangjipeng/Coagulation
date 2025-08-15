@@ -65,6 +65,9 @@ signals:
     //质控的值
     void    sendChannelQualitydata(int,int);
 
+    //内部测试PPP
+    void signalShowPPPError(int value);
+
 public slots:
     void   getqualityControlValue(const quint8 Channelnum, int active);
 

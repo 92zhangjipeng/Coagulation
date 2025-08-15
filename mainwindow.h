@@ -394,10 +394,7 @@ signals:
     void    sendOneDirectives(const QByteArray arry, QString kindCommad);
 
 private slots:
-
     void    onReminderRequested(QString, QString);
-
-
     void    on_sStatusInfo_clicked();
     void    on_toolButton_quality_reset_clicked();
     void    on_toolButton_quality_cleaning_clicked();
