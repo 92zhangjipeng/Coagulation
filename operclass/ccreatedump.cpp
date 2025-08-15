@@ -53,20 +53,68 @@ long  CCreateDump::UnhandleExceptionFilter(_EXCEPTION_POINTERS* ExceptionInfo)
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-void CCreateDump::DeclarDumpFile(std::string dmpFileName)
+
+bool CCreateDump::DeclarDumpFile(const std::string& dmpFileName)
 {
-    SYSTEMTIME syt;
-    GetLocalTime(&syt);
-    char c[MAX_PATH];
-    sprintf_s(c, MAX_PATH, "%04d_%02d_%02d_%02d_%02d_%02d", syt.wYear, syt.wMonth, syt.wDay, syt.wHour, syt.wMinute, syt.wSecond);
-    strDumpFile = std::string(c);
-    if (!dmpFileName.empty())
-    {
-        strDumpFile += dmpFileName;
-    }
-    strDumpFile += std::string(".dmp");
-    SetUnhandledExceptionFilter(UnhandleExceptionFilter);
+	try {
+		// 获取当前时间
+		SYSTEMTIME syt;
+		GetLocalTime(&syt);
+
+		// 格式化时间字符串
+		char timeStr[MAX_PATH] = { 0 };
+		int result = snprintf(timeStr, MAX_PATH, "%04d_%02d_%02d_%02d_%02d_%02d",
+			syt.wYear, syt.wMonth, syt.wDay,
+			syt.wHour, syt.wMinute, syt.wSecond);
+
+		if (result <= 0 || result >= MAX_PATH) {
+			OutputDebugStringA("Failed to format time string for dump file");
+			return false;
+		}
+
+		// 构建dump文件名
+		strDumpFile = timeStr;
+		if (!dmpFileName.empty()) {
+			strDumpFile += dmpFileName;
+		}
+		strDumpFile += ".dmp";
+
+		// 设置未处理异常过滤器
+		LPTOP_LEVEL_EXCEPTION_FILTER previousFilter =
+			SetUnhandledExceptionFilter(UnhandleExceptionFilter);
+
+		if (previousFilter == nullptr) {
+			OutputDebugStringA("Failed to set unhandled exception filter");
+			return false;
+		}
+
+		return true;
+	}
+	catch (const std::exception& e) {
+		OutputDebugStringA("Exception in DeclarDumpFile: ");
+		OutputDebugStringA(e.what());
+		return false;
+	}
+	catch (...) {
+		OutputDebugStringA("Unknown exception in DeclarDumpFile");
+		return false;
+	}
 }
+
+//void CCreateDump::DeclarDumpFile(std::string dmpFileName)
+//{
+//    SYSTEMTIME syt;
+//    GetLocalTime(&syt);
+//    char c[MAX_PATH];
+//    sprintf_s(c, MAX_PATH, "%04d_%02d_%02d_%02d_%02d_%02d", syt.wYear, syt.wMonth, syt.wDay, syt.wHour, syt.wMinute, syt.wSecond);
+//    strDumpFile = std::string(c);
+//    if (!dmpFileName.empty())
+//    {
+//        strDumpFile += dmpFileName;
+//    }
+//    strDumpFile += std::string(".dmp");
+//    SetUnhandledExceptionFilter(UnhandleExceptionFilter);
+//}
 
 CCreateDump* CCreateDump::Instance()
 {

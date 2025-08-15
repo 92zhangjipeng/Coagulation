@@ -12,7 +12,7 @@ public:
     static CCreateDump* Instance();
     static long __stdcall UnhandleExceptionFilter(_EXCEPTION_POINTERS* ExceptionInfo);
 
-    void DeclarDumpFile(std::string dmpFileName = "");
+    bool DeclarDumpFile(const std::string& dmpFileName);
     void Del_Instance();
 private:
     static std::string    strDumpFile;

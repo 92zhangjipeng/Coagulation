@@ -10,6 +10,8 @@ Makefile*
 *.sln
 *.vcxproj*
 *.vcxproj.filters
+echo "*.opensdf" >> .gitignore
+
 
 # 构建生成文件
 Debug/

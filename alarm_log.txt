@@ -13658,3 +13658,6 @@
 <font color="#FFFF00">[18:43:12提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
 <font color="#FFFFFF">[18:43:12]USB监听已启动!</font>
 <font color="#FFFF00">[18:43:26提醒]USB监听已停止!</font>
+<font color="#FFFF00">[11:17:15提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[11:17:15]USB监听已启动!</font>
+<font color="#FFFF00">[11:17:22提醒]USB监听已停止!</font>
