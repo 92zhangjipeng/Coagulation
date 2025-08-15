@@ -2095,7 +2095,7 @@ void MachineSetting::initloginpassword()
         menterShortcut =  new QShortcut(QKeySequence(Qt::Key_F4), this);
         connectEnterReturnShortcuts();
     }
-
+	ui->lineEdit_maintenance->setFocus();
     ui->lineEdit_maintenance->setEchoMode(QLineEdit::Password);
     ui->lineEdit_maintenance->setPlaceholderText("请输入维护密码");// 添加输入提示
     ui->tabWidget_config->hide();
@@ -2143,6 +2143,7 @@ void MachineSetting::onMaintenanceButtonClicked(){
     } else {
         Engineerinterfacelayout(false);
         emit LoginEngineerMode(false);
+		ui->lineEdit_maintenance->setFocus();
         ui->label_maintenance->show();
         ui->lineEdit_maintenance->show();
         ui->lineEdit_maintenance->clear();
