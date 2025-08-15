@@ -37,77 +37,71 @@ GraphPlot::~GraphPlot()
 
 }
 
+
 void GraphPlot::resizeEvent(QResizeEvent *event)
 {
-   Q_UNUSED(event);
-   quint8 equipmentKind = 0;
-   SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,equipmentKind);
-   int xSpace = 5;
-   int ySpace = 5;
-   int _Width =  ui->widget_CurveInner->width() - xSpace*5;
-   int _Height = ui->widget_CurveInner->height()- ySpace*4;
-   int oneCurveWidth = 0;
-   int oneCurveHeight = 0;
+	Q_UNUSED(event);
 
-   switch(equipmentKind)
-   {
-       case KS600:
-       {
-           oneCurveWidth = _Width/4;
-           oneCurveHeight = _Height/3 + _Height/3/2;
-           for(int i = 0; i < 4; i++)
-           {
-                m_pchnWidgetList.at(i)->setFixedSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1) + i*oneCurveWidth  ,ySpace + oneCurveHeight/2 ,oneCurveWidth,oneCurveHeight);
-           }
-           break;
-       }
-       case KS800:
-       {
-            oneCurveWidth =  _Width/4;
-            oneCurveHeight = _Height/2;
-            for(int i = 0; i < 4; i++)
-            {
-                m_pchnWidgetList.at(i)->setMaximumSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1) + i*oneCurveWidth  ,ySpace *1 ,oneCurveWidth,oneCurveHeight);
-            }
-            for(int i = 4; i < 8; i++)
-            {
-                m_pchnWidgetList.at(i)->setMaximumSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1-4) + ((i-4)*oneCurveWidth)  ,ySpace*2 + oneCurveHeight,oneCurveWidth,oneCurveHeight);
-            }
-           break;
-       }
-       case KS1200:
-       {
-            oneCurveWidth =  _Width/4;
-            oneCurveHeight = _Height/3;
-            for(int i = 0; i < 4; i++){
-                m_pchnWidgetList.at(i)->setMaximumSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1) + i*oneCurveWidth  ,ySpace*1,oneCurveWidth,oneCurveHeight);
-            }
-            for(int i = 4; i < 8; i++){
-                m_pchnWidgetList.at(i)->setMaximumSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1-4) + ((i-4)*oneCurveWidth)  ,ySpace*2 + oneCurveHeight,oneCurveWidth,oneCurveHeight);
-            }
-            for(int i = 8; i < 12; i++){
-                m_pchnWidgetList.at(i)->setMaximumSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1-8) + ((i-8)*oneCurveWidth)  ,ySpace*3 + oneCurveHeight*2,oneCurveWidth,oneCurveHeight);
-            }
-           break;
-       }
-   default:
-       {
-           oneCurveWidth = _Width/4;
-           oneCurveHeight = _Height/3 + _Height/3/2;
-           for(int i = 0; i < 4; i++)
-           {
-                m_pchnWidgetList.at(i)->setFixedSize(oneCurveWidth,oneCurveHeight);
-                m_pchnWidgetList.at(i)->setGeometry(xSpace*(i+1) + i*oneCurveWidth  ,ySpace + oneCurveHeight/2 ,oneCurveWidth,oneCurveHeight);
-           }
-           break;
-       }
-   }
+	// Get equipment kind
+	quint8 equipmentKind = 0;
+	SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
+
+	// Calculate available space
+	const int xSpace = 5;
+	const int ySpace = 5;
+	const int availableWidth = ui->widget_CurveInner->width() - xSpace * 5;
+	const int availableHeight = ui->widget_CurveInner->height() - ySpace * 4;
+
+	// Determine grid layout based on equipment kind
+	int columns = 4;
+	int rows = 1;
+	int curveWidth = availableWidth / columns;
+	int curveHeight = 0;
+
+	switch (equipmentKind) {
+	case KS600:
+		rows = 1;
+		curveHeight = availableHeight / 3 + availableHeight / 6; // same as /3 + /3/2
+		break;
+	case KS800:
+		rows = 2;
+		curveHeight = availableHeight / rows;
+		break;
+	case KS1200:
+		rows = 3;
+		curveHeight = availableHeight / rows;
+		break;
+	default:
+		rows = 1;
+		curveHeight = availableHeight / 3 + availableHeight / 6;
+		break;
+	}
+
+	// Position all widgets in the grid
+	for (int i = 0; i < m_pchnWidgetList.size(); i++) {
+		int col = i % columns;
+		int row = i / columns;
+
+		// Skip if we exceed the expected widget count for this equipment
+		if ((equipmentKind == KS600 && i >= 4) ||
+			(equipmentKind == KS800 && i >= 8) ||
+			(equipmentKind == KS1200 && i >= 12)) {
+			break;
+		}
+
+		int x = xSpace * (col + 1) + col * curveWidth;
+		int y = ySpace * (row + 1) + row * curveHeight;
+
+		if (equipmentKind == KS600) {
+			m_pchnWidgetList[i]->setFixedSize(curveWidth, curveHeight);
+			y = ySpace + curveHeight / 2; // Special vertical position for KS600
+		}
+		else {
+			m_pchnWidgetList[i]->setMaximumSize(curveWidth, curveHeight);
+		}
+
+		m_pchnWidgetList[i]->setGeometry(x, y, curveWidth, curveHeight);
+	}
 }
 
 void GraphPlot::innitKindequipment()

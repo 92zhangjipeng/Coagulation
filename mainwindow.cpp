@@ -1986,55 +1986,64 @@ void MainWindow::handleFunctionButtonClick(const int indexed)
     logTabSwitchEvent(indexed);
 }
 
-
 void MainWindow::openSettingsDialog()
 {
-    using EquipmentPtr = MachineSetting*;
-    using PatientPtr = Calibrate*;
+	auto* pEquipment = FullyAutomatedPlatelets::pinstanceequipmentconfig();
+	if (!pEquipment) return;
 
-    EquipmentPtr pEquipment = FullyAutomatedPlatelets::pinstanceequipmentconfig();
-    if(!pEquipment) return;
+	// Ensure dialog is properly shown
+	if (pEquipment->isHidden() || pEquipment->isMinimized()) {
+		pEquipment->showNormal();
+		pEquipment->raise();
+		pEquipment->activateWindow();
+	}
+	else {
+		// If already visible but not focused, just bring to front
+		pEquipment->raise();
+		pEquipment->activateWindow();
+	}
 
-    if (pEquipment->isMinimized()) {
-        pEquipment->showNormal();  // 先恢复窗口标准状态
-        pEquipment->raise();       // 确保窗口置顶
-        pEquipment->activateWindow(); // 激活窗口焦点
-    }
-    pEquipment->updatepara(cglobal::g_StartTesting);
-    pEquipment->show();
+	pEquipment->updatepara(cglobal::g_StartTesting);
+	pEquipment->show();
 
-    if(!m_bmachineconfigureSignal)
-    {
-        PatientPtr pPatient = FullyAutomatedPlatelets::pinstancepatientdata();
-        if(!pPatient || !mlocalSerial) return;
+	// Connect signals only once
+	if (!m_bmachineconfigureSignal) {
+		auto* pPatient = FullyAutomatedPlatelets::pinstancepatientdata();
+		if (!pPatient || !mlocalSerial) return;
 
-        connect(pEquipment,&MachineSetting::SetParatoInstrument,this,[=]
-               (const QByteArrayList d,QString s){
-            emit _sendcodeList(d,s);}
-        );
+		// Connect all signals in one clear block
+		connect(pEquipment, &MachineSetting::SetParatoInstrument,
+			this, [this](const QByteArrayList& d, QString s) {
+			emit _sendcodeList(d, s);
+		});
 
-        connect(pEquipment,&MachineSetting::_testdownheight,this,[=]
-                (QByteArrayList d,int i){emit CeratActionDate(i,d);});
+		connect(pEquipment, &MachineSetting::_testdownheight,
+			this, [this](QByteArrayList d, int i) {
+			emit CeratActionDate(i, d);
+		});
 
-         /* 状态同步连接组 */
-        connect(pEquipment,&MachineSetting::Synchronizeupdates,
-                pPatient,&Calibrate::updatecommboxInfo);
+		// State synchronization connections
+		connect(pEquipment, &MachineSetting::Synchronizeupdates,
+			pPatient, &Calibrate::updatecommboxInfo);
 
-        connect(pEquipment,&MachineSetting::OpenChannelMotor,this,[=]
-               (const quint8 i,const bool b){ emit _controlmotorrunning(i,b);});
+		connect(pEquipment, &MachineSetting::OpenChannelMotor,
+			this, [this](quint8 i, bool b) {
+			emit _controlmotorrunning(i, b);
+		});
 
-        connect(pEquipment,&MachineSetting::controlallchn,this,
-                [=](bool b){emit controlallchnstate(b);});
+		connect(pEquipment, &MachineSetting::controlallchn,
+			this, [this](bool b) {
+			emit controlallchnstate(b);
+		});
 
-        connect(pEquipment,&MachineSetting::pauseConnectModule,
-                this,[=](bool b){
-            pauseObtainmodulecommand("设置界面保存模组",b);}
-        );
+		connect(pEquipment, &MachineSetting::pauseConnectModule,
+			this, [this](bool b) {
+			pauseObtainmodulecommand("设置界面保存模组", b);
+		});
 
-        pEquipment->openKeyboard();
-        m_bmachineconfigureSignal = true;
-    }
-    return;
+		pEquipment->openKeyboard();
+		m_bmachineconfigureSignal = true;
+	}
 }
 
 
