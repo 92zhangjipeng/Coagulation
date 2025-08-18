@@ -42,7 +42,7 @@ public slots:
 
     void ViewLoadInquierdata(int numtotal, int n_ing,InqueryDatastu_t *pdata);
 
-    void RecvCurveData(QString* data,int size); //接收曲线数据
+    void RecvCurveData(const QVector<QString> &data); //接收曲线数据
 
     void myMoveEvent(QMouseEvent *event);
 

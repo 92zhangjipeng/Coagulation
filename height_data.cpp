@@ -1374,28 +1374,6 @@ void Height_Data::_sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
 			insertWholeBloodMode
 			);
 	}
-
-
-    //for(auto TaskItem : TaskList)
-    //{
-    //    int Sel_Row = TaskItem;
-    //    bool insertWholeBloodMode = false;
-    //    QString samplename = TaskWidget->item(Sel_Row,SAMLPE_NAME)->text();
-    //    QColor bgmcolor = TaskWidget->item(Sel_Row,SAMLPE_NAME)->background().color();
-    //    if(bgmcolor == WHOLEBLOODMODE)
-    //        insertWholeBloodMode = true;
-    //    else
-    //        insertWholeBloodMode = false;
-    //    QString barcode_str = TaskWidget->item(Sel_Row,BARCODE)->text();
-    //    double done_pin =  QString(TaskWidget->item(Sel_Row,HEIGHT_DATA)->text()).toDouble();
-    //    QString project_ = TaskWidget->item(Sel_Row,PROJECT_ITEM)->text();
-    //    QString savedtime = QDateTime::currentDateTime().toString("MM.dd hh:mm:ss");
-    //    QWidget * widget = TaskWidget->cellWidget(Sel_Row, RICHBLOOD_HOLE);//获得widget
-    //    QComboBox *combox = (QComboBox*)widget;//强制转化为QComboBox
-    //    int CurrRichHole  = combox->currentText().toInt();  //添加富血对应血样区显示孔
-    //    emit _sycnwaittestsampledata(samplename, savedtime, barcode_str, done_pin, project_,
-    //                                       CurrRichHole,TaskList.size(),insertWholeBloodMode);
-    //}
 }
 
 

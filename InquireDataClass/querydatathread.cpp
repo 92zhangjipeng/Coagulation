@@ -21,20 +21,21 @@ void QueryDataThread::_startSycnData()
 
 }
 
-void QueryDataThread::InquierCurveViewEnd(const QString findId)
+void QueryDataThread::InquierCurveViewEnd(const QString& findId)
 {
     QMap<quint8,QString> CurvedataList;
-    CurvedataList.clear();
-    QString *curveData = new QString[5];
-    FullyAutomatedPlatelets::pinstancesqlData()->getOneIDAllCurveData(findId,CurvedataList);
-    auto itmap = CurvedataList.constBegin();
-    while(itmap != CurvedataList.constEnd())
-    {
-        curveData[itmap.key() - 1] = itmap.value();
-        itmap++;
+    QVector<QString> curveData(5);
+
+    if(auto sqlInstance = FullyAutomatedPlatelets::pinstancesqlData()){
+        sqlInstance->getOneIDAllCurveData(findId, CurvedataList);
+        for(auto it = CurvedataList.constBegin(); it != CurvedataList.constEnd(); ++it) {
+            if (it.key() >= 1 && it.key() <= 5) { // 添加边界检查
+                curveData[it.key() - 1] = it.value();
+            }
+        }
+
+        emit sendCurveData(curveData); // 发送QVector而不是原始指针
     }
-    emit this->sendCurveData(curveData,5);
-    //delete[] curveData;
     return;
 }
 

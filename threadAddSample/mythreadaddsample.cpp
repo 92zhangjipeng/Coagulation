@@ -73,7 +73,7 @@ void  mythreadaddsample::_waittestsampledata(QString samplename, QString savedti
     m_WaitTestStuList.append(waitTestSapleInfoStu);
 
     //同步到患者界面+样本信息+曲线数据数据库
-    emit this->_sycnPaintentInfo(samplename,savedtime,barcode_str,project_);
+    emit _sycnPaintentInfo(samplename,savedtime,barcode_str,project_);
 
     QLOG_DEBUG()<<"添加任务数"<<m_totalnum<<"结构体存储数"<<m_WaitTestStuList.size();
 
@@ -208,7 +208,9 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 			SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, bloody_suck_tohole, MOTOR_BLOOD_INDEX, spit_bloody_axis);
 			Bloodydata.bloody_axis = spit_bloody_axis; //吐富血坐标
 			spit_bloody_poslist.push_back(spit_bloody_axis);
-            QLOG_DEBUG() << "富血孔" << bloody_suck_tohole << GlobalData::mapIndexReagentnames(index_) << "吐富血坐标" << spit_bloody_axis;
+            QLOG_DEBUG() << "富血孔" << bloody_suck_tohole << GlobalData::mapIndexReagentnames(index_)
+                         << "吐富血坐标" << spit_bloody_axis;
+
 			richHole_ = QString("%1|%2").arg(richHole_).arg(bloody_suck_tohole);
 			pSampleBasicInfo->bloody_tube.push_back(Bloodydata);
 		}

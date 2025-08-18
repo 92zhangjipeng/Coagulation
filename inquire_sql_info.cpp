@@ -360,21 +360,21 @@ void Inquire_Sql_Info::OnPlotClick(QCPAbstractPlottable *plottable, int dataInde
    return;
 }
 
-void Inquire_Sql_Info::RecvCurveData(QString* data,int size)
-{
-    for(int i = 0; i < size; i++)
-    {
-       QString curvepos = data[i];
-       curvepos = curvepos.simplified();
-       if(curvepos.isEmpty() || curvepos.isNull())
-       {
-           continue;
-       }
-       QStringList valdataList = curvepos.split(","/*, Qt::SkipEmptyParts*/);
-       addInquireCurvedata(valdataList,i+1);
-    }
-    delete[] data;
 
+void Inquire_Sql_Info::RecvCurveData(const QVector<QString>& data)
+{
+    for(int i = 0; i < data.size(); ++i){
+        QString curvepos = data[i].simplified();
+        if (curvepos.isEmpty()) {
+            continue;
+        }
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+        QStringList valdataList = curvepos.split(',', Qt::SkipEmptyParts);
+#else
+        QStringList valdataList = curvepos.split(',', QString::SkipEmptyParts);
+#endif
+        addInquireCurvedata(valdataList, i + 1);
+    }
     ui->Inquire_curve_1->legend->setVisible(true);
     ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
     update();
@@ -405,21 +405,36 @@ void Inquire_Sql_Info::SelectItem(QTableWidgetItem *item)
 
 void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag)
 {
+    if (dataList.isEmpty()) {
+        qWarning() << "Empty data list provided for reagent index:" << indexReag;
+        return;
+    }
+
     QVector<double> rawData;
     rawData.reserve(dataList.size());
+
+    int conversionErrors = 0;
     std::transform(dataList.cbegin(), dataList.cend(), std::back_inserter(rawData),
-                    [](const QString& str) {
+                [&conversionErrors](const QString& str) {
                       bool ok;
                       double val = str.toDouble(&ok) * 100.0;
-                      // TODO: 添加错误日志输出（qWarning()）
-                      return ok ? val : 0.0;
-                  });
+                      if (!ok) {
+                          qWarning() << "Failed to convert string to double:" << str;
+                          conversionErrors++;
+                          return 0.0;
+                    }
+                    return val;
+                 });
 
-    // 2. 生成坐标
+    if (conversionErrors > 0) {
+        qWarning() << "Found" << conversionErrors << "conversion errors in data for reagent:" << indexReag;
+    }
+
+    //生成坐标
     QVector<double> posx(rawData.size());
     std::iota(posx.begin(), posx.end(), 0.0);
 
-    // 3. 设置图表数据
+    //设置图表数据
     static const QHash<quint8, QCPGraph*> reagent_graphs {
         {AA_REAGENT,  m_showAACpgraph},
         {ADP_REAGENT, m_showADPCpgraph},
@@ -428,16 +443,19 @@ void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag
         {RIS_REAGENT, m_showRISCpgraph}
     };
 
-    auto it = reagent_graphs.find(indexReag);
-    if(it != reagent_graphs.end()){
-        it.value()->setData(posx, rawData); // 合并平滑处理
+    auto graph = reagent_graphs.value(indexReag, nullptr);
+    if (!graph) {
+        qWarning() << "Invalid reagent index or null graph pointer:" << indexReag;
+        return;
     }
 
-    // 4. 更新绘图
-    if (!posx.isEmpty()) {
-        ui->Inquire_curve_1->xAxis->setRange(0, posx.last() + 1);
-        ui->Inquire_curve_1->replot();
-    }
+    //线程安全地更新图表数据
+    QMetaObject::invokeMethod(this, [this, graph, posx, rawData]() {
+        if (graph && !posx.isEmpty() && !rawData.isEmpty()) {
+            graph->setData(posx, rawData);
+            ui->Inquire_curve_1->replot();
+        }
+    }, Qt::QueuedConnection);
 }
 
 void Inquire_Sql_Info::cleanPlogtandUpdate()
@@ -473,19 +491,29 @@ void Inquire_Sql_Info::firstrunthread()
             return;
        });
 
-       connect(&m_threadInqure,&QThread::started,mquiredataclass,&QueryDataThread::_startSycnData);
+       connect(&m_threadInqure,&QThread::started,
+               mquiredataclass,&QueryDataThread::_startSycnData);
 
-       connect(this,&Inquire_Sql_Info::FindModuleStyle,mquiredataclass,&QueryDataThread::slotFindModuleStyle);
+       connect(this,&Inquire_Sql_Info::FindModuleStyle,
+               mquiredataclass,&QueryDataThread::slotFindModuleStyle);
 
-       connect(this,&Inquire_Sql_Info::FindspecifiedData,mquiredataclass,&QueryDataThread::slotFindspecifiedData);
+       connect(this,&Inquire_Sql_Info::FindspecifiedData,
+               mquiredataclass,&QueryDataThread::slotFindspecifiedData);
 
-       connect(this,&Inquire_Sql_Info::Locatethelookup,mquiredataclass,&QueryDataThread::slotLocatethelookup); //精确查找
+       connect(this,&Inquire_Sql_Info::Locatethelookup,
+               mquiredataclass,&QueryDataThread::slotLocatethelookup); //精确查找
 
-       connect(this,&Inquire_Sql_Info::InquierCurveView,mquiredataclass,&QueryDataThread::InquierCurveViewEnd);
+       connect(this,&Inquire_Sql_Info::InquierCurveView,
+               mquiredataclass,
+               &QueryDataThread::InquierCurveViewEnd);
 
-       connect(mquiredataclass,&QueryDataThread::sendCurveData,this,&Inquire_Sql_Info::RecvCurveData);
+       connect(mquiredataclass,&QueryDataThread::sendCurveData,
+                this,&Inquire_Sql_Info::RecvCurveData,
+                Qt::QueuedConnection);
 
-       connect(this,&Inquire_Sql_Info::clickOutPdfFile,mquiredataclass,&QueryDataThread::ObatinCreatPdfPara);
+       connect(this,&Inquire_Sql_Info::clickOutPdfFile,
+               mquiredataclass,
+               &QueryDataThread::ObatinCreatPdfPara);
 
        connect(mquiredataclass,&QueryDataThread::outPDFPara,this,[=](InqueryDatastu_t *pdata){
            if(pdata)

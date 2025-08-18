@@ -13673,3 +13673,28 @@
 <font color="#FFFF00">[16:23:48提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
 <font color="#FFFFFF">[16:23:48]USB监听已启动!</font>
 <font color="#FFFF00">[16:27:15提醒]USB监听已停止!</font>
+<font color="#FFFF00">[10:42:18提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[10:42:18]USB监听已启动!</font>
+<font color="#FFFF00">[10:42:39提醒]USB监听已停止!</font>
+<font color="#FFFF00">[11:10:26提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[11:10:26]USB监听已启动!</font>
+<font color="#FFFF00">[11:10:41提醒]USB监听已停止!</font>
+<font color="#FFFF00">[11:11:19提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[11:11:19]USB监听已启动!</font>
+<font color="#FFFF00">[11:11:30提醒]USB监听已停止!</font>
+<font color="#FFFF00">[11:41:48提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[11:41:48]USB监听已启动!</font>
+<font color="#FFFF00">[14:21:30提醒]USB监听已停止!</font>
+<font color="#FFFF00">[15:53:01提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[15:53:01]USB监听已启动!</font>
+<font color="#FFFF00">[15:54:43提醒]USB监听已停止!</font>
+<font color="#FFFF00">[16:13:58提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[16:13:58]USB监听已启动!</font>
+<font color="#FFFF00">[16:20:15提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[16:20:15]USB监听已启动!</font>
+<font color="#FFFF00">[16:24:34提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[16:24:34]USB监听已启动!</font>
+<font color="#FFFF00">[16:27:31提醒]USB监听已停止!</font>
+<font color="#FFFF00">[16:30:48提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[16:30:48]USB监听已启动!</font>
+<font color="#FFFF00">[16:31:19提醒]USB监听已停止!</font>

@@ -42,7 +42,7 @@ signals:
 
     void InquireEmpty();
 
-    void sendCurveData(QString* data,int zise);
+    void sendCurveData(const QVector<QString>& data);
 
     void outPDFPara(InqueryDatastu_t *pdata);
 
@@ -64,7 +64,7 @@ public slots:
 
     void slotFindModuleStyle(const quint8 indexStyles);
 
-    void InquierCurveViewEnd(const QString findId);
+    void InquierCurveViewEnd(const QString& findId);
 
     void ObatinCreatPdfPara(QString idSample);//要输出到PDF的参数
 

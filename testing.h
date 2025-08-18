@@ -151,10 +151,13 @@ private:
     void    VectorSelectedBloodAreaTube(quint8 IndexTube ,QString);
     void    CanceltaskbackTubecolor(int PPPHole, int PRPHoles, QList<quint8>);
 
-    void    UpdateBloodHoleColors(int State, QMap<quint8,QPoint> MapBloodHole); //更新血样孔状态颜色
+    //更新血样孔状态颜色
+    void    UpdateBloodHoleColors(int State, QMap<quint8, QPoint> &MapBloodHole);
+
+
     void    CreatBloodZoneAxisPos();      //创建血样孔坐标
     void    DrawBloodTopText();
-    void    DrawBloodHoleInnerText(QMap<quint8, QPoint> BloodHoleMap);
+    void    DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap);
 
     void    plotReagentWellsCoordinates(quint8 totalReagents); /*绘制试剂坐标 */
     void    showPaintReagents();
@@ -179,9 +182,14 @@ public:
     void    TotalTaskProgress(); //开始测试显示进度
     void    _showaddsamplewidget();
 
-    void    InitUIEmptyTubeused(int TestTubeUsed); //初始化试管已被使用
-    void    SampleTestingChangInitColor(QPoint,quint8);  //样本在测试颜色变为init
-    void    EmptyTubeAssigned(quint8 IndexTube);  //试管被分配任务 标记
+    //初始化试管已被使用
+    void    InitUIEmptyTubeused(int TestTubeUsed);
+
+    //样本在测试颜色变为init
+    void    SampleTestingChangInitColor(QPoint,quint8);
+
+    //试管被分配任务 标记
+    void    EmptyTubeAssigned(quint8 IndexTube);
 
     void    _replacEmptyTestTary(int index_tary);
 

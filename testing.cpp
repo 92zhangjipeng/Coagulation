@@ -47,6 +47,7 @@ Testing::Testing(QWidget *parent) :
     mflashingTubeList.clear();
     m_TaskDll = new UsbCodeDispose;
 }
+
 Testing::~Testing()
 {
 
@@ -54,12 +55,12 @@ Testing::~Testing()
     m_TaskDll = nullptr;
 
 
-	if (mtimer) {
-		if (mtimer->isActive())
-			mtimer->stop();
-		delete mtimer;
-		mtimer = nullptr;
-	}
+    if (mtimer) {
+        if (mtimer->isActive())
+            mtimer->stop();
+        delete mtimer;
+        mtimer = nullptr;
+    }
     delete ui;
 }
 
@@ -67,7 +68,7 @@ void Testing::initequipmentKind(const quint8 indextype)
 {
     mtimer = new QTimer(this);
     connect(mtimer, &QTimer::timeout, this, &Testing::toggleBlinkState);
-	mtimer->start(500);
+    mtimer->start(500);
 
     minstrumentType = indextype;
 
@@ -247,18 +248,18 @@ void Testing::initializeMachineUI(const quint8 equipmentIndex)
 {
     QPalette pa;
     pa.setColor(QPalette::WindowText, QColor(250, 128, 114));
-	QList<QWidget *> widgetFilterList = { ui->widget_Reagents ,
-											ui->widget_Abandoned_new,
-											ui->widget_Sample_1,
-											ui->widget_TestCup_3,
-											ui->widget_TestCup_2,
-											ui->widget_TestCup_1,
-											ui->widget_TestCup_0,
-											ui->DroptheCup,
-											ui->widget_cleanagent
-	};
-	for (auto pwidget : widgetFilterList)
-		pwidget->installEventFilter(this);//设置过滤器
+    QList<QWidget *> widgetFilterList = { ui->widget_Reagents ,
+                                            ui->widget_Abandoned_new,
+                                            ui->widget_Sample_1,
+                                            ui->widget_TestCup_3,
+                                            ui->widget_TestCup_2,
+                                            ui->widget_TestCup_1,
+                                            ui->widget_TestCup_0,
+                                            ui->DroptheCup,
+                                            ui->widget_cleanagent
+    };
+    for (auto pwidget : widgetFilterList)
+        pwidget->installEventFilter(this);//设置过滤器
 
     quint8 index = 0;
     initControlShowChannelProgress(index,ui->widget_Module1,ui->widget_Module1,pa);
@@ -330,16 +331,16 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,
                                    const QString&	sampleName,
                                    const quint8&	reagentIndex){
 
-	// 1. 检查父对象状态
-	if (!this) {
-		QLOG_FATAL() << "Parent object destroyed!";
-		return;
-	}
-		
-	if (channelIndex >= Channelreminder.size() || Channelreminder.isEmpty()) {
-		QLOG_WARN() << "Invalid channel index:" << channelIndex;
-		return;
-	}
+    // 1. 检查父对象状态
+    if (!this) {
+        QLOG_FATAL() << "Parent object destroyed!";
+        return;
+    }
+
+    if (channelIndex >= Channelreminder.size() || Channelreminder.isEmpty()) {
+        QLOG_WARN() << "Invalid channel index:" << channelIndex;
+        return;
+    }
 
     //智能指针检查
    QPointer<QLabel> channelLabel = Channelreminder[channelIndex - 1];
@@ -348,11 +349,11 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,
        return;
    }
 
-	// 样本ID解析（移除未使用的idDate变量）
-	int sampleNumber = 0;
-	QString unusedDate;
-	GlobalData::apartSampleId(sampleName, unusedDate, sampleNumber);
-      
+    // 样本ID解析（移除未使用的idDate变量）
+    int sampleNumber = 0;
+    QString unusedDate;
+    GlobalData::apartSampleId(sampleName, unusedDate, sampleNumber);
+
 
    // 试剂名称映射（添加默认值兜底）
    const QString reagentName = GlobalData::mapIndexReagentnames(reagentIndex).isEmpty()
@@ -474,7 +475,7 @@ void Testing::init_testtube_tray(const int index_tray)
       }
       else
       {
-		  FullyAutomatedPlatelets::pinstancesqlData()->UpdateTestTubeStateInfo(from_tube, TESTTUBES_FREETIME, "noone", 0);
+          FullyAutomatedPlatelets::pinstancesqlData()->UpdateTestTubeStateInfo(from_tube, TESTTUBES_FREETIME, "noone", 0);
       }
     }
     update();
@@ -544,8 +545,8 @@ void Testing::showCleaningbit()
     font.setPointSize(14);
     painter.setFont(font);
     painter.setPen(cglobal::g_TextColorBlack);
-    QRectF drawrect(m_CleanPos[1].x() - Big_radius*2 - 5 , 
-		m_CleanPos[1].y() + kMargin,widgetRect.width(),kTextSpacing);
+    QRectF drawrect(m_CleanPos[1].x() - Big_radius*2 - 5 ,
+        m_CleanPos[1].y() + kMargin,widgetRect.width(),kTextSpacing);
     painter.drawText(drawrect,Qt::AlignHCenter,"清洗位");
     painter.end();
     return;
@@ -726,7 +727,7 @@ void Testing::sycn_changeui_status(QString sample_name,quint8 anemiahole,QList<q
     }
     if(cglobal::g_StartTesting && index_add == all_add_task)
     {
-        emit this->testingaddsample();
+        emit testingaddsample();
     }
     update();
     return;
@@ -948,22 +949,25 @@ void Testing::DrawBloodTopText()
     int BloodAreasWidth = 0; //血样区界面总宽度
     int SpaceLeft = ui->widget_TestCup_0->geometry().bottomLeft().x(); //距离左边边界
     int TotalCols = 0;
-	quint8 equipmentKind = 0;
-	SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
+    quint8 equipmentKind = 0;
+    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
     switch(equipmentKind)
     {
         case KS600:
             TotalCols = 6 ;
-            BloodAreasWidth = ui->widget_TestCup_1->geometry().bottomRight().x() - ui->widget_TestCup_0->geometry().bottomLeft().x();
+            BloodAreasWidth = ui->widget_TestCup_1->geometry().bottomRight().x() -
+                    ui->widget_TestCup_0->geometry().bottomLeft().x();
         break;
         case KS800:
             TotalCols = 8 ;
-            BloodAreasWidth = ui->widget_TestCup_2->geometry().bottomRight().x() - ui->widget_TestCup_0->geometry().bottomLeft().x();
+            BloodAreasWidth = ui->widget_TestCup_2->geometry().bottomRight().x() -
+                    ui->widget_TestCup_0->geometry().bottomLeft().x();
 
         break;
         case KS1200:
             TotalCols = 12 ;
-            BloodAreasWidth = ui->widget_TestCup_3->geometry().bottomRight().x() - ui->widget_TestCup_0->geometry().bottomLeft().x();
+            BloodAreasWidth = ui->widget_TestCup_3->geometry().bottomRight().x() -
+                    ui->widget_TestCup_0->geometry().bottomLeft().x();
 
         break;
         default:
@@ -983,106 +987,90 @@ void Testing::DrawBloodTopText()
     }
     return;
 }
-void Testing::DrawBloodHoleInnerText(QMap<quint8, QPoint> BloodHoleMap)
+
+void Testing::DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap)
 {
-    QPainter painter(ui->widget_Sample_1);
-    painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform | QPainter::Qt4CompatiblePainting);
-    QFont font = ConfigureTextstyle(16);
-    painter.setFont(font);
-    auto iter = BloodHoleMap.constBegin();
-    while (iter != BloodHoleMap.constEnd())
-    {
-        if(iter.key()%2 == 0)
-        {
-            int xPos = iter.value().x() - m_BloodBigRadius * 2 + 7;
-            int yPos = iter.value().y() +  5;
-            QPoint TextPos(xPos,yPos);
-            if(iter.key()%5 == 0)
-                painter.drawText(TextPos, QString::number(1));
-            else if(iter.key()%5 == 2)
-                painter.drawText(TextPos, QString::number(2));
-            else if(iter.key()%5 == 4)
-                painter.drawText(TextPos, QString::number(3));
-            else if(iter.key()%5 == 1)
-                painter.drawText(TextPos, QString::number(4));
-            else if(iter.key()%5 == 3)
-                painter.drawText(TextPos, QString::number(5));
-        }
-        iter++;
-    }
-    return;
+	QPainter painter(ui->widget_Sample_1);
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform
+                           | QPainter::Qt4CompatiblePainting);
+	painter.setFont(ConfigureTextstyle(16));
+
+	static const QMap<quint8, QString> numberMap = {
+		{ 0, "1" },
+		{ 2, "2" },
+		{ 4, "3" },
+		{ 1, "4" },
+		{ 3, "5" }
+	};
+
+	for (auto iter = BloodHoleMap.constBegin(); iter != BloodHoleMap.constEnd(); ++iter) {
+		if (iter.key() % 2 == 0) {
+			const QPoint& pos = iter.value();
+			QPoint textPos(pos.x() - m_BloodBigRadius * 2 + 7, pos.y() + 5);
+
+			auto it = numberMap.find(iter.key() % 5);
+			if (it != numberMap.end()) {
+				painter.drawText(textPos, it.value());
+			}
+		}
+	}
 }
 
-void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint> MapBloodHole)
+void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHole)
 {
     QPainter painter(ui->widget_Sample_1);
-    painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform | QPainter::Qt4CompatiblePainting);
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
 
     QFont font = ConfigureTextstyle(12);
     painter.setFont(font);
+
     QPen pen;
     pen.setColor(cglobal::g_LineColor);//圆环外圈的颜色
     pen.setWidthF(1);
 
-    auto iter = MapBloodHole.begin();
-    while (iter != MapBloodHole.end())
-    {
-        QPalette palette;
-        painter.setPen(pen);
-        painter.setRenderHint(QPainter::Antialiasing, true);//设置渲染,启动反锯齿
-        switch (State)
-        {
-            case TUBE_INIT:
-            {
-                palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor);
-                break;
-            }
-            case TUBE_CHECKED:
-            {
-                if (iter.key() % 2 != 0)
-                    palette.setColor(QPalette::Background, cglobal::g_RichBloodColor);
-                else
-                    palette.setColor(QPalette::Background, cglobal::g_PoorBloodColor);
-                break;
-            }
-            case TUBE_OUTRESULT:
-            {
-                palette.setColor(QPalette::Background, cglobal::g_OutResult);
-                break;
-            }
-            default: break;
-        }
+    // 提前设置渲染提示和画笔，避免在循环中重复设置
+    painter.setRenderHint(QPainter::Antialiasing, true);
+   
 
-        if (mReminderTube - 1 == iter.key() || mReminderTube  == iter.key())
-            painter.setBrush(QBrush(cglobal::g_ReminderBloodHoleColor,Qt::SolidPattern));//提示要放置的孔
-        else
-            painter.setBrush(QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
-        painter.drawEllipse(iter.value(), m_BloodBigRadius, m_BloodBigRadius); //画大圆
-        painter.setBrush(QBrush(palette.brush(QPalette::Background))); //设置画刷为背景色
-        painter.drawEllipse(iter.value(), m_BloodSmallRadius, m_BloodSmallRadius); //画小圆
-        QString name = m_BloodHoleNum[iter.key()];
-        if(iter.key()%2 == 0)
-        {
-            painter.setPen(cglobal::g_TextColorRoorblood);
-            if (name.length() >= 3)
-                painter.drawText(QPoint(iter.value().x() - 11, iter.value().y() + 5), name);
-            else if(name.length() == 2)
-                painter.drawText(QPoint(iter.value().x() - 6, iter.value().y() + 5), name);
-            else if(name.length() == 1)
-                painter.drawText(QPoint(iter.value().x() - 2 , iter.value().y() + 5), name);
-        }
-        else
-        {
-            painter.setPen(cglobal::g_TextColorRichblood);
-            if (name.length() >= 3)
-                painter.drawText(QPoint(iter.value().x() - 11, iter.value().y() + 5), name);
-            else if(name.length() == 2)
-                painter.drawText(QPoint(iter.value().x() - 6, iter.value().y() + 5), name);
-            else if(name.length() == 1)
-                painter.drawText(QPoint(iter.value().x() - 2 , iter.value().y() + 5), name);
-        }
-        iter++;
+
+    for (auto iter = MapBloodHole.constBegin(); iter != MapBloodHole.constEnd(); ++iter) {
+            const quint8 holeId = iter.key();
+            const QPoint& center = iter.value();
+            const QString& showText = m_BloodHoleNum[holeId];
+            QPalette palette;
+			painter.setPen(pen);
+            //确定孔的颜色（根据State和奇偶性）
+            switch (State) {
+                case TUBE_INIT:    palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); break;
+                case TUBE_CHECKED: (holeId % 2 != 0 ) ? palette.setColor(QPalette::Background, cglobal::g_RichBloodColor)
+                                                 :palette.setColor(QPalette::Background, cglobal::g_PoorBloodColor);
+                break;
+                case TUBE_OUTRESULT: palette.setColor(QPalette::Background, cglobal::g_OutResult); break;
+                default: break;
+            }
+
+
+			bool isReminderHole = (mReminderTube - 1 == holeId || mReminderTube == holeId);
+			painter.setBrush(isReminderHole
+				? QBrush(cglobal::g_ReminderBloodHoleColor, Qt::SolidPattern)
+				: QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
+			painter.drawEllipse(center, m_BloodBigRadius, m_BloodBigRadius); //画大圆
+
+            // 3. 绘制小圆（内圈）
+            painter.setBrush(QBrush(palette.brush(QPalette::Background)));
+            painter.drawEllipse(center, m_BloodSmallRadius, m_BloodSmallRadius);
+
+            QColor textColor = (holeId % 2 == 0) ? cglobal::g_TextColorRoorblood : cglobal::g_TextColorRichblood;
+            painter.setPen(textColor);
+            if(showText.size() == 1){
+                painter.drawText(QPoint(center.x() - 2 , center.y() + 5), showText);
+            } else if(showText.size() == 2){
+                painter.drawText(QPoint(center.x() - 6, center.y() + 5), showText);
+            }else if(showText.size()>= 3){
+                painter.drawText(QPoint(center.x() - 11, center.y() + 5), showText);
+            }
     }
+
     DrawBloodHoleInnerText(MapBloodHole); //绘制血样孔内文字和前提醒数字
     return;
 }
@@ -1095,11 +1083,6 @@ void Testing::mousePressEvent(QMouseEvent *event)
     {
        ClickCanelTask(mouse_posx, mouse_posy);
     }
-//    else if(event->button() == Qt::LeftButton /*&& !cglobal::g_StartTesting*/)
-//    {
-//        //切换试剂位
-//        ToggletheReagentPosition(mouse_posx,mouse_posy);
-//    }
     return;
 }
 
@@ -1109,23 +1092,14 @@ void Testing::ToggletheReagentPosition(int mouse_posx , int mouse_posy)
     while(iter != m_Reagent_Tray.constEnd()){
         QPoint posReagent = ui->widget_Reagents->mapToParent(QPoint(5 + iter.value().x(),iter.value().y()));
         int Leftpos =  posReagent.x() - Big_radius;
-		int Rightpos = posReagent.x() + Big_radius;
-		int Toppos =  posReagent.y() - Big_radius;
-		int bottompos = posReagent.y() + Big_radius;
+        int Rightpos = posReagent.x() + Big_radius;
+        int Toppos =  posReagent.y() - Big_radius;
+        int bottompos = posReagent.y() + Big_radius;
         if((mouse_posx >= Leftpos && mouse_posx <= Rightpos) && (mouse_posy >= Toppos && mouse_posy <= bottompos))
         {
-			if (cglobal::g_StartTesting) {
+            if (cglobal::g_StartTesting) {
                 FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("切换试剂失败", "样本测试中请勿切换试剂位置!");
-				return;
-			}
-            quint8 indexReag = iter.key();
-            if(indexReag%2 == 0)
-            {
-                 //INI_File().setUseReagentLoc(indexReag,true);
-                 //INI_File().setUseReagentLoc(indexReag + 1,false);
-            }else{
-                //INI_File().setUseReagentLoc(indexReag - 1,false);
-                //INI_File().setUseReagentLoc(indexReag,true);
+                return;
             }
             break;
         }
@@ -1154,11 +1128,11 @@ void Testing::ClickCanelTask(int mouse_posx , int mouse_posy)
         bottompos = bloodpos.y() + Big_radius;
         if((mouse_posx >= Leftpos && mouse_posx <= Rightpos) && (mouse_posy >= Toppos && mouse_posy <= bottompos))
         {
-			if (cglobal::g_StartTesting) 
-			{
+            if (cglobal::g_StartTesting)
+            {
                 FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("取消失败", "样本测试中请勿取消测试样本!");
-				return;
-			}
+                return;
+            }
             Cliclhole = iter.key();
             if(Cliclhole % 2 == 0)   //点击的是血孔号可以取消任务
             {
@@ -1270,31 +1244,33 @@ void Testing::SampleTestingChangInitColor(QPoint BloodPoint ,quint8 FinishChanne
 {
     const quint8 pppHole = BloodPoint.x();
     const quint8 prpHole = BloodPoint.y();
-    auto itChecked = m_Blood_Tray_Checked.find(pppHole);
-    if(itChecked != m_Blood_Tray_Checked.end()){
-         m_Blood_Tray_OutResult.insert(itChecked.key(), itChecked.value());
-         m_Blood_Tray_Checked.erase(itChecked);
-    }
+    QLOG_DEBUG()<<"PPP血样孔号:"<<pppHole<<"PRP血样孔号:"<<prpHole;
 
-    auto itprp = m_Blood_Tray_Checked.find(prpHole);
-    if(itprp != m_Blood_Tray_Checked.end()){
-        m_Blood_Tray_OutResult.insert(itprp.key(), itprp.value());
-        m_Blood_Tray_Checked.erase(itprp);
-    }
-
-    const quint8 completedChannel = FinishChannel - 1;
-    DrawChannelProgress(completedChannel, 0);       //通道显示变0
-    Channelreminder.at(completedChannel)->hide();   //隐藏通道显示信息
-
-    auto it = m_TestingSample.begin();
-    while(it != m_TestingSample.end())
-    {
-        if(it.value() == FinishChannel) {
-            it = m_TestingSample.erase(it);
-        } else {
-            ++it;
+    // 使用lambda函数处理重复的map操作
+    auto processHole = [this](quint8 hole) {
+        auto it = m_Blood_Tray_Checked.find(hole);
+        if (it != m_Blood_Tray_Checked.end()) {
+            m_Blood_Tray_OutResult.insert(it.key(), it.value());
+            m_Blood_Tray_Checked.erase(it);
         }
-    }
+    };
+
+    processHole(pppHole);
+    processHole(prpHole);
+
+    // 处理通道显示
+    const quint8 completedChannel = FinishChannel - 1;
+    DrawChannelProgress(completedChannel, 0);      // 通道显示变0
+    Channelreminder.at(completedChannel)->hide();  // 隐藏通道显示信息
+
+	for (auto it = m_TestingSample.begin(); it != m_TestingSample.end(); ) {
+		if (it.value() == FinishChannel) {
+			it = m_TestingSample.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
     return;
 }
 
@@ -1306,10 +1282,13 @@ void Testing::ComplBackColorBloodArea()
     return;
 }
 
+
+
+
+
+
 /*******************画空试管区***********************/
-void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,
-                                        quint8 IndexTray,
-                                        quint8 BigRadius,
+void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,quint8 IndexTray,quint8 BigRadius,
                                         quint8 SmalleRadius)
 {
     QPainter painter(pTrayWidget);
@@ -1390,7 +1369,7 @@ void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,
         painter.setRenderHint(QPainter::Antialiasing, true);//设置渲染,启动反锯齿
         painter.setBrush(QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern)); //设置画刷形式 -- 外圆环的颜色
         painter.drawEllipse(TrayTubeFirst.value(), BigRadius, BigRadius); //画大圆
-		painter.setBrush(QBrush(palette.brush(QPalette::Background))); //设置画刷为背景色
+        painter.setBrush(QBrush(palette.brush(QPalette::Background))); //设置画刷为背景色
         painter.drawEllipse(TrayTubeFirst.value(), SmalleRadius, SmalleRadius); //画小圆
         painter.setPen(cglobal::g_TextColorWhite);
         QString SampleText = mEmptyText[TrayTubeFirst.key()];
@@ -1407,7 +1386,6 @@ void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,
         FirstHole++;
     }
     return;
-
 }
 
 
@@ -1431,7 +1409,7 @@ void Testing::_RecvBloodSuck2EmptyTube(bool banemia, quint8 IndexTube)
 }
 
 void Testing::giveupSampleShowHole(QList<quint8> holeList){
-   
+
     for(quint8 hole : holeList){
         if(!mflashingTubeList.contains(hole)){
             mflashingTubeList.append(hole);
@@ -1516,7 +1494,7 @@ void Testing::showPaintReagents()
         painter.drawEllipse(iter.value(),small_radius,small_radius);
 
         quint8 indexreag = iter.key()/2 + 1;
-		painter.setPen(GlobalData::customCurveColor(indexreag));
+        painter.setPen(GlobalData::customCurveColor(indexreag));
 
         QString name =  NameText.at(index/2);
         if(name.length() >= 3)
