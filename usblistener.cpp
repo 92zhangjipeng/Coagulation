@@ -30,6 +30,7 @@ USBListener::~USBListener() {
 	if (m_deviceWasDisabled) {
 		ReenableDevice();
 	}
+	SetupDiDestroyDeviceInfoList(m_hDevInfo);
 }
 
 
@@ -80,9 +81,9 @@ void USBListener::ReenableDevice() {
 		(SP_CLASSINSTALL_HEADER*)&params, sizeof(params));
 	SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, m_hDevInfo, &m_devInfoData);
 
-	SetupDiDestroyDeviceInfoList(m_hDevInfo);
+	//m_deviceWasDisabled = false;
+	
 }
-
 
 
 bool  USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId,QString &outFailed) {
@@ -186,33 +187,38 @@ bool USBListener::registerDeviceNotifications()
 	return true;
 }
 
+void USBListener::initDisAblePower() {
+
+	QString outmessage, knowErr;
+	quint8  isstate = 0;
+	QString path = getDeviceInstancePathFromVidPid(m_targetVID, m_targetPID);
+	if (path.isEmpty() || path.isNull()) {
+		isstate = PROMPTLOG;
+		outmessage = "设备路径识别失败!禁用USB选择性暂停失败";
+		QLOG_WARN() << outmessage;
+	}
+	else {
+		//禁用特定 USB 设备的电源管理（需替换为实际设备实例 ID）
+		const wchar_t* deviceId = reinterpret_cast<const wchar_t*>(path.utf16());
+		if (DisableSelectiveSuspendForDevice(deviceId, knowErr)) {
+			outmessage = "设备的 USB 选择性暂停已禁用!";
+			isstate = NORMALLOG;
+			QLOG_DEBUG() << outmessage;
+		}
+		else {
+			outmessage = "设备的 USB 选择性暂停禁用失败!(" + knowErr + ")";
+			isstate = ERRORLOG;
+			QLOG_ERROR() << outmessage;
+		}
+	}
+	Q_EMIT usbPowerContl(outmessage, isstate);
+}
 
 
 bool USBListener::startListening() {
 	if (m_listening) return true;
 
-    QString outmessage,knowErr;
-    quint8  isstate = 0;
-    QString path = getDeviceInstancePathFromVidPid(m_targetVID,m_targetPID);
-    if(path.isEmpty() || path.isNull()){
-        isstate = PROMPTLOG;
-        outmessage = "设备路径识别失败!禁用USB选择性暂停失败";
-        QLOG_WARN()<<outmessage;
-    }else{
-        //禁用特定 USB 设备的电源管理（需替换为实际设备实例 ID）
-        const wchar_t* deviceId = reinterpret_cast<const wchar_t*>(path.utf16());
-        if (DisableSelectiveSuspendForDevice(deviceId,knowErr)) {
-            outmessage = "设备的 USB 选择性暂停已禁用!";
-            isstate = NORMALLOG;
-            QLOG_DEBUG()<<outmessage;
-        }
-        else {
-            outmessage = "设备的 USB 选择性暂停禁用失败!("+knowErr+")";
-            isstate = ERRORLOG;
-            QLOG_ERROR()<<outmessage;
-        }
-    }
-    Q_EMIT usbPowerContl(outmessage, isstate);
+	initDisAblePower();
 
 
 	if (!registerDeviceNotifications()) {
@@ -308,10 +314,20 @@ bool USBListener::nativeEventFilter(const QByteArray& eventType, void* message, 
 	case DBT_DEVICEARRIVAL:
 		emit deviceConnected(deviceInfo);
 		QLOG_INFO() << "Device connected:" << deviceInfo.description;
+
+		if (m_deviceWasDisabled) {
+			initDisAblePower();
+		}
+
 		break;
 	case DBT_DEVICEREMOVECOMPLETE:
 		emit deviceDisconnected(deviceInfo);
 		QLOG_INFO() << "Device disconnected:" << deviceInfo.description;
+
+		if (m_deviceWasDisabled) {
+			ReenableDevice();
+		}
+
 		break;
 	}
 

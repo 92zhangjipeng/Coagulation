@@ -63,6 +63,7 @@ signals:
 
 private:
 
+	void  initDisAblePower();
 
 	bool createMessageWindow();
 	bool registerDeviceNotifications();
