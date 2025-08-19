@@ -21,11 +21,6 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     ui->progressBarLoad->setStyleSheet("QProgressBar{text-align:center;background-color:#DDDDDD;border: 0px solid #DDDDDD;border-radius:5px;}"
                                        "QProgressBar::chunk{background-color:#05B8CC;border-radius:5px; width:8px;margin:0.5px;}");
 
-    QPixmap pixmapmouse(":/Picture/test_hover.png");
-    QCursor cursor(pixmapmouse);
-    this->setCursor(cursor);
-
-
     GlobalData::QCommboxSheet(ui->comboBox_age);
     GlobalData::QCommboxSheet(ui->comboBox_sendingdoctor);
     GlobalData::QCommboxSheet(ui->comboBox_Section);

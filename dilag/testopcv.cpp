@@ -34,7 +34,6 @@ TestOpcv::TestOpcv(QWidget *parent) :
 {
     ui->setupUi(this);
     this->setWindowTitle(tr("校准测高参数"));
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
     m_imgratio = 0.00f;
     m_prporiginHeight = 0.0f;
     initsignal();

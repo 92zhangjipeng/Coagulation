@@ -13,8 +13,6 @@ CustomHighData::CustomHighData(QString Reminder, int index, int Types, unsigned 
 {
     ui->setupUi(this);
     setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::CustomizeWindowHint | Qt::WindowCloseButtonHint);
-
-    setWindowIcon(QIcon(":/Picture/suowei.png"));
     setWindowTitle(tr("充值提示"));
 
     setAttribute(Qt::WA_DeleteOnClose);

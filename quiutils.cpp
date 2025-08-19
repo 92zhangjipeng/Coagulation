@@ -381,19 +381,6 @@ void QUIUtils::_sycnBottleCapacity(QString mpathfile, quint8 index_reag, quint16
 }
 
 
-void QUIUtils::ConfigMousingPicture(QToolButton* pToolBtn)
-{
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    pToolBtn->setCursor(cursor);
-}
-void QUIUtils::ConfigMousingPicture(QWidget* pWidget)
-{
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    pWidget->setCursor(cursor);
-}
-
 QString QUIUtils::bitArray2String(QBitArray array)
 {
 	uint value = 0;

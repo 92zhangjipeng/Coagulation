@@ -11,8 +11,6 @@ batchAddSample::batchAddSample(QWidget *parent) :
 {
     ui->setupUi(this);
     this->setWindowTitle(tr("批量添加样本"));
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
-
 
 
     QString settButtonQss;

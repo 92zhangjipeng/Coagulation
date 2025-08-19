@@ -36,10 +36,6 @@ Calibrate::Calibrate(QWidget *parent) :
     m_pdelegate.clear();
 
 
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    this->setCursor(cursor);
-
     qRegisterMetaType<QVariant>("QVariant");
     m_loadTableColor.setRgb(139, 134, 130);
 

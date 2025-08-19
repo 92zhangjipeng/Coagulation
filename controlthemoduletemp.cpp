@@ -9,7 +9,6 @@ ControltheModuletemp::ControltheModuletemp(QWidget *parent) :
     ui(new Ui::ControltheModuletemp)
 {
     ui->setupUi(this);
-    setWindowIcon(QIcon(":/Picture/logo.ico"));
 
     bgmcColor.setRgb(230, 230, 230);
     setWindowFlags(Qt::Tool |

@@ -43,7 +43,6 @@ MachineSetting::MachineSetting(QWidget *parent) :
     ui(new Ui::MachineSetting)
 {
     ui->setupUi(this);
-    this->setWindowIcon(QIcon(":/Picture/logo.ico"));
     this->setWindowTitle(tr("仪器参数设置"));
     this->activateWindow();
     this->setWindowState((this->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);

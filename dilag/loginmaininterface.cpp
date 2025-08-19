@@ -36,7 +36,6 @@ loginmaininterface::loginmaininterface(QWidget *parent) :
     ui(new Ui::loginmaininterface)
 {
     ui->setupUi(this);
-    setWindowIcon(QIcon(":/Picture/logo.ico"));
     setWindowTitle(tr("登录"));
     setMouseTracking(true);
     setWindowFlags(Qt::FramelessWindowHint);
@@ -45,9 +44,7 @@ loginmaininterface::loginmaininterface(QWidget *parent) :
     ui->label_icon->setPixmap(QPixmap(":/Picture/suowei.png"));
     ui->label_reminder->hide();
 
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    setCursor(cursor);
+
 
     // 统一文件检查逻辑 判断坐标文件是否存在 判断参数配置文件是否存在
     if(checkFileExist(QCoreApplication::applicationDirPath() + "/coordinatefile.ini")){

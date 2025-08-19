@@ -14,7 +14,6 @@ ConfigureProjectItem::ConfigureProjectItem(QWidget *parent) :
     ui(new Ui::ConfigureProjectItem)
 {
     ui->setupUi(this);
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
     this->setWindowTitle(tr("配置测试项目"));
     bgmcColor.setRgb(188,187,183);
     setWindowFlags(Qt::Tool |
@@ -82,9 +81,7 @@ void ConfigureProjectItem::_initstyle()
         n++;
     }
 
-    QUIUtils::ConfigMousingPicture(ui->widget_btn);
-    QUIUtils::ConfigMousingPicture(ui->widget_title);
-    QUIUtils::ConfigMousingPicture(ui->widgetFucn);
+
 
     QString pattern_str_ScrollBar = "QScrollBar{background:transparent; height:8px;}"
                           "QScrollBar::handle{background:lightgray; border:1px solid transparent; border-radius:3px;}"

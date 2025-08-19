@@ -13698,3 +13698,14 @@
 <font color="#FFFF00">[16:30:48提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
 <font color="#FFFFFF">[16:30:48]USB监听已启动!</font>
 <font color="#FFFF00">[16:31:19提醒]USB监听已停止!</font>
+<font color="#FFFF00">[14:30:54提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[14:30:54]USB监听已启动!</font>
+<font color="#FFFF00">[14:31:13提醒]USB监听已停止!</font>
+<font color="#FFFF00">[14:41:07提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[14:41:07]USB监听已启动!</font>
+<font color="#FFFF00">[14:41:46提醒]USB监听已停止!</font>
+<font color="#FFFF00">[14:55:40提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[14:55:40]USB监听已启动!</font>
+<font color="#FFFF00">[14:56:08提醒]仪器剩余试管数=175 [加样所需试管数=5]</font>
+<font color="#FFFF00">[14:56:08提醒]调光未完成,稍后添加!</font>
+<font color="#FFFF00">[14:56:35提醒]USB监听已停止!</font>

@@ -21,7 +21,6 @@ CustomFixTableView::CustomFixTableView(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle("预览测试结果");
-    setWindowIcon(QIcon(":/Picture/suowei.png"));
     setWindowFlags(windowFlags() | Qt::Dialog | Qt::WindowStaysOnTopHint);
 
 

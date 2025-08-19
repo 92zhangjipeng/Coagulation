@@ -98,12 +98,7 @@ namespace QUIUtils
     void _sycnBottleCapacity(QString mpathfile, quint8 index_reag, quint16 BottleCapacity);
 
 
-    /**  设置按钮鼠标样式
-     * @brief ConfigMousingPicture
-     * @param pToolBtn
-     */
-    void ConfigMousingPicture(QToolButton* pToolBtn);
-    void ConfigMousingPicture(QWidget* pWidget);
+
 
     /**
     * @brief deskWidth 获取桌面宽度

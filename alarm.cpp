@@ -28,9 +28,6 @@ Alarm::Alarm(QWidget *parent) :
     setWindowOpacity(0.9);
     //setAttribute(Qt::WA_TranslucentBackground);
 
-    QPixmap pixmapmouse(":/Picture/test_hover.png");
-    QCursor cursor(pixmapmouse);
-    this->setCursor(cursor);
 
     this->setFixedSize(OUT_UI_SIZE_WIDTH,OUT_UI_SIZE_HEIGHT);
 

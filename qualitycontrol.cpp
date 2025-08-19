@@ -47,9 +47,6 @@ QualityControl::QualityControl(QWidget *parent) : QWidget(parent)
 {
     ui->setupUi(this);
     this->setWindowFlags(Qt::FramelessWindowHint);
-    QPixmap pixmapmouse(":/Picture/test_hover.png");
-    QCursor cursor(pixmapmouse);
-    this->setCursor(cursor);
 
     m_reminderTitleStr.clear();
     m_pReagentLinque.clear();

@@ -20,10 +20,7 @@ Correct_Data::Correct_Data(unsigned int rows,
     flags |= Qt::WindowCloseButtonHint;
     this->setWindowFlags(flags);
     this->setFixedSize(360,130);
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    this->setCursor(cursor);
+
     m_rows = rows;      //行
     m_Index = Column;   //列
     m_Data_str = changeData;

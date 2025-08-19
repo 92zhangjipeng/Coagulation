@@ -155,9 +155,6 @@ private:
     // 单例清理
     void cleanupSingletons();
 
-    // USB监听停止
-    void stopUsbMonitoring();
-
 
     void initCameras();
 

@@ -10,15 +10,12 @@ warn_interface::warn_interface(QString titlestr, QString  warmtext,QWidget *pare
 {
     ui->setupUi(this);
     setMouseTracking(true);
-
     this->setWindowTitle("提示");
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
+
 
     ui->label_icon->setFixedSize(32,32);
    
-    QPixmap pixmapmouse(":/Picture/test_hover.png");
-    QCursor cursor(pixmapmouse);
-    this->setCursor(cursor);
+
 
     ui->label_name->setText(titlestr);
     ui->label_warmtext->setText(warmtext);

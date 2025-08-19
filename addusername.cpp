@@ -11,7 +11,6 @@ AddUserName::AddUserName(char UserSet, QWidget *parent ):
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose, true);
-    setWindowIcon(QIcon(":/Picture/logo.ico"));
     m_show = UserSet;
     ui->Enter_Usar->setText(tr("输入用户名: "));
     ui->pushButton_Add->setText(tr("添 加 "));

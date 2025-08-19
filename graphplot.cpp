@@ -20,10 +20,6 @@ GraphPlot::GraphPlot(QWidget *parent) :QWidget(parent),
     ui->setupUi(this);
     this->setWindowFlags(Qt::FramelessWindowHint);
 
-    QPixmap pixmapmouse(":/Picture/test_hover.png");
-    QCursor cursor(pixmapmouse);
-    this->setCursor(cursor);
-
     bool ok_ = GlobalData::CreadFolder("suowei_testblood");
     QLOG_DEBUG()<<"创建索唯测试数据文件夹状态"<<ok_<<endl;
 

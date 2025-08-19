@@ -16,11 +16,6 @@ AboutMachine::AboutMachine(QWidget *parent) :
     ui->setupUi(this);
     this->setWindowFlags(this->windowFlags()&~Qt::WindowMaximizeButtonHint&~Qt::WindowMinimizeButtonHint);
     this->setWindowTitle(tr("关于"));
-    setWindowIcon(QIcon(":/Picture/suowei.png"));
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    this->setCursor(cursor);
-
 
     ui->About_Company->setText(OUR_COMPANY_NAME);
     m_Version = VERSION_RELEASE;

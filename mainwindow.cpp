@@ -31,16 +31,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     ,m_warmIndexReagent(-1)
     ,m_currentIndex(0)
     ,m_relChannel(0)
+    ,m_shutdownClean(false)
+    ,m_benterapp(false)
 {
     ui->setupUi(this);
+
     // 窗口属性设置
     setWindowFlags(Qt::FramelessWindowHint | windowFlags());
-    setWindowIcon(QIcon(":/Picture/suowei.png"));
-
 
     // 预加载图标资源
     m_connectedIcon.load(":/Picture/SetPng/Serial_connect.png");
     m_disconnectedIcon.load(":/Picture/SetPng/Seril_error.png");
+
+
     // 验证资源加载
     if(m_connectedIcon.isNull() || m_disconnectedIcon.isNull()) {
         QLOG_ERROR() << "Connection status icons failed to load!";
@@ -63,9 +66,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     ui->tabWidget_Main->tabBar()->hide();
     ui->tabWidget_Main->setDocumentMode(true);  // 增强视觉表现
 
-    // 状态变量初始化
-    m_shutdownClean = false;
-    m_benterapp = false;
 
     //设备图标配置
     ui->Machine_type->setFixedSize(155, 150);
@@ -73,7 +73,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     // 使用栈对象避免内存管理问题
     QPixmap machinePixmap(":/Picture/suowei.png");
     if(machinePixmap.isNull()) {
-        qWarning() << "Failed to load machine icon";
+        QLOG_WARN() << "Failed to load machine icon";
     }
 
     // 带缓存的智能缩放
@@ -86,12 +86,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     ui->Machine_type->setAlignment(Qt::AlignCenter);
 
     // 高DPI适配样式
-    QString style = QString("QLabel {"
-                           "border: none;"
-                           "background: transparent;"
-                           "min-width: %1px;"
-                           "min-height: %2px;"
-                           "}").arg(155).arg(150);
+    QString style = QString("QLabel {""border: none;""background: transparent;"
+                           "min-width: %1px;""min-height: %2px;""}").arg(155).arg(150);
     ui->Machine_type->setStyleSheet(style);
 
     initErrorDisplayMap();
@@ -149,6 +145,7 @@ void MainWindow::logThreadStatus()
     QLOG_DEBUG() << "-------------------------------\n";
 }
 
+
 // 单例清理
 void MainWindow::cleanupSingletons()
 {
@@ -161,18 +158,9 @@ void MainWindow::cleanupSingletons()
     }
 }
 
-// USB监听停止
-void MainWindow::stopUsbMonitoring()
-{
-    //QLOG_INFO() << "USB监听已停止";
-}
-
 
 MainWindow::~MainWindow()
 {
-	//USB监听插拔
-	stopUsbMonitoring();
-
 
     // 停止并等待所有工作线程
     stopAndWaitThreads();
@@ -1552,7 +1540,7 @@ void MainWindow::InitMainUiLayout()
 
     //开始按钮
     QToolButton *pbeginTest = ui->toolButton_quality_start;
-    QUIUtils::ConfigMousingPicture(pbeginTest);
+
     QObject::connect(pbeginTest,&QToolButton::clicked,this,[=](){
 
         emit ReminderTextOut(PROMPTLOG,"点击开始测试按键");
@@ -1791,12 +1779,7 @@ void MainWindow::_setupMainInterface()
     // 配置辅助按钮
     setupUtilityButtons();
 
-    QUIUtils::ConfigMousingPicture(ui->toolButton_quality_cleaning);   //清洗
-    QUIUtils::ConfigMousingPicture(ui->toolButton_quality_reset);  //复位
-    QUIUtils::ConfigMousingPicture(ui->toolButton_quality_stop); //任务
-    QUIUtils::ConfigMousingPicture(ui->toolButton_quality_sample); //继续
-    QUIUtils::ConfigMousingPicture(ui->widget_top);
-    QUIUtils::ConfigMousingPicture(ui->widget_ReminderLiqune);
+
 }
 
 void MainWindow::setupTabWidget()
@@ -1841,8 +1824,7 @@ void MainWindow::setupFunctionButtons()
         QToolButton* btn = buttonInfo[i].first;
         const QString& text = buttonInfo[i].second;
 
-        // 配置按钮样式
-        QUIUtils::ConfigMousingPicture(btn);
+
 
         // 设置按钮状态
         GlobalData::mainseledview(btn, false);
@@ -1888,12 +1870,10 @@ void MainWindow::highlightActiveButton(int index)
 void MainWindow::setupUtilityButtons()
 {
     // 设备设置按钮
-    QUIUtils::ConfigMousingPicture(ui->toolButton_EquipmentSetting);
     connect(ui->toolButton_EquipmentSetting, &QPushButton::clicked,this,
             [this]{ openSettingsDialog(); });
 
     // 关于按钮
-    QUIUtils::ConfigMousingPicture(ui->toolButton_about);
     connect(ui->toolButton_about, &QPushButton::clicked, this, [this] {
         auto aboutDialog = FullyAutomatedPlatelets::paboutinstance();
         aboutDialog->sycnMd5Value(QCoreApplication::applicationFilePath());
@@ -1907,7 +1887,6 @@ void MainWindow::setupUtilityButtons()
     });
 
     //退出
-    QUIUtils::ConfigMousingPicture(ui->toolButton_Exit);
     connect(ui->toolButton_Exit,&QToolButton::clicked,this,[this]{
         emit FullyAutomatedPlatelets::pinstancepatientdata()->hideCurveUi();
         this->close();
@@ -2433,12 +2412,6 @@ void  MainWindow::TestHeightFinish(const bool finished)
 
 
 
-
-
-
-
-
-
 //点击测试待测项目样本数
 void MainWindow::equipment_will_test_num(bool &bgoto_testing)
 {
@@ -2903,20 +2876,20 @@ void MainWindow::initErrorDisplayMap()
 {
     m_errorInfoMap.clear();
 
-        // 使用insert逐个插入
-        m_errorInfoMap.insert(
-            equipmentTipInfo::LinqueScrapFull,
+    // 定义错误类型与显示信息的映射表
+    const QVector<QPair<quint8, ErrorDisplayInfo>> errorInfoList = {
+        {
+            static_cast<quint8>(equipmentTipInfo::LinqueScrapFull),
             ErrorDisplayInfo(
-            ":/Picture/SetPng/outside_wasteliquor.png",
-            ":/Picture/SetPng/outside_wasteliquor_warming.png",
-            tr("废液满"),
-            ui->show_wastlique,
-            &m_warmwasteliquor
+                ":/Picture/SetPng/outside_wasteliquor.png",
+                ":/Picture/SetPng/outside_wasteliquor_warming.png",
+                tr("废液满"),
+                ui->show_wastlique,
+                &m_warmwasteliquor
             )
-        );
-
-        m_errorInfoMap.insert(
-            equipmentTipInfo::LinqueCleanShortage,
+        },
+        {
+			static_cast<quint8>(equipmentTipInfo::LinqueCleanShortage),
             ErrorDisplayInfo(
                 ":/Picture/SetPng/outside_clean.png",
                 ":/Picture/SetPng/outside_clean_warming.png",
@@ -2924,7 +2897,13 @@ void MainWindow::initErrorDisplayMap()
                 ui->showcleanliqur,
                 &m_cleanliquor
             )
-        );
+        }
+            // 可以继续添加其他错误类型
+        };
+
+	for (const auto &pair : errorInfoList) {
+		m_errorInfoMap.insert(pair.first, pair.second);
+	}
 }
 
 //优化

@@ -81,7 +81,7 @@ void USBListener::ReenableDevice() {
 		(SP_CLASSINSTALL_HEADER*)&params, sizeof(params));
 	SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, m_hDevInfo, &m_devInfoData);
 
-	//m_deviceWasDisabled = false;
+    m_deviceWasDisabled = false;
 	SetupDiDestroyDeviceInfoList(m_hDevInfo);
 }
 
@@ -315,18 +315,19 @@ bool USBListener::nativeEventFilter(const QByteArray& eventType, void* message, 
 		emit deviceConnected(deviceInfo);
 		QLOG_INFO() << "Device connected:" << deviceInfo.description;
 
-		/*if (m_deviceWasDisabled) {
+        if (!m_deviceWasDisabled) {
 			initDisAblePower();
-		}*/
+        }
+
 
 		break;
 	case DBT_DEVICEREMOVECOMPLETE:
 		emit deviceDisconnected(deviceInfo);
 		QLOG_INFO() << "Device disconnected:" << deviceInfo.description;
 
-		/*if (m_deviceWasDisabled) {
+        if (m_deviceWasDisabled) {
 			ReenableDevice();
-		}*/
+        }
 
 		break;
 	}

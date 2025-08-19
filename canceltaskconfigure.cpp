@@ -15,11 +15,8 @@ CancelTaskConfigure::CancelTaskConfigure(QWidget *parent, QList<int> click_sampl
     setAcceptDrops(true);//默认控件不支持拖拽，需在构造函数中设置接受拖拽事件
     // 仅保留关闭按钮
     this->setWindowTitle("取消样本任务");
-    setWindowIcon(QIcon(":/Picture/suowei.png"));
     this->setWindowFlags(Qt::Dialog| Qt::WindowCloseButtonHint);
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    this->setCursor(cursor);
+
 
     mclickHole = click_sampleid;
 

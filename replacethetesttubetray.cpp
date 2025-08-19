@@ -778,7 +778,6 @@ void ReplaceTheTestTubeTray::openPEdataWindow(const QPoint &pos)
         peWindow->insertdata(vecdata);
 
         // 窗口初始化
-        peWindow->setWindowIcon(QIcon(":/Picture/suowei.png"));
         peWindow->setWindowTitle("PE Data Analyzer");
         peWindow->resize(570, 180);
         peWindow->show();

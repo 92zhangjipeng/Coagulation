@@ -25,7 +25,6 @@ customProgresscontrols::customProgresscontrols(QWidget *parent) :
     setAutoFillBackground(true);
 
     m_totalnum = 1;
-    setWindowIcon(QIcon(":/Picture/suowei.png"));
     ui->label_ratio->setStyleSheet("border: none;");
     ui->progressBar_ratio->setStyleSheet("QProgressBar{text-align:center;background-color:#DDDDDD;border: 1px solid #DDDDDD;border-radius:5px;}"
                                           "QProgressBar::chunk{background-color:#05B8CC;border-radius:5px; width:6px;margin:0.5px;}");

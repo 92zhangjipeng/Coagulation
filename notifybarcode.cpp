@@ -12,11 +12,7 @@ NotifyBarCode::NotifyBarCode(QWidget *parent) :
     flags |= Qt::WindowCloseButtonHint;
     this->setWindowFlags(flags);
     this->setFixedSize(360,130);
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
     this->setWindowTitle("修改条形码");
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    this->setCursor(cursor);
 
 
     //输入密码添加可视化按钮

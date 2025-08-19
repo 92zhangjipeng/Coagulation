@@ -36,7 +36,6 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
     setWindowFlags(this->windowFlags()& ~Qt::WindowMaximizeButtonHint& ~Qt::WindowMinimizeButtonHint | Qt::WindowStaysOnTopHint
                          | Qt::WindowDoesNotAcceptFocus);
     this->setWindowTitle(tr("任务列表"));
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
     this->setMinimumWidth(800);
     this->setMinimumHeight(440);
     ui->widget_ShowErrImage->show();
@@ -48,8 +47,8 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
     mtestmodebox->setExclusive(true); //设置是否互斥
     mtestmodebox->addButton(ui->checkBox_wholeblood,0);
     mtestmodebox->addButton(ui->checkBox_plasma,1);
-    bool wholeblood_ = INI_File().GetWholeBloodModel();
-    (wholeblood_ == true)? ui->checkBox_wholeblood->setChecked(true): ui->checkBox_plasma->setChecked(true);
+    bool wholeblood = INI_File().GetWholeBloodModel();
+    (wholeblood == true)? ui->checkBox_wholeblood->setChecked(true): ui->checkBox_plasma->setChecked(true);
     connect(mtestmodebox,SIGNAL(buttonClicked(int)),this,SLOT(_clickBloodmode(int)));
 
     mCreatTime.clear();
@@ -87,18 +86,20 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
 
     if(!m_correctdata)
         m_correctdata =  new Correct_Data(0, 0 ,"");
+
     connect(m_correctdata,&Correct_Data::ConfigureData,
             this,&Height_Data::Slot_ConfigureData);
+
+
 
     //重新测试高度
     connect(m_correctdata,&Correct_Data::repTestHeight,this,[=](const QString sampleid){
         FullyAutomatedPlatelets::pinstanceTesting()->repPrpheight(sampleid,true);
     });
+
+
     connect(m_correctdata, &Correct_Data::NotifyTestHeight,
             this,&Height_Data::SlotNotifyTestHeight);//修改测高值
-
-
-
 
 }
 
@@ -366,11 +367,6 @@ void Height_Data::keyPressEvent(QKeyEvent *scanData){
 
 void Height_Data::InitTablewidget()
 {
-
-    QUIUtils::ConfigMousingPicture(ui->widget);
-    QUIUtils::ConfigMousingPicture(ui->widget_Task);
-    QUIUtils::ConfigMousingPicture(ui->widget_ShowErrImage);
-
     QStringList header;
     header<<tr("测试选项")<<tr("样本号")<<tr("测高值")<<tr("血样孔号")<<tr("测试项目")<<tr("条形码");
     ui->Sample_Data_tablewidget->setColumnCount(6); //初始化列

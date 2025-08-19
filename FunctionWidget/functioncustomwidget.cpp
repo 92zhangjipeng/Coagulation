@@ -10,8 +10,7 @@ FunctionCustomWidget::FunctionCustomWidget(QString titlestr, QString warmtext,QW
 {
     ui->setupUi(this);
     setMouseTracking(true);
-    this->setWindowTitle("提示");
-    this->setWindowIcon(QIcon(":/Picture/suowei.png"));
+    setWindowTitle("提示");
     QImage image(":/Picture/icon_title/提示.png");
     ui->label_icon->setPixmap(QPixmap::fromImage(image));
     ui->label_name->setText(titlestr);

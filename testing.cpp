@@ -41,9 +41,6 @@ Testing::Testing(QWidget *parent) :
 {
     ui->setupUi(this);
     this->setWindowFlags(Qt::FramelessWindowHint);
-    QPixmap pixmap(":/Picture/test_hover.png");
-    QCursor cursor(pixmap);
-    this->setCursor(cursor);
     mflashingTubeList.clear();
     m_TaskDll = new UsbCodeDispose;
 }

@@ -23,9 +23,7 @@ displayLogsText::displayLogsText(QWidget *parent) :
     bgmcColor.setRgb(187, 186 ,183);
     setWindowFlags(Qt::FramelessWindowHint);
 
-    QPixmap pixmapmouse(":/Picture/test_hover.png");
-    QCursor cursor(pixmapmouse);
-    this->setCursor(cursor);
+
 
     QPalette pe;
     pe.setColor(QPalette::WindowText,QColor(0 ,0 ,0));
