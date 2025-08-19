@@ -212,8 +212,9 @@
 
 //滤波模式
 #define  FILTER_NO              0
-#define  FILTER_AVERAGE_VALUE   1   //中位均值
-#define  FILTER_MIDVALUE        2  //中值
+#define  FILTER_AVERAGE_VALUE   1  //去极值滤波
+#define  FILTER_MIDVALUE        2  //中位值滤波
+#define  MEDIAN_EWMA_DYNAMIC    3  //MEDA滤波器中值滤波（一级）→ EWMA（二级）→ 动态权重优化（三级）
 
 
 //测高模块的参照物高度 mm

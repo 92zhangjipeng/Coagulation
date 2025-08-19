@@ -1437,11 +1437,11 @@ void loadEquipmentPos::RecvSuippleNextStep(const bool bRead,
                                             quint16 OneBottleRatio){
 
     if(!bRead){
-        _completeddel(finished);
+        completeddel(finished);
         ConsumablesOper::GetpInstance()->syacnReagentTotalBottle(WRITE_OPERAT,indexReagent,lastBottle); //设置瓶数
         ConsumablesOper::GetpInstance()->updateReplaceLocRatio(WRITE_OPERAT,  indexReagent, OneBottleRatio); //写瓶内剩余
         QLOG_DEBUG()<<GlobalData::mapReagentNames(indexReagent)<<"瓶数"<<lastBottle<<"比"<<OneBottleRatio;
-       _GroupReadParaCommder(nextSend);
+       GroupReadParaCommder(nextSend);
     } else{
         _writeFinish(finished);
         _sendWriteAxisOrder(nextSend);
@@ -1456,9 +1456,9 @@ void loadEquipmentPos::RecvSuippleNextStepOnlyBottle(const bool bRead,quint8 fin
                                                        quint8 lastBottle)
 {
     if(!bRead){
-        _completeddel(finished);
+        completeddel(finished);
         ConsumablesOper::GetpInstance()->syacnReagentTotalBottle(WRITE_OPERAT,indexReagent,lastBottle);
-       _GroupReadParaCommder(nextSend);
+        GroupReadParaCommder(nextSend);
     }
     else{
         _writeFinish(finished);
@@ -1472,11 +1472,11 @@ void loadEquipmentPos::RecvSuippleNextStepOnlyRatio(const bool bRead,quint8 fini
                                                quint16 OneBottleRatio)
 {
     if(!bRead){
-        _completeddel(finished);
+        completeddel(finished);
         ConsumablesOper::GetpInstance()->updateReplaceLocRatio(WRITE_OPERAT,
                                                                indexReagent,
                                                                OneBottleRatio);
-       _GroupReadParaCommder(nextSend);
+       GroupReadParaCommder(nextSend);
     }
     else{
         _writeFinish(finished);
@@ -1616,7 +1616,7 @@ void loadEquipmentPos::_mainbordParadata(quint8 indexReagent, const QStringList 
 
         case MAINBORD_REAGENT_RIS_1_INFO:
             if(!m_bReadorWrite){
-                _completeddel(MAINBORD_REAGENT_RIS_1_INFO);
+                completeddel(MAINBORD_REAGENT_RIS_1_INFO);
                 ConsumablesOper::GetpInstance()->updateReplaceLocRatio(WRITE_OPERAT,
                                                                        INDEX_RIS_1_CONSUMABLE,
                                                                        Remainingproportions);
@@ -1639,8 +1639,8 @@ void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList A
         {HANDSPARADATA_II, [&](const QStringList& data) { recvParaIIdData(data); }},
         {REAGENT_LIMIT, [&](const QStringList& data) { recvReagentLimit(data); }},
         {BlOODPINPARADATA, [&](const QStringList& data) { recvBloodPinq16data(data); }},
-        {REAGENT_CAPACITY, [&](const QStringList& data) { _recvReagentCapacity(data); }},
-        {AXIS_ORIGIN_X, [&](const QStringList& data) { _recvOrininAxis(data); }},
+        {REAGENT_CAPACITY, [&](const QStringList& data) { recvReagentCapacity(data); }},
+        {AXIS_ORIGIN_X, [&](const QStringList& data) { recvOrininAxis(data); }},
         {AXIS_ORIGIN_Y, [&](const QStringList& data) { _recvOrininAxisY(data); }},
         {AXIS_CHN1_5_X, [&](const QStringList& data) { _recvChnoffsetReagpinXI_V(data); }},
         {AXIS_CHN1_5_Y, [&](const QStringList& data) { _recvChnoffsetReagpinYI_V(data); }},
@@ -1656,9 +1656,9 @@ void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList A
         {AXIS_TRAY_OFFSET_BLOODPINY, [&](const QStringList& data) { _recvTraytubeoffsetbloodpin_y(data); }},
         {AXIS_TRAY_OFFSET_HANDSX, [&](const QStringList& data) { _recvTraytubeoffsetHands_x(data); }},
         {AXIS_TRAY_OFFSET_HANDSY, [&](const QStringList& data) { _recvTraytubeoffsetHands_y(data); }},
-        {BLOODPINPARAOTHERDATA, [&](const QStringList& data) { _recvBloodOtherdataAll(data); }},
-        {PARAREAGENTPINDATA_I, [&](const QStringList& data) { _recvReagentData(data); }},
-        {PARAREAGENTPINDATA_II, [&](const QStringList& data) { _recvReagentDataOther(data); }},
+        {BLOODPINPARAOTHERDATA, [&](const QStringList& data) { recvBloodOtherdataAll(data); }},
+        {PARAREAGENTPINDATA_I, [&](const QStringList& data) { recvReagentData(data); }},
+        {PARAREAGENTPINDATA_II, [&](const QStringList& data) { recvReagentDataOther(data); }},
         {PARALIMINTBOTTLE, [&](const QStringList& data) { recveBottleLimit(data); }},
         {CONTROLGRIPPERPARA, [&](const QStringList& data) { recveNegativePressure(data); }}
     };
@@ -1723,7 +1723,7 @@ void loadEquipmentPos::handleReadDevicePara(const QStringList hexArray)
     //已读取到仪器类型--读取仪器内保存的坐标
     Q_EMIT  _whiletoReadEquipPosAixs(hexParaState,showText);
 
-    _GroupReadParaCommder(EQUIPMENTPARA_I); //开始读取参数
+    GroupReadParaCommder(EQUIPMENTPARA_I); //开始读取参数
 
 }
 
@@ -1877,7 +1877,7 @@ void loadEquipmentPos::_writeFinish(quint8 index)
 }
 
 
-void loadEquipmentPos::_GroupReadParaCommder(quint8 index_)
+void loadEquipmentPos::GroupReadParaCommder(quint8 index_)
 {
     if(mwriteAxismap.contains(index_))
     {
@@ -1888,7 +1888,7 @@ void loadEquipmentPos::_GroupReadParaCommder(quint8 index_)
     return;
 }
 
-void loadEquipmentPos::_completeddel(quint8 index_)
+void loadEquipmentPos::completeddel(quint8 index_)
 {
     if(mwriteAxismap.contains(index_))
     {
@@ -1968,8 +1968,8 @@ void loadEquipmentPos::recvParaIData(const QStringList hexArry)
         quint16 dimmLed = extractUInt16(14, 13); // 使用辅助函数
         ini.wConfigPara(MODULETARGETBASICVAL, dimmLed);
 
-        _completeddel(EQUIPMENTPARA_I);
-        _GroupReadParaCommder(HANDSPARADATA_II);
+        completeddel(EQUIPMENTPARA_I);
+        GroupReadParaCommder(HANDSPARADATA_II);
 
     }
     else
@@ -2025,8 +2025,8 @@ void loadEquipmentPos::recvParaIIdData(const QStringList hexArry)
            }
         }
 
-        _completeddel(HANDSPARADATA_II);
-        _GroupReadParaCommder(REAGENT_LIMIT);
+        completeddel(HANDSPARADATA_II);
+        GroupReadParaCommder(REAGENT_LIMIT);
     }
     else
     {
@@ -2097,8 +2097,8 @@ void loadEquipmentPos::recvReagentLimit(const QStringList hexArry)
                 QLOG_WARN () << "索引不足，无法处理清洗液容量";
         }
 
-        _completeddel(REAGENT_LIMIT);
-        _GroupReadParaCommder(BlOODPINPARADATA);
+        completeddel(REAGENT_LIMIT);
+        GroupReadParaCommder(BlOODPINPARADATA);
     }
     else
     {
@@ -2138,8 +2138,8 @@ void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
           QLOG_DEBUG()<<"读取到清洗时间:"<<washTime<<endl;
           ini.setWashesTime(washTime);
 
-         _completeddel(BlOODPINPARADATA);
-         _GroupReadParaCommder(REAGENT_CAPACITY);
+         completeddel(BlOODPINPARADATA);
+         GroupReadParaCommder(REAGENT_CAPACITY);
      }
      else
      {
@@ -2149,32 +2149,64 @@ void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
      return;
 }
 
-void loadEquipmentPos::_recvReagentCapacity(const QStringList hexArry)
+void loadEquipmentPos::recvReagentCapacity(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
-        quint16 AACapacity = QString("%1%2").arg(hexArry.at(6)).arg(hexArry.at(5)).toInt(nullptr,HEX_SWITCH);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_AA_CONSUMABLE,AACapacity);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_AA_1_CONSUMABLE,AACapacity);
+        // 边界检查
+        constexpr int kRequiredSize = 15;  // 最大需要访问到索引14
+        if (hexArry.size() < kRequiredSize) {
+            QLOG_ERROR() << "hexArry数据不足，需要至少" << kRequiredSize
+                        << "个元素，实际只有" << hexArry.size();
+            return;
+        }
 
-        quint16 ADPCapacity = QString("%1%2").arg(hexArry.at(8)).arg(hexArry.at(7)).toInt(nullptr,HEX_SWITCH);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_ADP_CONSUMABLE,ADPCapacity);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_ADP_1_CONSUMABLE,ADPCapacity);
+        try {
+           // 定义试剂配置结构
+           struct ReagentConfig {
+               int highByteIndex;
+               int lowByteIndex;
+               quint8 mainIndex;
+               quint8 backupIndex;
+               const char* name;
+           };
+		   // 使用C风格数组替代std::array（如果编译器不支持C++11）
+		   const ReagentConfig reagents[] = {
+			   { 6, 5, INDEX_AA_CONSUMABLE, INDEX_AA_1_CONSUMABLE, "AA" },
+			   { 8, 7, INDEX_ADP_CONSUMABLE, INDEX_ADP_1_CONSUMABLE, "ADP" },
+			   { 10, 9, INDEX_EPI_CONSUMABLE, INDEX_EPI_1_CONSUMABLE, "EPI" },
+			   { 12, 11, INDEX_COL_CONSUMABLE, INDEX_COL_1_CONSUMABLE, "COL" },
+			   { 14, 13, INDEX_RIS_CONSUMABLE, INDEX_RIS_1_CONSUMABLE, "RIS" }
+		   };
+		   const int reagentCount = sizeof(reagents) / sizeof(reagents[0]);
 
-        quint16 EPICapacity = QString("%1%2").arg(hexArry.at(10)).arg(hexArry.at(9)).toInt(nullptr,HEX_SWITCH);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_EPI_CONSUMABLE,EPICapacity);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_EPI_1_CONSUMABLE,EPICapacity);
+		   quint16 capacities[5] = { 0 };  // C风格数组替代std::array
+		   ConsumablesOper* consumables = ConsumablesOper::GetpInstance();
 
-        quint16 COLCapacity = QString("%1%2").arg(hexArry.at(12)).arg(hexArry.at(11)).toInt(nullptr,HEX_SWITCH);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_COL_CONSUMABLE,COLCapacity);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_COL_1_CONSUMABLE,COLCapacity);
+		   // 统一处理所有试剂
+		   for (int i = 0; i < reagentCount; ++i) {
+			   const ReagentConfig& config = reagents[i];
+			   capacities[i] = QString("%1%2")
+				   .arg(hexArry.at(config.highByteIndex))
+				   .arg(hexArry.at(config.lowByteIndex))
+				   .toInt(nullptr, HEX_SWITCH);
 
-        quint16 RISCapacity = QString("%1%2").arg(hexArry.at(14)).arg(hexArry.at(13)).toInt(nullptr,HEX_SWITCH);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_RIS_CONSUMABLE,RISCapacity);
-        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,INDEX_RIS_1_CONSUMABLE,RISCapacity);
-        QLOG_DEBUG()<<"读取到试剂总容量:"<<AACapacity<<"-"<<ADPCapacity<<"-"<<EPICapacity<<"-"<<COLCapacity<<"-"<<RISCapacity<<endl;
-        _completeddel(REAGENT_CAPACITY);
-        _GroupReadParaCommder(AXIS_ORIGIN_X);
+			   consumables->updateReagentTotal(WRITE_OPERAT, config.mainIndex, capacities[i]);
+			   consumables->updateReagentTotal(WRITE_OPERAT, config.backupIndex, capacities[i]);
+		   }
+
+		   QLOG_DEBUG() << "读取到试剂总容量:"
+			   << capacities[0] << "-" << capacities[1] << "-"
+			   << capacities[2] << "-" << capacities[3] << "-"
+			   << capacities[4];
+
+		   completeddel(REAGENT_CAPACITY);
+		   GroupReadParaCommder(AXIS_ORIGIN_X);
+
+		}
+		catch (const std::exception& e) {
+			QLOG_ERROR() << "处理试剂容量时发生异常:" << e.what();
+		}
     }
     else
     {
@@ -2184,7 +2216,7 @@ void loadEquipmentPos::_recvReagentCapacity(const QStringList hexArry)
 }
 
 
-void loadEquipmentPos::_recvOrininAxis(const QStringList hexArry)
+void loadEquipmentPos::recvOrininAxis(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
@@ -2208,8 +2240,8 @@ void loadEquipmentPos::_recvOrininAxis(const QStringList hexArry)
                    <<"试剂区x:"<<recvdata[3]<<"弃杯x:"<<recvdata[4]<<endl;
         delete []recvdata;
 
-        _completeddel(AXIS_ORIGIN_X);
-        _GroupReadParaCommder(AXIS_ORIGIN_Y);
+        completeddel(AXIS_ORIGIN_X);
+        GroupReadParaCommder(AXIS_ORIGIN_Y);
     } else {
         _writeFinish(AXIS_ORIGIN_X);
         _sendWriteAxisOrder(AXIS_ORIGIN_Y);
@@ -2261,8 +2293,8 @@ void loadEquipmentPos::_recvOrininAxisY(const QStringList hexArry)
             iter++;
         }
 
-        _completeddel(AXIS_ORIGIN_Y);
-        _GroupReadParaCommder(AXIS_CHN1_5_X);
+        completeddel(AXIS_ORIGIN_Y);
+        GroupReadParaCommder(AXIS_CHN1_5_X);
     } else {
         _writeFinish(AXIS_ORIGIN_Y);
         _sendWriteAxisOrder(AXIS_CHN1_5_X);
@@ -2288,8 +2320,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXI_V(const QStringList hexArry)
         }
         delete []recvdata;
 
-        _completeddel(AXIS_CHN1_5_X);
-        _GroupReadParaCommder(AXIS_CHN1_5_Y);
+        completeddel(AXIS_CHN1_5_X);
+        GroupReadParaCommder(AXIS_CHN1_5_Y);
     }
     else
     {
@@ -2315,8 +2347,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinYI_V(const QStringList hexArry)
         }
         delete []recvdata;
 
-        _completeddel(AXIS_CHN1_5_Y);
-        _GroupReadParaCommder(AXIS_CHN6_10_X);
+        completeddel(AXIS_CHN1_5_Y);
+        GroupReadParaCommder(AXIS_CHN6_10_X);
     }else {
         _writeFinish(AXIS_CHN1_5_Y);
         _sendWriteAxisOrder(AXIS_CHN6_10_X);
@@ -2341,8 +2373,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata
         delete []recvdata;
 
 
-        _completeddel(AXIS_CHN6_10_X);
-        _GroupReadParaCommder(AXIS_CHN6_10_Y);
+        completeddel(AXIS_CHN6_10_X);
+        GroupReadParaCommder(AXIS_CHN6_10_Y);
     }
     else
     {
@@ -2367,8 +2399,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata
         }
         delete []recvdata;
 
-        _completeddel(AXIS_CHN6_10_Y);
-        _GroupReadParaCommder(AXIS_CHN11_12_X);
+        completeddel(AXIS_CHN6_10_Y);
+        GroupReadParaCommder(AXIS_CHN11_12_X);
     }
     else
     {
@@ -2388,8 +2420,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvda
         for(int i = 0 ;i< 3 ;i++)
             SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i,MOTOR_HANDS_INDEX,data_[i+2]);
 
-        _completeddel(AXIS_CHN11_12_X);
-        _GroupReadParaCommder(AXIS_CHN11_12_Y);
+        completeddel(AXIS_CHN11_12_X);
+        GroupReadParaCommder(AXIS_CHN11_12_Y);
     }
     else
     {
@@ -2408,8 +2440,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvda
         SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,11,MOTOR_REAGNET_INDEX,data_[1]);
         for(int i = 0 ;i< 3 ;i++)
             SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i,MOTOR_HANDS_INDEX,data_[i+2]);
-        _completeddel(AXIS_CHN11_12_Y);
-        _GroupReadParaCommder(AXIS_CHN4_8_HANDSX);
+        completeddel(AXIS_CHN11_12_Y);
+        GroupReadParaCommder(AXIS_CHN4_8_HANDSX);
     }
     else
     {
@@ -2426,8 +2458,8 @@ void loadEquipmentPos::_recvHandChnVI_IIIV_X(const QStringList ArryRecvdata)
         Translation_conversion(ArryRecvdata,data_);
         for(int i = 0 ;i< 5 ; i++)
             SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i+3,MOTOR_HANDS_INDEX,data_[i]);
-        _completeddel(AXIS_CHN4_8_HANDSX);
-        _GroupReadParaCommder(AXIS_CHN4_8_HANDSY);
+        completeddel(AXIS_CHN4_8_HANDSX);
+        GroupReadParaCommder(AXIS_CHN4_8_HANDSY);
     }
     else
     {
@@ -2444,8 +2476,8 @@ void loadEquipmentPos::_recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata)
         Translation_conversion(ArryRecvdata,data_);
         for(int i = 0 ;i< 5 ; i++)
             SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i+3,MOTOR_HANDS_INDEX,data_[i]);
-        _completeddel(AXIS_CHN4_8_HANDSY);
-        _GroupReadParaCommder(AXIS_CHN9_12_HANDSX);
+        completeddel(AXIS_CHN4_8_HANDSY);
+        GroupReadParaCommder(AXIS_CHN9_12_HANDSX);
     }
     else
     {
@@ -2464,8 +2496,8 @@ void loadEquipmentPos::_recvHandsChnX_XIII_X(const QStringList ArryRecvdata)
             SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i+8,MOTOR_HANDS_INDEX,data_[i]);
         SingletonAxis::GetInstance()->oper_bloodSampleZonePos(NOTIFY_XPOINT,0,data_[4]);
         //QLOG_DEBUG()<<"读取到血样区坐标x:"<<data_[4];
-        _completeddel(AXIS_CHN9_12_HANDSX);
-        _GroupReadParaCommder(AXIS_CHN9_12_HANDSY);
+        completeddel(AXIS_CHN9_12_HANDSX);
+        GroupReadParaCommder(AXIS_CHN9_12_HANDSY);
     }
     else
     {
@@ -2503,8 +2535,8 @@ void loadEquipmentPos::_recvHandsChnX_XIII_Y(const QStringList ArryRecvdata)
         }
         //QLOG_DEBUG()<<"生成所有血样孔坐标完成类型:"<<equipmenttype<<endl;
 
-        _completeddel(AXIS_CHN9_12_HANDSY);
-        _GroupReadParaCommder(AXIS_TRAY_OFFSET_BLOODPINX);
+        completeddel(AXIS_CHN9_12_HANDSY);
+        GroupReadParaCommder(AXIS_TRAY_OFFSET_BLOODPINX);
     }
     else
     {
@@ -2523,8 +2555,8 @@ void loadEquipmentPos::_recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvd
             SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,i+(i*59),MOTOR_BLOOD_INDEX,data_[i]);
         SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,0,MOTOR_HANDS_INDEX,data_[4]);
 
-        _completeddel(AXIS_TRAY_OFFSET_BLOODPINX);
-        _GroupReadParaCommder(AXIS_TRAY_OFFSET_BLOODPINY);
+        completeddel(AXIS_TRAY_OFFSET_BLOODPINX);
+        GroupReadParaCommder(AXIS_TRAY_OFFSET_BLOODPINY);
     }
     else
     {
@@ -2572,8 +2604,8 @@ void loadEquipmentPos::_recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvd
         }
         QLOG_DEBUG()<<"读取生成试管区血样针完成";
 
-        _completeddel(AXIS_TRAY_OFFSET_BLOODPINY);
-        _GroupReadParaCommder(AXIS_TRAY_OFFSET_HANDSX);
+        completeddel(AXIS_TRAY_OFFSET_BLOODPINY);
+        GroupReadParaCommder(AXIS_TRAY_OFFSET_HANDSX);
     }
     else
     {
@@ -2591,8 +2623,8 @@ void  loadEquipmentPos::_recvTraytubeoffsetHands_x(const QStringList ArryRecvdat
         for(int i = 1 ;i< 4 ; i++)
             SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,i+(i*59),MOTOR_HANDS_INDEX,data_[i -1]);
 
-        _completeddel(AXIS_TRAY_OFFSET_HANDSX);
-        _GroupReadParaCommder(AXIS_TRAY_OFFSET_HANDSY);
+        completeddel(AXIS_TRAY_OFFSET_HANDSX);
+        GroupReadParaCommder(AXIS_TRAY_OFFSET_HANDSY);
     }
     else
     {
@@ -2641,8 +2673,8 @@ void  loadEquipmentPos::_recvTraytubeoffsetHands_y(const QStringList ArryRecvdat
 
         QLOG_DEBUG()<<"读取生成试管区血样针完成 nexstep 读AA";
 
-        _completeddel(AXIS_TRAY_OFFSET_HANDSY);
-        _GroupReadParaCommder(BLOODPINPARAOTHERDATA);
+        completeddel(AXIS_TRAY_OFFSET_HANDSY);
+        GroupReadParaCommder(BLOODPINPARAOTHERDATA);
     }
     else
     {
@@ -2650,66 +2682,61 @@ void  loadEquipmentPos::_recvTraytubeoffsetHands_y(const QStringList ArryRecvdat
         _sendWriteAxisOrder(BLOODPINPARAOTHERDATA);
     }
 }
-void loadEquipmentPos::_recvBloodOtherdataAll(const QStringList hexArry)
+void loadEquipmentPos::recvBloodOtherdataAll(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
         double max_value = 400;
-        static const QString basickey = "InstrumentParameters";
-        const QString bloodpindownmmKey = QString("%1/%2").arg(basickey).arg("DownHighGrabTestCups");
-        const QString PPPConversionScaleKey = QString("%1/%2").arg(basickey).arg("PPPConversionScale");
-        const QString NullBackValueKey =    QString("%1/%2").arg(basickey).arg("NullBackValue");
-        const QString PhysicalHeightKey = QString("%1/%2").arg(basickey).arg("PhysicalHeight");
-        const QString CleanReagentDetectionDownHighKey = QString("%1/%2").arg(basickey).arg("CleanReagentDetectionDownHigh");
-        const QString NeedleInPlasmaModeKey = QString("%1/%2").arg(basickey).arg("NeedleInPlasmaMode");
-        const QString AnaemiaDetectionDownHighKey = QString("%1/%2").arg(basickey).arg("AnaemiaDetectionDownHigh");
-        const QString PRPkey = QString("%1/%2").arg(basickey).arg("PRPConvertTheratioColumn");
-        const QString testhightoffsetkey = QString("%1/%2").arg(basickey).arg("TestHeightDifference");
+        auto &ini = INI_File();
 
         bool ok;
         QString hexstr;
         hexstr = hexArry[5]; //血样针下降高度
         quint8 bloodNeedleDownHeigh = hexstr.toUInt(&ok,HEX_SWITCH);
-        loadParaData(false,m_ParaFilePath,bloodpindownmmKey, bloodNeedleDownHeigh);
+        ini.SetEmptyTubeDownHigh(bloodNeedleDownHeigh);
+
 
         hexstr = hexArry[6];//ppp样本系数
         quint8 PPPratio = hexstr.toUInt(&ok,HEX_SWITCH);
         double conversionScale = static_cast<double>((PPPratio/255.0) * max_value)/100.0; // 显式转换
-        loadParaData(false,m_ParaFilePath,PPPConversionScaleKey, conversionScale);
+        ini.SetPPPConversionScale(conversionScale);
+
 
         hexstr = hexArry[7];//空回
         quint8 NullBackValueValue = hexstr.toUInt(&ok,HEX_SWITCH);
-        loadParaData(false,m_ParaFilePath,NullBackValueKey,NullBackValueValue);
+        ini.SetSecurityValue(NullBackValueValue);
+
 
         hexstr = hexArry[8];//针到基准物高度
         quint8 PhysicalHeightValue = hexstr.toUInt(&ok,HEX_SWITCH);
-        loadParaData(false,m_ParaFilePath,PhysicalHeightKey,PhysicalHeightValue);
+        ini.SetFixedHigh(PhysicalHeightValue);
 
         hexstr = hexArry[9];//样本针探测清洗液失败下降高度
         quint8 CleanReagentDetectionDownHighValue = hexstr.toUInt(&ok,HEX_SWITCH);
-        loadParaData(false,m_ParaFilePath,CleanReagentDetectionDownHighKey,CleanReagentDetectionDownHighValue);
+        ini.SetFailedCleanLinqueHigh(CleanReagentDetectionDownHighValue);
 
         hexstr = hexArry[10];//血浆模式下降高度
         quint8 NeedleInPlasmaModeVal = hexstr.toUInt(&ok,HEX_SWITCH);
-        loadParaData(false,m_ParaFilePath,NeedleInPlasmaModeKey,NeedleInPlasmaModeVal);
+        ini.SetAbsorbTubeBottom(NeedleInPlasmaModeVal);
 
         hexstr = hexArry[11];//贫血探测失败下降高度
         quint8 PPPDetectionDownHigh = hexstr.toUInt(&ok,HEX_SWITCH);
-        loadParaData(false,m_ParaFilePath,AnaemiaDetectionDownHighKey,PPPDetectionDownHigh);
+        ini.SetFailedLinqueHigh(PPPDetectionDownHigh);
 
         hexstr = hexArry[12];//prp样本系数
         quint8 Prpratio = hexstr.toUInt(&ok,HEX_SWITCH);
         double valPrpratio = static_cast<double>((Prpratio/255.0) * max_value) / 100.0;
-        loadParaData(false,m_ParaFilePath,PRPkey, valPrpratio);
+        ini.setPRPConvertTheratioColumn(valPrpratio);
 
         hexstr = hexArry[13];
         quint8 testHeightoffset = hexstr.toInt(&ok,HEX_SWITCH);
         double valoffsetheigh = static_cast<double>(testHeightoffset) / 10.0;// 显式转换
-        loadParaData(false,m_ParaFilePath,testhightoffsetkey, valoffsetheigh);//测高偏移读上来/10
+        ini.SetTestDifference(valoffsetheigh);
+        //测高偏移读上来/10
         QLOG_DEBUG()<<"读取到测高偏移:"<<valoffsetheigh<<endl;
 
-        _completeddel(BLOODPINPARAOTHERDATA);
-        _GroupReadParaCommder(PARAREAGENTPINDATA_I);
+        completeddel(BLOODPINPARAOTHERDATA);
+        GroupReadParaCommder(PARAREAGENTPINDATA_I);
     }
     else
     {
@@ -2717,43 +2744,38 @@ void loadEquipmentPos::_recvBloodOtherdataAll(const QStringList hexArry)
         _sendWriteAxisOrder(PARAREAGENTPINDATA_I);
     }
 }
-void loadEquipmentPos::_recvReagentData(const QStringList hexArry)
+
+
+void loadEquipmentPos::recvReagentData(const QStringList hexArry)
 {
-	quint8 n = 5;
-	QMap<quint8, QString> KeyList;
-	KeyList.clear();
     if(!m_bReadorWrite)
     {
-        KeyList.insert(n,"InstrumentParameters/SuckReagent_AAvolume");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SuckReagent_ADPAvolume");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SuckReagent_EPIvolume");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SuckReagent_COLvolume");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SuckReagent_RISvolume");
 
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SpitReagent_AA_downHigh");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SpitReagent_ADP_downHigh");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SpitReagent_EPI_downHigh");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SpitReagent_COL_downHigh");
-        n++;
-        KeyList.insert(n,"InstrumentParameters/SpitReagent_RIS_downHigh");
-
-        auto iter = KeyList.constBegin();
-        while(iter != KeyList.constEnd())
-        {
-            quint8 data_ =  QString("%1").arg(hexArry.at(iter.key())).toInt(nullptr,HEX_SWITCH);
-            loadParaData(false,m_ParaFilePath,iter.value(),data_);
-            iter++;
+        // 检查数组长度是否足够
+        if (hexArry.size() < PROTOCOL_LENGTH) {
+            QLOG_ERROR() << "hexArry 0x17数据长度不足，无法读取试剂参数";
+            completeddel(PARAREAGENTPINDATA_I);
+            GroupReadParaCommder(PARAREAGENTPINDATA_II);
+            return;
         }
-        _completeddel(PARAREAGENTPINDATA_I);
-        _GroupReadParaCommder(PARAREAGENTPINDATA_II);
+
+        auto &ini = INI_File();
+        constexpr int kReagentCount = 5;  // 5 种试剂
+
+        for (int i = 0; i < kReagentCount; ++i) {
+            const int reagent = AA_REAGENT + i;
+
+                // 优化 避免重复计算，直接转换 hexArry
+            const quint8 suckVolume = hexArry.at(5 + i).toInt(nullptr, HEX_SWITCH);
+            ini.setTypesReagentSuckVolume(reagent, suckVolume);
+
+            const quint8 needleDownHigh = hexArry.at(10 + i).toInt(nullptr, HEX_SWITCH);
+            ini.setTypesReagentNeedleDownHigh(reagent, needleDownHigh);
+        }
+
+
+        completeddel(PARAREAGENTPINDATA_I);
+        GroupReadParaCommder(PARAREAGENTPINDATA_II);
     }
     else
 	{
@@ -2762,70 +2784,47 @@ void loadEquipmentPos::_recvReagentData(const QStringList hexArry)
     }
 }
 
-void loadEquipmentPos::_recvReagentDataOther(const QStringList hexArry)
+void loadEquipmentPos::recvReagentDataOther(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
-        struct ParamConfig {int index;QString key; std::function<QVariant(const QString&,bool*)> converter;};
+        auto &ini = INI_File();
+        if (hexArry.size() != PROTOCOL_LENGTH) {
+            QLOG_ERROR() << "hexArry 0x18数据长度不足";
+            completeddel(PARAREAGENTPINDATA_II);
+            GroupReadParaCommder(PARALIMINTBOTTLE);
+            return;
+        }
+        try {
+			// 基础参数设置
+			ini.SetAbsorbWashingfluidX1(hexArry.at(5).toInt(nullptr, HEX_SWITCH));
+			ini.setFailedCleanLinqueReagNeedle(hexArry.at(6).toInt(nullptr, HEX_SWITCH));
+			ini.SetFailedCleanLinqueHigh(hexArry.at(7).toInt(nullptr, HEX_SWITCH));
 
-        // 配置列表（索引从5开始）
-        const QVector<ParamConfig> params = {
-            {5,  "WashReagentNeedleAbsorbCleanning",
-                [](const QString& v,bool *ok) { return QVariant(v.toUShort(ok)); }},
-            {6,  "CleanReagentDetectionDownHigh_reagneedle",
-                [](const QString& v,bool *ok) { return QVariant(v.toUShort(ok)); }},
-            {7,  "ReagentDetectionDownHigh",
-                [](const QString& v,bool *ok) { return QVariant(v.toUShort(ok)); }},
-            {8,  "SuckReagent_AA_Ratio",
-                [](const QString& v,bool *ok) { 
-				double value = v.toDouble(ok);
-                return QVariant(*ok ? value / 100.0 : QVariant());
-			}},
-			{ 9,  "SuckReagent_ADP_Ratio",
-				[](const QString& v, bool* ok) {
-				double value = v.toDouble(ok);
-                return QVariant(*ok ? value / 100.0 : QVariant());
-			} },
-			{ 10, "SuckReagent_EPI_Ratio",
-				[](const QString& v, bool* ok) {
-				double value = v.toDouble(ok);
-                return QVariant(*ok ? value / 100.0 : QVariant());
-			} },
-			{ 11, "SuckReagent_COL_Ratio",
-				[](const QString& v, bool* ok) {
-				double value = v.toDouble(ok);
-                return QVariant(*ok ? value / 100.0 : QVariant());
-			} },
-			{ 12, "SuckReagent_RIS_Ratio",
-				[](const QString& v, bool* ok) {
-				double value = v.toDouble(ok);
-                return QVariant(*ok ? value / 100.0 : QVariant());
-			} }
-        };
+			// 试剂比例设置 - 使用数组和循环优化
+			const quint8 kReagents[] = {
+				AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+			};
+			const int reagentCount = sizeof(kReagents) / sizeof(kReagents[0]);
 
-        // 统一处理参数加载
-        for (const auto& param : params) {
-            if (hexArry.size() <= param.index) {
-                qWarning() << "Hex array index out of range:" << param.index;
-                continue;
-            }
-
-            bool ok = false;
-            QVariant value = param.converter(hexArry[param.index], &ok);
-			if (!ok || value.isNull()) {
-				qWarning() << "Invalid conversion at index" << param.index
-					<< "value:" << hexArry[param.index];
-				continue;
+			for (int i = 0; i < reagentCount; ++i) {
+				bool ok;
+				double ratio = hexArry.at(8 + i).toDouble(&ok) / 100.0;
+				if (!ok) {
+					QLOG_ERROR() << "Failed to convert hex value to double for reagent at index " << i;
+					ratio = 0.0; // Default value if conversion fails
+				}
+				ini.setTypesReagentSuckRatio(kReagents[i], ratio);
 			}
 
-            loadParaData(false,
-                        m_ParaFilePath,
-                        QString("InstrumentParameters/%1").arg(param.key),
-                        value);
-        }
+		}
+		catch (const std::exception &e) {
+			QLOG_ERROR() << "参数设置异常：" << e.what();
+			// 异常处理
+		}
 
-        _completeddel(PARAREAGENTPINDATA_II);
-        _GroupReadParaCommder(PARALIMINTBOTTLE);//发送写主板参数0x19
+      completeddel(PARAREAGENTPINDATA_II);
+      GroupReadParaCommder(PARALIMINTBOTTLE);//发送写主板参数0x19
     }
     else
     {
@@ -2862,10 +2861,10 @@ void loadEquipmentPos::recveBottleLimit(const QStringList hexArry)
         delete []psaveData;
 
         //接收解析0x19完成
-        _completeddel(PARALIMINTBOTTLE);
+        completeddel(PARALIMINTBOTTLE);
 
         //next0x1a== CONTROLGRIPPERPARA 抓手控制参数
-        _GroupReadParaCommder(CONTROLGRIPPERPARA);
+        GroupReadParaCommder(CONTROLGRIPPERPARA);
     }
     else
     {
@@ -2908,8 +2907,8 @@ void loadEquipmentPos::recveNegativePressure(const QStringList hexArry){
 
         ini.wBatchConfigPara(configs);
 
-        _completeddel(CONTROLGRIPPERPARA);//接收解析完控制抓手参数
-        _GroupReadParaCommder(MAINBORD_REAGENT_AA_INFO); //next开始读主板试剂信息
+        completeddel(CONTROLGRIPPERPARA);//接收解析完控制抓手参数
+        GroupReadParaCommder(MAINBORD_REAGENT_AA_INFO); //next开始读主板试剂信息
 
     }else{
 

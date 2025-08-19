@@ -13709,3 +13709,9 @@
 <font color="#FFFF00">[14:56:08提醒]仪器剩余试管数=175 [加样所需试管数=5]</font>
 <font color="#FFFF00">[14:56:08提醒]调光未完成,稍后添加!</font>
 <font color="#FFFF00">[14:56:35提醒]USB监听已停止!</font>
+<font color="#FFFF00">[17:53:18提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[17:53:18]USB监听已启动!</font>
+<font color="#FFFF00">[17:53:43提醒]USB监听已停止!</font>
+<font color="#FFFF00">[18:26:46提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:26:46]USB监听已启动!</font>
+<font color="#FFFF00">[18:27:14提醒]USB监听已停止!</font>

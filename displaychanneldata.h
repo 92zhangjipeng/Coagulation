@@ -99,6 +99,9 @@ private:
     /* 中值濾波 - 期數個書-排序-取中間*/
     int     optimizedMedianFiltering(QVector<int> &data);
 
+    int MedianEWMADynamicAdaptiveFilter(const QVector<int>& intVec);
+
+
     void    OutputModulTestResult();/*输出在测试的结果*/
 
     bool    sampleAbnormality(const int& initprp, const int anaemiaValue, const int&curprp,

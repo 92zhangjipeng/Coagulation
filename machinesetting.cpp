@@ -380,8 +380,9 @@ void MachineSetting::initSheet()
     GlobalData::QLineEditSheet(ui->lineEdit_maintenance);
     GlobalData::QCheckboxSheet(ui->checkBox_Recapture,tr("抓手重抓"));
     GlobalData::QCheckboxSheet(ui->checkBox_originTestData,tr("原始数据"));
-    GlobalData::QCheckboxSheet(ui->checkBox_average,tr("中位值平均滤波"));
+    GlobalData::QCheckboxSheet(ui->checkBox_average,tr("去极值平均滤波"));
     GlobalData::QCheckboxSheet(ui->checkBox_median,tr("中位值滤波"));
+    GlobalData::QCheckboxSheet(ui->checkBoxTriple,tr("三级自适应终端滤波"));
     GlobalData::QCheckboxSheet(ui->checkBox_Avg_cutnum,tr("分阶平均"));
     GlobalData::QCheckboxSheet(ui->checkBox_absorbance,tr("吸光度算法"));
     GlobalData::QCommboxSheet(ui->comboBox_CutNum);
@@ -392,6 +393,7 @@ void MachineSetting::initSheet()
     mResultMode->addButton(ui->checkBox_originTestData,FILTER_NO);
     mResultMode->addButton(ui->checkBox_average, FILTER_AVERAGE_VALUE);
     mResultMode->addButton(ui->checkBox_median, FILTER_MIDVALUE);
+    mResultMode->addButton(ui->checkBoxTriple,MEDIAN_EWMA_DYNAMIC);
     mResultMode->setExclusive(true);
 
     const int indexMode = INI_File().getFilteringMode();

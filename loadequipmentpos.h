@@ -459,25 +459,25 @@ private:
     void recvEquipmentKind(const QStringList hexArry); //0x00  收仪器型号？
 
     //0X01
-    void    recvParaIData(const QStringList hexArry);
+    void recvParaIData(const QStringList hexArry);
 
     //0x02
-    void    recvParaIIdData(const QStringList hexArry);
+    void recvParaIIdData(const QStringList hexArry);
 
     //0x03
-    void    recvReagentLimit(const QStringList hexArry);
+    void recvReagentLimit(const QStringList hexArry);
 
     //0x04
-    void    recvBloodPinq16data(const QStringList hexArry);
+    void recvBloodPinq16data(const QStringList hexArry);
 
     //0x16
-    void _recvBloodOtherdataAll(const QStringList hexArry);
+    void recvBloodOtherdataAll(const QStringList hexArry);
 
      //0x17
-    void _recvReagentData(const QStringList hexArry);
+    void recvReagentData(const QStringList hexArry);
 
     //0x18
-    void _recvReagentDataOther(const QStringList hexArry);
+    void recvReagentDataOther(const QStringList hexArry);
 
     //0x19
     void recveBottleLimit(const QStringList hexArry);
@@ -485,9 +485,9 @@ private:
     //0x1a 吸杯负压判断值
     void recveNegativePressure(const QStringList hexArry);
 
-    void  _recvReagentCapacity(const QStringList hexArry);
+    void recvReagentCapacity(const QStringList hexArry);
 
-    void _recvOrininAxis(const QStringList hexArry); //0x06 收到原点坐标x...
+    void recvOrininAxis(const QStringList hexArry); //0x06 收到原点坐标x...
 
     void _recvOrininAxisY(const QStringList hexArry); //0x07 收到原点坐标y...
 
@@ -530,9 +530,9 @@ private:
     void RecvSuippleNextStepOnlyRatio(const bool bRead,quint8 finished,quint8 nextSend,quint8 indexReagent,
                                       quint16 OneBottleRatio);
 
-    void _GroupReadParaCommder(quint8 index_); //发送读取仪器内坐标的命令
+    void GroupReadParaCommder(quint8 index_); //发送读取仪器内坐标的命令
 
-    void _completeddel(quint8 index_); //完成的删除
+    void completeddel(quint8 index_); //完成的删除
 
     //写坐标--begin
     void configAxisPoint(QPoint &input,uint x_,uint y_);

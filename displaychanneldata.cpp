@@ -277,18 +277,15 @@ void displayChanneldata::filteringStyle()
             filteredValues.append(0); // 默认值
             continue;
         }
+
+
         // 优化3：使用策略模式抽象滤波逻辑
         int result = 0;
         switch (filterMode) {
-            case FILTER_NO:
-                result = RecvData.last();
-            break;
-            case FILTER_AVERAGE_VALUE:
-                result = Medianaveragefiltering(RecvData);
-            break;
-            case FILTER_MIDVALUE:
-                result = optimizedMedianFiltering(RecvData);
-            break;
+            case FILTER_NO:             result =  RecvData.last();                   break;
+            case FILTER_AVERAGE_VALUE:  result =  Medianaveragefiltering(RecvData);  break;
+            case FILTER_MIDVALUE:       result =  optimizedMedianFiltering(RecvData);break;
+            case MEDIAN_EWMA_DYNAMIC:   result =  MedianEWMADynamicAdaptiveFilter(RecvData); break;
             default:
                 QLOG_WARN() << "未知滤波模式，使用默认无滤波";
                 result = RecvData.last();
@@ -569,37 +566,34 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,const quint8 ind
 //中位值平均滤波法
 int displayChanneldata::Medianaveragefiltering(QVector<int> RecvData)
 {
-    //在连续采集到的N个数据中，去掉最大值和最小值，
-    //剩下的N-2个数据求和再算平均，这个平均值作为采样值
+    if (RecvData.size() <= 2) {
+        return std::accumulate(RecvData.begin(), RecvData.end(), 0) / std::max(1, RecvData.size());
+    }
+
     int maxValue = *std::max_element(RecvData.begin(), RecvData.end());
     int minValue = *std::min_element(RecvData.begin(), RecvData.end());
     RecvData.removeOne(maxValue);
     RecvData.removeOne(minValue);
-    int sum = std::accumulate(RecvData.begin(), RecvData.end(), 0.0);
-    int mean = 0;
-    int size_len = RecvData.size();
-    if (size_len == 0){
-        mean = sum / 1; //均值
-        QLOG_DEBUG() << "中位值滤波被除数为 0";
-    }
-    else {
-        mean = sum / size_len; //均值
-    }
-    return mean;
+    const double sum = std::accumulate(RecvData.begin(), RecvData.end(), 0.0);
+    return static_cast<int>(sum / RecvData.size());
 }
 
 
-//中值濾波 - 期數個書-排序-取中間
+//中值滤波
 int displayChanneldata::optimizedMedianFiltering(QVector<int>& data)
 {
     if (data.isEmpty()) return 0;
     const int n = data.size();
-    std::nth_element(data.begin(), data.begin() + n / 2, data.end());
-    return data[n / 2];
+    const auto mid = data.begin() + n / 2;
+    std::nth_element(data.begin(), mid, data.end());
+    if (n % 2 == 1) {
+        return *mid;
+    } else {
+        // 偶数长度时取中间两个的平均值
+        const auto left_mid = std::max_element(data.begin(), mid);
+        return (*left_mid + *mid) / 2;
+    }
 }
-
-
-
 
 
 
@@ -630,3 +624,92 @@ void displayChanneldata::handleCleanModuleBuffData(){
     }
 
 }
+
+
+
+//级联中值+EWMA复合滤波
+
+// 中值滤波（抗脉冲噪声）
+QVector<double> medianFilter(const QVector<double>& data, int windowSize) {
+    QVector<double> result;
+    QVector<double> window(windowSize);
+
+    for (int i = 0; i < data.size(); ++i) {
+        // 获取滑动窗口数据（边界处理）
+        int start = qMax(0, i - windowSize/2);
+        int end = qMin(data.size()-1, i + windowSize/2);
+        window.clear();
+        for (int j = start; j <= end; ++j) {
+            window.append(data[j]);
+        }
+
+        // 排序并取中值
+        std::sort(window.begin(), window.end());
+        result.append(window[window.size()/2]);
+    }
+    return result;
+}
+
+// 指数加权移动平均（平滑随机波动）
+QVector<double> ewmaFilter(const QVector<double>& data, double alpha) {
+    QVector<double> result;
+    if (data.isEmpty()) return result;
+
+    result.append(data.first()); // 初始值
+    for (int i = 1; i < data.size(); ++i) {
+        result.append(alpha * data[i] + (1-alpha) * result.last());
+    }
+    return result;
+}
+
+// 级联复合滤波器
+QVector<double> cascadeMedianEWMA(const QVector<double>& data) {
+    // 第一级：3点中值滤波（建议奇数窗口）
+    QVector<double> medianFiltered = medianFilter(data, 3);
+
+    // 第二级：EWMA平滑（α=0.3适合大多数生物信号）
+    return ewmaFilter(medianFiltered, 0.3);
+}
+
+
+//动态权重终点优化（高级）
+//适用场景：对精度要求极高的场景（如医疗诊断）
+//原理：根据信噪比动态调整终点权重 结合趋势预测补偿滞后
+double getFinalOptimalValue(const QVector<double>& rawData) {
+    QVector<double> filtered = cascadeMedianEWMA(rawData);
+
+    // 1. 计算末端信噪比(SNR)
+    double noisePower = 0.0;
+    for(int i = 1; i < filtered.size(); ++i)
+        noisePower += qPow(filtered[i]-filtered[i-1], 2);
+    double snr = qAbs(filtered.last()) / (qSqrt(noisePower)+1e-6);
+
+    // 2. 动态权重融合
+    double alpha = qBound(0.6, 1.0 - 0.4/(1+snr), 0.9); // SNR越高越信任终点值
+    return alpha * filtered.last() +
+           (1 - alpha) * filtered[filtered.size()-2];
+}
+
+int displayChanneldata::MedianEWMADynamicAdaptiveFilter(const QVector<int>& intVec) {
+    //空数据安全处理
+    if (intVec.isEmpty()) {
+        QLOG_WARN() << "MedianEWMADynamicAdaptiveFilter: 输入数据为空";
+        return 0;
+    }
+
+    //高效类型转换（内存连续访问）
+    QVector<double> doubleData;
+    doubleData.reserve(intVec.size());
+
+    const int* src = intVec.constData();
+    for (int i = 0; i < intVec.size(); ++i) {
+        doubleData.append(static_cast<double>(src[i]));
+    }
+
+    //应用复合滤波算法
+    const double outResult = getFinalOptimalValue(doubleData);
+
+    //智能舍入策略（避免截断误差）
+    return static_cast<int>(std::round(outResult));
+}
+

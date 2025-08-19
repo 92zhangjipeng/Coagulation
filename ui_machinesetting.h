@@ -372,26 +372,38 @@ public:
     QPushButton *pushButtonHandsParaSave;
     QSpacerItem *horizontalSpacer_6;
     QWidget *tab;
-    QGroupBox *groupBox_curvepara;
     QGridLayout *gridLayout_7;
-    QCheckBox *checkBox_originTestData;
-    QCheckBox *checkBox_average;
-    QCheckBox *checkBox_median;
-    QLabel *label_basecutNum;
-    QComboBox *comboBox_CutNum;
-    QCheckBox *checkBox_Avg_cutnum;
-    QCheckBox *checkBoxExperimental;
-    QCheckBox *checkBox_absorbance;
-    QToolButton *toolButton_SaveCutnum;
-    QGroupBox *groupBox_2;
-    QVBoxLayout *verticalLayout_5;
-    QPushButton *pushButton_Adjustcoordinates;
     QGroupBox *groupBox_setfile;
     QGridLayout *gridLayout_13;
     QLineEdit *lineEdit_showPath;
     QToolButton *toolButton_Import;
     QLabel *label_path;
     QToolButton *toolButton_export;
+    QGroupBox *groupBox_2;
+    QVBoxLayout *verticalLayout_5;
+    QPushButton *pushButton_Adjustcoordinates;
+    QGroupBox *groupBox_curvepara;
+    QVBoxLayout *verticalLayout_7;
+    QGroupBox *groupBox_4;
+    QHBoxLayout *horizontalLayout;
+    QSpacerItem *horizontalSpacer_7;
+    QLabel *label_basecutNum;
+    QComboBox *comboBox_CutNum;
+    QCheckBox *checkBox_Avg_cutnum;
+    QSpacerItem *horizontalSpacer_8;
+    QGroupBox *groupBox_3;
+    QVBoxLayout *verticalLayout_6;
+    QCheckBox *checkBox_originTestData;
+    QCheckBox *checkBox_average;
+    QCheckBox *checkBox_median;
+    QCheckBox *checkBoxTriple;
+    QGroupBox *groupBox_6;
+    QVBoxLayout *verticalLayout_9;
+    QCheckBox *checkBox_absorbance;
+    QCheckBox *checkBoxExperimental;
+    QWidget *widget;
+    QGridLayout *gridLayout_15;
+    QToolButton *toolButton_SaveCutnum;
     QWidget *widget_loginpassword;
     QGridLayout *gridLayout_4;
     QSpacerItem *horizontalSpacer_3;
@@ -3933,10 +3945,15 @@ public:
         tabWidget_config->addTab(tab_hands, QString());
         tab = new QWidget();
         tab->setObjectName(QStringLiteral("tab"));
-        groupBox_curvepara = new QGroupBox(tab);
-        groupBox_curvepara->setObjectName(QStringLiteral("groupBox_curvepara"));
-        groupBox_curvepara->setGeometry(QRect(10, 0, 431, 251));
-        groupBox_curvepara->setStyleSheet(QString::fromUtf8("QGroupBox\n"
+        gridLayout_7 = new QGridLayout(tab);
+        gridLayout_7->setObjectName(QStringLiteral("gridLayout_7"));
+        gridLayout_7->setHorizontalSpacing(5);
+        gridLayout_7->setVerticalSpacing(20);
+        gridLayout_7->setContentsMargins(5, 5, 5, 5);
+        groupBox_setfile = new QGroupBox(tab);
+        groupBox_setfile->setObjectName(QStringLiteral("groupBox_setfile"));
+        groupBox_setfile->setMaximumSize(QSize(16777215, 120));
+        groupBox_setfile->setStyleSheet(QString::fromUtf8("QGroupBox\n"
 "{\n"
 "	border: 2px solid gray;\n"
 "	border-radius:10px;\n"
@@ -3957,88 +3974,50 @@ public:
 "QGroupBox::!enabled\n"
 "{\n"
 "	border: 1px solid gray;\n"
-"}"));
-        gridLayout_7 = new QGridLayout(groupBox_curvepara);
-        gridLayout_7->setSpacing(5);
-        gridLayout_7->setObjectName(QStringLiteral("gridLayout_7"));
-        gridLayout_7->setContentsMargins(20, 5, 5, 5);
-        checkBox_originTestData = new QCheckBox(groupBox_curvepara);
-        checkBox_originTestData->setObjectName(QStringLiteral("checkBox_originTestData"));
-        checkBox_originTestData->setMinimumSize(QSize(0, 30));
-        checkBox_originTestData->setFont(font6);
-        checkBox_originTestData->setStyleSheet(QStringLiteral(""));
-        checkBox_originTestData->setIconSize(QSize(32, 32));
+"}\n"
+"\n"
+""));
+        gridLayout_13 = new QGridLayout(groupBox_setfile);
+        gridLayout_13->setSpacing(5);
+        gridLayout_13->setObjectName(QStringLiteral("gridLayout_13"));
+        gridLayout_13->setContentsMargins(5, 5, 5, 5);
+        lineEdit_showPath = new QLineEdit(groupBox_setfile);
+        lineEdit_showPath->setObjectName(QStringLiteral("lineEdit_showPath"));
+        lineEdit_showPath->setMinimumSize(QSize(0, 30));
+        lineEdit_showPath->setFont(font5);
+        lineEdit_showPath->setStyleSheet(QStringLiteral(""));
+        lineEdit_showPath->setReadOnly(true);
 
-        gridLayout_7->addWidget(checkBox_originTestData, 0, 0, 1, 1);
+        gridLayout_13->addWidget(lineEdit_showPath, 0, 1, 1, 1);
 
-        checkBox_average = new QCheckBox(groupBox_curvepara);
-        checkBox_average->setObjectName(QStringLiteral("checkBox_average"));
-        checkBox_average->setMinimumSize(QSize(140, 30));
-        checkBox_average->setFont(font6);
-        checkBox_average->setStyleSheet(QStringLiteral(""));
-        checkBox_average->setIconSize(QSize(32, 32));
+        toolButton_Import = new QToolButton(groupBox_setfile);
+        toolButton_Import->setObjectName(QStringLiteral("toolButton_Import"));
+        toolButton_Import->setFont(font10);
+        toolButton_Import->setStyleSheet(QStringLiteral(""));
 
-        gridLayout_7->addWidget(checkBox_average, 0, 1, 1, 1);
+        gridLayout_13->addWidget(toolButton_Import, 0, 2, 1, 1);
 
-        checkBox_median = new QCheckBox(groupBox_curvepara);
-        checkBox_median->setObjectName(QStringLiteral("checkBox_median"));
-        checkBox_median->setMinimumSize(QSize(0, 30));
-        checkBox_median->setFont(font6);
-        checkBox_median->setStyleSheet(QStringLiteral(""));
-        checkBox_median->setIconSize(QSize(32, 32));
+        label_path = new QLabel(groupBox_setfile);
+        label_path->setObjectName(QStringLiteral("label_path"));
+        label_path->setMinimumSize(QSize(100, 0));
+        label_path->setFont(font6);
+        label_path->setAlignment(Qt::AlignCenter);
 
-        gridLayout_7->addWidget(checkBox_median, 0, 2, 1, 1);
+        gridLayout_13->addWidget(label_path, 0, 0, 1, 1);
 
-        label_basecutNum = new QLabel(groupBox_curvepara);
-        label_basecutNum->setObjectName(QStringLiteral("label_basecutNum"));
-        label_basecutNum->setMaximumSize(QSize(80, 30));
-        label_basecutNum->setFont(font6);
-        label_basecutNum->setStyleSheet(QStringLiteral(""));
+        toolButton_export = new QToolButton(groupBox_setfile);
+        toolButton_export->setObjectName(QStringLiteral("toolButton_export"));
+        toolButton_export->setFont(font10);
+        toolButton_export->setStyleSheet(QStringLiteral(""));
 
-        gridLayout_7->addWidget(label_basecutNum, 1, 0, 1, 1);
+        gridLayout_13->addWidget(toolButton_export, 1, 2, 1, 1);
 
-        comboBox_CutNum = new QComboBox(groupBox_curvepara);
-        comboBox_CutNum->setObjectName(QStringLiteral("comboBox_CutNum"));
-        comboBox_CutNum->setMinimumSize(QSize(0, 30));
-        comboBox_CutNum->setStyleSheet(QStringLiteral(""));
 
-        gridLayout_7->addWidget(comboBox_CutNum, 1, 1, 1, 1);
-
-        checkBox_Avg_cutnum = new QCheckBox(groupBox_curvepara);
-        checkBox_Avg_cutnum->setObjectName(QStringLiteral("checkBox_Avg_cutnum"));
-        checkBox_Avg_cutnum->setMinimumSize(QSize(0, 30));
-        checkBox_Avg_cutnum->setFont(font6);
-        checkBox_Avg_cutnum->setStyleSheet(QStringLiteral(""));
-        checkBox_Avg_cutnum->setIconSize(QSize(32, 32));
-
-        gridLayout_7->addWidget(checkBox_Avg_cutnum, 1, 2, 1, 1);
-
-        checkBoxExperimental = new QCheckBox(groupBox_curvepara);
-        checkBoxExperimental->setObjectName(QStringLiteral("checkBoxExperimental"));
-        checkBoxExperimental->setMinimumSize(QSize(0, 30));
-        checkBoxExperimental->setFont(font6);
-
-        gridLayout_7->addWidget(checkBoxExperimental, 2, 0, 1, 1);
-
-        checkBox_absorbance = new QCheckBox(groupBox_curvepara);
-        checkBox_absorbance->setObjectName(QStringLiteral("checkBox_absorbance"));
-        checkBox_absorbance->setMinimumSize(QSize(0, 30));
-        checkBox_absorbance->setFont(font6);
-
-        gridLayout_7->addWidget(checkBox_absorbance, 2, 1, 1, 1);
-
-        toolButton_SaveCutnum = new QToolButton(groupBox_curvepara);
-        toolButton_SaveCutnum->setObjectName(QStringLiteral("toolButton_SaveCutnum"));
-        toolButton_SaveCutnum->setMinimumSize(QSize(120, 30));
-        toolButton_SaveCutnum->setStyleSheet(QStringLiteral(""));
-        toolButton_SaveCutnum->setPopupMode(QToolButton::DelayedPopup);
-        toolButton_SaveCutnum->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-
-        gridLayout_7->addWidget(toolButton_SaveCutnum, 3, 1, 1, 2);
+        gridLayout_7->addWidget(groupBox_setfile, 1, 0, 1, 2);
 
         groupBox_2 = new QGroupBox(tab);
         groupBox_2->setObjectName(QStringLiteral("groupBox_2"));
-        groupBox_2->setGeometry(QRect(10, 260, 421, 221));
+        groupBox_2->setMinimumSize(QSize(200, 0));
         groupBox_2->setStyleSheet(QString::fromUtf8("QGroupBox\n"
 "{\n"
 "	border: 2px solid gray;\n"
@@ -4071,11 +4050,13 @@ public:
 
         verticalLayout_5->addWidget(pushButton_Adjustcoordinates);
 
-        groupBox_setfile = new QGroupBox(tab);
-        groupBox_setfile->setObjectName(QStringLiteral("groupBox_setfile"));
-        groupBox_setfile->setGeometry(QRect(10, 510, 1021, 98));
-        groupBox_setfile->setMaximumSize(QSize(16777215, 120));
-        groupBox_setfile->setStyleSheet(QString::fromUtf8("QGroupBox\n"
+
+        gridLayout_7->addWidget(groupBox_2, 0, 1, 1, 1);
+
+        groupBox_curvepara = new QGroupBox(tab);
+        groupBox_curvepara->setObjectName(QStringLiteral("groupBox_curvepara"));
+        groupBox_curvepara->setMaximumSize(QSize(600, 16777215));
+        groupBox_curvepara->setStyleSheet(QString::fromUtf8("QGroupBox\n"
 "{\n"
 "	border: 2px solid gray;\n"
 "	border-radius:10px;\n"
@@ -4096,41 +4077,139 @@ public:
 "QGroupBox::!enabled\n"
 "{\n"
 "	border: 1px solid gray;\n"
-"}\n"
-"\n"
-""));
-        gridLayout_13 = new QGridLayout(groupBox_setfile);
-        gridLayout_13->setObjectName(QStringLiteral("gridLayout_13"));
-        lineEdit_showPath = new QLineEdit(groupBox_setfile);
-        lineEdit_showPath->setObjectName(QStringLiteral("lineEdit_showPath"));
-        lineEdit_showPath->setMinimumSize(QSize(0, 30));
-        lineEdit_showPath->setFont(font5);
-        lineEdit_showPath->setStyleSheet(QStringLiteral(""));
-        lineEdit_showPath->setReadOnly(true);
+"}"));
+        verticalLayout_7 = new QVBoxLayout(groupBox_curvepara);
+        verticalLayout_7->setSpacing(5);
+        verticalLayout_7->setObjectName(QStringLiteral("verticalLayout_7"));
+        verticalLayout_7->setContentsMargins(5, 5, 5, 5);
+        groupBox_4 = new QGroupBox(groupBox_curvepara);
+        groupBox_4->setObjectName(QStringLiteral("groupBox_4"));
+        horizontalLayout = new QHBoxLayout(groupBox_4);
+        horizontalLayout->setSpacing(5);
+        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
+        horizontalLayout->setContentsMargins(5, 5, 5, 5);
+        horizontalSpacer_7 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
 
-        gridLayout_13->addWidget(lineEdit_showPath, 0, 1, 1, 1);
+        horizontalLayout->addItem(horizontalSpacer_7);
 
-        toolButton_Import = new QToolButton(groupBox_setfile);
-        toolButton_Import->setObjectName(QStringLiteral("toolButton_Import"));
-        toolButton_Import->setFont(font10);
-        toolButton_Import->setStyleSheet(QStringLiteral(""));
+        label_basecutNum = new QLabel(groupBox_4);
+        label_basecutNum->setObjectName(QStringLiteral("label_basecutNum"));
+        label_basecutNum->setMaximumSize(QSize(80, 30));
+        label_basecutNum->setFont(font6);
+        label_basecutNum->setStyleSheet(QStringLiteral(""));
 
-        gridLayout_13->addWidget(toolButton_Import, 0, 2, 1, 1);
+        horizontalLayout->addWidget(label_basecutNum);
 
-        label_path = new QLabel(groupBox_setfile);
-        label_path->setObjectName(QStringLiteral("label_path"));
-        label_path->setMinimumSize(QSize(100, 0));
-        label_path->setFont(font6);
-        label_path->setAlignment(Qt::AlignCenter);
+        comboBox_CutNum = new QComboBox(groupBox_4);
+        comboBox_CutNum->setObjectName(QStringLiteral("comboBox_CutNum"));
+        comboBox_CutNum->setMinimumSize(QSize(180, 30));
+        comboBox_CutNum->setStyleSheet(QStringLiteral(""));
 
-        gridLayout_13->addWidget(label_path, 0, 0, 1, 1);
+        horizontalLayout->addWidget(comboBox_CutNum);
 
-        toolButton_export = new QToolButton(groupBox_setfile);
-        toolButton_export->setObjectName(QStringLiteral("toolButton_export"));
-        toolButton_export->setFont(font10);
-        toolButton_export->setStyleSheet(QStringLiteral(""));
+        checkBox_Avg_cutnum = new QCheckBox(groupBox_4);
+        checkBox_Avg_cutnum->setObjectName(QStringLiteral("checkBox_Avg_cutnum"));
+        checkBox_Avg_cutnum->setMinimumSize(QSize(0, 30));
+        checkBox_Avg_cutnum->setFont(font6);
+        checkBox_Avg_cutnum->setStyleSheet(QStringLiteral(""));
+        checkBox_Avg_cutnum->setIconSize(QSize(32, 32));
 
-        gridLayout_13->addWidget(toolButton_export, 1, 2, 1, 1);
+        horizontalLayout->addWidget(checkBox_Avg_cutnum);
+
+        horizontalSpacer_8 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        horizontalLayout->addItem(horizontalSpacer_8);
+
+
+        verticalLayout_7->addWidget(groupBox_4);
+
+        groupBox_3 = new QGroupBox(groupBox_curvepara);
+        groupBox_3->setObjectName(QStringLiteral("groupBox_3"));
+        verticalLayout_6 = new QVBoxLayout(groupBox_3);
+        verticalLayout_6->setSpacing(5);
+        verticalLayout_6->setObjectName(QStringLiteral("verticalLayout_6"));
+        verticalLayout_6->setContentsMargins(5, 0, 5, 5);
+        checkBox_originTestData = new QCheckBox(groupBox_3);
+        checkBox_originTestData->setObjectName(QStringLiteral("checkBox_originTestData"));
+        checkBox_originTestData->setMinimumSize(QSize(0, 30));
+        checkBox_originTestData->setFont(font6);
+        checkBox_originTestData->setStyleSheet(QStringLiteral(""));
+        checkBox_originTestData->setIconSize(QSize(32, 32));
+
+        verticalLayout_6->addWidget(checkBox_originTestData);
+
+        checkBox_average = new QCheckBox(groupBox_3);
+        checkBox_average->setObjectName(QStringLiteral("checkBox_average"));
+        checkBox_average->setMinimumSize(QSize(140, 30));
+        checkBox_average->setFont(font6);
+        checkBox_average->setStyleSheet(QStringLiteral(""));
+        checkBox_average->setIconSize(QSize(32, 32));
+
+        verticalLayout_6->addWidget(checkBox_average);
+
+        checkBox_median = new QCheckBox(groupBox_3);
+        checkBox_median->setObjectName(QStringLiteral("checkBox_median"));
+        checkBox_median->setMinimumSize(QSize(0, 30));
+        checkBox_median->setFont(font6);
+        checkBox_median->setStyleSheet(QStringLiteral(""));
+        checkBox_median->setIconSize(QSize(32, 32));
+
+        verticalLayout_6->addWidget(checkBox_median);
+
+        checkBoxTriple = new QCheckBox(groupBox_3);
+        checkBoxTriple->setObjectName(QStringLiteral("checkBoxTriple"));
+        checkBoxTriple->setFont(font6);
+
+        verticalLayout_6->addWidget(checkBoxTriple);
+
+
+        verticalLayout_7->addWidget(groupBox_3);
+
+        groupBox_6 = new QGroupBox(groupBox_curvepara);
+        groupBox_6->setObjectName(QStringLiteral("groupBox_6"));
+        verticalLayout_9 = new QVBoxLayout(groupBox_6);
+        verticalLayout_9->setSpacing(5);
+        verticalLayout_9->setObjectName(QStringLiteral("verticalLayout_9"));
+        verticalLayout_9->setContentsMargins(5, 5, 5, 5);
+        checkBox_absorbance = new QCheckBox(groupBox_6);
+        checkBox_absorbance->setObjectName(QStringLiteral("checkBox_absorbance"));
+        checkBox_absorbance->setMinimumSize(QSize(0, 30));
+        checkBox_absorbance->setFont(font6);
+
+        verticalLayout_9->addWidget(checkBox_absorbance);
+
+        checkBoxExperimental = new QCheckBox(groupBox_6);
+        checkBoxExperimental->setObjectName(QStringLiteral("checkBoxExperimental"));
+        checkBoxExperimental->setMinimumSize(QSize(0, 30));
+        checkBoxExperimental->setFont(font6);
+
+        verticalLayout_9->addWidget(checkBoxExperimental);
+
+
+        verticalLayout_7->addWidget(groupBox_6);
+
+        widget = new QWidget(groupBox_curvepara);
+        widget->setObjectName(QStringLiteral("widget"));
+        widget->setMinimumSize(QSize(0, 20));
+        widget->setMaximumSize(QSize(16777215, 40));
+        gridLayout_15 = new QGridLayout(widget);
+        gridLayout_15->setSpacing(0);
+        gridLayout_15->setObjectName(QStringLiteral("gridLayout_15"));
+        gridLayout_15->setContentsMargins(0, 0, 0, 0);
+        toolButton_SaveCutnum = new QToolButton(widget);
+        toolButton_SaveCutnum->setObjectName(QStringLiteral("toolButton_SaveCutnum"));
+        toolButton_SaveCutnum->setMinimumSize(QSize(120, 30));
+        toolButton_SaveCutnum->setStyleSheet(QStringLiteral(""));
+        toolButton_SaveCutnum->setPopupMode(QToolButton::DelayedPopup);
+        toolButton_SaveCutnum->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+
+        gridLayout_15->addWidget(toolButton_SaveCutnum, 0, 0, 1, 1);
+
+
+        verticalLayout_7->addWidget(widget);
+
+
+        gridLayout_7->addWidget(groupBox_curvepara, 0, 0, 1, 1);
 
         tabWidget_config->addTab(tab, QString());
 
@@ -4242,7 +4321,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(2);
+        tabWidget_config->setCurrentIndex(3);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);
@@ -4460,21 +4539,25 @@ public:
         pushButtonsplitAirs->setText(QApplication::translate("MachineSetting", "\345\205\263\351\227\255\350\264\237\345\216\213", nullptr));
         pushButtonHandsParaSave->setText(QApplication::translate("MachineSetting", "\344\277\235\345\255\230", nullptr));
         tabWidget_config->setTabText(tabWidget_config->indexOf(tab_hands), QApplication::translate("MachineSetting", "\346\212\223\346\211\213\351\205\215\347\275\256\345\217\202\346\225\260", nullptr));
-        groupBox_curvepara->setTitle(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\346\233\262\347\272\277\346\250\241\345\274\217", nullptr));
-        checkBox_originTestData->setText(QApplication::translate("MachineSetting", "\345\216\237\345\247\213\346\225\260\346\215\256", nullptr));
-        checkBox_average->setText(QApplication::translate("MachineSetting", "\344\270\255\344\275\215\345\200\274\345\271\263\345\235\207\346\273\244\346\263\242", nullptr));
-        checkBox_median->setText(QApplication::translate("MachineSetting", "\344\270\255\344\275\215\345\200\274\346\273\244\346\263\242", nullptr));
-        label_basecutNum->setText(QApplication::translate("MachineSetting", "\345\210\206\351\230\266\346\225\260:", nullptr));
-        checkBox_Avg_cutnum->setText(QApplication::translate("MachineSetting", "\345\210\206\351\230\266\345\271\263\345\235\207", nullptr));
-        checkBoxExperimental->setText(QApplication::translate("MachineSetting", "\345\256\236\351\252\214\346\250\241\345\274\217", nullptr));
-        checkBox_absorbance->setText(QApplication::translate("MachineSetting", "\345\220\270\345\205\211\345\272\246\347\256\227\346\263\225", nullptr));
-        toolButton_SaveCutnum->setText(QApplication::translate("MachineSetting", "\347\241\256\345\256\232", nullptr));
-        groupBox_2->setTitle(QApplication::translate("MachineSetting", "\346\240\241\345\207\206", nullptr));
-        pushButton_Adjustcoordinates->setText(QApplication::translate("MachineSetting", "\346\240\241\345\207\206\345\235\220\346\240\207", nullptr));
         groupBox_setfile->setTitle(QApplication::translate("MachineSetting", "\345\235\220\346\240\207\346\226\207\344\273\266\345\217\202\346\225\260\346\226\207\344\273\266\345\257\274\345\205\245\344\270\216\345\257\274\345\207\272", nullptr));
         toolButton_Import->setText(QApplication::translate("MachineSetting", "\345\257\274\345\205\245", nullptr));
         label_path->setText(QApplication::translate("MachineSetting", "\346\226\207\344\273\266\350\267\257\345\276\204\357\274\232", nullptr));
         toolButton_export->setText(QApplication::translate("MachineSetting", "\345\257\274\345\207\272", nullptr));
+        groupBox_2->setTitle(QApplication::translate("MachineSetting", "\346\240\241\345\207\206", nullptr));
+        pushButton_Adjustcoordinates->setText(QApplication::translate("MachineSetting", "\346\240\241\345\207\206\345\235\220\346\240\207", nullptr));
+        groupBox_curvepara->setTitle(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\346\233\262\347\272\277\346\250\241\345\274\217", nullptr));
+        groupBox_4->setTitle(QApplication::translate("MachineSetting", "\347\273\230\347\202\271\346\250\241\345\274\217", nullptr));
+        label_basecutNum->setText(QApplication::translate("MachineSetting", "\345\210\206\351\230\266\346\225\260:", nullptr));
+        checkBox_Avg_cutnum->setText(QApplication::translate("MachineSetting", "\345\210\206\351\230\266\345\271\263\345\235\207", nullptr));
+        groupBox_3->setTitle(QApplication::translate("MachineSetting", "\346\225\260\346\215\256\351\207\207\351\233\206\346\250\241\345\274\217", nullptr));
+        checkBox_originTestData->setText(QApplication::translate("MachineSetting", "\345\216\237\345\247\213\346\225\260\346\215\256", nullptr));
+        checkBox_average->setText(QApplication::translate("MachineSetting", "\345\216\273\346\236\201\345\200\274\345\271\263\345\235\207\346\273\244\346\263\242", nullptr));
+        checkBox_median->setText(QApplication::translate("MachineSetting", "\344\270\255\344\275\215\345\200\274\346\273\244\346\263\242", nullptr));
+        checkBoxTriple->setText(QApplication::translate("MachineSetting", "\344\270\211\347\272\247\350\207\252\351\200\202\345\272\224\347\273\210\347\253\257\346\273\244\346\263\242", nullptr));
+        groupBox_6->setTitle(QApplication::translate("MachineSetting", "\350\276\223\345\207\272\346\250\241\345\274\217", nullptr));
+        checkBox_absorbance->setText(QApplication::translate("MachineSetting", "\345\220\270\345\205\211\345\272\246\347\256\227\346\263\225", nullptr));
+        checkBoxExperimental->setText(QApplication::translate("MachineSetting", "\345\256\236\351\252\214\346\250\241\345\274\217", nullptr));
+        toolButton_SaveCutnum->setText(QApplication::translate("MachineSetting", "\347\241\256\345\256\232", nullptr));
         tabWidget_config->setTabText(tabWidget_config->indexOf(tab), QApplication::translate("MachineSetting", "\346\240\241\345\207\206\345\235\220\346\240\207", nullptr));
         label_maintenance->setText(QApplication::translate("MachineSetting", "\347\273\264\346\212\244\345\257\206\347\240\201\357\274\232", nullptr));
         pushButton_maintenance->setText(QApplication::translate("MachineSetting", "\347\231\273\345\275\225\347\273\264\346\212\244", nullptr));
