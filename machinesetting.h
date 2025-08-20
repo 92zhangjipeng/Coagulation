@@ -91,9 +91,23 @@ private:
     void itemChangeValue(const int row,const int cols, const int val);
 
     void initSheet();//初始化设置界面的控件样式
-    void intsignalsMable(); //信号与槽连接
+
+    //信号与槽连接
+    void intsignalsMable();
+
     void initSettinggeneralParameters(); //初始化配置普通参数
-    void ReagentConfigParaSetOrGet(bool bsetConfig);  /*true set试剂针配置参数*///初始化试剂参数
+
+
+    /*true set试剂针配置参数*///初始化试剂参数
+    void ReagentConfigParaSetOrGet(const bool bsetConfig);
+    //写
+    void configWrite2BoardReagentNeedlePara();
+    void updateReagentCapacityAndLimit();
+    void writeConsumablesToInstrument();
+    //初始化
+    void initBoardReagentNeedlePara();
+
+
     void initdisplaymoduleChn(const quint8 equipmentIndex);  //初始化显示模组
     void ImportParameters(const quint8 equipmentIndex);   /*初始化仪器配置参数all*/
     void initloginpassword();
@@ -139,8 +153,8 @@ public:
     void init_TabHospitalInfo();
     void initializeHospitalDepartmentInformation();
 
-
-    void updatepara(const bool isTesting); //更新参数
+    //更新参数
+    void updatepara(const bool isTesting);
 
 
     //修改密码
@@ -198,13 +212,11 @@ private slots:
     void on_pushButton_Adjustcoordinates_clicked();
     void on_pushButtonsplitAirs_clicked();
     void on_pushButtonopenSuck_clicked();
+    void on_pushButtonsavedimming_clicked();
 
 public:
-    void ByteArrayToHexString(int data,QByteArray &arry); //转换成16进制
 
     void InitTabTwoDate(int tabnum ,QString str);
-
-    void AnalyticalJsonOne();
 
     void AnalyticalJsonTwo(QStringList); //解析
 
@@ -232,7 +244,7 @@ signals:
 
     void WriteArryCommand(const QByteArray arry, QString kindCommad);
 
-    void _testdownheight(QByteArrayList ,int ); //调试下降高度
+    void testdownheight(QByteArrayList ,int ); //调试下降高度
 
     void controlallchn(bool bopened); //所有通道的开关
 
@@ -241,13 +253,12 @@ signals:
     void SetParatoInstrument(const QByteArrayList,QString ); /*配置基础参数到仪器*/
 
 
-
     void Synchronizeupdates(); //同步更新患者详细信息
 
     void ModifyUsername(QString);//选中用户修改密码
 
-    void config_modul_temp(quint8 indexmodul, double modultemp); /*设置单个模组温度*/
-
+     /*设置单个模组温度*/
+    void config_modul_temp(quint8 indexmodul, double modultemp);
 
 private:
     void    engineerLogin(bool makesure); //工程师登录
@@ -258,17 +269,22 @@ private:
 
     void    handleButtonAction(const int moduleIndex, int col);
 
-    void    configvalue_to_equipment_capactity(); //把试剂容量写入到仪器
 
-    void    configvalue_to_equipment_Limit();//把耗材限位写入到仪器
 
-    void    notifyReagentPinParaToBoard(); //写试剂针参数
+
+    //写试剂针参数
+    void    notifyReagentPinParaToBoard();
 
     void    LabelTextColors(QLabel *ptextReminder,QColor color,QString reminderStr);//设置提示文字字体颜色
 
     void    sendmainbordBasicPara();  /*机器要用得参数保存*/
     void    HandsParaWriteBoard();
     void    BloodPinParaWriteBoadr();
+
+    QByteArray outParaOx1aWrite();
+
+    //调光值写入到主板
+    void configWriteDimming2Board();
 
 
 
@@ -325,8 +341,8 @@ private:
 
     QVector<QDoubleSpinBox *> ksetTempSpinboxList;
     QList<QSpinBox *> m_capactityList;   //试剂容量
-    QList<QSpinBox *> m_limitratioList; //试剂限位
-    QList<QSpinBox *> m_setvalueList;
+    QList<QSpinBox *> m_limitratioList;  //试剂限位
+
 
     bool m_initedDimmingTable = false; //插入通道调整参数到表格完成状态
 
@@ -356,6 +372,24 @@ private:
 
     void connectEnterReturnShortcuts();
     void disconnectEnterReturnShortcuts();
+
+
+    // 私有辅助模板函数
+    template<typename T, typename ValueType>
+    std::array<ValueType, 5> getUiValues(
+        const std::array<T*, 5>& spinBoxes)
+    {
+        std::array<ValueType, 5> values;
+        for (int i = 0; i < 5; ++i) {
+            if (spinBoxes[i]) {
+                values[i] = static_cast<ValueType>(spinBoxes[i]->value());
+            } else {
+                values[i] = ValueType{};
+                QLOG_WARN() << "Invalid spinbox pointer at index:" << i;
+            }
+        }
+        return values;
+    }
 
 };
 

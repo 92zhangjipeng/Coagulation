@@ -13715,3 +13715,72 @@
 <font color="#FFFF00">[18:26:46提醒]设备路径识别失败!禁用USB选择性暂停失败</font>
 <font color="#FFFFFF">[18:26:46]USB监听已启动!</font>
 <font color="#FFFF00">[18:27:14提醒]USB监听已停止!</font>
+<font color="#FF3030">[09:04:40异常]设备的 USB 选择性暂停禁用失败!()</font>
+<font color="#FFFFFF">[09:04:40]USB监听已启动!</font>
+<font color="#FFFF00">[09:05:33提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[09:05:35提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[09:05:37提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[09:05:49提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[09:06:58提醒]暂停 获取模组和主板数据</font>
+<font color="#FFFF00">[09:06:59提醒]恢复继续获取模组和主板数据</font>
+<font color="#FFFF00">[09:07:01提醒]暂停 获取模组和主板数据</font>
+<font color="#FFFF00">[09:07:02提醒]恢复继续获取模组和主板数据</font>
+<font color="#FFFF00">[09:07:04提醒]暂停 获取模组和主板数据</font>
+<font color="#FFFF00">[09:07:05提醒]恢复继续获取模组和主板数据</font>
+<font color="#FFFF00">[09:12:09提醒]USB监听已停止!</font>
+<font color="#FF3030">[09:15:16异常]设备的 USB 选择性暂停禁用失败!()</font>
+<font color="#FFFFFF">[09:15:16]USB监听已启动!</font>
+<font color="#FFFF00">[09:16:09提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[09:16:11提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[09:16:11提醒]忽略试管盘1脱位提示</font>
+<font color="#FF3030">[09:35:03异常]设备的 USB 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[09:35:03]USB监听已启动!</font>
+<font color="#FFFF00">[09:35:43提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[09:35:44提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[09:35:44提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[09:35:57提醒]USB监听已停止!</font>
+<font color="#FF3030">[10:13:38异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[10:13:38]USB监听已启动!</font>
+<font color="#FFFF00">[10:14:18提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[10:14:19提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[10:14:19提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[10:15:40提醒]USB监听已停止!</font>
+<font color="#FF3030">[11:49:49异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[11:49:49]USB监听已启动!</font>
+<font color="#FFFF00">[11:50:28提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[11:50:31提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[11:50:32提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[11:51:23提醒]USB监听已停止!</font>
+<font color="#FF3030">[12:19:12异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[12:19:12]USB监听已启动!</font>
+<font color="#FFFF00">[12:19:51提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[12:19:53提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[12:19:53提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[12:21:24提醒]USB监听已停止!</font>
+<font color="#FF3030">[14:13:44异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[14:13:44]USB监听已启动!</font>
+<font color="#FFFF00">[14:14:24提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[14:14:25提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[14:14:25提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[14:14:33提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[14:15:41提醒]暂停 获取模组和主板数据</font>
+<font color="#FFFF00">[14:15:42提醒]恢复继续获取模组和主板数据</font>
+<font color="#FFFF00">[14:16:43提醒]USB监听已停止!</font>
+<font color="#FFFF00">[14:44:52提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[14:44:52]USB监听已启动!</font>
+<font color="#FFFF00">[14:45:16提醒]USB监听已停止!</font>
+<font color="#FFFF00">[14:47:18提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[14:47:18]USB监听已启动!</font>
+<font color="#FFFF00">[14:47:34提醒]USB监听已停止!</font>
+<font color="#FFFF00">[17:25:25提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[17:25:25]USB监听已启动!</font>
+<font color="#FFFF00">[17:27:28提醒]USB监听已停止!</font>
+<font color="#FFFF00">[17:31:50提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[17:31:50]USB监听已启动!</font>
+<font color="#FFFF00">[17:33:13提醒]USB监听已停止!</font>
+<font color="#FFFF00">[17:35:20提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[17:35:20]USB监听已启动!</font>
+<font color="#FFFF00">[17:35:31提醒]USB监听已停止!</font>
+<font color="#FFFF00">[17:36:38提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[17:36:38]USB监听已启动!</font>
+<font color="#FFFF00">[17:37:21提醒]USB监听已停止!</font>

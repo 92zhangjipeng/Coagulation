@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <QFile>
 #include <QTextStream>
+#include <array>
 
 SingletonAxis *SingletonAxis::g_pSingletonAxis = new (std::nothrow) SingletonAxis;
 EquipmentAXIS_ *SingletonAxis::g_pEquipAxiaspos = NULL;
@@ -1660,7 +1661,8 @@ void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList A
         {PARAREAGENTPINDATA_I, [&](const QStringList& data) { recvReagentData(data); }},
         {PARAREAGENTPINDATA_II, [&](const QStringList& data) { recvReagentDataOther(data); }},
         {PARALIMINTBOTTLE, [&](const QStringList& data) { recveBottleLimit(data); }},
-        {CONTROLGRIPPERPARA, [&](const QStringList& data) { recveNegativePressure(data); }}
+        {CONTROLGRIPPERPARA, [&](const QStringList& data) { recveNegativePressure(data); }},
+		{CONTROL_MODULEDIMMINGVALUE, [&](const QStringList& data) { recveModuleDataPressure(data); }}
     };
     // 查找并调用对应的处理函数
     auto it = handlerMap.find(index_);
@@ -1815,6 +1817,14 @@ void loadEquipmentPos::groupReagentinfo(bool bread)
         pgripperPara->readfinish = false;
         mwriteAxismap.insert(CONTROLGRIPPERPARA,pgripperPara);
 
+        //读取0x1b
+        buffer = QUIUtils::ReadcoordinateArry(CONTROL_MODULEDIMMINGVALUE);
+        READPARAMENTER* pModuledimmingPara = new READPARAMENTER;
+        pModuledimmingPara->_readparaorder = buffer;
+        pModuledimmingPara->readfinish = false;
+        mwriteAxismap.insert(CONTROL_MODULEDIMMINGVALUE,pModuledimmingPara);
+
+
 
         //耗材余量信息
         QByteArray buffer_info;
@@ -1964,9 +1974,7 @@ void loadEquipmentPos::recvParaIData(const QStringList hexArry)
         ini.wConfigPara(USINGASIDEREAGENTLOC, (chnEndState >> 2) & 0x01); // bit2
         ini.wConfigPara(INITGRABCUPS, (chnEndState >> 1) & 0x01);   // bit1
 
-        // 优化dimmLed处理
-        quint16 dimmLed = extractUInt16(14, 13); // 使用辅助函数
-        ini.wConfigPara(MODULETARGETBASICVAL, dimmLed);
+
 
         completeddel(EQUIPMENTPARA_I);
         GroupReadParaCommder(HANDSPARADATA_II);
@@ -2890,6 +2898,15 @@ void loadEquipmentPos::recveNegativePressure(const QStringList hexArry){
         return hexStr.toUShort(&ok, HEX_SWITCH);
     };
 
+    const auto safeGetHexByte = [&](int index, quint8 defaultValue = 0) -> quint8 {
+        if (index >= hexArry.size() || index < 0) {
+            QLOG_WARN() << "Hex array index out of range: " << index;
+            return defaultValue;
+        }
+
+        bool ok;
+        return hexArry[index].toUShort(&ok, HEX_SWITCH) & 0xFF; // 确保返回单字节
+    };
 
     if(!m_bReadorWrite)
     {
@@ -2907,14 +2924,55 @@ void loadEquipmentPos::recveNegativePressure(const QStringList hexArry){
 
         ini.wBatchConfigPara(configs);
 
+        ini.setFilteringMode(safeGetHexByte(11)); // quint8
+        ini.setexperimentalMode(safeGetHexByte(12) != 0); // bool (非零为true)
+        ini.wConfigPara("AbsorbanceAlgorithm", safeGetHexByte(13) != 0); // bool
+
         completeddel(CONTROLGRIPPERPARA);//接收解析完控制抓手参数
-        GroupReadParaCommder(MAINBORD_REAGENT_AA_INFO); //next开始读主板试剂信息
+        GroupReadParaCommder(CONTROL_MODULEDIMMINGVALUE); //next开始读0x1b
 
     }else{
 
         //0x1a写完配置
         _writeFinish(CONTROLGRIPPERPARA);
 
+        //写ox1b
+        _sendWriteAxisOrder(CONTROL_MODULEDIMMINGVALUE);
+    }
+}
+
+
+void loadEquipmentPos::recveModuleDataPressure(const QStringList& hexArry){
+
+    auto& ini = INI_File(); // 获取INI实例引用，避免重复调用
+    const auto hexToUInt16 = [&](int highIndex, int lowIndex) -> quint16 {
+        // 添加边界安全检查
+        if (highIndex >= hexArry.size() || lowIndex >= hexArry.size() ||
+            highIndex < 0 || lowIndex < 0) {
+            QLOG_WARN () << "Hex array index out of range: " << highIndex << "," << lowIndex;
+            return 0;
+        }
+
+        bool ok;
+        QString hexStr = hexArry[highIndex] + hexArry[lowIndex];
+        return hexStr.toUShort(&ok, HEX_SWITCH);
+    };
+
+    if(!m_bReadorWrite){
+        // 使用统一转换函数处理16位HEX数据
+        quint16 moduleIDimming = hexToUInt16(6, 5);
+        quint16 moduleIIDimming = hexToUInt16(8, 7);
+        quint16 moduleIIIDimming = hexToUInt16(10, 9);
+
+        ini.setModuledimmingVal(MODULE_1, moduleIDimming);
+        ini.setModuledimmingVal(MODULE_2, moduleIIDimming);
+        ini.setModuledimmingVal(MODULE_3, moduleIIIDimming);
+
+        completeddel(CONTROL_MODULEDIMMINGVALUE);//接收解析完模组参数
+        GroupReadParaCommder(MAINBORD_REAGENT_AA_INFO); //next开始读主板试剂信息
+    }else{
+        //0x1b写完配置
+        _writeFinish(CONTROL_MODULEDIMMINGVALUE);
         //写耗材
         _sendWriteAxisOrder(MAINBORD_REAGENT_AA_INFO);
     }
@@ -2954,7 +3012,7 @@ void loadEquipmentPos::writeEquipmenttyped(const quint8 &index_,bool _ExitParaFi
     _initwriteBloodpinotherPara(_ExitParaFile,_ParaPath);
 
     //写试剂针参数0x17 - 0x18 -0x19
-    _initwritereagentParaDataI(_ExitParaFile,_ParaPath);
+    initwritereagentParaDataI();
 
     //初始化写主板试剂信息到仪器
     initwriteMainReagNum();
@@ -3360,14 +3418,14 @@ void loadEquipmentPos::initOrderNumI()
         channelstate[n -1] = ini.rConfigPara(keyStr).toBool();
     }
 
-    quint16 dimmLed = ini.rConfigPara(MODULETARGETBASICVAL).toInt();
+    const quint16 disUsed = 0;
     bool bScanBarcode = ini.rConfigPara(SCANCODEBAR).toBool();
     bool buseRightReagent = ini.rConfigPara(USINGASIDEREAGENTLOC).toBool();
     bool bbootCathCups = ini.rConfigPara(INITGRABCUPS).toBool();
 
     QByteArray sendOrder;
     QUIUtils::_writeParaNumIOrder(sendOrder,moduledata,channelstate,bScanBarcode,
-                                  buseRightReagent,bbootCathCups,dimmLed);
+                                  buseRightReagent,bbootCathCups,disUsed);
 
     WRITEPARAMENTER* pParaI = new WRITEPARAMENTER;
     pParaI->_writeparaorder = sendOrder;
@@ -3482,102 +3540,77 @@ void loadEquipmentPos::_initwriteBloodpinotherPara(bool _bexit,QString _path)
     return;
 }
 
-void loadEquipmentPos::_initwritereagentParaDataI(bool _bexit,QString _path)
+
+
+
+
+// 新增辅助函数（建议添加到类中）
+void loadEquipmentPos::addParameterToEquipment(quint8 type, const QByteArray& data)
 {
-    quint8 ReagentDownPinmm[5] = {0};
-    quint8 ReagentPinSuckum[5] = {0};
+    auto para = std::make_unique<WRITEPARAMENTER>();
+    para->_writeparaorder = data;
+    para->_writefinish = false;
+    m_axiswriteequipment.insert(type, para.release());
+}
+
+void loadEquipmentPos::initwritereagentParaDataI()
+{
+    auto &ini = INI_File();
+
+    // 使用原生数组替代std::array
+    const int REAGENT_COUNT = 5;
+    quint8 reagentTypes[REAGENT_COUNT] = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
+
+    // 初始化数组
+    quint8 ReagentPinSuckum[REAGENT_COUNT] = {0};
+    quint8 ReagentDownPinmm[REAGENT_COUNT] = {0};
     quint8 otherReagentData[8] = {0};
-    QString writeKey = "InstrumentParameters/SuckReagent_AAvolume";
-    loadParaData(_bexit,_path,writeKey,ReagentPinSuckum[0]);
 
-    writeKey = "InstrumentParameters/SuckReagent_ADPvolume";
-    loadParaData(_bexit,_path,writeKey,ReagentPinSuckum[1]);
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        ReagentPinSuckum[i] = ini.getTypesReagentSuckVolume(reagentTypes[i]);
+        ReagentDownPinmm[i] = ini.getTypesReagentNeedleDownHigh(reagentTypes[i]);
+    }
 
-    writeKey = "InstrumentParameters/SuckReagent_EPIvolume";
-    loadParaData(_bexit,_path,writeKey,ReagentPinSuckum[2]);
+    otherReagentData[0] = ini.GetAbsorbWashingfluidX1();
+    otherReagentData[1] = ini.getFailedCleanLinqueReagNeedle();
+    otherReagentData[2] = ini.GetFailedCleanLinqueHigh();
 
-    writeKey = "InstrumentParameters/SuckReagent_COLvolume";
-    loadParaData(_bexit,_path,writeKey,ReagentPinSuckum[3]);
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        otherReagentData[3 + i] = static_cast<quint8>(ini.getTypesReagentSuckRatio(reagentTypes[i]) * 100.0);
+    }
 
-    writeKey = "InstrumentParameters/SuckReagent_RISvolume";
-    loadParaData(_bexit,_path,writeKey,ReagentPinSuckum[4]);
+    // 生成命令数据
+    QByteArray sendOrder, sendOtherOrder;
+    QUIUtils::_writeReagPinParaDataOrder(sendOrder, sendOtherOrder,
+                                         ReagentPinSuckum,
+                                         ReagentDownPinmm,
+                                        otherReagentData);
 
-     writeKey = "InstrumentParameters/SpitReagent_AA_downHigh";
-     loadParaData(_bexit,_path,writeKey,ReagentDownPinmm[0]);
+    // 使用辅助函数创建参数对象
+    auto createWriteParameter = [](const QByteArray& data) -> WRITEPARAMENTER* {
+        WRITEPARAMENTER* para = new WRITEPARAMENTER;
+        para->_writeparaorder = data;
+        para->_writefinish = false;
+        return para;
+    };
 
-     writeKey = "InstrumentParameters/SpitReagent_ADP_downHigh";
-     loadParaData(_bexit,_path,writeKey,ReagentDownPinmm[1]);
+    // 批量添加参数到容器
+    m_axiswriteequipment.insert(PARAREAGENTPINDATA_I, createWriteParameter(sendOrder));
+    m_axiswriteequipment.insert(PARAREAGENTPINDATA_II, createWriteParameter(sendOtherOrder));
 
-     writeKey = "InstrumentParameters/SpitReagent_EPI_downHigh";
-     loadParaData(_bexit,_path,writeKey,ReagentDownPinmm[2]);
+    // 添加其他参数配置
+    //写入试剂整体限位
+    addParameterToEquipment(PARALIMINTBOTTLE, initWriteParaintoEquipment());
 
-     writeKey = "InstrumentParameters/SpitReagent_COL_downHigh";
-     loadParaData(_bexit,_path,writeKey,ReagentDownPinmm[3]);
+    //写入抓手参数
+    addParameterToEquipment(CONTROLGRIPPERPARA, initWriteGripperPara());
 
-     writeKey = "InstrumentParameters/SpitReagent_RIS_downHigh";
-     loadParaData(_bexit,_path,writeKey,ReagentDownPinmm[4]);
+    //写入模组调光的值
+    addParameterToEquipment(CONTROL_MODULEDIMMINGVALUE, initModuleDimmingValPara());
 
-     writeKey = "InstrumentParameters/WashReagentNeedleAbsorbCleanning";
-     loadParaData(_bexit,_path,writeKey,otherReagentData[0]); //洗试剂针吸清洗液量
-
-     writeKey = "InstrumentParameters/CleanReagentDetectionDownHigh_reagneedle";
-     loadParaData(_bexit,_path,writeKey,otherReagentData[1]);  //试剂针清洗液探测失败高度
-
-     writeKey = "InstrumentParameters/ReagentDetectionDownHigh";
-     loadParaData(_bexit,_path,writeKey,otherReagentData[2]); //试剂针探测试剂失败高度
-
-     double suckReagentRatio = 0.00;
-     writeKey = "InstrumentParameters/SuckReagent_AA_Ratio";
-     loadParaData(_bexit,_path,writeKey, suckReagentRatio );
-     otherReagentData[3] = suckReagentRatio*100.0;
-
-     writeKey = "InstrumentParameters/SuckReagent_ADP_Ratio";
-     loadParaData(_bexit,_path,writeKey,suckReagentRatio);
-     otherReagentData[4] = suckReagentRatio*100.0;
-
-     writeKey = "InstrumentParameters/SuckReagent_EPI_Ratio";
-     loadParaData(_bexit,_path,writeKey,suckReagentRatio);
-     otherReagentData[5] = suckReagentRatio*100.0;
-
-     writeKey = "InstrumentParameters/SuckReagent_COL_Ratio";
-     loadParaData(_bexit,_path,writeKey,suckReagentRatio);
-     otherReagentData[6] = suckReagentRatio*100.0;
-
-     writeKey = "InstrumentParameters/SuckReagent_RIS_Ratio";
-     loadParaData(_bexit,_path,writeKey,suckReagentRatio);
-     otherReagentData[7] = suckReagentRatio*100.0;
-
-     QByteArray sendOrder,sendOtherOrder;
-     QUIUtils::_writeReagPinParaDataOrder(sendOrder,sendOtherOrder,ReagentPinSuckum,
-                                          ReagentDownPinmm,otherReagentData);
-
-     WRITEPARAMENTER* pPara = new WRITEPARAMENTER;
-     pPara->_writeparaorder = sendOrder;
-     pPara->_writefinish = false;
-     m_axiswriteequipment.insert(PARAREAGENTPINDATA_I, pPara);
-
-     WRITEPARAMENTER* potherPara = new WRITEPARAMENTER;
-     potherPara->_writeparaorder = sendOtherOrder;
-     potherPara->_writefinish = false;
-     m_axiswriteequipment.insert(PARAREAGENTPINDATA_II, potherPara);
-
-
-
-     //写入试剂整体限位
-     QByteArray sendoutArry = initWriteParaintoEquipment();
-     WRITEPARAMENTER *pBottleLimit = new WRITEPARAMENTER;
-     pBottleLimit->_writeparaorder = sendoutArry;
-     pBottleLimit->_writefinish = false;
-     m_axiswriteequipment.insert(PARALIMINTBOTTLE,pBottleLimit);
-
-     //写入抓手参数
-     QByteArray gripperParaData = initWriteGripperPara();
-     WRITEPARAMENTER* pgripperPara = new WRITEPARAMENTER;
-     pgripperPara->_writeparaorder = gripperParaData;
-     pgripperPara->_writefinish = false;
-     m_axiswriteequipment.insert(CONTROLGRIPPERPARA, pgripperPara);
-
-     return;
+    return;
 }
 
 QByteArray loadEquipmentPos::initWriteParaintoEquipment()
@@ -3592,9 +3625,25 @@ QByteArray loadEquipmentPos::initWriteGripperPara(){
     const quint16 Lessthanmax = ini.rConfigPara(GRIPPERLESSTHANMAX).toInt();
     const quint16 bigthanmin = ini.rConfigPara(GRIPPERBIGTHANMIM).toInt();
     const quint16 suckTime = ini.rConfigPara(GRIPPERSUCKTIME).toInt();
-    return QUIUtils::writeGripperParaDataArry(Lessthanmax,bigthanmin,suckTime,true);
+
+    const quint8  filteringStyle = ini.getFilteringMode();
+    const bool    experimentalMode = ini.getexperimentalMode();
+    const bool    Logarithmicformula = ini.rConfigPara("AbsorbanceAlgorithm").toBool();
+
+    return QUIUtils::writeGripperParaDataArry(Lessthanmax,bigthanmin,suckTime,filteringStyle,
+                                              experimentalMode,Logarithmicformula,true);
 }
 
+
+QByteArray loadEquipmentPos::initModuleDimmingValPara(){
+    auto& ini = INI_File();
+    return QUIUtils::writeModuleDimmingVal0x1b(
+           static_cast<quint16>(ini.getModuledimmingVal(MODULE_1)),
+           static_cast<quint16>(ini.getModuledimmingVal(MODULE_2)),
+           static_cast<quint16>(ini.getModuledimmingVal(MODULE_3)),
+           true
+    );
+}
 
 
 //初始耗材主板全部置0

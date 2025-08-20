@@ -148,6 +148,19 @@ QString getDeviceInstancePathFromVidPid(DWORD vid, DWORD pid) {
 //    return true;
 //}
 
+QString returnErrStr(QString formattedErr) {
+	QString outFailed;
+	const int outCode = formattedErr.toInt();
+	switch (outCode) {
+		    case 5: outFailed = "权限不足";  break;  //- 0x5 (ACCESS_DENIED): 权限不足
+		    case 2: outFailed = "设备不存在";break; // - 0x2 (ERROR_FILE_NOT_FOUND): 设备不存在
+		default:
+		    outFailed ="未知异常";
+		    break;
+	}
+	return outFailed;
+}
+
 bool USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId, QString &outFailed) {
 	DWORD err;
 	QString formattedErr;
@@ -165,6 +178,7 @@ bool USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstance
 	SP_DEVINFO_DATA devInfoData = { sizeof(SP_DEVINFO_DATA) };
 	DWORD devIndex = 0;
 	bool deviceFound = false;
+
 	while (SetupDiEnumDeviceInfo(hDevInfo, devIndex, &devInfoData)) {
 		wchar_t instanceId[MAX_DEVICE_ID_LEN] = { 0 };
 		if (CM_Get_Device_ID(devInfoData.DevInst, instanceId, MAX_DEVICE_ID_LEN, 0) == CR_SUCCESS) {
@@ -178,112 +192,61 @@ bool USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstance
 
 	if (!deviceFound) {
 		QLOG_WARN() << "USB电源禁用失败(未找到设备): " << QString::fromWCharArray(deviceInstanceId);
+		outFailed = "USB电源禁用失败(未找到设备)";
 		SetupDiDestroyDeviceInfoList(hDevInfo);
 		return false;
 	}
 
-	// 3. 获取设备路径（新增关键步骤）
-	SP_DEVICE_INTERFACE_DATA interfaceData = { sizeof(SP_DEVICE_INTERFACE_DATA) };
-	GUID winusbGuid = GUID_DEVINTERFACE_WINUSB; // WinUSB设备接口GUID
-
-												// 创建设备接口
-	if (!SetupDiCreateDeviceInterface(hDevInfo, &devInfoData, &winusbGuid, NULL, 0, &interfaceData)) {
+	// 3. 禁用选择性暂停 - 正确的方法
+	HKEY hDeviceKey = SetupDiOpenDevRegKey(hDevInfo, &devInfoData, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_WRITE);
+	if (hDeviceKey == INVALID_HANDLE_VALUE) {
 		err = GetLastError();
 		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-		QLOG_WARN() << "USB电源禁用失败(创建设备接口): 0x" << formattedErr;
+		QLOG_WARN() << "USB电源禁用失败(打开设备注册表键): 0x" << formattedErr;
+		outFailed = returnErrStr(formattedErr);
 		SetupDiDestroyDeviceInfoList(hDevInfo);
 		return false;
 	}
 
-	// 获取接口详情
-	DWORD requiredSize = 0;
-	SetupDiGetDeviceInterfaceDetail(hDevInfo, &interfaceData, NULL, 0, &requiredSize, NULL);
-	if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+	// 4. 设置注册表值来禁用选择性暂停
+	DWORD disableSelectiveSuspend = 1; // 1 = 禁用选择性暂停
+	LONG regResult = RegSetValueExW(hDeviceKey,
+		L"DisableSelectiveSuspend",
+		0,
+		REG_DWORD,
+		(const BYTE*)&disableSelectiveSuspend,
+		sizeof(disableSelectiveSuspend));
+
+	RegCloseKey(hDeviceKey);
+
+	if (regResult != ERROR_SUCCESS) {
+		formattedErr = QString("%1").arg(regResult, 8, 16, QChar('0')).toUpper();
+		QLOG_WARN() << "USB电源禁用失败(设置注册表值): 0x" << formattedErr;
+		outFailed = returnErrStr(formattedErr);
+		SetupDiDestroyDeviceInfoList(hDevInfo);
+		return false;
+	}
+
+	// 5. 重启设备以使更改生效（可选但推荐）
+	SP_PROPCHANGE_PARAMS propChangeParams = { 0 };
+	propChangeParams.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
+	propChangeParams.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
+	propChangeParams.StateChange = DICS_PROPCHANGE; // 属性更改而不是禁用
+	propChangeParams.Scope = DICS_FLAG_CONFIGSPECIFIC;
+	propChangeParams.HwProfile = 0;
+
+	if (!SetupDiSetClassInstallParams(hDevInfo, &devInfoData,
+		(SP_CLASSINSTALL_HEADER*)&propChangeParams,
+		sizeof(propChangeParams))) {
 		err = GetLastError();
 		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-		QLOG_WARN() << "USB电源禁用失败(获取接口详情大小): 0x" << formattedErr;
-		SetupDiDestroyDeviceInfoList(hDevInfo);
-		return false;
-	}
-
-	QByteArray detailBuffer(requiredSize, 0);
-	auto pDetail = reinterpret_cast<SP_DEVICE_INTERFACE_DETAIL_DATA*>(detailBuffer.data());
-	pDetail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-
-	if (!SetupDiGetDeviceInterfaceDetail(hDevInfo, &interfaceData, pDetail, requiredSize, NULL, NULL)) {
-		err = GetLastError();
-		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-		QLOG_WARN() << "USB电源禁用失败(获取设备路径): 0x" << formattedErr;
-		SetupDiDestroyDeviceInfoList(hDevInfo);
-		return false;
-	}
-
-	const wchar_t* devicePath = pDetail->DevicePath;
-
-	// 4. 打开设备并禁用电源管理
-	HANDLE hDevice = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE,
-		FILE_SHARE_READ | FILE_SHARE_WRITE,
-		NULL, OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-		NULL);
-
-	if (hDevice == INVALID_HANDLE_VALUE) {
-		err = GetLastError();
-		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-		QLOG_WARN() << "USB电源禁用失败(打开设备): 0x" << formattedErr;
-		SetupDiDestroyDeviceInfoList(hDevInfo);
-		return false;
-	}
-
-	WINUSB_INTERFACE_HANDLE winusbHandle = NULL;
-	bool result = false;
-
-	if (WinUsb_Initialize(hDevice, &winusbHandle)) {
-		UCHAR policyValue = FALSE; // FALSE表示禁用自动挂起
-		ULONG timeout = 0; // 立即生效
-
-						   // 禁用自动挂起（选择性暂停）
-		if (WinUsb_SetPowerPolicy(winusbHandle, AUTO_SUSPEND, sizeof(policyValue), &policyValue)) {
-			// 设置超时策略为0防止延迟挂起
-			WinUsb_SetPowerPolicy(winusbHandle, SUSPEND_DELAY, sizeof(timeout), &timeout);
-			result = true;
-		}
-		else {
-			err = GetLastError();
-			formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-			QLOG_WARN() << "USB电源禁用失败(设置电源策略): 0x" << formattedErr;
-		}
-
-		WinUsb_Free(winusbHandle);
+		QLOG_WARN() << "警告: 无法重启设备应用更改: 0x" << formattedErr;
 	}
 	else {
-		err = GetLastError();
-		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-		QLOG_WARN() << "USB电源禁用失败(初始化WinUSB): 0x" << formattedErr;
+		SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, hDevInfo, &devInfoData);
 	}
 
-	CloseHandle(hDevice);
 	SetupDiDestroyDeviceInfoList(hDevInfo);
-
-	// 5. 错误处理
-	if (!result) {
-		switch (err) {
-		case ERROR_ACCESS_DENIED:
-			outFailed = "权限不足"; break;
-		case ERROR_NOT_SUPPORTED:
-			outFailed = "设备不支持电源管理"; break;
-		case ERROR_DEVICE_NOT_CONNECTED:
-			outFailed = "设备未连接"; break;
-		case ERROR_INVALID_HANDLE:
-			outFailed = "设备句柄无效"; break;
-		default:
-			outFailed = QString("未知错误 (0x%1)").arg(formattedErr);
-			break;
-		}
-		return false;
-	}
-
-	QLOG_INFO() << "USB电源管理已禁用：" << QString::fromWCharArray(deviceInstanceId);
 	return true;
 }
 
@@ -324,12 +287,12 @@ void USBListener::initDisAblePower() {
 		//禁用特定 USB 设备的电源管理（需替换为实际设备实例 ID）
 		const wchar_t* deviceId = reinterpret_cast<const wchar_t*>(path.utf16());
 		if (DisableSelectiveSuspendForDevice(deviceId, knowErr)) {
-			outmessage = "设备的 USB 选择性暂停已禁用!";
+			outmessage = "设备的 USB电源 选择性暂停已禁用!";
 			isstate = NORMALLOG;
 			QLOG_DEBUG() << outmessage;
 		}
 		else {
-			outmessage = "设备的 USB 选择性暂停禁用失败!(" + knowErr + ")";
+			outmessage = "设备的 USB电源 选择性暂停禁用失败!(" + knowErr + ")";
 			isstate = ERRORLOG;
 			QLOG_ERROR() << outmessage;
 		}

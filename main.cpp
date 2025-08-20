@@ -84,12 +84,13 @@ int main(int argc, char *argv[])
 
 
         // 加载自定义鼠标图片
-        QPixmap pixmap(":/Picture/test_hover.png");
-        QCursor cursor(pixmap);
+        //QPixmap pixmap(":/Picture/test_hover.png");
+        //QCursor cursor(pixmap);
 
         // 设置全局鼠标样式（所有窗口和控件都会使用）
-        app.setOverrideCursor(cursor);
-        // 如果要恢复默认鼠标样式，使用：app.restoreOverrideCursor();
+        //app.setOverrideCursor(cursor);
+        // 如果要恢复默认鼠标样式，使用：
+        app.restoreOverrideCursor();
 
 
 		// 初始化日志系统

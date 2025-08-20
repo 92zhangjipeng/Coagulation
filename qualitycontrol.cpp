@@ -371,7 +371,7 @@ void QualityControl::setReagentPara(quint8 index_,bool bsetAlarm,double valuedat
     }
     return;
 }
-void QualityControl::_configwarmvalue(quint8 index_,quint8 _limitarm)
+void QualityControl::configwarmvalue(quint8 index_,quint8 _limitarm)
 {
     setReagentPara(index_,true,static_cast<double>(_limitarm));
     return;
@@ -445,7 +445,7 @@ void  QualityControl::initshowcapacity()
 }
 
 
-void  QualityControl::_ShowConsumablesLimitArm()
+void  QualityControl::ShowConsumablesLimitArm()
 {
     static const QStringList keyList = {
             "AAbottleLimit", "ADPbottleLimit", "EPIbottleLimit",
@@ -471,7 +471,7 @@ void  QualityControl::_ShowConsumablesLimitArm()
                                    QString::number(_limitarm),
                                    false);
 
-        this->_configwarmvalue(index_, _limitarm);
+        this->configwarmvalue(index_, _limitarm);
 
         // 8. 添加数组越界保护
         if (Q_UNLIKELY(index_ >= keyList.size())) {
@@ -1244,7 +1244,7 @@ void QualityControl::Capacity_display_init(QTableWidget *_ptablewidget)
     displayConsumablesInteger();
 
     //显示报警线
-    _ShowConsumablesLimitArm();
+    ShowConsumablesLimitArm();
 
     connect(_ptablewidget, SIGNAL(itemPressed(QTableWidgetItem*)),SLOT(table_itemRressed(QTableWidgetItem*)));
     connect(_ptablewidget,SIGNAL(itemChanged(QTableWidgetItem*)),SLOT(tableitemNotify(QTableWidgetItem*)));

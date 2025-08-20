@@ -10,7 +10,6 @@
 #define INITGRABCUPS           "initGrabCups"           //开机初始化抓通道内杯子
 #define USINGASIDEREAGENTLOC   "UsingAsideRengentLoc"   //启用试剂预留位置
 #define FIRSTSUCKAIRS          "FirstSuckAirs"          //吸血样前先吸空气
-#define MODULETARGETBASICVAL   "moduleTargetBasicValue" //调光基础值
 #define REPEATGRABCUP          "RepeattheGrabCup"       //抓手重抓
 
 

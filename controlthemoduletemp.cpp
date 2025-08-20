@@ -100,19 +100,19 @@ void ControltheModuletemp::on_toolButton_close_clicked()
 //直接禁用通道
 void ControltheModuletemp::on_toolButtonok_clicked()
 {
-    emit this->disableusechn();
+    emit disableusechn();
     this->close();
 }
 
 void ControltheModuletemp::on_toolButtonexit_clicked()
 {
-    emit this->re_dimming();
+    emit re_dimming();
     this->close();
 }
 
 void ControltheModuletemp::closeEvent(QCloseEvent *event)
 {
-    emit this->deletedimming(m_dimmingText);
+    emit deletedimming(m_dimmingText);
     event->accept();
 
 }

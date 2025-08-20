@@ -36,6 +36,8 @@ bool SmalltoLarge(ChannelvaluePanel *pBeginCotl,ChannelvaluePanel *pendCotl)
 }
 
 
+
+
 MachineSetting::MachineSetting(QWidget *parent) :
     QWidget(parent),
     mbopendallchannel(false),
@@ -161,7 +163,9 @@ void MachineSetting::_initpara()
 
     //维护模式init  get
     _initBloodpinpara();
+
     _initReagPinpara();
+
     _innitHands(m_typedequipment);
 
     intsignalsMable();
@@ -195,8 +199,12 @@ void MachineSetting::_initpara()
         int   curnum =  QString(ui->comboBox_CutNum->currentText()).toInt();
         bool  bcheckavge = ui->checkBox_Avg_cutnum->isChecked();
         emit  sycnViewCurvePara(curnum,bcheckavge); //测试曲线参数
+
+
+        emit SetParatoInstrument({ outParaOx1aWrite() },"0x1a参数");
     });
 }
+
 
 void MachineSetting::initSheet()
 {
@@ -219,7 +227,8 @@ void MachineSetting::initSheet()
          {ui->pushButtonopenSuck,tr("打开负压")},
          {ui->pushButtonsplitAirs,tr("关闭负压")},
          {ui->pushButton_Adjustcoordinates,tr("校准坐标")},
-         {ui->pushButtonHandsParaSave,tr("保存抓手参数")}
+         {ui->pushButtonHandsParaSave,tr("保存抓手参数")},
+         {ui->pushButtonsavedimming,tr("写入调光值")}
     };
 
     for (auto it = pushButtonList.cbegin(); it != pushButtonList.cend(); ++it) {
@@ -245,6 +254,7 @@ void MachineSetting::initSheet()
          {ui->toolButton_Cancel,tr("取消")},
          {ui->toolButton_oopenall,tr("测试转动")},
          {ui->toolButton_SaveCutnum,tr("确定")}
+
     };
     for (auto it = toolButtonList.cbegin(); it != toolButtonList.cend(); ++it) {
          QToolButton* toolbutton = it.key();
@@ -429,7 +439,7 @@ void MachineSetting::intsignalsMable()
     };
 
     //试剂限位
-    m_limitratioList={ui->spinBox_limit_aa,
+    m_limitratioList ={ui->spinBox_limit_aa,
                       ui->spinBox_limit_adp,
                       ui->spinBox_limit_epi,
                       ui->spinBox_limit_col,
@@ -1007,7 +1017,6 @@ void MachineSetting::init_TabHospitalInfo()
     ui->comboBox_QC_sample_report->insertItems(0,Patient_sample_repor);
     ui->comboBox_Patient_sample_report->insertItems(0,Patient_sample_repor);
 
-    //AnalyticalJsonOne();
 }
 
 
@@ -1280,38 +1289,7 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
 }
 
 
-void MachineSetting::AnalyticalJsonOne()
-{
-    QStringList objlistname;
-    objlistname.clear();
-    objlistname<<"Hospital Name"<<"Patient sample report template"<<"Quality control sample report template"<<"Unaudited records are automatically approved when a report is printed"
-                <<"Print automatically after the test is complete"<<"Quality control report template"
-                <<"Test cup alarm limit"<<"X1Test cup alarm limit"<<"Reagent alarm limit"<<"X2Test cup alarm limit"<<"Ignoring the insufficient balance of X1 cleaning fluid";
-    for(int i = 0 ; i< objlistname.size();i++)
-    {
-         QString str = objlistname.at(i);
-         m_Analytical.AnalyticalJsonFile("General-general", str ,m_AnalyticalOneData,m_Analytical.JsonFilePath(1));
-         if(i== 1)
-             ui->comboBox_Patient_sample_report->setCurrentIndex(m_AnalyticalOneData.toInt());
-         else  if(i == 2)
-             ui->comboBox_QC_sample_report->setCurrentIndex(m_AnalyticalOneData.toInt());
-         else if(i == 3)
-             ui->checkBox_Automatic_review->setChecked(m_AnalyticalOneData.toBool());
-         else if(i==4)
-             ui->checkBox_Automatic_print->setChecked(m_AnalyticalOneData.toBool());
 
-    }
-    QVariantList UserDataList;
-    UserDataList.clear();
-    m_Analytical.AnalyticalJsonFile("General-general", "User" ,UserDataList,m_Analytical.JsonFilePath(1));
-    for(int j = 0 ; j<UserDataList.size();j++)
-    {
-        QString data = UserDataList.at(j).toString();
-        QListWidgetItem *item = new QListWidgetItem;
-        item->setText(data);
-        ui->listWidget_user->addItem(item);
-    }
-}
 
 
 
@@ -1362,27 +1340,6 @@ void MachineSetting::AnalyticalJsonTwo(QStringList templist)
     }
 }
 
-////////////////////////////////////设置--8////////////////////////////////////////////////////
-void MachineSetting::ByteArrayToHexString(int data,QByteArray &arry) //转换成16进制
-{
-    arry.setNum(data,16);
-    QString temp ;
-    temp.prepend(arry);
-    int length = temp.length();
-    if(length==1)
-    {
-        temp.insert(0,"0");
-    }
-    arry = temp.toLatin1();
-}
-
-
-
-
-
-
-
-
 
 void MachineSetting::on_toolButton_Cancel_clicked()
 {
@@ -1430,7 +1387,7 @@ void MachineSetting::updatepara(const bool isTesting){
 		// Only update if the value has changed
 		if (m_limitratioList[i]->value() != updatevalue) {
 			m_limitratioList[i]->setValue(updatevalue);
-			FullyAutomatedPlatelets::pinstanceinstrument()->_configwarmvalue(i, updatevalue);
+            FullyAutomatedPlatelets::pinstanceinstrument()->configwarmvalue(i, updatevalue);
 		}
     }
 
@@ -1443,262 +1400,333 @@ void MachineSetting::updatepara(const bool isTesting){
 }
 
 
-void MachineSetting::ReagentConfigParaSetOrGet(bool bsetConfig)
-{
-	// Define reagent types array for cleaner iteration
-	const quint8 reagentTypes[] = { AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT };
-	const int reagentCount = 5;
 
-	if (bsetConfig) {
-		// Set configuration values
-		for (int i = 0; i < reagentCount; i++) {
-			quint8 type = reagentTypes[i];
 
-			// Set reagent suck volumes
-			INI_File().setTypesReagentSuckVolume(type,
-				(type == AA_REAGENT) ? ui->spinBox_AA_Suck_Vol->value() :
-				(type == ADP_REAGENT) ? ui->spinBox_ADP_Suck_Vol->value() :
-				(type == EPI_REAGENT) ? ui->spinBox_ADR_Suck_Vol->value() :
-				(type == COL_REAGENT) ? ui->spinBox_COL_Suck_Vol->value() :
-				ui->spinBox_RIS_Suck_Vol->value());
 
-			// Set reagent suck ratios
-			INI_File().setTypesReagentSuckRatio(type,
-				(type == AA_REAGENT) ? ui->doubleSpinBox_AA_Ratio->value() :
-				(type == ADP_REAGENT) ? ui->doubleSpinBox_ADP_Ratio->value() :
-				(type == EPI_REAGENT) ? ui->doubleSpinBox_ADR_Ratio->value() :
-				(type == COL_REAGENT) ? ui->doubleSpinBox_COL_Ratio->value() :
-				ui->doubleSpinBox_RIS_Ratio->value());
+//*/void  MachineSetting::configWrite2BoardReagentNeedlePara(){
+//    auto &ini = INI_File();
+//    const int REAGENT_COUNT = 5;
+//    quint8 reagentTypes[REAGENT_COUNT] = {
+//        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+//    };
 
-			// Set additional suck ratios
-			INI_File().setTypesReagentSuckAdd_Ratio(type,
-				(type == AA_REAGENT) ? ui->doubleSpinBox_Add_AA_Ratio->value() :
-				(type == ADP_REAGENT) ? ui->doubleSpinBox_Add_ADP_Ratio->value() :
-				(type == EPI_REAGENT) ? ui->doubleSpinBox_Add_ADR_Ratio->value() :
-				(type == COL_REAGENT) ? ui->doubleSpinBox_Add_COL_Ratio->value() :
-				ui->doubleSpinBox_Add_RIS_Ratio->value());
+//    quint8 suckReagentVol[REAGENT_COUNT] = {
+//        static_cast<quint8>(ui->spinBox_AA_Suck_Vol->value()),
+//        static_cast<quint8>(ui->spinBox_ADP_Suck_Vol->value()),
+//        static_cast<quint8>(ui->spinBox_ADR_Suck_Vol->value()),
+//        static_cast<quint8>(ui->spinBox_COL_Suck_Vol->value()),
+//        static_cast<quint8>(ui->spinBox_RIS_Suck_Vol->value())
+//    };
 
-			// Set needle down heights
-			INI_File().setTypesReagentNeedleDownHigh(type,
-				(type == AA_REAGENT) ? ui->spinBox_down_AA->value() :
-				(type == ADP_REAGENT) ? ui->spinBox_down_ADP->value() :
-				(type == EPI_REAGENT) ? ui->spinBox_down_ADR->value() :
-				(type == COL_REAGENT) ? ui->spinBox_down_COL->value() :
-				ui->spinBox_down_RIS->value());
-		}
+//    double suckReagentVolRatio[REAGENT_COUNT] = {
+//        static_cast<double>(ui->doubleSpinBox_AA_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_ADP_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_ADR_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_COL_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_RIS_Ratio->value())
+//    };
 
-		// Handle consumables file
-		QString supplyFile = QCoreApplication::applicationDirPath() + "/consumables.ini";
-		if (!QFile::exists(supplyFile)) {
-			QLOG_WARN() << "耗材配置文件不存在,创建" << __FILE__ << __LINE__;
-			QFile(supplyFile).open(QIODevice::Append);
-		}
+//    double suckReagentVolRatioadd[REAGENT_COUNT] = {
+//        static_cast<double>(ui->doubleSpinBox_Add_AA_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_Add_ADP_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_Add_ADR_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_Add_COL_Ratio->value()),
+//        static_cast<double>(ui->doubleSpinBox_Add_RIS_Ratio->value())
+//    };
 
-		// Update reagent capacities
-		for (int i = 0; i < m_capactityList.size(); i++) {
-			quint16 updateValue = m_capactityList.at(i)->value();
-			QUIUtils::_sycnBottleCapacity(supplyFile, i, updateValue);
-			ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT, i, updateValue);
-		}
-		configvalue_to_equipment_capactity();
+//    quint8 spitReagentDownHeigh[REAGENT_COUNT] = {
+//        static_cast<quint8>(ui->spinBox_down_AA->value()),
+//        static_cast<quint8>(ui->spinBox_down_ADP->value()),
+//        static_cast<quint8>(ui->spinBox_down_ADR->value()),
+//        static_cast<quint8>(ui->spinBox_down_COL->value()),
+//        static_cast<quint8>(ui->spinBox_down_RIS->value())
+//    };
 
-		// Update reagent limits
-		for (int i = 0; i < m_limitratioList.size(); i++) {
-			quint8 updateValue = m_limitratioList.at(i)->value();
-			QUIUtils::_sycnBottleLimit(supplyFile, i, updateValue);
-			ConsumablesOper::GetpInstance()->updateReagentLimit(WRITE_OPERAT, i, updateValue);
-			FullyAutomatedPlatelets::pinstanceinstrument()->_configwarmvalue(i, updateValue);
-		}
-		configvalue_to_equipment_Limit();
+//    int size = qMin(m_capactityList.size(), m_limitratioList.size()); // 取最小size防止越界
 
-		// Final operations
-		notifyReagentPinParaToBoard();
-		FullyAutomatedPlatelets::pinstanceinstrument()->_ShowConsumablesLimitArm();
-	}
-	else {
-		// Get configuration values
-		for (int i = 0; i < reagentCount; i++) {
-			quint8 type = reagentTypes[i];
+//    for (int i = 0; i < REAGENT_COUNT; ++i) {
+//        ini.setTypesReagentSuckVolume(reagentTypes[i],suckReagentVol[i]); //配置吸试剂的量
+//        ini.setTypesReagentSuckRatio(reagentTypes[i],suckReagentVolRatio[i]); //配置吸试剂比例系数
+//        ini.setTypesReagentSuckAdd_Ratio(reagentTypes[i],suckReagentVolRatioadd[i]);  //吸试剂吸多余的比例
+//        ini.setTypesReagentNeedleDownHigh(reagentTypes[i],spitReagentDownHeigh[i]); //试剂加到测试通道下针高度
+//    }
 
-			// Get and set suck volumes
-			((type == AA_REAGENT) ? ui->spinBox_AA_Suck_Vol :
-				(type == ADP_REAGENT) ? ui->spinBox_ADP_Suck_Vol :
-				(type == EPI_REAGENT) ? ui->spinBox_ADR_Suck_Vol :
-				(type == COL_REAGENT) ? ui->spinBox_COL_Suck_Vol :
-				ui->spinBox_RIS_Suck_Vol)->setValue(INI_File().getTypesReagentSuckVolume(type));
+//    for (int i = 0; i < size; ++i) {
+//        QSpinBox *capacitySpinBox = m_capactityList.at(i);
+//        QSpinBox *limitSpinBox = m_limitratioList.at(i);
 
-			// Get and set suck ratios
-			((type == AA_REAGENT) ? ui->doubleSpinBox_AA_Ratio :
-				(type == ADP_REAGENT) ? ui->doubleSpinBox_ADP_Ratio :
-				(type == EPI_REAGENT) ? ui->doubleSpinBox_ADR_Ratio :
-				(type == COL_REAGENT) ? ui->doubleSpinBox_COL_Ratio :
-				ui->doubleSpinBox_RIS_Ratio)->setValue(INI_File().getTypesReagentSuckRatio(type));
+//        // 检查指针是否有效
+//        if (!capacitySpinBox || !limitSpinBox) {
+//            QLOG_WARN() << "Invalid spin box pointer at index:" << i;
+//            continue; // 跳过无效项
+//        }
 
-			// Get and set additional suck ratios
-			((type == AA_REAGENT) ? ui->doubleSpinBox_Add_AA_Ratio :
-				(type == ADP_REAGENT) ? ui->doubleSpinBox_Add_ADP_Ratio :
-				(type == EPI_REAGENT) ? ui->doubleSpinBox_Add_ADR_Ratio :
-				(type == COL_REAGENT) ? ui->doubleSpinBox_Add_COL_Ratio :
-				ui->doubleSpinBox_Add_RIS_Ratio)->setValue(INI_File().getTypesReagentSuckAdd_Ratio(type));
+//        // 处理容量
+//        quint16 capacityValue = capacitySpinBox->value();
+//        //QUIUtils::_sycnBottleCapacity(Suppilefile, i, capacityValue);
+//        ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT, i, capacityValue);
 
-			// Get and set needle down heights
-			QSpinBox* downSpinBox =
-				(type == AA_REAGENT) ? ui->spinBox_down_AA :
-				(type == ADP_REAGENT) ? ui->spinBox_down_ADP :
-				(type == EPI_REAGENT) ? ui->spinBox_down_ADR :
-				(type == COL_REAGENT) ? ui->spinBox_down_COL :
-				ui->spinBox_down_RIS;
+//        // 处理限位
+//        quint8 limitValue = limitSpinBox->value();
+//        //QUIUtils::_sycnBottleLimit(Suppilefile, i, limitValue);
+//        ConsumablesOper::GetpInstance()->updateReagentLimit(WRITE_OPERAT, i, limitValue);
+//        FullyAutomatedPlatelets::pinstanceinstrument()->configwarmvalue(i, limitValue);
+//    }
+//    if (m_capactityList.size() != m_limitratioList.size()) {
+//        QLOG_WARN() << "Warning: capacity list size (" << m_capactityList.size()
+//                   << ") does not match limit ratio list size (" << m_limitratioList.size() << ")";
+//    }
 
-			downSpinBox->setValue(INI_File().getTypesReagentNeedleDownHigh(type));
+//    //耗材 容量、限位写入仪器
+//    QByteArray capacityarry,limitarry;
+//    QUIUtils::_writeReagentCapacity(capacityarry);
+//    QUIUtils::_writeReagentLimitOrder(limitarry);
+//    emit SetParatoInstrument({capacityarry,limitarry},"配置试剂容量,限位");
 
-			// Create setup points
-			QLabel* showLabel =
-				(type == AA_REAGENT) ? ui->label_show_AA :
-				(type == ADP_REAGENT) ? ui->label_show_ADP :
-				(type == EPI_REAGENT) ? ui->label_show_ADR :
-				(type == COL_REAGENT) ? ui->label_show_COL :
-				ui->label_show_RIS;
+//    //写入修改试剂针参数到主板
+//    notifyReagentPinParaToBoard();
+//    FullyAutomatedPlatelets::pinstanceinstrument()->ShowConsumablesLimitArm();
+//    QMessageBox::information(this,tr("保存完成"),tr("仪器血样针参数设置完成!"));
+//    return;
+//}*/
 
-			int pinType =
-				(type == AA_REAGENT) ? REAGPIN_DOWNHEIGH_IN_AA :
-				(type == ADP_REAGENT) ? REAGPIN_DOWNHEIGH_IN_ADP :
-				(type == EPI_REAGENT) ? REAGPIN_DOWNHEIGH_IN_EPI :
-				(type == COL_REAGENT) ? REAGPIN_DOWNHEIGH_IN_COL :
-				REAGPIN_DOWNHEIGH_IN_RIS;
 
-			_creatstupoint(showLabel, downSpinBox, pinType, m_preagpinLableList);
-		}
+void MachineSetting::configWrite2BoardReagentNeedlePara() {
 
-		// Get reagent capacities and limits
-		if (m_capactityList.size() == m_limitratioList.size()) {
-			for (int k = 0; k < m_limitratioList.size(); k++) {
-				quint16 value_capacty = 0;
-				quint8 value_limit = 0;
+    auto &ini = INI_File();
+    // 1. 使用 constexpr 定义编译期常量
+    static constexpr int REAGENT_COUNT = 5;
 
-				ConsumablesOper::GetpInstance()->updateReagentTotal(READ_OPERRAT, k, value_capacty);
-				m_capactityList.at(k)->setValue(value_capacty);
+    // 2. 使用 std::array 替代原生数组，更现代更安全
+    const std::array<quint8, REAGENT_COUNT> reagentTypes = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
 
-				ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT, k, value_limit);
-				m_limitratioList.at(k)->setValue(value_limit);
-			}
-		}
-	}
+    // 3. 提取获取UI值的逻辑，消除重复代码
+    const auto suckReagentVol = getUiValues<QSpinBox, quint8>({
+        ui->spinBox_AA_Suck_Vol,
+        ui->spinBox_ADP_Suck_Vol,
+        ui->spinBox_ADR_Suck_Vol,
+        ui->spinBox_COL_Suck_Vol,
+        ui->spinBox_RIS_Suck_Vol
+    });
+
+    const auto suckReagentVolRatio = getUiValues<QDoubleSpinBox, double>({
+        ui->doubleSpinBox_AA_Ratio,
+        ui->doubleSpinBox_ADP_Ratio,
+        ui->doubleSpinBox_ADR_Ratio,
+        ui->doubleSpinBox_COL_Ratio,
+        ui->doubleSpinBox_RIS_Ratio
+    });
+
+    const auto suckReagentVolRatioadd = getUiValues<QDoubleSpinBox, double>({
+        ui->doubleSpinBox_Add_AA_Ratio,
+        ui->doubleSpinBox_Add_ADP_Ratio,
+        ui->doubleSpinBox_Add_ADR_Ratio,
+        ui->doubleSpinBox_Add_COL_Ratio,
+        ui->doubleSpinBox_Add_RIS_Ratio
+    });
+
+    const auto spitReagentDownHeigh = getUiValues<QSpinBox, quint8>({
+        ui->spinBox_down_AA,
+        ui->spinBox_down_ADP,
+        ui->spinBox_down_ADR,
+        ui->spinBox_down_COL,
+        ui->spinBox_down_RIS
+    });
+
+    // 4. 配置试剂参数（逻辑更清晰）
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        ini.setTypesReagentSuckVolume(reagentTypes[i], suckReagentVol[i]);
+        ini.setTypesReagentSuckRatio(reagentTypes[i], suckReagentVolRatio[i]);
+        ini.setTypesReagentSuckAdd_Ratio(reagentTypes[i], suckReagentVolRatioadd[i]);
+        ini.setTypesReagentNeedleDownHigh(reagentTypes[i], spitReagentDownHeigh[i]);
+    }
+
+    // 5. 更新耗材容量和限位（提取成独立函数）
+    updateReagentCapacityAndLimit();
+
+    // 6. 耗材容量、限位写入仪器
+    writeConsumablesToInstrument();
+
+    // 7. 写入修改试剂针参数到主板
+    notifyReagentPinParaToBoard();
+    FullyAutomatedPlatelets::pinstanceinstrument()->ShowConsumablesLimitArm();
+
+    QMessageBox::information(this, tr("保存完成"), tr("仪器血样针参数设置完成!"));
 }
 
-//void  MachineSetting::ReagentConfigParaSetOrGet(bool bsetConfig)
-//{
-//    if(bsetConfig == true)
-//    {
-//        //配置吸试剂的量
-//        INI_File().setTypesReagentSuckVolume(AA_REAGENT,ui->spinBox_AA_Suck_Vol->value());
-//        INI_File().setTypesReagentSuckVolume(ADP_REAGENT,ui->spinBox_ADP_Suck_Vol->value());
-//        INI_File().setTypesReagentSuckVolume(EPI_REAGENT,ui->spinBox_ADR_Suck_Vol->value());
-//        INI_File().setTypesReagentSuckVolume(COL_REAGENT,ui->spinBox_COL_Suck_Vol->value());
-//        INI_File().setTypesReagentSuckVolume(RIS_REAGENT,ui->spinBox_RIS_Suck_Vol->value());
-//        //配置吸试剂比例系数
-//        INI_File().setTypesReagentSuckRatio(AA_REAGENT,ui->doubleSpinBox_AA_Ratio->value());
-//        INI_File().setTypesReagentSuckRatio(ADP_REAGENT,ui->doubleSpinBox_ADP_Ratio->value());
-//        INI_File().setTypesReagentSuckRatio(EPI_REAGENT,ui->doubleSpinBox_ADR_Ratio->value());
-//        INI_File().setTypesReagentSuckRatio(COL_REAGENT,ui->doubleSpinBox_COL_Ratio->value());
-//        INI_File().setTypesReagentSuckRatio(RIS_REAGENT,ui->doubleSpinBox_RIS_Ratio->value());
-//        //吸试剂吸多余的比例
-//        INI_File().setTypesReagentSuckAdd_Ratio(AA_REAGENT,ui->doubleSpinBox_Add_AA_Ratio->value());
-//        INI_File().setTypesReagentSuckAdd_Ratio(ADP_REAGENT,ui->doubleSpinBox_Add_ADP_Ratio->value());
-//        INI_File().setTypesReagentSuckAdd_Ratio(EPI_REAGENT,ui->doubleSpinBox_Add_ADR_Ratio->value());
-//        INI_File().setTypesReagentSuckAdd_Ratio(COL_REAGENT,ui->doubleSpinBox_Add_COL_Ratio->value());
-//        INI_File().setTypesReagentSuckAdd_Ratio(RIS_REAGENT,ui->doubleSpinBox_Add_RIS_Ratio->value());
-//        //试剂加到测试通道下针高度
-//        INI_File().setTypesReagentNeedleDownHigh(AA_REAGENT,ui->spinBox_down_AA->value());
-//        INI_File().setTypesReagentNeedleDownHigh(ADP_REAGENT,ui->spinBox_down_ADP->value());
-//        INI_File().setTypesReagentNeedleDownHigh(EPI_REAGENT,ui->spinBox_down_ADR->value());
-//        INI_File().setTypesReagentNeedleDownHigh(COL_REAGENT,ui->spinBox_down_COL->value());
-//        INI_File().setTypesReagentNeedleDownHigh(RIS_REAGENT,ui->spinBox_down_RIS->value());
-//        QString Suppilefile = QCoreApplication::applicationDirPath() + "/consumables.ini";
-//        QFile filePara(Suppilefile);
-//        bool bexit = filePara.exists();
-//        if(!bexit){
-//           filePara.open(QIODevice::Append);
-//           QLOG_WARN()<<"耗材配置文件不存在,创建"<<__FILE__<<__LINE__<<endl;
-//        }
-//
-//        for(int i = 0 ; i < m_capactityList.size(); i++){
-//            quint16 updatevalue_ = m_capactityList.at(i)->value();
-//            QUIUtils::_sycnBottleCapacity(Suppilefile,i,updatevalue_);
-//            ConsumablesOper::GetpInstance()->updateReagentTotal(WRITE_OPERAT,i,updatevalue_);
-//        }
-//        //把试剂容量写入到仪器
-//        configvalue_to_equipment_capactity();
-//
-//        for(int i = 0 ; i < m_limitratioList.size(); i++){
-//            quint8 updatevalue_ = m_limitratioList.at(i)->value();
-//            QUIUtils::_sycnBottleLimit(Suppilefile,i,updatevalue_);
-//            ConsumablesOper::GetpInstance()->updateReagentLimit(WRITE_OPERAT, i,updatevalue_);
-//            FullyAutomatedPlatelets::pinstanceinstrument()->_configwarmvalue(i,updatevalue_);
-//        }
-//        //耗材限位写入仪器
-//        configvalue_to_equipment_Limit();
-//
-//        //写入修改试剂针参数到主板
-//        notifyReagentPinParaToBoard();
-//        FullyAutomatedPlatelets::pinstanceinstrument()->_ShowConsumablesLimitArm();
-//    }
-//    else   
-//    {
-//        //配置吸试剂的量
-//        ui->spinBox_AA_Suck_Vol->setValue(INI_File().getTypesReagentSuckVolume(AA_REAGENT));
-//        ui->spinBox_ADP_Suck_Vol->setValue(INI_File().getTypesReagentSuckVolume(ADP_REAGENT));
-//        ui->spinBox_ADR_Suck_Vol->setValue(INI_File().getTypesReagentSuckVolume(EPI_REAGENT));
-//        ui->spinBox_COL_Suck_Vol->setValue(INI_File().getTypesReagentSuckVolume(COL_REAGENT));
-//        ui->spinBox_RIS_Suck_Vol->setValue(INI_File().getTypesReagentSuckVolume(RIS_REAGENT));
-//
-//        //配置吸试剂比例系数
-//        ui->doubleSpinBox_AA_Ratio->setValue(INI_File().getTypesReagentSuckRatio(AA_REAGENT));
-//        ui->doubleSpinBox_ADP_Ratio->setValue(INI_File().getTypesReagentSuckRatio(ADP_REAGENT));
-//        ui->doubleSpinBox_ADR_Ratio->setValue(INI_File().getTypesReagentSuckRatio(EPI_REAGENT));
-//        ui->doubleSpinBox_COL_Ratio->setValue(INI_File().getTypesReagentSuckRatio(COL_REAGENT));
-//        ui->doubleSpinBox_RIS_Ratio->setValue(INI_File().getTypesReagentSuckRatio(RIS_REAGENT));
-//
-//        //吸试剂吸多余的增益比例
-//        ui->doubleSpinBox_Add_AA_Ratio->setValue(INI_File().getTypesReagentSuckAdd_Ratio(AA_REAGENT));
-//        ui->doubleSpinBox_Add_ADP_Ratio->setValue(INI_File().getTypesReagentSuckAdd_Ratio(ADP_REAGENT));
-//        ui->doubleSpinBox_Add_ADR_Ratio->setValue(INI_File().getTypesReagentSuckAdd_Ratio(EPI_REAGENT));
-//        ui->doubleSpinBox_Add_COL_Ratio->setValue(INI_File().getTypesReagentSuckAdd_Ratio(COL_REAGENT));
-//        ui->doubleSpinBox_Add_RIS_Ratio->setValue(INI_File().getTypesReagentSuckAdd_Ratio(RIS_REAGENT));
-//
-//        //试剂加到测试通道下针高度
-//        ui->spinBox_down_AA->setValue(INI_File().getTypesReagentNeedleDownHigh(AA_REAGENT));
-//        _creatstupoint(ui->label_show_AA,ui->spinBox_down_AA,REAGPIN_DOWNHEIGH_IN_AA,m_preagpinLableList);
-//
-//        ui->spinBox_down_ADP->setValue(INI_File().getTypesReagentNeedleDownHigh(ADP_REAGENT));
-//        _creatstupoint(ui->label_show_ADP,ui->spinBox_down_ADP,REAGPIN_DOWNHEIGH_IN_ADP,m_preagpinLableList);
-//
-//        ui->spinBox_down_ADR->setValue(INI_File().getTypesReagentNeedleDownHigh(EPI_REAGENT));
-//        _creatstupoint(ui->label_show_ADR,ui->spinBox_down_ADR,REAGPIN_DOWNHEIGH_IN_EPI,m_preagpinLableList);
-//
-//        ui->spinBox_down_COL->setValue(INI_File().getTypesReagentNeedleDownHigh(COL_REAGENT));
-//        _creatstupoint(ui->label_show_COL,ui->spinBox_down_COL,REAGPIN_DOWNHEIGH_IN_COL,m_preagpinLableList);
-//
-//        ui->spinBox_down_RIS->setValue(INI_File().getTypesReagentNeedleDownHigh(RIS_REAGENT));
-//        _creatstupoint(ui->label_show_RIS,ui->spinBox_down_RIS,REAGPIN_DOWNHEIGH_IN_RIS,m_preagpinLableList);
-//
-//        //试剂容量&&试剂限位
-//        if( m_capactityList.size() == m_limitratioList.size())
-//        {
-//            int total_ = m_limitratioList.size();
-//            quint16 value_capacty = 0;
-//            quint8 value_limit = 0;
-//            for(int k = 0; k < total_ ; k++)
-//            {
-//                ConsumablesOper::GetpInstance()->updateReagentTotal(READ_OPERRAT, k ,value_capacty);
-//                m_capactityList.at(k)->setValue(value_capacty);
-//
-//                ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT, k ,value_limit);
-//                m_limitratioList.at(k)->setValue(value_limit);
-//            }
-//        }
-//    }
-//    return;
-//}
+
+// 更新试剂容量和限位的独立函数
+void MachineSetting::updateReagentCapacityAndLimit() {
+    const int size = qMin(m_capactityList.size(), m_limitratioList.size());
+
+    const QString Suppilefile = QCoreApplication::applicationDirPath() + "/consumables.ini";
+    QFile filePara(Suppilefile);
+    bool bexit = filePara.exists();
+    if(!bexit){
+       filePara.open(QIODevice::Append);
+       QLOG_WARN()<<"耗材配置文件不存在,创建"<<__FILE__<<__LINE__<<endl;
+    }
+
+    for (int i = 0; i < size; ++i) {
+        if (QSpinBox *capacitySpinBox = m_capactityList.value(i)) {
+			quint16 capacityVol = capacitySpinBox->value();
+            QUIUtils::sycnBottleCapacity(Suppilefile, i, capacityVol);
+            ConsumablesOper::GetpInstance()->updateReagentTotal(
+                WRITE_OPERAT, i, capacityVol);
+        }
+
+        if (QSpinBox *limitSpinBox = m_limitratioList.value(i)) {
+            quint8 limitValue = limitSpinBox->value();
+            QUIUtils::sycnBottleLimit(Suppilefile, i, limitValue);
+            ConsumablesOper::GetpInstance()->updateReagentLimit(
+                WRITE_OPERAT, i, limitValue);
+            FullyAutomatedPlatelets::pinstanceinstrument()->configwarmvalue(i, limitValue);
+        }
+    }
+
+    if (m_capactityList.size() != m_limitratioList.size()) {
+        QLOG_WARN() << "List size mismatch. Capacity:" << m_capactityList.size()
+                   << "Limit:" << m_limitratioList.size();
+    }
+}
+
+// 写入耗材到仪器的独立函数
+void MachineSetting::writeConsumablesToInstrument() {
+    QByteArray capacityArray, limitArray;
+    QUIUtils::_writeReagentCapacity(capacityArray);
+    QUIUtils::_writeReagentLimitOrder(limitArray);
+    emit SetParatoInstrument({capacityArray, limitArray}, "配置试剂容量,限位");
+}
+
+
+
+void  MachineSetting::initBoardReagentNeedlePara(){
+    auto &ini = INI_File();
+    const int REAGENT_COUNT = 5;
+    quint8 reagentTypes[REAGENT_COUNT] = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
+
+    const std::array<QSpinBox*, REAGENT_COUNT> suckVolSpinBoxes = {
+            ui->spinBox_AA_Suck_Vol,
+            ui->spinBox_ADP_Suck_Vol,
+            ui->spinBox_ADR_Suck_Vol,
+            ui->spinBox_COL_Suck_Vol,
+            ui->spinBox_RIS_Suck_Vol
+    };
+
+    const std::array<QDoubleSpinBox*, REAGENT_COUNT> ratioSpinBoxes = {
+        ui->doubleSpinBox_AA_Ratio,
+        ui->doubleSpinBox_ADP_Ratio,
+        ui->doubleSpinBox_ADR_Ratio,
+        ui->doubleSpinBox_COL_Ratio,
+        ui->doubleSpinBox_RIS_Ratio
+    };
+
+    const std::array<QDoubleSpinBox*, REAGENT_COUNT> addRatioSpinBoxes = {
+        ui->doubleSpinBox_Add_AA_Ratio,
+        ui->doubleSpinBox_Add_ADP_Ratio,
+        ui->doubleSpinBox_Add_ADR_Ratio,
+        ui->doubleSpinBox_Add_COL_Ratio,
+        ui->doubleSpinBox_Add_RIS_Ratio
+    };
+
+    const std::array<QSpinBox*, REAGENT_COUNT> downHeightSpinBoxes = {
+        ui->spinBox_down_AA,
+        ui->spinBox_down_ADP,
+        ui->spinBox_down_ADR,
+        ui->spinBox_down_COL,
+        ui->spinBox_down_RIS
+    };
+
+    const std::array<QLabel*, REAGENT_COUNT> showLabels = {
+        ui->label_show_AA,
+        ui->label_show_ADP,
+        ui->label_show_ADR,
+        ui->label_show_COL,
+        ui->label_show_RIS
+    };
+
+    const std::array<int, REAGENT_COUNT> downHeightParams = {
+        REAGPIN_DOWNHEIGH_IN_AA,
+        REAGPIN_DOWNHEIGH_IN_ADP,
+        REAGPIN_DOWNHEIGH_IN_EPI,
+        REAGPIN_DOWNHEIGH_IN_COL,
+        REAGPIN_DOWNHEIGH_IN_RIS
+    };
+
+
+    int size = qMin(m_capactityList.size(), m_limitratioList.size()); // 取最小size防止越界
+
+    // 配置吸试剂的量
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        if (suckVolSpinBoxes[i]) {
+            suckVolSpinBoxes[i]->setValue(ini.getTypesReagentSuckVolume(reagentTypes[i]));
+        }
+    }
+
+    // 配置吸试剂比例系数
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        if (ratioSpinBoxes[i]) {
+            ratioSpinBoxes[i]->setValue(ini.getTypesReagentSuckRatio(reagentTypes[i]));
+        }
+    }
+
+    // 吸试剂吸多余的增益比例
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        if (addRatioSpinBoxes[i]) {
+            addRatioSpinBoxes[i]->setValue(ini.getTypesReagentSuckAdd_Ratio(reagentTypes[i]));
+        }
+    }
+
+    // 试剂加到测试通道下针高度
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        if (downHeightSpinBoxes[i]) {
+            downHeightSpinBoxes[i]->setValue(ini.getTypesReagentNeedleDownHigh(reagentTypes[i]));
+        }
+        if (showLabels[i] && downHeightSpinBoxes[i]) {
+            _creatstupoint(showLabels[i], downHeightSpinBoxes[i], downHeightParams[i], m_preagpinLableList);
+        }
+    }
+
+    if (m_capactityList.size() != m_limitratioList.size()) {
+        QLOG_WARN() << "List size mismatch. Capacity:" << m_capactityList.size()
+                   << "Limit:" << m_limitratioList.size();
+    }
+
+    // 试剂容量 && 试剂限位
+    for (int k = 0; k < size; ++k) {
+        quint16 value_capacity = 0;
+        quint8 value_limit = 0;
+
+        ConsumablesOper::GetpInstance()->updateReagentTotal(READ_OPERRAT, k, value_capacity);
+        if (QSpinBox* spinBox = m_capactityList.value(k)) {
+            spinBox->setValue(value_capacity);
+        }
+
+        ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT, k, value_limit);
+        if (QSpinBox* spinBox = m_limitratioList.value(k)) {
+            spinBox->setValue(value_limit);
+        }
+    }
+
+}
+
+
+void  MachineSetting::ReagentConfigParaSetOrGet(const bool bsetConfig)
+{
+    if(bsetConfig)
+    {
+        configWrite2BoardReagentNeedlePara();
+    }
+    else
+    {
+        initBoardReagentNeedlePara();
+    }
+    return;
+}
 
 void MachineSetting::initdisplaymoduleChn( const quint8 equipmentIndex)
 {
@@ -1810,8 +1838,8 @@ void MachineSetting::sendmainbordBasicPara()
         ChnState[index_chn - 1] = channelbox->isChecked();
     }
 
-    quint16 dimmlED = 0;
-    QUIUtils::_writeParaNumIOrder(sycnmainboardArry,ModuleData,ChnState, scanbar, rightReagent, initcatchcups, dimmlED);
+    quint16 disused = 0;
+    QUIUtils::_writeParaNumIOrder(sycnmainboardArry,ModuleData,ChnState, scanbar, rightReagent, initcatchcups, disused);
 
     QByteArrayList sendList;
     sendList.push_back(sycnmainboardArry);
@@ -1850,12 +1878,36 @@ void MachineSetting::HandsParaWriteBoard()
     QByteArray buffer;
     QUIUtils::_writeParaNumIIHandsOrder(buffer,throwdownmm,handsinierTray,HandsinnerModule, brebackCatch);
 
-    QByteArray GripperContl = QUIUtils::writeGripperParaDataArry(ui->spinBoxSuckAirsMax->value(),
-                                                        ui->spinBoxSplitAirsMin->value(),
-                                                        ui->spinBox_suckLatetimer->value(),false);
+    QByteArray GripperContl = outParaOx1aWrite();
     emit SetParatoInstrument({ buffer, GripperContl },"抓手参数写入主板");
     return;
 }
+
+
+
+QByteArray MachineSetting::outParaOx1aWrite(){
+    quint8 FilteringMode = static_cast<quint8>(INI_File().getFilteringMode());
+    return QUIUtils::writeGripperParaDataArry(ui->spinBoxSuckAirsMax->value(),
+                                        ui->spinBoxSplitAirsMin->value(),
+                                        ui->spinBox_suckLatetimer->value(),
+                                        FilteringMode,
+                                        ui->checkBox_absorbance->isChecked(),
+                                        ui->checkBoxExperimental->isChecked(),false);
+}
+
+
+void MachineSetting::configWriteDimming2Board(){
+    auto& ini = INI_File();
+    const QByteArray arryData = QUIUtils::writeModuleDimmingVal0x1b(
+           static_cast<quint16>(ini.getModuledimmingVal(MODULE_1)),
+           static_cast<quint16>(ini.getModuledimmingVal(MODULE_2)),
+           static_cast<quint16>(ini.getModuledimmingVal(MODULE_3)),
+           false
+    );
+    emit SetParatoInstrument({ arryData },"模组调光值写入主板");
+}
+
+
 
 
 void MachineSetting::BloodPinParaWriteBoadr()
@@ -1927,65 +1979,45 @@ void MachineSetting::BloodPinParaWriteBoadr()
 }
 
 
-//把试剂容量写入到仪器
-void MachineSetting::configvalue_to_equipment_capactity()
-{
-    QByteArray commandarry;
-    QUIUtils::_writeReagentCapacity(commandarry);
-    emit SetParatoInstrument({commandarry},"配置试剂容量");
-}
 
-void MachineSetting::configvalue_to_equipment_Limit()
-{
-    QByteArray commandarry;
-    QUIUtils::_writeReagentLimitOrder(commandarry);
-    emit SetParatoInstrument({commandarry},"配置试剂限位");
-    return;
-}
+
+
 
 void MachineSetting::notifyReagentPinParaToBoard()
 {
-	const int kReagentCount = 5;
-	quint8 suckReagentul[kReagentCount] = {0};
-	quint8 splitReagentDownmm[kReagentCount] = {0};
-    /*QList<QSpinBox *> suckReagentVolList,suckReagentDownHeighList;
-    suckReagentVolList<<ui->spinBox_AA_Suck_Vol<<ui->spinBox_ADP_Suck_Vol<<ui->spinBox_ADR_Suck_Vol
-                      <<ui->spinBox_COL_Suck_Vol<<ui->spinBox_RIS_Suck_Vol;
-    suckReagentDownHeighList<<ui->ui->spinBox_down_AA<<ui->spinBox_down_ADP<<ui->spinBox_down_ADR
-                           <<ui->spinBox_down_COL<<ui->spinBox_down_RIS;
+    auto &ini = INI_File();
 
-    for(int n = 0; n < suckReagentVolList.size(); ++n)
-    {
-        suckReagentul[n] = static_cast<quint8>(suckReagentVolList.at(n)->value());
-        splitReagentDownmm[n] = static_cast<quint8>(suckReagentDownHeighList.at(n)->value());
-    }*/
+    // 使用原生数组替代std::array
+    const int REAGENT_COUNT = 5;
+    quint8 reagentTypes[REAGENT_COUNT] = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
 
+    // 初始化数组
+    quint8 ReagentPinSuckum[REAGENT_COUNT] = {0};
+    quint8 ReagentDownPinmm[REAGENT_COUNT] = {0};
+    quint8 otherReagentData[8] = {0};
 
-	for(int n = AA_REAGENT; n <= RIS_REAGENT; ++n)
-	{
-		const int index = n - AA_REAGENT;
-		suckReagentul[index] = INI_File().getTypesReagentSuckVolume(n); // 假设最大吸液量200μL
-		splitReagentDownmm[index] = INI_File().getTypesReagentNeedleDownHigh(n);
-	}
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        ReagentPinSuckum[i] = ini.getTypesReagentSuckVolume(reagentTypes[i]);
+        ReagentDownPinmm[i] = ini.getTypesReagentNeedleDownHigh(reagentTypes[i]);
+    }
 
-	quint8 otherdata[8] = {0};
-	otherdata[0] = INI_File().GetAbsorbWashingfluidX1();
-	otherdata[1] = INI_File().getFailedCleanLinqueReagNeedle();
-	otherdata[2] = INI_File().GetFailedReagentsLinqueHigh();
-    otherdata[3] = INI_File().getTypesReagentSuckRatio(AA_REAGENT)*100.0; // 0.1 → 1
-    otherdata[4] = INI_File().getTypesReagentSuckRatio(ADP_REAGENT)*100.0;
-    otherdata[5] = INI_File().getTypesReagentSuckRatio(EPI_REAGENT)*100.0;
-    otherdata[6] = INI_File().getTypesReagentSuckRatio(COL_REAGENT)* 100.0;
-    otherdata[7] = INI_File().getTypesReagentSuckRatio(RIS_REAGENT)*100.0;
+    otherReagentData[0] = ini.GetAbsorbWashingfluidX1();
+    otherReagentData[1] = ini.getFailedCleanLinqueReagNeedle();
+    otherReagentData[2] = ini.GetFailedCleanLinqueHigh();
 
-	QByteArrayList send_data_;
-	send_data_.clear();
-    send_data_.reserve(2);
-	QByteArray commandarry,commandotherPara;
-	QUIUtils::_writeReagPinParaDataOrder(commandarry,commandotherPara,
-                                        suckReagentul,splitReagentDownmm,otherdata);
-	send_data_ << commandarry << commandotherPara;
-	emit SetParatoInstrument(send_data_,"配置试剂针参数");
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        otherReagentData[3 + i] = static_cast<quint8>(ini.getTypesReagentSuckRatio(reagentTypes[i]) * 100.0);
+    }
+
+    // 生成命令数据
+    QByteArray sendOrder, sendOtherOrder;
+    QUIUtils::_writeReagPinParaDataOrder(sendOrder, sendOtherOrder,
+                                         ReagentPinSuckum,
+                                         ReagentDownPinmm,
+                                        otherReagentData);
+    emit SetParatoInstrument({sendOrder,sendOtherOrder},"配置试剂针参数");
 	return;
 }
 
@@ -2140,6 +2172,8 @@ void MachineSetting::onMaintenanceButtonClicked(){
         disconnectEnterReturnShortcuts();
         Engineerinterfacelayout(true);  // 统一由该函数管理界面状态
         emit LoginEngineerMode(true);
+
+
 
     } else {
         Engineerinterfacelayout(false);
@@ -2569,7 +2603,7 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
            plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
            QByteArrayList senddata_ = QUIUtils::_controltestbloodpindownheigh(pstuinfo->index_,
                                                             pstuinfo->pdownmovemm->value()); //控制血样针下针命令
-           emit _testdownheight(senddata_,pstuinfo->index_);
+           emit testdownheight(senddata_,pstuinfo->index_);
            return true;
        }
        return false;
@@ -2584,7 +2618,7 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
                 return false;
             plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
             QByteArrayList senddata_ = QUIUtils::_controlReagpindownheih(pstuinfo->index_,pstuinfo->pdownmovemm->value());
-            emit _testdownheight(senddata_,pstuinfo->index_);
+            emit testdownheight(senddata_,pstuinfo->index_);
             return true;
         }
         return false;
@@ -2599,7 +2633,7 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
                 return false;
             plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
             QByteArrayList senddata_ = QUIUtils::_controlHandsdowntest(pstuinfo->index_,pstuinfo->pdownmovemm->value());
-            emit _testdownheight(senddata_,pstuinfo->index_);
+            emit testdownheight(senddata_,pstuinfo->index_);
             return true;
         }
         return false;
@@ -2739,30 +2773,6 @@ void MachineSetting::slotmoduleLedData(quint8 indexModule, int chnIData, int chn
     ui->label_displayReminder->setText(QString("读取模组%1LED成功!").arg(indexModule));
 }
 
-
-//void MachineSetting::slotmoduleLedData(quint8 indexModule, int chnIData,
-//                                       int chnIIData, int chnIIIData, int chnIVData)
-//{
-//    quint8 ifrom,iend;
-//    switch(indexModule)
-//    {
-//        case MODULE_1: ifrom = TEST_CHANNEL_1 - 1; iend = TEST_CHANNEL_4 - 1; break;
-//        case MODULE_2: ifrom = TEST_CHANNEL_5 - 1; iend = TEST_CHANNEL_8 - 1; break;
-//        case MODULE_3: ifrom = TEST_CHANNEL_9 - 1; iend = TEST_CHANNEL_12 - 1; break;
-//        default: ifrom = 0; iend = 0; break;
-//    }
-//    ui->tableWidget_controlChn->blockSignals(true);
-//    int dataLed[4]= {chnIData,chnIIData,chnIIIData,chnIVData};
-//    int k = 0;
-//    for(int i = ifrom; i <= iend; i++)
-//    {
-//        insertDataItem(ui->tableWidget_controlChn,i, 2 ,QString::number(dataLed[k]),false);
-//        k++;
-//    }
-//    ui->label_displayReminder->setText(QString("读取模组%1LED成功!").arg(indexModule));
-//    ui->tableWidget_controlChn->blockSignals(false);
-//    update();
-//}
 
 //通到数据调光表
 void MachineSetting::initDimmingTab(QTableWidget *pdimmingTable, const quint8 indexequipment)
@@ -3233,4 +3243,9 @@ void MachineSetting::handlebackHandssuck(bool issuck,int airval){
         ui->label_showsuckVal->setText(QString::number(airval));
     else
         ui->label_splitval->setText(QString::number(airval));
+}
+
+void MachineSetting::on_pushButtonsavedimming_clicked()
+{
+    configWriteDimming2Board();
 }

@@ -371,6 +371,7 @@ private:
 #define PARALIMINTBOTTLE             25  //0X19
 
 #define CONTROLGRIPPERPARA           26  //0X1A
+#define CONTROL_MODULEDIMMINGVALUE   27  //0X1B 模组调光值
 
 
 
@@ -485,6 +486,11 @@ private:
     //0x1a 吸杯负压判断值
     void recveNegativePressure(const QStringList hexArry);
 
+    //0x1b 模组调光值
+    void recveModuleDataPressure(const QStringList& hexArry);
+
+
+
     void recvReagentCapacity(const QStringList hexArry);
 
     void recvOrininAxis(const QStringList hexArry); //0x06 收到原点坐标x...
@@ -579,7 +585,9 @@ private:
 
     void _initwriteBloodpinotherPara(bool _bexit,QString _path); //0x16
 
-    void _initwritereagentParaDataI(bool _bexit,QString _path);//0X17-0X18
+    //0X17-0X1B
+    void addParameterToEquipment(quint8 type, const QByteArray& data);
+    void initwritereagentParaDataI();
 
 
     /**把参数写入板子 0x19
@@ -592,6 +600,9 @@ private:
 
     //抓手参数
     QByteArray initWriteGripperPara();
+
+    //模组调光值
+    QByteArray initModuleDimmingValPara();
 
     void initwriteMainReagNum();//写主板内耗材数
 

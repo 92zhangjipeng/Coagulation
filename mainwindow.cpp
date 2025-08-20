@@ -1923,7 +1923,7 @@ void MainWindow::updateButtonSelectionState(int activeIndex)
 
     if (static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables) == activeIndex) {
         FullyAutomatedPlatelets::pinstanceinstrument()->displayConsumablesInteger();
-        FullyAutomatedPlatelets::pinstanceinstrument()->_ShowConsumablesLimitArm();
+        FullyAutomatedPlatelets::pinstanceinstrument()->ShowConsumablesLimitArm();
         //只要打开耗材界面 当总耗材数小于等于报警限 就弹提示
         FullyAutomatedPlatelets::pinstanceinstrument()->TotalConsumablesAlarm();
     }
@@ -1996,7 +1996,7 @@ void MainWindow::openSettingsDialog()
 			emit _sendcodeList(d, s);
 		});
 
-		connect(pEquipment, &MachineSetting::_testdownheight,
+        connect(pEquipment, &MachineSetting::testdownheight,
 			this, [this](QByteArrayList d, int i) {
 			emit CeratActionDate(i, d);
 		});

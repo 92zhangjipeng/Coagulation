@@ -45,7 +45,7 @@ public:
 
     void  initshowcapacity();  //显示试剂&&清洗液百分比   /*点击耗材按钮进入*/
 
-    void _configwarmvalue(quint8 index_,quint8 _limitarm);
+    void configwarmvalue(quint8 index_,quint8 _limitarm);
 
     void CreatReplaceRemindWidget(const QString Title,const QString ReminderText,const int ReplaceindexSuppiles);
 
@@ -59,7 +59,7 @@ public:
 
     void  displayConsumablesInteger(); //显示耗材剩余整体
 
-    void  _ShowConsumablesLimitArm(); //显示耗材报警线
+    void  ShowConsumablesLimitArm(); //显示耗材报警线
 
     void  loc_clean_linque_display();  //本地清洗液显示比例
 

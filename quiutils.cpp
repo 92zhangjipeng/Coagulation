@@ -301,7 +301,7 @@ void QUIUtils::sycnBottleWholeNum(quint8 index_reag, quint8 BottleNum)
     INI_File().wConfigPara(targetIndex,BottleNum);
 }
 
-void QUIUtils::_sycnBottleLimit(QString mpathfile, quint8 index_reag, quint8 BottleLimit)
+void QUIUtils::sycnBottleLimit(QString mpathfile, quint8 index_reag, quint8 BottleLimit)
 {
     QSettings *configIniWrite = new QSettings(mpathfile, QSettings::IniFormat);
     switch(index_reag)
@@ -341,7 +341,7 @@ void QUIUtils::_sycnBottleLimit(QString mpathfile, quint8 index_reag, quint8 Bot
     delete configIniWrite;
 }
 
-void QUIUtils::_sycnBottleCapacity(QString mpathfile, quint8 index_reag, quint16 BottleCapacity)
+void QUIUtils::sycnBottleCapacity(QString mpathfile, quint8 index_reag, quint16 BottleCapacity)
 {
     QSettings *configIniWrite = new QSettings(mpathfile, QSettings::IniFormat);
     switch(index_reag)
@@ -1514,8 +1514,8 @@ void QUIUtils::_writeReagentCapacity(QByteArray &buffer)
     return;
 }
 
-void QUIUtils::_writeParaNumIOrder(QByteArray &buffer,quint16 (&moduleI)[3],bool (&ChanState)[12],
-                            bool scanbar, bool rightReagent, bool initcatchcups, quint16 dimmlED){
+void QUIUtils::_writeParaNumIOrder(QByteArray &buffer, quint16 (&moduleI)[3], bool (&ChanState)[12],
+                            bool scanbar, bool rightReagent, bool initcatchcups, quint16 disUsed){
 
     buffer.clear();
     buffer = QByteArray::fromHex(QString::number(MAIN_CONTROL,HEX_SWITCH).toUtf8());
@@ -1562,9 +1562,10 @@ void QUIUtils::_writeParaNumIOrder(QByteArray &buffer,quint16 (&moduleI)[3],bool
     byte_ = QByteArray::fromHex(sSendHex.toLatin1());
     buffer.push_back(byte_);
 
-    EndianArry = qint16ToQByteArray(dimmlED, false);
+    EndianArry = qint16ToQByteArray(disUsed, false);
     buffer.push_back(EndianArry);
-    QLOG_DEBUG()<<"0x01写入:"<<buffer.toHex(' ').trimmed().toUpper()<<"leng="<<buffer.size()<<endl;
+    QLOG_DEBUG()<<"0x01写入:"<<buffer.toHex(' ').trimmed().toUpper()
+                <<"数据长度:"<<buffer.size()<<endl;
     return;
 }
 
@@ -1775,8 +1776,13 @@ void appendQint16(QByteArray &arr, quint16 value, bool bigEndian) {
         arr.append(data[0]).append(data[1]);  // 小端序
     }
 }
-QByteArray QUIUtils::writeGripperParaDataArry(const quint16 lessMax,const quint16 bigthanMin,const quint16 suckTime,
-                                       const bool Writedirectly)
+QByteArray QUIUtils::writeGripperParaDataArry(const quint16 lessMax,
+                                                const quint16 bigthanMin,
+                                                const quint16 suckTime,
+                                                const quint8  filteringStyle,
+                                                const bool experimentalMode,
+                                                const bool Logarithmicformula,
+                                                const bool Writedirectly)
 {
     QByteArray buffer;
     buffer.clear();
@@ -1809,12 +1815,46 @@ QByteArray QUIUtils::writeGripperParaDataArry(const quint16 lessMax,const quint1
     appendQint16(buffer, bigthanMin, false);  // 复用buffer避免临时对象
     appendQint16(buffer, suckTime, false);
 
-	quint16 disUsedByte = 0;
-	appendQint16(buffer, disUsedByte, false);
-	appendQint16(buffer, disUsedByte, false);
-
-    //日志输出简化
+    buffer.push_back(static_cast<char>(filteringStyle));
+    buffer.push_back(static_cast<char>(experimentalMode));
+    buffer.push_back(static_cast<char>(Logarithmicformula));
+    buffer.push_back(static_cast<char>(0x00));
     QLOG_DEBUG() << "0x1A写入:" << buffer.toHex(' ').trimmed().toUpper() << "长度:" << buffer.size() << endl;
+    return buffer;
+}
+
+
+QByteArray QUIUtils::writeModuleDimmingVal0x1b(const quint16& dimmingValI, const quint16& dimmingValII,
+                                        const quint16& dimmingValIII, const bool writeDirectly){
+
+    QByteArray buffer;
+    buffer.reserve(15); // 预分配空间，避免多次扩容
+
+    // 使用链式操作提高可读性
+    buffer.append(static_cast<char>(MAIN_CONTROL))
+          .append(static_cast<char>(0x15))  // 功能码
+          .append(static_cast<char>(CONTROL_MODULEDIMMINGVALUE))
+          .append(static_cast<unsigned char>(0x01));
+
+    // 简化位操作
+    quint8 funcByte = writeDirectly ? (1 << 3) : 0; // 第4位对应二进制第3位（从0开始）
+    buffer.append(static_cast<char>(funcByte));
+
+    // 使用lambda简化重复的append操作
+    auto appendDimmingVal = [&buffer](quint16 value) {
+        appendQint16(buffer, value, false);
+    };
+    appendDimmingVal(dimmingValI);
+    appendDimmingVal(dimmingValII);
+    appendDimmingVal(dimmingValIII);
+
+    // 添加两个未使用的0值
+    appendDimmingVal(0);
+    appendDimmingVal(0);
+
+    QLOG_DEBUG() << "0x1B写入:" << buffer.toHex(' ').trimmed().toUpper()
+                     << "数据长度:" << buffer.size();
+
     return buffer;
 }
 

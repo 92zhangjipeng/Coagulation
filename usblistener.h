@@ -27,18 +27,13 @@
 #include <winusb.h>
 #include <cfgmgr32.h>
 
-
-
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "cfgmgr32.lib")
 
 #pragma execution_character_set("utf-8")
 
 
-// 标准 WinUSB 设备接口 GUID
-// {A5DCBF10-6530-11D2-901F-00C04FB951ED}
-DEFINE_GUID(GUID_DEVINTERFACE_WINUSB,
-	0xA5DCBF10, 0x6530, 0x11D2, 0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
+
 
 
 // USB 设备信息结构体
@@ -105,9 +100,6 @@ private:
     HWND m_hwnd = nullptr;            // 接收消息的窗口句柄
     std::atomic<bool> m_listening{false}; // 监听状态标志
 
-	bool m_deviceWasDisabled = false;
-	HDEVINFO  m_hDevInfo;
-	SP_DEVINFO_DATA m_devInfoData;
 
 	bool DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId, QString &outFailed);
 };

@@ -87,7 +87,7 @@ namespace QUIUtils
      * @param index_reag
      * @param BottleLimit
      */
-    void _sycnBottleLimit(QString mpathfile, quint8 index_reag, quint8 BottleLimit);
+    void sycnBottleLimit(QString mpathfile, quint8 index_reag, quint8 BottleLimit);
 
     /**
      * @brief _sycnBottleCapacity 容量
@@ -95,7 +95,7 @@ namespace QUIUtils
      * @param index_reag
      * @param BottleCapacity
      */
-    void _sycnBottleCapacity(QString mpathfile, quint8 index_reag, quint16 BottleCapacity);
+    void sycnBottleCapacity(QString mpathfile, quint8 index_reag, quint16 BottleCapacity);
 
 
 
@@ -335,7 +335,7 @@ namespace QUIUtils
 							bool scanbar,
 							bool rightReagent,
 							bool initcatchcups,
-							quint16 dimmlED);
+                            quint16 disUsed);
 
     void _writeParaNumIIHandsOrder(QByteArray &buffer,
 									quint8 throwdownmm,
@@ -367,8 +367,15 @@ namespace QUIUtils
 
     //0x1a写入主板
     QByteArray writeGripperParaDataArry(const quint16 lessMax,
-                                          const quint16 bigthanMin,
-                                          const quint16 suckTime,const bool Writedirectly);
+                                            const quint16 bigthanMin,
+                                            const quint16 suckTime,
+                                            const quint8 filteringStyle,
+                                            const bool experimentalMode,
+                                            const bool Logarithmicformula, const bool Writedirectly);
+
+    //ox1b
+    QByteArray writeModuleDimmingVal0x1b(const quint16& dimmingValI, const quint16& dimmingValII,
+                                         const quint16& dimmingValIII, const bool writeDirectly);
 
 
 

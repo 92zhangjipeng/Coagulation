@@ -40,8 +40,7 @@ displayChanneldata::~displayChanneldata()
 
 void displayChanneldata::_start()
 {
-    if(!m_thread.isRunning())
-    {
+    if(!m_thread.isRunning()){
         m_thread.start();
     }
 }

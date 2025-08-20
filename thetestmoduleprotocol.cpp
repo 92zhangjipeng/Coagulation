@@ -301,6 +301,7 @@ void theTestModuleProtocol::getTemperatureDimming(const double moduleTEMP, const
             {
                 it.value() = true;  // 标记为完成
                 m_remainingModules--;  // 减少未完成计数
+                QLOG_DEBUG()<<"模组"<<indexModule<<"控温到达"<<moduleTEMP;
                 if (m_remainingModules <= 0)
                 {
                     m_completeTemp = true;  // 所有模块完成
