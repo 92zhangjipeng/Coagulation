@@ -790,8 +790,20 @@ void MainWindow::initTestTaskThread()
             m_pdoingTesting.data(),&TestProjectProcess::handleGripErrGiveupSample,
             Qt::QueuedConnection);
 
-    connect(this,&MainWindow::pendingtimeoutSampleTest,m_pdoingTesting.data(),
-            &TestProjectProcess::handlePendingtimeoutSampleTest,Qt::QueuedConnection);
+    connect(this,&MainWindow::pendingtimeoutSampleTest,
+            m_pdoingTesting.data(),
+            &TestProjectProcess::handlePendingtimeoutSampleTest,
+            Qt::QueuedConnection);
+
+    // 在主窗口类中连接信号
+    connect(mshowModuledata.data(), &displayChanneldata::signalShowPPPError,
+            this, [this](int value) {
+
+        on_toolButton_quality_sample_clicked();//暂停
+        QMessageBox::warning(this,  "PPP异常警告",
+            QString("检测到PPP异常值: %1\n正常范围: 2000-3000\n机器已停止测试").arg(value));
+    });
+
 
 }
 

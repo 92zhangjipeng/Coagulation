@@ -508,8 +508,7 @@ void displayChanneldata::slotgetAnemiaValue()
     int sampleid = 0;
     quint8 testChnindex = 0;
     sampleid = StructInstance::getInstance()->ClipEndGetAnemiaValeChn(testChnindex,
-                                                       FOCUS_CLIP_ANEMIA_TO_CHN,
-                                                      "准备读取贫血值");
+                                                FOCUS_CLIP_ANEMIA_TO_CHN,"准备读取贫血值");
     const int testingChannel = testChnindex + 1;
     const auto it = m_ChnRealtimeData.find(testingChannel);
     if(it == m_ChnRealtimeData.constEnd()) {
@@ -520,10 +519,17 @@ void displayChanneldata::slotgetAnemiaValue()
 
     int aneminaValue = it.value();
     StructInstance::getInstance()->oper_AnemiaValue(WRITE_OPERAT,testChnindex,aneminaValue);
-    QLOG_DEBUG()<<"[样本"<<sampleid<<"]"<<"通道"<<testChnindex<<"PPP"<<aneminaValue<<"读取成功"<<endl;
+    QLOG_DEBUG()<<"[样本"<<sampleid<<"]"<<"通道"<<testChnindex
+               <<"PPP"<<aneminaValue<<"读取成功"<<endl;
 
     //获取贫血成功
     emit CompleteGetAnemiaValue(testChnindex);
+
+   //内部测试PPP异常(小于2000 大于3000)弹出提示 机器停止测试  确定提示在继续
+   if (aneminaValue < 2000 || aneminaValue > 3000) {
+       emit signalShowPPPError(aneminaValue);  // 让主线程弹窗
+       return;  // 直接返回，不继续执行
+   }
 }
 
 void displayChanneldata::slotreadbloodyInitValue(quint8 indexReagent,quint8 indexActive)
