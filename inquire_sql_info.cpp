@@ -16,6 +16,7 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     ui(new Ui::Inquire_Sql_Info)
 {
     ui->setupUi(this);
+	initTextTip();
     ui->progressBarLoad->setFixedHeight(25);
     ui->progressBarLoad->hide();
     ui->progressBarLoad->setStyleSheet("QProgressBar{text-align:center;background-color:#DDDDDD;border: 0px solid #DDDDDD;border-radius:5px;}"
@@ -215,6 +216,10 @@ void Inquire_Sql_Info::Init_tablewidget_style()
 
 Inquire_Sql_Info::~Inquire_Sql_Info()
 {
+	/*if (m_TextTip) {
+		delete m_TextTip;
+		m_TextTip = nullptr;
+	}*/
     m_threadInqure.quit();
     m_threadInqure.wait();
 
@@ -340,19 +345,42 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
 
     return;
 }
+void Inquire_Sql_Info::initTextTip()
+{
+	if (!m_TextTip) {
+		m_TextTip = new QCPItemText(ui->Inquire_curve_1);
 
+		m_TextTip->setPositionAlignment(Qt::AlignLeft | Qt::AlignTop);
+		m_TextTip->position->setType(QCPItemPosition::ptAbsolute);
+		m_TextTip->setColor(Qt::black);
+		m_TextTip->setFont(QFont("Microsoft YaHei", 9));
+		m_TextTip->setPen(QPen(Qt::darkGray));
+		m_TextTip->setBrush(QBrush(QColor(255, 255, 225, 230)));// 浅黄色背景
+		m_TextTip->setPadding(QMargins(8, 5, 8, 5));
+		m_TextTip->setVisible(false);
+	}
+}
 void Inquire_Sql_Info::OnPlotClick(QCPAbstractPlottable *plottable, int dataIndex, QMouseEvent *event)
 {
-   //先获取点击的绘图层名称,然后通过名称找到图层ID,再找到对应的数据点
-   QString cannel_num = plottable->name();
-   int graphId = mChildren.indexOf(cannel_num);
-   const QCPGraphData *ghd = ui->Inquire_curve_1->graph(graphId)->data()->at(dataIndex);
-   QString text = cannel_num +":" +"(""数据量:"+ QString::number(ghd->key + 1,10,0) + ","+"结果值:"+ QString::number(ghd->value,10,2) + ")";
-   m_TextTip->setText(text);//文本内容填充
-   m_TextTip->position->setCoords(event->pos().x() + 30, event->pos().y() - 15);//文本框所在位置
+	if (!m_TextTip) {
+		initTextTip();
+	}
+
+   QCPGraph *clickedGraph = qobject_cast<QCPGraph*>(plottable);
+   if (!clickedGraph) return;
+
+   QString cannel_num = clickedGraph->name();
+
+   // 直接使用点击的图形对象
+   const QCPGraphData *ghd = clickedGraph->data()->at(dataIndex);
+   if (!ghd) return;
+
+   QString text = cannel_num + ":" + "(" + "数据量:" + QString::number(ghd->key + 1, 10, 0) + ","
+				  + "结果值:" + QString::number(ghd->value, 10, 2) + ")";
+   m_TextTip->setText(text);
+   m_TextTip->position->setCoords(event->pos().x() + 30, event->pos().y() - 15);
    m_TextTip->setVisible(true);
    ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
-   return;
 }
 
 

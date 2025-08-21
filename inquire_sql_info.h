@@ -99,6 +99,7 @@ private:
 
     void InsertInqireResult(int Rows,quint8 Cols,QString Datastr);
 
+	void initTextTip();
 
     void setupRealtimeDataDemo(QCustomPlot *customPlot); //设置qcustomplot画图属性
 

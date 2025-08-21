@@ -29,10 +29,7 @@
 
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "cfgmgr32.lib")
-
 #pragma execution_character_set("utf-8")
-
-
 
 
 
@@ -52,6 +49,7 @@ public:
     ~USBListener();
 
     void registerDevice(HWND pwid);//注册USB设备
+
 
     // 核心监听方法
     bool startListening();
@@ -75,8 +73,6 @@ signals:
 
 private:
 
-	void  initDisAblePower();
-
 	bool createMessageWindow();
 	bool registerDeviceNotifications();
 
@@ -85,6 +81,9 @@ private:
 
     // 检查是否目标设备
     bool isTargetDevice(uint16_t vid, uint16_t pid);
+
+
+    void initDisAblePower();
 
 private:
     const uint16_t m_targetVID;      // 目标设备VID
@@ -101,6 +100,7 @@ private:
     std::atomic<bool> m_listening{false}; // 监听状态标志
 
 
-	bool DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId, QString &outFailed);
+    bool DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId, QString &outFailed);
 };
+
 #endif // USBLISTENER_H

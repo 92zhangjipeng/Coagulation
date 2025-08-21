@@ -797,6 +797,7 @@ void MainWindow::initTestTaskThread()
     // 在主窗口类中连接信号
     connect(mshowModuledata.data(), &displayChanneldata::signalShowPPPError,
             this, [this](int value) {
+        if(!INI_File().getexperimentalMode()) return;
 
         on_toolButton_quality_sample_clicked();//暂停
         QMessageBox::warning(this,  "PPP异常警告",

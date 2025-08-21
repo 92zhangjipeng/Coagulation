@@ -13830,3 +13830,19 @@
 <font color="#FFFF00">[16:30:47提醒]USB仪器设备连接!</font>
 <font color="#FFFF00">[16:30:49提醒]恢复继续获取模组和主板数据</font>
 <font color="#FFFF00">[16:31:11提醒]USB监听已停止!</font>
+<font color="#FFFF00">[18:07:14提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:07:21]USB监听已启动!</font>
+<font color="#FFFF00">[18:12:58提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:12:58]USB监听已启动!</font>
+<font color="#FFFF00">[18:21:49提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:21:49]USB监听已启动!</font>
+<font color="#FFFF00">[18:22:50提醒]USB监听已停止!</font>
+<font color="#FFFF00">[18:27:17提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:27:17]USB监听已启动!</font>
+<font color="#FFFF00">[18:28:55提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:28:55]USB监听已启动!</font>
+<font color="#FFFF00">[18:30:14提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:30:14]USB监听已启动!</font>
+<font color="#FFFF00">[18:32:55提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[18:32:56]USB监听已启动!</font>
+<font color="#FFFF00">[18:33:24提醒]USB监听已停止!</font>
