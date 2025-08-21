@@ -482,37 +482,36 @@ void Testing::init_testtube_tray(const int index_tray)
 
 
 //试管已被夹走用掉了
-void  Testing::InitUIEmptyTubeused(int TestTubeUsed)
+void  Testing::InitUIEmptyTubeused(int testTubeIndex)
 {
-    if (m_Testcups.contains(TestTubeUsed))
-    {
-        auto hole =	m_Testcups.find(TestTubeUsed);
-        mEmptyTubeClipMoved.insert(hole.key(),hole.value());
+    if (testTubeIndex < 0) {
+        QLOG_WARN() << "无效的试管索引:" << testTubeIndex;
+        return;
     }
-    else
-    {
-       QLOG_ERROR()<<"试管:"<< TestTubeUsed<<"夹取失败";
+    auto it = m_Testcups.find(testTubeIndex);
+    if (it != m_Testcups.end()) {
+        mEmptyTubeClipMoved.insert(it.key(), it.value());
+    } else {
+        QLOG_ERROR() << "试管:" << testTubeIndex << "夹取失败，未找到对应测试杯";
     }
     update();
-    return;
 }
 
 
 
 //初始化试管已加血样
-void  Testing::InitTubeAddBlooded(int Tube,quint8 Reagetn,int SampleNumber)
+void  Testing::InitTubeAddBlooded(int tubeIndex, quint8 reagentType, int sampleNumber)
 {
-    if(m_Testcups.contains(Tube))
-    {
-         auto iter = m_Testcups.find(Tube);
-         if(Reagetn == 0)
-             mEmptyTubeAbsorb_Poorblood.insert(Tube,iter.value());
-         else
-            mEmptyTubeAbsorb_Richblood.insert(Tube,iter.value());
-         mEmptyText.insert(Tube,QString::number(SampleNumber));
+    const auto it = m_Testcups.find(tubeIndex);
+    if (it != m_Testcups.end()) {
+        if (reagentType == 0) {
+            mEmptyTubeAbsorb_Poorblood.insert(tubeIndex, it.value());
+        } else {
+            mEmptyTubeAbsorb_Richblood.insert(tubeIndex, it.value());
+        }
+        mEmptyText.insert(tubeIndex, QString::number(sampleNumber));
     }
     update();
-    return;
 }
 
 

@@ -13784,3 +13784,49 @@
 <font color="#FFFF00">[17:36:38提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
 <font color="#FFFFFF">[17:36:38]USB监听已启动!</font>
 <font color="#FFFF00">[17:37:21提醒]USB监听已停止!</font>
+<font color="#FFFF00">[09:49:14提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[09:49:14]USB监听已启动!</font>
+<font color="#FFFF00">[09:49:38提醒]USB监听已停止!</font>
+<font color="#FFFF00">[09:51:53提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[09:51:53]USB监听已启动!</font>
+<font color="#FFFF00">[09:52:03提醒]USB监听已停止!</font>
+<font color="#FF3030">[15:46:25异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[15:46:25]USB监听已启动!</font>
+<font color="#FFFF00">[15:47:04提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[15:47:05提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[15:47:07提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[15:47:07提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[15:49:16提醒]USB监听已停止!</font>
+<font color="#FFFF00">[15:49:58提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[15:49:58]USB监听已启动!</font>
+<font color="#FFFF00">[15:51:04提醒]USB监听已停止!</font>
+<font color="#FF3030">[16:05:29异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[16:05:29]USB监听已启动!</font>
+<font color="#FFFF00">[16:06:08提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[16:06:09提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[16:06:11提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[16:06:11提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[16:07:11提醒]USB监听已停止!</font>
+<font color="#FF3030">[16:07:53异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[16:07:53]USB监听已启动!</font>
+<font color="#FFFF00">[16:08:32提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[16:08:33提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[16:08:34提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[16:08:35提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[16:09:12提醒]USB监听已停止!</font>
+<font color="#FFFF00">[16:14:05提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[16:14:29]USB监听已启动!</font>
+<font color="#FFFF00">[16:15:02提醒]USB监听已停止!</font>
+<font color="#FF3030">[16:16:23异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[16:16:31]USB监听已启动!</font>
+<font color="#FF3030">[16:16:50异常]仪器USB掉线,请检查接口!</font>
+<font color="#FF3030">[16:27:30异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[16:28:01]USB监听已启动!</font>
+<font color="#FFFF00">[16:28:51提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[16:29:08提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[16:29:10提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[16:29:14提醒]忽略试管盘1脱位提示</font>
+<font color="#FF3030">[16:30:29异常]仪器USB掉线,请检查接口!</font>
+<font color="#FFFF00">[16:30:47提醒]USB仪器设备连接!</font>
+<font color="#FFFF00">[16:30:49提醒]恢复继续获取模组和主板数据</font>
+<font color="#FFFF00">[16:31:11提醒]USB监听已停止!</font>

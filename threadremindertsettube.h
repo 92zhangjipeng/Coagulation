@@ -15,10 +15,12 @@ public:
     ~ThreadReminderTsetTube();
 public:
 
-    void _usededtraytubeconfigstate(int index_); //脱机试管盘用完更新状态
+    void usededtraytubeconfigstate(int index); //脱机试管盘用完更新状态
 private:
     void Indicates_wastetankisfull();
     void cleaningfluidbalanceisinsufficient();
+
+    void showEquipmentWarning(const QString& message, equipmentTipInfo tipType);
 
 
 

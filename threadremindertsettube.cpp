@@ -17,53 +17,72 @@ ThreadReminderTsetTube::~ThreadReminderTsetTube()
     //delete ui;
 }
 
-void ThreadReminderTsetTube::_usededtraytubeconfigstate(int index_)
+void ThreadReminderTsetTube::usededtraytubeconfigstate(int index)
 {
-    quint16 hole_from = 0,hole_end = 0;
-    hole_from = index_ * ONETRAY_TOTALTUBE;
-    hole_end = (index_ + 1)*ONETRAY_TOTALTUBE;
-    for(int k = hole_from ; k < hole_end ; k++){
-        FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(k,TESTTUBES_CLIPPEDAWAY);//数据库
-        FullyAutomatedPlatelets::pinstanceTesting()->InitUIEmptyTubeused(k);//更新界面试管盘内试管全部使用
+    if (index < 0) {
+        QLOG_WARN() << "Invalid tray index:" << index;
+        return;
     }
-    FullyAutomatedPlatelets::pinstanceinstrument()->recv_updateTrayUsed(index_ + 1); //同步耗材界面
+
+    const quint16 startIndex = index * ONETRAY_TOTALTUBE;
+    const quint16 endIndex = (index + 1) * ONETRAY_TOTALTUBE;
+
+    // 获取单例实例
+    auto* const sqlData = FullyAutomatedPlatelets::pinstancesqlData();
+    auto* const testing = FullyAutomatedPlatelets::pinstanceTesting();
+    auto* const instrument = FullyAutomatedPlatelets::pinstanceinstrument();
+
+    // 批量更新试管状态
+    for (quint16 k = startIndex; k < endIndex; ++k) {
+        sqlData->UpdateEmptyTube_State(k, TESTTUBES_CLIPPEDAWAY);
+        testing->InitUIEmptyTubeused(k);
+    }
+
+    // 更新耗材界面
+    instrument->recv_updateTrayUsed(index + 1);
     return;
 }
+
+
+
+void ThreadReminderTsetTube::showEquipmentWarning(const QString& message, equipmentTipInfo tipType)
+{
+    const int code = static_cast<int>(tipType);
+
+    auto reminder = FullyAutomatedPlatelets::pinstancesuppilereminder();
+    if (Q_UNLIKELY(!reminder)) {
+        QLOG_ERROR() << "Reminder instance is null";
+        return;
+    }
+
+    reminder->_configalarmindex(code);
+    reminder->_configalarmText(message);
+    emit reminderMainUi(PROMPTLOG, message);
+
+    QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
+    const int x = (screenGeometry.width() - reminder->width()) / 2;
+    const int y = (screenGeometry.height() - reminder->height()) / 2;
+
+    reminder->move(x, y);
+    reminder->setWindowModality(Qt::NonModal);
+    reminder->show();
+    reminder->raise();
+    reminder->activateWindow();
+}
+
 
 /*提示废液罐已满*/
 void ThreadReminderTsetTube::Indicates_wastetankisfull()
 {
-    QString errortext = "仪器废液罐已满,请及时处理!";
-    int lossS1 = static_cast<int>(equipmentTipInfo::LinqueScrapFull);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->_configalarmindex(lossS1);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->_configalarmText(errortext);
-    emit reminderMainUi(PROMPTLOG,errortext);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->move((QApplication::desktop()->width() -
-                                                               FullyAutomatedPlatelets::pinstancesuppilereminder()->width()) / 2,
-                                                              (QApplication::desktop()->height() -
-                                                               FullyAutomatedPlatelets::pinstancesuppilereminder()->height()) / 2);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->setWindowModality(Qt::NonModal);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->update();
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->show();
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->raise();
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->activateWindow();
-    return;
+    showEquipmentWarning(tr("仪器废液罐已满,请及时处理!"),
+                            equipmentTipInfo::LinqueScrapFull);
 }
 
 /*提示外部清洗液不足*/
 void ThreadReminderTsetTube::cleaningfluidbalanceisinsufficient()
 {
-    QString errortext = "仪器外部清洗液余量不足,请及时处理!";
-    int warmS2 = static_cast<int>(equipmentTipInfo::LinqueCleanShortage);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->_configalarmindex(warmS2);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->_configalarmText(errortext);
-    emit reminderMainUi(PROMPTLOG,errortext); //提示文字
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->move(
-                (QApplication::desktop()->width() - FullyAutomatedPlatelets::pinstancesuppilereminder()->width()) / 2,
-                (QApplication::desktop()->height() - FullyAutomatedPlatelets::pinstancesuppilereminder()->height()) / 2);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->setWindowModality(Qt::NonModal);
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->update();
-    FullyAutomatedPlatelets::pinstancesuppilereminder()->show();
+    showEquipmentWarning(tr("仪器外部清洗液余量不足,请及时处理!"),
+                           equipmentTipInfo::LinqueCleanShortage);
     return;
 }
 
@@ -71,22 +90,37 @@ void ThreadReminderTsetTube::cleaningfluidbalanceisinsufficient()
 
 bool ThreadReminderTsetTube::checkIfTestTubeZoneAllUsed(const int index_tray)
 {
-    const int _starthole = (index_tray - 1) * ONETRAY_TOTALTUBE;
-    const int _endhole = index_tray * ONETRAY_TOTALTUBE;
+    if (index_tray <= 0) {
+        QLOG_WARN() << "Invalid tray index:" << index_tray;
+         return false;
+    }
 
-    QSet<quint8> _tubenumSet;
-    for (int n = _starthole; n < _endhole; ++n)
-         _tubenumSet.insert(n);
+    const int startHole = (index_tray - 1) * ONETRAY_TOTALTUBE;
+    const int endHole = index_tray * ONETRAY_TOTALTUBE;
 
-    QVariantList _tubenumInfo;
-    FullyAutomatedPlatelets::pinstancesqlData()->FindAllEmptyTube(_tubenumInfo);
+    QVariantList emptyTubes;
+    FullyAutomatedPlatelets::pinstancesqlData()->FindAllEmptyTube(emptyTubes);
 
-    for (const QVariant &signalTube : _tubenumInfo) {
-            const AllTubeInfo tempinfo = signalTube.value<AllTubeInfo>();
-            if (_tubenumSet.contains(tempinfo.TubeNumbers) && tempinfo.TubeStatus == TESTTUBES_FREETIME)
-                return false;
+    // 检查目标范围内的每个试管是否都被占用
+    for (int tubeNumber = startHole; tubeNumber < endHole; ++tubeNumber) {
+        bool foundFree = false;
+
+        for (const QVariant &tubeVariant : emptyTubes) {
+            const AllTubeInfo tubeInfo = tubeVariant.value<AllTubeInfo>();
+
+            if (tubeInfo.TubeNumbers == tubeNumber &&
+                tubeInfo.TubeStatus == TESTTUBES_FREETIME) {
+                foundFree = true;
+                break;
+            }
         }
-   return true;
+
+        // 如果找到一个空闲试管，立即返回false
+        if (foundFree) {
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -176,7 +210,7 @@ void ThreadReminderTsetTube::showMessageBox(PMessageBox *pWidget)
 
 void ThreadReminderTsetTube::handleTrayUpdateConfirmed(int index)
 {
-    _usededtraytubeconfigstate(index);
+    usededtraytubeconfigstate(index);
 }
 
 void ThreadReminderTsetTube::handleTrayUpdateCanceled(int index)
@@ -231,61 +265,5 @@ void ThreadReminderTsetTube::recvequipmentReminder(const int Warmingindex)
     QMetaObject::invokeMethod(FullyAutomatedPlatelets::mainWindow(),
                             &MainWindow::updateContinueButtonState,
                             Qt::QueuedConnection);
-
-//    QString outlog;
-//    bool  testTubetrayisloose = false;
-//    switch(Warmingindex)
-//    {
-//        case equipmentTipInfo::LinqueScrapFull:
-//        {
-//            Indicates_wastetankisfull();
-//            outlog = "废液满";
-//            break;
-//        }
-
-//        case equipmentTipInfo::LinqueCleanShortage:
-//        {
-//            cleaningfluidbalanceisinsufficient();
-//            outlog = "清洗液不足";
-//            break;
-//        }
-
-//        case equipmentTipInfo::TestTubeTrayI:
-//        {
-//            showTestTubeZoneOneWarning(TEST_THE_TUBEREEL_1);
-//            testTubetrayisloose = true;
-//            outlog = "试管盘1";
-//            break;
-//        }
-//        case equipmentTipInfo::TestTubeTrayII:
-//        {
-//            showTestTubeZoneOneWarning(TEST_THE_TUBEREEL_2);
-//            testTubetrayisloose = true;
-//            outlog = "试管盘2";
-//            break;
-//        }
-//        case equipmentTipInfo::TestTubeTrayIII:
-//        {
-//            showTestTubeZoneOneWarning(TEST_THE_TUBEREEL_3);
-//            testTubetrayisloose = true;
-//            outlog = "试管盘3";
-//            break;
-//        }
-//        case equipmentTipInfo::TestTubeTrayIIII:
-//        {
-//            showTestTubeZoneOneWarning(TEST_THE_TUBEREEL_4);
-//            testTubetrayisloose = true;
-//            outlog = "试管盘4";
-//            break;
-//        }
-//        default:    break;
-//    }
-//    if(testTubetrayisloose && true == cglobal::g_StartTesting)
-//    {
-//         outlog  = outlog + "测试中发生异位";
-//         FullyAutomatedPlatelets::mainWindow()->_ReminderInfo("测试暂停",outlog);
-//         QLOG_DEBUG()<<outlog<<endl;
-//    }
-//    FullyAutomatedPlatelets::mainWindow()->consumables_pause();
     return;
 }

@@ -331,8 +331,8 @@
 //日志提示等级
 #define   NORMALLOG             0  //正常
 #define   PROMPTLOG             1  //提示
-#define   ERRORLOG              2  //错误
-#define   USERACTIONS           3  //用户操作
+#define   USERACTIONS           2  //用户操作
+#define   ERRORLOG              3  //错误
 #define   MOTHERBOARD_ERR       4 //清洗液S2 废液提示 主板信号异常
 #define   TESTINGLOG            5 //测试过程中的提示
 

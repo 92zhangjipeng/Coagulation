@@ -321,7 +321,6 @@ private:
     //性能
     QTreeWidgetItem *mperform = nullptr;
 
-
     int m_Info_Index;
     QList<QTableWidget *> m_tableList;
     QStringList m_CategoryList;

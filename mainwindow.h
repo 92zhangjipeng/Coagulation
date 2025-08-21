@@ -191,7 +191,10 @@ private:
 
     void   _inittestmodule_data_thread();  //收到模组数据处理线程
 
-    void   _initmainboradthread();  //主板线程实例化函数
+    //主板线程实例化函数
+    void initmainboradthread();
+    void handleNormalOperation(quint8 index);
+
 
     void   initTestTaskThread(); //初始化启动测试任务线程
 
@@ -238,6 +241,9 @@ public slots:
     void testingSuppileLoss(const quint8 index);
 	//耗材暂停更新按钮状态
 	void updateContinueButtonState();
+
+    //读卡异常提示
+    void handleAbnormalCardSwipe(const QString& promptInfo);
 
     void experimentReadChannel(const quint8& peChannel, const int &index, bool isstart);
 
@@ -486,7 +492,9 @@ private:
     bool m_MachineAlreadyInitCleanned; //机器已经初始化清洗
 
 
-    ThreadReminderTsetTube *m_ThreadReminderTsetTube = nullptr;
+    //ThreadReminderTsetTube *m_ThreadReminderTsetTube = nullptr;
+    std::unique_ptr<ThreadReminderTsetTube> m_ThreadReminderTsetTube;
+
 
     //Heightmeasurement * Altimetertrigger = nullptr; /*测高线程*/
     QThread mTesthighThread;

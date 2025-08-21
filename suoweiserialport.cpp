@@ -667,15 +667,20 @@ void SuoweiSerialPort::Parsing_received_messages(const QStringList data_list)
 
 
 // 新增配置函数（支持动态配置）
+//稳定性要求高：1Mbps 对硬件和线缆质量要求极高
+//时序精度敏感：微小的时序误差就会导致通信失败
+//驱动程序支持：不是所有 USB 转串口芯片都支持 1Mbps
 void SuoweiSerialPort::applySerialPortConfig(const QString &portname)
 {
     mserialPort->setPortName(portname);
+
     mserialPort->setBaudRate(QSerialPort::Baud1000000);
     mserialPort->setDataBits(QSerialPort::Data8);
     mserialPort->setStopBits(QSerialPort::OneStop);
     mserialPort->setParity(QSerialPort::NoParity);
     mserialPort->setFlowControl(QSerialPort::NoFlowControl);
-
+    // 对于 1Mbps，必须使用硬件流控制
+    //mserialPort->setFlowControl(QSerialPort::HardwareControl);
     //++
     mserialPort->setDataTerminalReady(true);
     mserialPort->setRequestToSend(true);

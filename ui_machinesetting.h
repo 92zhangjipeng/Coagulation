@@ -2922,8 +2922,9 @@ public:
         poorBlood_changliang->setFont(font10);
         poorBlood_changliang->setStyleSheet(QStringLiteral(""));
         poorBlood_changliang->setAlignment(Qt::AlignCenter);
-        poorBlood_changliang->setMinimum(200);
-        poorBlood_changliang->setMaximum(255);
+        poorBlood_changliang->setMinimum(100);
+        poorBlood_changliang->setMaximum(500);
+        poorBlood_changliang->setValue(100);
 
         gridLayout_5->addWidget(poorBlood_changliang, 4, 1, 1, 1);
 
@@ -3075,10 +3076,9 @@ public:
         tab_reagpin = new QWidget();
         tab_reagpin->setObjectName(QStringLiteral("tab_reagpin"));
         gridLayout_6 = new QGridLayout(tab_reagpin);
+        gridLayout_6->setSpacing(5);
         gridLayout_6->setObjectName(QStringLiteral("gridLayout_6"));
-        gridLayout_6->setHorizontalSpacing(0);
-        gridLayout_6->setVerticalSpacing(5);
-        gridLayout_6->setContentsMargins(0, 0, 0, 5);
+        gridLayout_6->setContentsMargins(5, 5, 5, 5);
         groupBox_RetagentBox = new QGroupBox(tab_reagpin);
         groupBox_RetagentBox->setObjectName(QStringLiteral("groupBox_RetagentBox"));
         groupBox_RetagentBox->setMaximumSize(QSize(11850, 16777215));
@@ -4382,7 +4382,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(1);
+        tabWidget_config->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);

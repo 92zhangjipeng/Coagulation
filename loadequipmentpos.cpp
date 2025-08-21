@@ -2817,7 +2817,7 @@ void loadEquipmentPos::recvReagentDataOther(const QStringList hexArry)
 
 			for (int i = 0; i < reagentCount; ++i) {
 				bool ok;
-				double ratio = hexArry.at(8 + i).toDouble(&ok) / 100.0;
+				double ratio = hexArry.at(8 + i).toInt(&ok, HEX_SWITCH) / 100.0;
 				if (!ok) {
 					QLOG_ERROR() << "Failed to convert hex value to double for reagent at index " << i;
 					ratio = 0.0; // Default value if conversion fails
@@ -3708,6 +3708,8 @@ void loadEquipmentPos::_sycnobtainEquipmenttyped(bool Parafilestate,QString Para
     QLOG_DEBUG()<<"读取参数配置文件状态"<<m_bParafileExit<<"路径"<<m_ParaFilePath<<endl;
     return;
 }
+
+
 //关闭串口
 void loadEquipmentPos::CloseSerial()
 {

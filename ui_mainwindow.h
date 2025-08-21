@@ -348,7 +348,7 @@ public:
 
         tabWidget_Main = new QTabWidget(MainFucnWidget);
         tabWidget_Main->setObjectName(QStringLiteral("tabWidget_Main"));
-        tabWidget_Main->setCursor(QCursor(Qt::OpenHandCursor));
+        tabWidget_Main->setCursor(QCursor(Qt::ArrowCursor));
         tabWidget_Main->setMouseTracking(true);
         tabWidget_Main->setTabletTracking(true);
         tabWidget_Main->setContextMenuPolicy(Qt::DefaultContextMenu);

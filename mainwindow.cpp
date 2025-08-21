@@ -170,15 +170,12 @@ MainWindow::~MainWindow()
         m_experimentTimer = nullptr;
     }
 
-
     delete preminder; //析构退出软件
 
     delete mshowModuledata;//析构接收显示模组数据
 
     if(mReminder)
         delete mReminder; //充值提示界面
-
-   
 
     // 单例清理
     cleanupSingletons();
@@ -194,8 +191,8 @@ MainWindow::~MainWindow()
 
     StructInstance::getInstance()->m_garbo;
 
-    delete m_ThreadReminderTsetTube;
-    m_ThreadReminderTsetTube = NULL;
+    //delete m_ThreadReminderTsetTube;
+    //m_ThreadReminderTsetTube = nullptr;
 
     delete m_graphplot;
 
@@ -203,7 +200,6 @@ MainWindow::~MainWindow()
 
     QsLogging::Logger::destroyInstance();
 
-	
 
 	// 确保所有资源已释放
 	QCoreApplication::processEvents();
@@ -313,7 +309,7 @@ void MainWindow::init_style_all()
 
     _inittestmodule_data_thread(); //收到模组数据处理线程
 
-    _initmainboradthread(); //主板线程实例化函数&&***触发测高信号
+    initmainboradthread(); //主板线程实例化函数&&***触发测高信号
 
     CreatActionExecution();  //单个动作完成状态信号
 
@@ -418,6 +414,7 @@ void MainWindow::init_style_all()
     connect(mshowModuledata.data(),&displayChanneldata::SetChannelValueUpdate,
             pequipmentconfig,&MachineSetting::SlotSetChannelValueUpdate,
             Qt::QueuedConnection);
+
 
     //断线清空模组缓存数据
     connect(this,&MainWindow::cleanModuleBuffData,
@@ -561,79 +558,81 @@ void  MainWindow::_inittestmodule_data_thread()
     return;
 }
 
-void MainWindow::_initmainboradthread()
-{
-    FullyAutomatedPlatelets::pinstanceMainboarddata()->setArgInterface(this);
-    mainControlBoardProtocol *_pparsemainboard = FullyAutomatedPlatelets::pinstanceMainboarddata();
 
+void MainWindow::handleNormalOperation(quint8 index)
+{
+    if (equipmentTipInfo::LinqueScrapFull == index) {
+        ui->show_wastlique->hide();
+    } else if (equipmentTipInfo::LinqueCleanShortage == index) {
+        ui->showcleanliqur->hide();
+    }
+    // 可以在这里添加其他情况的处理
+}
+void MainWindow::handleAbnormalCardSwipe(const QString& promptInfo)
+{
+    ThreadSafeReminder(tr("充值耗材异常"), promptInfo);
+}
+void MainWindow::initmainboradthread()
+{
+    auto mainBoardData = FullyAutomatedPlatelets::pinstanceMainboarddata();
+    mainBoardData->setArgInterface(this);
 
     //收到串口主板消息
     QObject::connect(mlocalSerial.data(),&SuoweiSerialPort::mainControlBoardProtocolData,
-                     _pparsemainboard,
-                     &mainControlBoardProtocol::recvmainControlBoardProtocol,
+                     mainBoardData,&mainControlBoardProtocol::recvmainControlBoardProtocol,
                      Qt::QueuedConnection);
 
-
-
-    QObject::connect(_pparsemainboard,&mainControlBoardProtocol::_normaloper,this,[=](quint8 index_){
-        if(equipmentTipInfo::LinqueScrapFull == index_ )
-        {
-            ui->show_wastlique->hide();
-        }
-        if(equipmentTipInfo::LinqueCleanShortage == index_ )
-        {
-            ui->showcleanliqur->hide();
-        }
-
+    QObject::connect(mainBoardData,&mainControlBoardProtocol::_normaloper,
+                     this,[this](quint8 index){
+        handleNormalOperation(index);
     });
 
     //废液、外部清洗液弹出提示后在信息栏提醒信号连接
-    QObject::connect(_pparsemainboard, &mainControlBoardProtocol::_reminderErrorInfo,
+    QObject::connect(mainBoardData, &mainControlBoardProtocol::_reminderErrorInfo,
                      this, &MainWindow::handleErrorNotification);
     // 验证信号签名是否匹配
     static_assert(
-        QtPrivate::FunctionPointer<decltype(&mainControlBoardProtocol::_reminderErrorInfo)>::ArgumentCount == 2,
+        QtPrivate::FunctionPointer<decltype(&mainControlBoardProtocol::_reminderErrorInfo)
+                >::ArgumentCount == 2,
         "Signal signature mismatch!"
     );
 
-    connect(this,&MainWindow::ConfigUsedBuzzerMark,_pparsemainboard,
-            &mainControlBoardProtocol::RecvUsedBuzzerMark);
+    connect(this,&MainWindow::ConfigUsedBuzzerMark,
+            mainBoardData,&mainControlBoardProtocol::RecvUsedBuzzerMark);
 
     //刷卡提示
-    connect(_pparsemainboard,&mainControlBoardProtocol::cardSwipeSuccessful,
+    connect(mainBoardData,&mainControlBoardProtocol::cardSwipeSuccessful,
             this,&MainWindow::handlecardSwipeSuccessful);
 
 
     //读卡、充值成功信号
-    connect(_pparsemainboard,&mainControlBoardProtocol::swipeCardSuccessfullyWritten,
+    connect(mainBoardData,&mainControlBoardProtocol::swipeCardSuccessfullyWritten,
             this,&MainWindow::handleswipeCardSuccessfullyWritten);
 
-    //读卡异常信息提示
-    connect(_pparsemainboard,&mainControlBoardProtocol::Abnormalcardswipingprompt,
-            this,[=](const QString promptInfo){
-        ThreadSafeReminder(tr("充值耗材异常"),promptInfo);
-        return;
-    });
+    // 读卡异常信息提示 - 使用成员函数替代lambda
+    connect(mainBoardData, &mainControlBoardProtocol::Abnormalcardswipingprompt,
+            this, &MainWindow::handleAbnormalCardSwipe);
+
+
 
     //提示试管盘
-    m_ThreadReminderTsetTube = new ThreadReminderTsetTube(this);
+    m_ThreadReminderTsetTube = std::make_unique<ThreadReminderTsetTube>(this);
+    //m_ThreadReminderTsetTube = new ThreadReminderTsetTube(this);
 
     //废液、外部清洗液、试管盘 弹出提示
-    QObject::connect(_pparsemainboard,&mainControlBoardProtocol::equipmentReminder,m_ThreadReminderTsetTube,
-                    &ThreadReminderTsetTube::recvequipmentReminder);
+    QObject::connect(mainBoardData,&mainControlBoardProtocol::equipmentReminder,
+                     m_ThreadReminderTsetTube.get(),&ThreadReminderTsetTube::recvequipmentReminder);
 
-    QObject::connect(m_ThreadReminderTsetTube,
-                     &ThreadReminderTsetTube::reminderMainUi,this,
+    QObject::connect(m_ThreadReminderTsetTube.get(),&ThreadReminderTsetTube::reminderMainUi,this,
                      [=](quint8 index, QString datastr){
                 emit ReminderTextOut(index,datastr);
     });
 
     //触发测高
-    connect(_pparsemainboard,&mainControlBoardProtocol::MainBoardHeightTrigger,
+    connect(mainBoardData,&mainControlBoardProtocol::MainBoardHeightTrigger,
         this,&MainWindow::recv_MainBoardHeighTigger);
 
-    _pparsemainboard->_start(minstrumentType);
-
+    mainBoardData->_start(minstrumentType);
     return;
 }
 
@@ -2688,7 +2687,7 @@ void MainWindow::DestructionSerialclass()
 
     if(mtestmoduleprotocol){ delete mtestmoduleprotocol; mtestmoduleprotocol = nullptr;}
 
-    if(m_ThreadReminderTsetTube){ delete m_ThreadReminderTsetTube; m_ThreadReminderTsetTube = nullptr;}
+    //if(m_ThreadReminderTsetTube){ delete m_ThreadReminderTsetTube; m_ThreadReminderTsetTube = nullptr;}
 
 }
 

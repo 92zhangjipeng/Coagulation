@@ -162,7 +162,8 @@ private:
     void    plotReagentWellsCoordinates(quint8 totalReagents); /*绘制试剂坐标 */
     void    showPaintReagents();
 
-    void    InitTubeAddBlooded(int Tube,quint8 Reagetn,int SampleNumber);   //初始化试管已加血样
+    //初始化试管已加血样
+    void    InitTubeAddBlooded(int tubeIndex, quint8 reagentType, int sampleNumber);
 
     void    CreatTrayTestTubeUiAxis(int indexTray);
 
@@ -183,7 +184,7 @@ public:
     void    _showaddsamplewidget();
 
     //初始化试管已被使用
-    void    InitUIEmptyTubeused(int TestTubeUsed);
+    void    InitUIEmptyTubeused(int testTubeIndex);
 
     //样本在测试颜色变为init
     void    SampleTestingChangInitColor(QPoint,quint8);
