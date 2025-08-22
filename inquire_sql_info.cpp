@@ -216,10 +216,6 @@ void Inquire_Sql_Info::Init_tablewidget_style()
 
 Inquire_Sql_Info::~Inquire_Sql_Info()
 {
-	/*if (m_TextTip) {
-		delete m_TextTip;
-		m_TextTip = nullptr;
-	}*/
     m_threadInqure.quit();
     m_threadInqure.wait();
 
@@ -348,14 +344,14 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
 void Inquire_Sql_Info::initTextTip()
 {
 	if (!m_TextTip) {
-		m_TextTip = new QCPItemText(ui->Inquire_curve_1);
+		m_TextTip = std::make_unique<QCPItemText>(ui->Inquire_curve_1);
 
 		m_TextTip->setPositionAlignment(Qt::AlignLeft | Qt::AlignTop);
 		m_TextTip->position->setType(QCPItemPosition::ptAbsolute);
 		m_TextTip->setColor(Qt::black);
 		m_TextTip->setFont(QFont("Microsoft YaHei", 9));
 		m_TextTip->setPen(QPen(Qt::darkGray));
-		m_TextTip->setBrush(QBrush(QColor(255, 255, 225, 230)));// 浅黄色背景
+		m_TextTip->setBrush(QBrush(QColor(255, 255, 225, 230))); // 浅黄色背景
 		m_TextTip->setPadding(QMargins(8, 5, 8, 5));
 		m_TextTip->setVisible(false);
 	}

@@ -12,7 +12,7 @@
 #include "calibrate.h"
 #include "custombars.h"
 #include "InquireDataClass/querydatathread.h"
-
+#include <memory>
 
 #define INQUIRE_ALL_SQL      0
 #define INQUIRE_TODAY_SQL    1
@@ -34,87 +34,59 @@ public:
     void LoginEngineerMode(const bool); //工程师模式
 
     void initDateEditUI(QDateEdit*dateEdit,QWidget*parent);
+
 protected:
     virtual void resizeEvent(QResizeEvent *event) override;
-
     void closeEvent(QCloseEvent *event);
+
 public slots:
 
     void ViewLoadInquierdata(int numtotal, int n_ing,InqueryDatastu_t *pdata);
-
     void RecvCurveData(const QVector<QString> &data); //接收曲线数据
-
     void myMoveEvent(QMouseEvent *event);
 
 private slots:
     /*初始化列表样式*/
     void Init_tablewidget_style();
-
     void on_toolButton_OK_clicked();
-
     void SelectItem(QTableWidgetItem *);
-
     void OnPlotClick(QCPAbstractPlottable *plottable, int dataIndex, QMouseEvent *event);
     void on_toolButtonFindexatc_clicked();
-
     void on_toolButton_stats_clicked();
-
     void on_toolButton_outPrint_clicked();
-
     void on_toolButton_creatPdf_clicked();
 
 signals:
     void FindModuleStyle(const quint8);
-
     void FindspecifiedData(QDateEdit *pdata,const int days);
 
     void Locatethelookup(QString inquierId,QString senddoctor,QString PatientsName,QString PatientsAge,
                           QString sectionkind,QString bbednum);//精确定位查找
-
     void InquierCurveView(const QString FindId); //查询曲线
-
     void writepdfprint(QString path_);
-
     void _printoutresult();
-
     void clickOutPdfFile(const QString PdfID); //选中信息输出Pdf
 
 private:
 
     void firstrunthread();
-
     void _creatCPGraph(QCustomPlot* pshowcurvedata);
-
     void cleanPlogtandUpdate(); /*清空曲线数据并率刷新*/
-
     void addInquireCurvedata(QStringList dataList,quint8 indexReag);
-
     void insertparaTopdffile(InqueryDatastu_t *pdata);
-
     //清空查找到的数据
     void DeleteStuData();
-
     //插入数据到表格
     void SetColumnTextGroup(QTableWidget * tablewiget, int row, int col, QString text);
-
     void InsertInqireResult(int Rows,quint8 Cols,QString Datastr);
-
 	void initTextTip();
-
     void setupRealtimeDataDemo(QCustomPlot *customPlot); //设置qcustomplot画图属性
-
     void init_sats_curve(QVector<double> useed_reag);
-
     void stats_today_reagent(); //统计当天
-
     void stats_all_reagent(); //统计全部使用数据
-
     void stats_thismonth_reagent(); //统计当月试剂使用量
-
     void stats_designate_reagent();//查询指定时间使用试剂统计
-
     void CheckWhetherTestOrNot(QString &ResultCheck);
-
     void InsertOneRowsData(InqueryDatastu_t *pdata);
 
 private:
@@ -136,7 +108,8 @@ private:
     QCPGraph* m_showRISCpgraph = nullptr;
     QButtonGroup *m_group = nullptr;
 
-    QCPItemText * m_TextTip = nullptr;
+	std::unique_ptr<QCPItemText> m_TextTip = nullptr;
+
     QList<QString> mChildren;
 
     QString VScroBarCss =
