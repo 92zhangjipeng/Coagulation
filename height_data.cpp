@@ -1295,7 +1295,7 @@ void Height_Data::_savewaitTestSample()
     if(!_dimmingLED){
         emit ReminderTextOut(PROMPTLOG,tr("调光未完成,稍后添加!"));
         FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("添加测试样本失败","调光未完成,稍后添加!");
-        return;
+        //return;
     }
 
     _sycnstudata(selecteditem_, pSampleTable);

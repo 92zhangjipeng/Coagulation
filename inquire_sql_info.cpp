@@ -55,7 +55,8 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     //初始化曲线
     setupRealtimeDataDemo(ui->Inquire_curve_1);
 
-    ui->Inquire_curve_1->replot();
+    //ui->Inquire_curve_1->replot();
+     ui->Inquire_curve_1->replot(QCustomPlot::rpImmediateRefresh);
     
     /*列表样式得初始化*/
     Init_tablewidget_style();
@@ -336,9 +337,6 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     // 设置X/Y轴标签颜色
     customPlot->xAxis->setLabelColor(QColor(Qt::red));
     customPlot->yAxis->setLabelColor(QColor(Qt::red));
-
-
-
 
     // 设置X/Y轴刻度范围
     customPlot->xAxis->setRange(0, 300);

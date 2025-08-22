@@ -5500,26 +5500,55 @@ protected:
 public:
     static QPainterPath generateSmoothCurve(const QVector<QPointF> &points)
     {
-        QPainterPath result;
+		QPainterPath result;
+		if (points.isEmpty()) return result;
 
-        int segmentStart = 0;
-        int i = 0;
-        int pointSize = points.size();
-        while (i < pointSize)
-        {
-            if (qIsNaN(points.at(i).y()) || qIsNaN(points.at(i).x()) || qIsInf(points.at(i).y()))
-            {
-                  //   QVector<QPointF> lineData(QVector<QPointF>(points.constBegin() + segmentStart, points.constBegin() + i - segmentStart));
-                QVector<QPointF> lineData(i - segmentStart); std::copy(points.constBegin() + segmentStart, points.constBegin() + i - segmentStart, lineData.begin()); // 报错的地方 修改成上面的代码 。
-                result.addPath(generateSmoothCurveImp(lineData));
-                segmentStart = i + 1;
-            }
-            ++i;
-        }
-       //QVector<QPointF> lineData(QVector<QPointF>(points.constBegin() + segmentStart, points.constEnd()));
-        QVector<QPointF> lineData(i - segmentStart); std::copy(points.constBegin() + segmentStart, points.constBegin() + i - segmentStart, lineData.begin());
-            result.addPath(generateSmoothCurveImp(lineData));
-            return result;
+		int segmentStart = 0;
+
+		for (int i = 0; i < points.size(); ++i)
+		{
+			const QPointF &point = points.at(i);
+			if (qIsNaN(point.y()) || qIsNaN(point.x()) || qIsInf(point.y()))
+			{
+				// 提取并处理当前有效段
+				if (i > segmentStart) {
+					QVector<QPointF> segment = points.mid(segmentStart, i - segmentStart);
+					result.addPath(generateSmoothCurveImp(segment));
+				}
+				segmentStart = i + 1;
+			}
+		}
+
+		// 处理最后一段
+		if (segmentStart < points.size()) {
+			QVector<QPointF> finalSegment = points.mid(segmentStart);
+			result.addPath(generateSmoothCurveImp(finalSegment));
+		}
+
+		return result;
+
+
+
+       // QPainterPath result;
+
+       // int segmentStart = 0;
+       // int i = 0;
+       // int pointSize = points.size();
+       // while (i < pointSize)
+       // {
+       //     if (qIsNaN(points.at(i).y()) || qIsNaN(points.at(i).x()) || qIsInf(points.at(i).y()))
+       //     {
+       //           //   QVector<QPointF> lineData(QVector<QPointF>(points.constBegin() + segmentStart, points.constBegin() + i - segmentStart));
+       //         QVector<QPointF> lineData(i - segmentStart); std::copy(points.constBegin() + segmentStart, points.constBegin() + i - segmentStart, lineData.begin()); // 报错的地方 修改成上面的代码 。
+       //         result.addPath(generateSmoothCurveImp(lineData));
+       //         segmentStart = i + 1;
+       //     }
+       //     ++i;
+       // }
+       ////QVector<QPointF> lineData(QVector<QPointF>(points.constBegin() + segmentStart, points.constEnd()));
+       // QVector<QPointF> lineData(i - segmentStart); std::copy(points.constBegin() + segmentStart, points.constBegin() + i - segmentStart, lineData.begin());
+       //     result.addPath(generateSmoothCurveImp(lineData));
+       //     return result;
     }
 
     static QPainterPath generateSmoothCurve(const QPainterPath &basePath, const QVector<QPointF> &points)

@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <QMetaObject>
 
+
 // 兼容旧版 SDK
 #ifndef DN_POWER_SUSPENDED
 #define DN_POWER_SUSPENDED 0x00000040
@@ -67,86 +68,6 @@ QString getDeviceInstancePathFromVidPid(DWORD vid, DWORD pid) {
 }
 
 
-
-
-//bool  USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstanceId,QString &outFailed) {
-//	DWORD err;
-//	QString formattedErr;
-//	// 1. 获取设备信息集（枚举所有设备）
-//	HDEVINFO hDevInfo = SetupDiGetClassDevs(NULL, NULL, NULL, DIGCF_ALLCLASSES | DIGCF_PRESENT);
-//    if (hDevInfo == INVALID_HANDLE_VALUE) {
-//		err = GetLastError();
-//		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-//		QLOG_WARN() << "USB电源禁用失败(SetupDiGetClassDevs): 0x"<< formattedErr;
-//        return false;
-//    }
-//	m_hDevInfo = hDevInfo;
-//
-//
-//    // 2. 枚举设备，查找匹配的实例ID
-//	SP_DEVINFO_DATA devInfoData  = { sizeof(SP_DEVINFO_DATA) };
-//    DWORD devIndex = 0;
-//    bool deviceFound = false;
-//
-//    while (SetupDiEnumDeviceInfo(hDevInfo, devIndex, &devInfoData)) {
-//        // 获取设备实例ID
-//        wchar_t instanceId[MAX_DEVICE_ID_LEN] = {0};
-//        if (CM_Get_Device_ID(devInfoData.DevInst, instanceId, MAX_DEVICE_ID_LEN, 0) == CR_SUCCESS) {
-//            if (wcsstr(instanceId, deviceInstanceId) != nullptr) {
-//                deviceFound = true;
-//                break;
-//            }
-//        }
-//        devIndex++;
-//    }
-//
-//    if (!deviceFound) {
-//		QLOG_WARN() << "USB电源禁用失败(未找到设备): " << QString::fromWCharArray(deviceInstanceId);
-//        SetupDiDestroyDeviceInfoList(hDevInfo);
-//        return false;
-//    }
-//
-//    // 3. 禁用设备的电源管理（选择性暂停）
-//    SP_PROPCHANGE_PARAMS propChangeParams = {0};
-//    propChangeParams.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
-//    propChangeParams.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
-//    propChangeParams.StateChange = DICS_DISABLE;  // 禁用设备电源管理
-//    propChangeParams.Scope = DICS_FLAG_CONFIGSPECIFIC; // 仅针对当前配置
-//    propChangeParams.HwProfile = 0;
-//
-//    // 设置类安装参数
-//    if (!SetupDiSetClassInstallParams(hDevInfo, &devInfoData,
-//                                    (SP_CLASSINSTALL_HEADER*)&propChangeParams,
-//                                    sizeof(propChangeParams))) {
-//		err = GetLastError();
-//		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-//		QLOG_WARN() << "USB电源禁用失败(SetupDiSetClassInstallParams): 0x"<< formattedErr;
-//        SetupDiDestroyDeviceInfoList(hDevInfo);
-//        return false;
-//    }
-//
-//    // 应用更改
-//    if (!SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, hDevInfo, &devInfoData)) {
-//		err = GetLastError();
-//		formattedErr = QString("%1").arg(err, 8, 16, QChar('0')).toUpper();
-//		QLOG_WARN() << "USB电源禁用失败(SetupDiCallClassInstaller): 0x"<< formattedErr;
-//        const int outCode = formattedErr.toInt();
-//        switch (outCode) {
-//            case 5: outFailed = "权限不足";  break;  //- 0x5 (ACCESS_DENIED): 权限不足
-//            case 2: outFailed = "设备不存在";break; // - 0x2 (ERROR_FILE_NOT_FOUND): 设备不存在
-//        default:
-//            outFailed ="未知异常";
-//            break;
-//        }
-//        SetupDiDestroyDeviceInfoList(hDevInfo);
-//        return false;
-//    }
-//	m_devInfoData = devInfoData;
-//    SetupDiDestroyDeviceInfoList(hDevInfo);
-//
-//	m_deviceWasDisabled = true;
-//    return true;
-//}
 
 QString returnErrStr(QString formattedErr) {
     QString outFailed;
@@ -273,7 +194,18 @@ bool USBListener::registerDeviceNotifications()
     return true;
 }
 
+
+
+
+
+
+
+
+
 void USBListener::initDisAblePower() {
+
+
+
 
     QString outmessage, knowErr;
     quint8  isstate = 0;
@@ -286,6 +218,7 @@ void USBListener::initDisAblePower() {
     else {
         //禁用特定 USB 设备的电源管理（需替换为实际设备实例 ID）
         const wchar_t* deviceId = reinterpret_cast<const wchar_t*>(path.utf16());
+
         if (DisableSelectiveSuspendForDevice(deviceId, knowErr)) {
             outmessage = "设备的 USB电源 选择性暂停已禁用!";
             isstate = NORMALLOG;
@@ -305,7 +238,6 @@ bool USBListener::startListening() {
     if (m_listening) return true;
     // 使用单次定时器在后台执行耗时操作
     QTimer::singleShot(0, this, [this]() {
-        // 假设initDisAblePower()是当前类的成员函数
         this->initDisAblePower();
 
         // 回到主线程继续执行
@@ -452,6 +384,4 @@ usbDevice USBListener::parseDeviceInfo(const QString& devicePath) {
 bool USBListener::isTargetDevice(uint16_t vid, uint16_t pid) {
     return (vid == m_targetVID && pid == m_targetPID);
 }
-
-
 

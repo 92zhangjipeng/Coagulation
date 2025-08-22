@@ -143,69 +143,82 @@ void CustomFixTableView::setCheckBoxState(const bool& isstate,const QString& sam
 
 
 void CustomFixTableView::initCreateCurveWidget(QCustomPlot *customPlot){
-    QCPTextElement *plotTitle = new QCPTextElement(customPlot);
+
+    /*QCPTextElement *plotTitle = new QCPTextElement(customPlot);
     plotTitle->setText("数据曲线");
-    plotTitle->setTextColor(QColor(0,0,0));
-    plotTitle->setFont(QFont("宋体", 14, QFont::Bold));
-
-
+    plotTitle->setTextColor(Qt::black);
+    plotTitle->setFont(QFont("Microsoft YaHei", 12, QFont::Bold));
     customPlot->plotLayout()->insertRow(0);
-    customPlot->plotLayout()->addElement(0, 0, plotTitle);
+    customPlot->plotLayout()->addElement(0, 0, plotTitle);*/
 
+    //交互设置优化
+    customPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables);
+    customPlot->setSelectionRectMode(QCP::srmNone);
 
-    //设置曲线可拖拽 滚轮放大缩小 图像可选择
-    customPlot->setSelectionRectMode(QCP::SelectionRectMode::srmNone);
-    customPlot->setInteraction(QCP::iRangeDrag, true);
-    //customPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables);
-    customPlot->setFont(QFont(font().family(), 12));//设置文本的字体
+    //字体设置优化
+    QFont plotFont = customPlot->font();
+    plotFont.setPointSize(10); // 适中字号
+    customPlot->setFont(plotFont);
 
-    //connect(customPlot,&QCustomPlot::mouseMove,this,&Calibrate::myMoveEvent);
+    //坐标轴标签设置
+    customPlot->xAxis->setLabel("时间 (s)");
+    customPlot->yAxis->setLabel("百分比 (%)");
+    customPlot->xAxis->setLabelColor(Qt::black);
+    customPlot->yAxis->setLabelColor(Qt::black);
 
-
-    // 设置X/Y轴的标签
-    customPlot->xAxis->setLabel(tr("时间S"));
-    customPlot->yAxis->setLabel(tr("百分比%"));
-
-    // 设置X/Y轴标签颜色
-    customPlot->xAxis->setLabelColor(QColor(Qt::black));
-    customPlot->yAxis->setLabelColor(QColor(Qt::black));
-
-    // 设置x=0或y=0所在直线的画笔
-    customPlot->xAxis->grid()->setZeroLinePen(QPen(QColor(Qt::blue)));
-    customPlot->yAxis->grid()->setZeroLinePen(QPen(QColor(Qt::blue)));
-
-    // 设置X/Y轴刻度范围
+    //坐标轴范围优化
     customPlot->xAxis->setRange(0, 300);
     customPlot->yAxis->setRange(-20, 100);
 
-    // 设置X/Y轴刻度数，也就是分为几段
-    QSharedPointer<QCPAxisTickerFixed> MyTicker(new QCPAxisTickerFixed);
-    MyTicker.data()->setTickStep(30);
-    MyTicker.data()->setTickCount(10);
-    customPlot->xAxis->setTicker(MyTicker);
-    customPlot->yAxis->ticker()->setTickCount(10);
+    //刻度设置优化 - 使用更简洁的方式
+    QSharedPointer<QCPAxisTickerFixed> xTicker(new QCPAxisTickerFixed);
+    xTicker->setTickStep(30.0);
+    xTicker->setTickCount(11); // 0,30,60,...,300 共11个刻度
+    customPlot->xAxis->setTicker(xTicker);
 
-    // 设置X/Y轴刻度值文本的颜色
+    QSharedPointer<QCPAxisTickerFixed> yTicker(new QCPAxisTickerFixed);
+    yTicker->setTickStep(20.0); // -20,0,20,40,60,80,100
+    yTicker->setTickCount(7);
+    customPlot->yAxis->setTicker(yTicker);
+
+    // 7. 刻度标签颜色
     customPlot->xAxis->setTickLabelColor(QColor("#1C1C1C"));
     customPlot->yAxis->setTickLabelColor(QColor("#1C1C1C"));
 
-    // 设置X/Y轴轴线的画笔
-    customPlot->xAxis->setBasePen(QPen(QColor(Qt::black), 1, Qt::SolidLine));
-    customPlot->yAxis->setBasePen(QPen(QColor(Qt::black), 1, Qt::SolidLine));
+    // 8. 坐标轴线设置
+    QPen axisPen(Qt::black, 1.5, Qt::SolidLine);
+    customPlot->xAxis->setBasePen(axisPen);
+    customPlot->yAxis->setBasePen(axisPen);
 
-    // 设置X/Y轴大刻度的画笔，被分段的位置
-    customPlot->xAxis->setTickPen(QPen(QColor("#ff00ff")));
-    customPlot->yAxis->setTickPen(QPen(QColor("#ff00ff")));
+    // 9. 刻度线优化
+    QPen tickPen(QColor("#666666"), 1, Qt::SolidLine);
+    customPlot->xAxis->setTickPen(tickPen);
+    customPlot->yAxis->setTickPen(tickPen);
 
-    // 设置X/Y轴小刻度的画笔
-    customPlot->xAxis->setSubTickPen(QPen(QColor(Qt::black)));
-    customPlot->yAxis->setSubTickPen(QPen(QColor(Qt::black)));
+    QPen subTickPen(QColor("#999999"), 0.5, Qt::SolidLine);
+    customPlot->xAxis->setSubTickPen(subTickPen);
+    customPlot->yAxis->setSubTickPen(subTickPen);
 
-    //-- 横轴网格样式 --
-    QPen xGridPen(QColor(200, 200, 200), 1, Qt::DotLine);
-    xGridPen.setCosmetic(true);
-    customPlot->xAxis->grid()->setPen(xGridPen);
-    customPlot->xAxis->grid()->setZeroLinePen(Qt::NoPen);
+    // 网格线优化
+    QPen gridPen(QColor(220, 220, 220), 1, Qt::DotLine);
+    gridPen.setCosmetic(true);
+    customPlot->xAxis->grid()->setPen(gridPen);
+    customPlot->yAxis->grid()->setPen(gridPen);
+
+    // 零线设置
+    QPen zeroLinePen(Qt::blue, 1.5, Qt::DashLine);
+    customPlot->xAxis->grid()->setZeroLinePen(zeroLinePen);
+    customPlot->yAxis->grid()->setZeroLinePen(zeroLinePen);
+
+    //背景和画布优化
+    customPlot->setBackground(QBrush(QColor(245, 245, 245)));
+    customPlot->axisRect()->setBackground(QBrush(Qt::white));
+
+    //性能优化：延迟刷新
+    customPlot->setNoAntialiasingOnDrag(true);
+    customPlot->setNotAntialiasedElements(QCP::aeAll);
+
+    //最后一次性刷新（性能优化）
     customPlot->replot();
 
     // 创建图例层
@@ -216,14 +229,16 @@ void CustomFixTableView::initCreateCurveWidget(QCustomPlot *customPlot){
 
 void CustomFixTableView::initCreatCPGraph(QCustomPlot* pshowcurvedata)
 {
-    // 1. 使用结构体统一管理曲线配置
+    if (!pshowcurvedata) return;
+
+    //使用结构体统一管理曲线配置
     struct CurveConfig {
         QCPGraph** graphPtr;  // 指向成员变量的指针
         quint8 reagent;
         QString name;
     };
 
-    // 2. 集中管理所有曲线配置
+    //集中管理所有曲线配置
     const QList<CurveConfig> curveConfigs = {
         { &m_showAACpgraph,  AA_REAGENT, "AA" },
         { &m_showADPCpgraph, ADP_REAGENT, "ADP" },
@@ -234,21 +249,24 @@ void CustomFixTableView::initCreatCPGraph(QCustomPlot* pshowcurvedata)
 
     // 3. 统一创建和配置曲线
     for (const auto& config : curveConfigs) {
-        *config.graphPtr = pshowcurvedata->addGraph();  // 创建曲线并赋值给成员变量
 
-        QCPGraph* graph = *config.graphPtr;
-        graph->setPen(QPen(GlobalData::customCurveColor(config.reagent), 2, Qt::SolidLine));
-        graph->setName(config.name);
-        graph->setLineStyle(QCPGraph::lsLine);
-        graph->setAntialiased(true);  // 修正为正确API
+        // 清理旧曲线
+        if (*config.graphPtr) {
+            pshowcurvedata->removeGraph(*config.graphPtr);
+        }
+
+        // 创建新曲线
+        QCPGraph* graph = pshowcurvedata->addGraph();
+        *config.graphPtr = graph;
+
+        if (graph) {
+           graph->setPen(QPen(GlobalData::customCurveColor(config.reagent), 2));
+           graph->setName(config.name);
+           graph->setLineStyle(QCPGraph::lsLine);
+           graph->setAntialiased(true);
+        }
     }
-
-    // 4. 图例设置
-    pshowcurvedata->legend->setVisible(false);
-    pshowcurvedata->axisRect()->insetLayout()->setInsetAlignment(0, Qt::AlignTop | Qt::AlignLeft);
-    pshowcurvedata->legend->setBrush(QColor(255, 255, 255, 125));  // 半透明白色背景
-
-    // 5. 一次性重绘
+    //一次性重绘
     pshowcurvedata->replot();
 }
 
@@ -257,10 +275,14 @@ void CustomFixTableView::initCreatCPGraph(QCustomPlot* pshowcurvedata)
 void CustomFixTableView::CreatResultCruve()
 {
     for (QCPGraph* graph : calibrationGraphs()) { // 成员函数返回曲线列表
-        clearGraphData(graph);
+        if(graph){
+            clearGraphData(graph);
+        }
     }
     ui->widgetCurveShow->replot(QCustomPlot::rpQueuedReplot);
 }
+
+
 void CustomFixTableView::clrarResultTable(QTableWidget *pTable)
 {
     //清空结果列

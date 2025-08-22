@@ -43,7 +43,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     m_connectedIcon.load(":/Picture/SetPng/Serial_connect.png");
     m_disconnectedIcon.load(":/Picture/SetPng/Seril_error.png");
 
-
     // 验证资源加载
     if(m_connectedIcon.isNull() || m_disconnectedIcon.isNull()) {
         QLOG_ERROR() << "Connection status icons failed to load!";
@@ -313,7 +312,8 @@ void MainWindow::init_style_all()
 
     CreatActionExecution();  //单个动作完成状态信号
 
-    listentoUsb();
+    //启用USB监听热插拔 和禁用选择性暂停电源管理
+    //listentoUsb();
 
     initTestTaskThread(); //初始化启动任务线程
 
@@ -590,6 +590,7 @@ void MainWindow::initmainboradthread()
     //废液、外部清洗液弹出提示后在信息栏提醒信号连接
     QObject::connect(mainBoardData, &mainControlBoardProtocol::_reminderErrorInfo,
                      this, &MainWindow::handleErrorNotification);
+
     // 验证信号签名是否匹配
     static_assert(
         QtPrivate::FunctionPointer<decltype(&mainControlBoardProtocol::_reminderErrorInfo)
@@ -2767,6 +2768,9 @@ void MainWindow::slotbootInitCleanFinished()
     //开机初始化清洗完成
     FullyAutomatedPlatelets::pinstanceinstrument()->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE,2);
 
+    //启用USB监听热插拔 和禁用选择性暂停电源管理
+    //listentoUsb();
+
     return;
 }
 
@@ -2832,6 +2836,13 @@ void MainWindow::slotCleaningProgress(quint8 index, quint8 total)
        if (!m_pProgress.isNull()) {
            m_pProgress->_setprogresstotalnum(total);
            m_pProgress->_setprogressvalue("初始清洗进度:", index + 1);
+
+           static bool initListenUSB = false;
+           if(index >= 10 && index <= 20 && !initListenUSB){
+               initListenUSB = true;
+               //启用USB监听热插拔 和禁用选择性暂停电源管理
+               listentoUsb();
+           }
        }
    });
    return;

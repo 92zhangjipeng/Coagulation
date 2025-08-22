@@ -51,6 +51,8 @@ public:
     void registerDevice(HWND pwid);//注册USB设备
 
 
+
+
     // 核心监听方法
     bool startListening();
     void stopListening();
@@ -84,6 +86,8 @@ private:
 
 
     void initDisAblePower();
+
+
 
 private:
     const uint16_t m_targetVID;      // 目标设备VID
