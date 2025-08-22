@@ -235,15 +235,27 @@ void Inquire_Sql_Info::closeEvent(QCloseEvent *event)
 
 void Inquire_Sql_Info::myMoveEvent(QMouseEvent *event)
 {
-    double x = event->pos().x();
-    double y = event->pos().y();
 
-    double x_ = ui->Inquire_curve_1->xAxis->pixelToCoord(x);
-    double y_ = ui->Inquire_curve_1->yAxis->pixelToCoord(y);
+    // 使用局部引用避免重复访问
+    QCustomPlot* plot = ui->Inquire_curve_1;
+    const QPoint pos = event->pos();
 
-    QString str = QString("x:%1;\ny:%2").arg(QString::number(x_,10,3))
-                .arg(QString::number(y_,10,3));
-    QToolTip::showText(cursor().pos(),str,ui->Inquire_curve_1);
+    // 检查是否在绘图区域内
+    if (!plot->rect().contains(pos)) {
+        QToolTip::hideText();
+        return;
+    }
+
+    // 坐标转换
+    const double xCoord = plot->xAxis->pixelToCoord(pos.x());
+    const double yCoord = plot->yAxis->pixelToCoord(pos.y());
+
+    // 使用静态字符串避免重复分配（如果格式固定）
+    static const QString format = "X: %1\nY: %2";
+    QString str = format.arg(xCoord, 0, 'f', 3).arg(yCoord, 0, 'f', 3);
+
+    // 显示tooltip
+    QToolTip::showText(event->globalPos(), str, plot);
 }
 
 void Inquire_Sql_Info::_creatCPGraph(QCustomPlot* pshowcurvedata)
@@ -294,14 +306,26 @@ void Inquire_Sql_Info::_creatCPGraph(QCustomPlot* pshowcurvedata)
 
 void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
 {
+    if (!customPlot) {
+        QLOG_WARN() << "Custom plot is null!";
+        return;
+    }
+
+    //性能优化：禁用抗锯齿
     customPlot->setNotAntialiasedElements(QCP::aeAll);
 
     connect(customPlot->xAxis, SIGNAL(rangeChanged(QCPRange)), customPlot->xAxis2, SLOT(setRange(QCPRange)));
     connect(customPlot->yAxis, SIGNAL(rangeChanged(QCPRange)), customPlot->yAxis2, SLOT(setRange(QCPRange)));
 
-    customPlot->setFont(QFont(font().family(), 12));//设置文本的字体
+    //字体设置优化
+    QFont plotFont = font();
+    plotFont.setFamily(font().family());
+    plotFont.setPointSize(10);
+    customPlot->setFont(plotFont);
 
-    connect(customPlot,&QCustomPlot::mouseMove,this,&Inquire_Sql_Info::myMoveEvent);
+
+    connect(customPlot,&QCustomPlot::mouseMove,
+            this,&Inquire_Sql_Info::myMoveEvent);
 
     // 设置背景色
     customPlot->setBackground(QBrush(QColor("#FFFAFA")));
@@ -309,33 +333,47 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     // 设置X/Y轴的标签
     customPlot->xAxis->setLabel(tr("时间S"));
     customPlot->yAxis->setLabel(tr("百分比%"));
-
     // 设置X/Y轴标签颜色
     customPlot->xAxis->setLabelColor(QColor(Qt::red));
     customPlot->yAxis->setLabelColor(QColor(Qt::red));
 
-    // 设置x=0或y=0所在直线的画笔
-    customPlot->xAxis->grid()->setZeroLinePen(QPen(QColor(Qt::darkGreen)));
-    customPlot->yAxis->grid()->setZeroLinePen(QPen(QColor(Qt::darkGreen)));
+
+
 
     // 设置X/Y轴刻度范围
     customPlot->xAxis->setRange(0, 300);
     customPlot->yAxis->setRange(-20, 100);
 
-    // 设置X/Y轴刻度数，也就是分为几段
-    QSharedPointer<QCPAxisTickerFixed> MyTicker(new QCPAxisTickerFixed);
-    MyTicker.data()->setTickStep(30);
-    MyTicker.data()->setTickCount(10);
-    customPlot->xAxis->setTicker(MyTicker);
-    customPlot->yAxis->ticker()->setTickCount(10);
+    //刻度设置优化
+    QSharedPointer<QCPAxisTickerFixed> xTicker(new QCPAxisTickerFixed);
+    xTicker->setTickStep(30);
+    xTicker->setTickCount(10);
+    customPlot->xAxis->setTicker(xTicker);
 
-    customPlot->setInteractions(QCP::iRangeDrag|QCP::iRangeZoom| QCP::iSelectAxes |
-                                QCP::iSelectLegend | QCP::iSelectPlottables);
+    QSharedPointer<QCPAxisTickerFixed> yTicker(new QCPAxisTickerFixed);
+    yTicker->setTickStep(12); // (-20到100共120单位，分10段)
+    yTicker->setTickCount(10);
+    customPlot->yAxis->setTicker(yTicker);
 
+    //网格和零线设置
+    QPen zeroLinePen;
+    zeroLinePen.setColor(QColor(Qt::darkGreen));  // 修正：使用Qt::darkGreen
+    zeroLinePen.setWidth(2);
+	customPlot->xAxis->grid()->setZeroLinePen(zeroLinePen);
+	customPlot->yAxis->grid()->setZeroLinePen(zeroLinePen);
+
+    customPlot->setInteractions(QCP::iRangeDrag|QCP::iRangeZoom|
+                                QCP::iSelectAxes |QCP::iSelectLegend |
+                                QCP::iSelectPlottables);
+
+    //关联选点信号
     connect(customPlot, SIGNAL(plottableClick(QCPAbstractPlottable*, int, QMouseEvent*)),
-            this, SLOT(OnPlotClick(QCPAbstractPlottable*, int, QMouseEvent*)));//关联选点信号
+            this, SLOT(OnPlotClick(QCPAbstractPlottable*, int, QMouseEvent*)));
 
-    customPlot->replot(QCustomPlot::rpQueuedReplot);
+    //性能优化：延迟重绘
+    QTimer::singleShot(0, customPlot, [customPlot]() {
+        customPlot->replot(QCustomPlot::rpQueuedReplot);
+    });
 
     _creatCPGraph(customPlot);// 创建图例层
 
@@ -344,12 +382,12 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
 void Inquire_Sql_Info::initTextTip()
 {
 	if (!m_TextTip) {
-		m_TextTip = std::make_unique<QCPItemText>(ui->Inquire_curve_1);
+		m_TextTip = new QCPItemText(ui->Inquire_curve_1);
 
 		m_TextTip->setPositionAlignment(Qt::AlignLeft | Qt::AlignTop);
 		m_TextTip->position->setType(QCPItemPosition::ptAbsolute);
 		m_TextTip->setColor(Qt::black);
-		m_TextTip->setFont(QFont("Microsoft YaHei", 9));
+        m_TextTip->setFont(QFont(font().family(), 10));
 		m_TextTip->setPen(QPen(Qt::darkGray));
 		m_TextTip->setBrush(QBrush(QColor(255, 255, 225, 230))); // 浅黄色背景
 		m_TextTip->setPadding(QMargins(8, 5, 8, 5));

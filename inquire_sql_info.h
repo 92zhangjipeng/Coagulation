@@ -107,9 +107,8 @@ private:
     QCPGraph* m_showCOLCpgraph = nullptr;
     QCPGraph* m_showRISCpgraph = nullptr;
     QButtonGroup *m_group = nullptr;
-
-	std::unique_ptr<QCPItemText> m_TextTip = nullptr;
-
+	QCPItemText *m_TextTip = nullptr;
+	
     QList<QString> mChildren;
 
     QString VScroBarCss =

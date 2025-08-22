@@ -13846,3 +13846,12 @@
 <font color="#FFFF00">[18:32:55提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
 <font color="#FFFFFF">[18:32:56]USB监听已启动!</font>
 <font color="#FFFF00">[18:33:24提醒]USB监听已停止!</font>
+<font color="#FF3030">[09:13:36异常]设备的 USB电源 选择性暂停禁用失败!(权限不足)</font>
+<font color="#FFFFFF">[09:13:36]USB监听已启动!</font>
+<font color="#FFFF00">[09:14:14提醒]所有模组调光完成!</font>
+<font color="#FFFF00">[09:14:14提醒]试杯区3使用完，脱位不提示</font>
+<font color="#FFFF00">[09:14:16提醒]忽略试管盘2脱位提示</font>
+<font color="#FFFF00">[09:14:17提醒]忽略试管盘1脱位提示</font>
+<font color="#FFFF00">[09:38:01提醒]设备路径识别失败(未连接)!禁用USB选择性暂停失败</font>
+<font color="#FFFFFF">[09:38:02]USB监听已启动!</font>
+<font color="#FFFF00">[09:38:36提醒]USB监听已停止!</font>
