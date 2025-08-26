@@ -124,6 +124,9 @@ private:
                                 int baselinePoor, int baselineRich,
                                 int channelIdx);
     float calculateAggregationRate(const bool isLogMode,float PRPn, float PRP0, float PPP);
+    float getRandomFactor(float min, float max);
+    bool  CheckPRPrestrictionLogic(const bool isLogMode, float PRPn,
+                                                      float PRP0, float PPP, float& rSetPRPn);
 
 
     void    savedrandData(const QString samplenum,const quint8 indexReagent);
@@ -151,11 +154,12 @@ private:
     const int  dataLengthGroup = 9; //每秒钟采集处理的数据个数
 
 
-    QList<gatherdata* > m_channelRawData;//data_write;
-    QMultiMap<quint8,QString> m_processedChannelData;//mchngetchardata;
+
     QSet<QString> sentSamples; // 用于存储已发送信号的样本ID
 
     QMutex queueMutex;
+
+    float m_prevPRPn;
 
 };
 

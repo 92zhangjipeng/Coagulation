@@ -143,75 +143,179 @@ void CustomFixTableView::setCheckBoxState(const bool& isstate,const QString& sam
 
 
 void CustomFixTableView::initCreateCurveWidget(QCustomPlot *customPlot){
-    QCPTextElement *plotTitle = new QCPTextElement(customPlot);
-    plotTitle->setText("数据曲线");
-    plotTitle->setTextColor(QColor(0,0,0));
-    plotTitle->setFont(QFont("宋体", 14, QFont::Bold));
+    if (!customPlot) {
+        QLOG_WARN() << "CustomPlot pointer is null!";
+        return;
+    }
 
+    // 启用抗锯齿
+    customPlot->setAntialiasedElements(QCP::aeAll);
+    //customPlot->setNotAntialiasedElements(QCP::aeNone);
 
-    customPlot->plotLayout()->insertRow(0);
-    customPlot->plotLayout()->addElement(0, 0, plotTitle);
+    // 设置整体背景
+    //customPlot->setBackground(QBrush(QColor(248, 250, 252)));
 
+    // 1. 创建现代化标题
+    //initModernPlotTitle(customPlot);
 
-    //设置曲线可拖拽 滚轮放大缩小 图像可选择
-    customPlot->setSelectionRectMode(QCP::SelectionRectMode::srmNone);
-    customPlot->setInteraction(QCP::iRangeDrag, true);
-    //customPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables);
-    customPlot->setFont(QFont(font().family(), 12));//设置文本的字体
+    // 2. 基本交互设置
+    setupSmoothInteractions(customPlot);
 
-    //connect(customPlot,&QCustomPlot::mouseMove,this,&Calibrate::myMoveEvent);
+    // 3. 坐标轴美化设置
+    setupBeautifulAxes(customPlot);
 
+    // 4. 网格样式美化
+    setupElegantGrid(customPlot);
 
-    // 设置X/Y轴的标签
-    customPlot->xAxis->setLabel(tr("时间S"));
-    customPlot->yAxis->setLabel(tr("百分比%"));
+    // 5. 创建图例层
+    initCreatCPGraph(customPlot);
 
-    // 设置X/Y轴标签颜色
-    customPlot->xAxis->setLabelColor(QColor(Qt::black));
-    customPlot->yAxis->setLabelColor(QColor(Qt::black));
+    // 6. 添加阴影效果
+    //addShadowEffect(customPlot);
 
-    // 设置x=0或y=0所在直线的画笔
-    customPlot->xAxis->grid()->setZeroLinePen(QPen(QColor(Qt::blue)));
-    customPlot->yAxis->grid()->setZeroLinePen(QPen(QColor(Qt::blue)));
-
-    // 设置X/Y轴刻度范围
-    customPlot->xAxis->setRange(0, 300);
-    customPlot->yAxis->setRange(-20, 100);
-
-    // 设置X/Y轴刻度数，也就是分为几段
-    QSharedPointer<QCPAxisTickerFixed> MyTicker(new QCPAxisTickerFixed);
-    MyTicker.data()->setTickStep(30);
-    MyTicker.data()->setTickCount(10);
-    customPlot->xAxis->setTicker(MyTicker);
-    customPlot->yAxis->ticker()->setTickCount(10);
-
-    // 设置X/Y轴刻度值文本的颜色
-    customPlot->xAxis->setTickLabelColor(QColor("#1C1C1C"));
-    customPlot->yAxis->setTickLabelColor(QColor("#1C1C1C"));
-
-    // 设置X/Y轴轴线的画笔
-    customPlot->xAxis->setBasePen(QPen(QColor(Qt::black), 1, Qt::SolidLine));
-    customPlot->yAxis->setBasePen(QPen(QColor(Qt::black), 1, Qt::SolidLine));
-
-    // 设置X/Y轴大刻度的画笔，被分段的位置
-    customPlot->xAxis->setTickPen(QPen(QColor("#ff00ff")));
-    customPlot->yAxis->setTickPen(QPen(QColor("#ff00ff")));
-
-    // 设置X/Y轴小刻度的画笔
-    customPlot->xAxis->setSubTickPen(QPen(QColor(Qt::black)));
-    customPlot->yAxis->setSubTickPen(QPen(QColor(Qt::black)));
-
-    //-- 横轴网格样式 --
-    QPen xGridPen(QColor(200, 200, 200), 1, Qt::DotLine);
-    xGridPen.setCosmetic(true);
-    customPlot->xAxis->grid()->setPen(xGridPen);
-    customPlot->xAxis->grid()->setZeroLinePen(Qt::NoPen);
     customPlot->replot();
 
     // 创建图例层
     initCreatCPGraph(customPlot);
     return;
 }
+
+
+
+void CustomFixTableView::initModernPlotTitle(QCustomPlot* customPlot)
+{
+    QCPTextElement* plotTitle = new QCPTextElement(customPlot);
+    plotTitle->setText("📊 数据曲线");
+    plotTitle->setTextColor(Qt::black);
+    plotTitle->setFont(QFont("宋体", 14, QFont::Bold));
+
+    customPlot->plotLayout()->insertRow(0);
+    customPlot->plotLayout()->addElement(0, 0, plotTitle);
+}
+
+void CustomFixTableView::setupSmoothInteractions(QCustomPlot* customPlot)
+{
+    customPlot->setSelectionRectMode(QCP::SelectionRectMode::srmNone);
+    customPlot->setInteraction(QCP::iRangeDrag, true);
+    customPlot->setInteraction(QCP::iRangeZoom, true);
+
+    // 平滑滚动和拖拽
+    customPlot->axisRect()->setRangeDrag(Qt::Horizontal | Qt::Vertical);
+    customPlot->axisRect()->setRangeZoom(Qt::Horizontal | Qt::Vertical);
+
+    // 设置现代化字体
+    QFont modernFont("Segoe UI", 10);
+    customPlot->setFont(modernFont);
+}
+
+void CustomFixTableView::setupBeautifulAxes(QCustomPlot* customPlot)
+{
+    // X轴美化设置
+    setupModernAxis(customPlot->xAxis, "时间 (S)", 0, 300, 30, 10);
+
+    // Y轴美化设置
+    setupModernAxis(customPlot->yAxis, "百分比 (%)", -20, 100, 10, 10);
+
+    //网格和零线设置
+    QPen zeroLinePen;
+    zeroLinePen.setColor(QColor(Qt::darkGreen));  // 修正：使用Qt::darkGreen
+    zeroLinePen.setWidth(2);
+    customPlot->xAxis->grid()->setZeroLinePen(zeroLinePen);
+    customPlot->yAxis->grid()->setZeroLinePen(zeroLinePen);
+
+
+}
+
+void CustomFixTableView::setupModernAxis(QCPAxis* axis, const QString& label,
+                                       double lower, double upper,
+                                       double tickStep, int tickCount)
+{
+    // 标签设置
+   axis->setLabel(label);
+   axis->setLabelColor(Qt::black);
+
+   // 范围设置
+   axis->setRange(lower, upper);
+
+   // 刻度设置
+   QSharedPointer<QCPAxisTickerFixed> ticker(new QCPAxisTickerFixed);
+   ticker->setTickStep(tickStep);
+   ticker->setTickCount(tickCount);
+   axis->setTicker(ticker);
+
+   // 文本颜色
+   axis->setTickLabelColor(QColor("#1C1C1C"));
+
+   // 轴线样式
+   QPen axisPen(Qt::black, 1, Qt::SolidLine);
+   axis->setBasePen(axisPen);
+
+   // 刻度线样式
+   QPen tickPen(QColor("#ff00ff"), 1, Qt::SolidLine);
+   axis->setTickPen(tickPen);
+
+   // 子刻度线样式
+   QPen subTickPen(Qt::black, 1, Qt::SolidLine);
+   axis->setSubTickPen(subTickPen);
+}
+
+void CustomFixTableView::setupElegantGrid(QCustomPlot* customPlot)
+{
+    // 网格线样式
+    QPen gridPen(QColor(200, 200, 200), 1, Qt::DotLine);
+    gridPen.setCosmetic(true);
+
+    customPlot->xAxis->grid()->setPen(gridPen);
+    customPlot->yAxis->grid()->setPen(gridPen);
+
+    // 移除零线的特殊设置，使用统一的网格样式
+    customPlot->xAxis->grid()->setZeroLinePen(Qt::NoPen);
+    customPlot->yAxis->grid()->setZeroLinePen(Qt::NoPen);
+}
+
+void CustomFixTableView::addShadowEffect(QCustomPlot* customPlot)
+{
+    // 为图表区域添加阴影效果
+    QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect(customPlot);
+    shadowEffect->setBlurRadius(10);
+    shadowEffect->setColor(QColor(0, 0, 0, 60));
+    shadowEffect->setOffset(3, 3);
+    customPlot->setGraphicsEffect(shadowEffect);
+
+
+
+    // 设置图表区域边距，确保刻度文字可见
+    customPlot->axisRect()->setAutoMargins(QCP::msAll);
+    customPlot->axisRect()->setMinimumMargins(QMargins(30, 20, 20, 30)); // 确保足够的边距
+
+        // 设置背景颜色和圆角
+    customPlot->axisRect()->setBackground(QBrush(Qt::white));
+    customPlot->axisRect()->setBackgroundScaled(false);
+
+    // 增大坐标轴标签字体
+    QFont axisLabelFont("微软雅黑", 11, QFont::Medium);
+    customPlot->xAxis->setLabelFont(axisLabelFont);
+    customPlot->yAxis->setLabelFont(axisLabelFont);
+
+    // 增大刻度文字字体
+    QFont tickLabelFont("Segoe UI", 10);
+    customPlot->xAxis->setTickLabelFont(tickLabelFont);
+    customPlot->yAxis->setTickLabelFont(tickLabelFont);
+
+    // 确保刻度文字颜色对比度足够
+    customPlot->xAxis->setTickLabelColor(QColor(59, 73, 89));
+    customPlot->yAxis->setTickLabelColor(QColor(59, 73, 89));
+
+    // 调整坐标轴标签位置，确保不被遮挡
+    customPlot->xAxis->setLabelPadding(10);
+    customPlot->yAxis->setLabelPadding(15);
+
+    // 调整刻度文字边距
+    customPlot->xAxis->setTickLabelPadding(5);
+    customPlot->yAxis->setTickLabelPadding(8);
+}
+
+
 
 
 void CustomFixTableView::initCreatCPGraph(QCustomPlot* pshowcurvedata)
@@ -310,10 +414,19 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
         {RIS_REAGENT, m_showRISCpgraph}
     };
 
-    // 3. 获取试剂数据
+    //获取试剂数据
     auto reagentCurvedata = FullyAutomatedPlatelets::pinstancesqlData()->getCurveData(
         m_viewIDstr, testEndReagent
     );
+
+    // 检查数据有效性和长度匹配
+    if (reagentCurvedata.size() != timePoints.size() ||
+        std::all_of(reagentCurvedata.begin(), reagentCurvedata.end(),
+                   [](double val) { return std::isnan(val); })) {
+        //graph->data()->clear();
+        return;
+    }
+
 
     // 4. 设置曲线数据
     if (auto graph = reagentGraphMap.value(testEndReagent, nullptr)) {
@@ -367,6 +480,7 @@ void CustomFixTableView::insertColumnText(QTableWidget *tablewiget,
     tablewiget->setFont(font);
     tablewiget->setItem(row,col,item);
 }
+
 void CustomFixTableView::insertColumnText(QTableWidget *tablewiget,
                                           const int row,
                                           const int col,
@@ -378,6 +492,7 @@ void CustomFixTableView::insertColumnText(QTableWidget *tablewiget,
     tablewiget->setFont(font);
     tablewiget->setItem(row,col,item);
 }
+
 void CustomFixTableView::updateParaState(QTableWidget *tablewiget,const int row,const int col,
                                          const QColor &bgmC,
                                          const QString& iconPath,const QString& text){

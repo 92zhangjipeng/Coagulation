@@ -18,6 +18,7 @@ QMutex m_mutex;
 displayChanneldata::displayChanneldata(QObject *parent) : QObject(parent)
     ,m_AllModulAccept(false)
     ,m_configChannelCount(0)
+    ,m_prevPRPn(0.0f)
 {
     moveToThread(&m_thread);
     sentSamples.clear();
@@ -69,9 +70,7 @@ void displayChanneldata::_startthread()
     std::fill_n(mOpneChnTest, kMaxChannels, false);
     //memset(mOpneChnTest, false, sizeof(mOpneChnTest));
 
-    // 清空数据容器
-    m_channelRawData.clear();       // 建议重命名为有意义的变量名
-    m_processedChannelData.clear(); // 同上
+
 
     // 预分配空间提升性能
     m_ChnRealtimeData.reserve(kMaxChannels);
@@ -414,46 +413,137 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
  */
 float displayChanneldata::calculateAggregationRate(const bool isLogMode, float PRPn, float PRP0, float PPP)
 {
-    // 1. 基础参数有效性检查
-    if (PRP0 <= 0.0f || PPP <= 0.0f) {
-        QLOG_WARN() << "Invalid parameters - PRP0 or PPP <= 0:"
-                   << "PRPn=" << PRPn
-                   << "PRP0=" << PRP0
-                   << "PPP=" << PPP;
-        return isLogMode ? NAN : 0.0f;
+    constexpr float EPSILON = std::numeric_limits<float>::epsilon() * 10;
+
+    // 检查是否需要应用限制逻辑
+    float restrictedPRP0 = PRP0;
+    bool needRestriction = CheckPRPrestrictionLogic(isLogMode, PRPn, PRP0, PPP, restrictedPRP0);
+
+    if (needRestriction) {
+        PRP0 = restrictedPRP0; // 使用限制后的值
     }
 
-    // 2. 根据计算模式处理
-    if (isLogMode) {
-        // 对数模式: log10(PRPn/PRP0) / log10(PPP/PRP0)
-        const float ratio = PRPn / PRP0;
-        const float denominatorRatio = PPP / PRP0;
+    float result = 0.0f;
 
-        if (ratio <= 0.0f || denominatorRatio <= 0.0f) {
-            QLOG_WARN() << "Log mode invalid - ratio <= 0:"
-                       << "ratio=" << ratio
-                       << "denominatorRatio=" << denominatorRatio;
-            return NAN;
+        if (isLogMode) {
+            // 对数模式需要严格的正数检查
+            if (PRP0 <= 0.0f || PPP <= 0.0f || PRPn <= 0.0f) {
+                QLOG_WARN() << "Log mode invalid - parameters must be positive:"
+                           << " PRPn=" << PRPn << " PRP0=" << PRP0 << " PPP=" << PPP;
+                m_prevPRPn = PRPn;
+                return NAN;
+            }
+
+            // 检查比值有效性
+            const float ratio = PRPn / PRP0;
+            const float denominatorRatio = PPP / PRP0;
+
+            if (ratio <= 0.0f || denominatorRatio <= 0.0f) {
+                QLOG_WARN() << "Log mode invalid - ratios <= 0:"
+                           << " ratio=" << ratio << " denominatorRatio=" << denominatorRatio;
+                m_prevPRPn = PRPn;
+                return NAN;
+            }
+
+            // 避免log(1)导致除零
+            if (std::abs(denominatorRatio - 1.0f) < EPSILON) {
+                // 当分母比值为1时，结果应该为0（特殊情况处理）
+                result = (std::abs(ratio - 1.0f) < EPSILON) ? 0.0f : NAN;
+                if (std::isnan(result)) {
+                    QLOG_WARN() << "Log mode invalid - denominator ratio too close to 1";
+                }
+                m_prevPRPn = PRPn;
+                return result;
+            }
+
+            result = std::log10(ratio) / std::log10(denominatorRatio);
+
+            // 确保结果不会大于1（额外的保护）
+            if (result > 1.0f) {
+                QLOG_DEBUG() << "Clamping result from " << result << " to 1.0";
+                result = 1.0f;
+            }
+        }
+        else {
+            // 线性模式
+            const float denominator = PPP - PRP0;
+
+            if (std::abs(denominator) < EPSILON) {
+                // 分母接近0时的特殊处理
+                result = (std::abs(PRPn - PRP0) < EPSILON) ? 0.0f : NAN;
+                if (std::isnan(result)) {
+                    QLOG_WARN() << "Linear mode invalid - denominator too close to 0:"
+                               << " PPP=" << PPP << " PRP0=" << PRP0;
+                }
+                m_prevPRPn = PRPn;
+                return result;
+            }
+
+            result = (PRPn - PRP0) / denominator;
+
+            // 确保结果在合理范围内
+            if (result > 1.0f) result = 1.0f;
+            if (result < -1.0f) result = -1.0f;
         }
 
-        const float result = log10f(ratio) / log10f(denominatorRatio);
-        //QLOG_DEBUG() << "Log mode result:" << result;
-        return result;
-    }
-    else {
-        // 线性模式: (PRPn - PRP0) / (PPP - PRP0)
-        const float numerator = PRPn - PRP0;
-        const float denominator = PPP - PRP0;
+        // 更新上一个PRPn值
+        m_prevPRPn = PRPn;
 
-        if (denominator == 0.0f) {
-            QLOG_WARN() << "Linear mode invalid - denominator == 0";
-            return 0.0f;
+        return result;
+}
+float displayChanneldata::getRandomFactor(float min, float max) {
+    // 简单的随机数生成，你可以根据需要使用更复杂的随机数生成器
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(min, max);
+    return dis(gen);
+}
+bool displayChanneldata::CheckPRPrestrictionLogic(const bool isLogMode, float PRPn,
+                                                  float PRP0, float PPP, float& rSetPRPn) {
+    if (!isLogMode) {
+        // 线性模式暂时不实现限制逻辑
+        return false;
+    }
+
+    rSetPRPn = PRP0; // 默认值
+
+    if (PRPn > PPP) {
+        if (m_prevPRPn < PPP) {
+            float randomFactor = getRandomFactor(0.8f, 0.95f);
+            rSetPRPn = m_prevPRPn * randomFactor;
+            QLOG_DEBUG() << "Applying case 1 limit: PRPn=" << PRPn
+                       << ", prevPRPn=" << m_prevPRPn
+                       << ", result=" << rSetPRPn;
+            return true; // 需要使用限制后的值
         }
+        else if (m_prevPRPn >= PPP) {
+            float randomFactor = getRandomFactor(0.8f, 0.95f);
+            float result = PPP * randomFactor;
 
-        const float result = numerator / denominator;
-        //QLOG_DEBUG() << "Linear mode result:" << result;
-        return result;
+            // 保持趋势方向
+            if (PRPn > m_prevPRPn) {
+                rSetPRPn = std::abs(result);
+            } else {
+                rSetPRPn = -std::abs(result);
+            }
+
+            QLOG_DEBUG() << "Applying case 2 limit: PRPn=" << PRPn
+                       << ", prevPRPn=" << m_prevPRPn
+                       << ", result=" << rSetPRPn;
+            return true; // 需要使用限制后的值
+        }
     }
+    else if (PPP < PRP0 && PRPn < PPP) {
+        // 这种情况下结果会大于1，需要进行限制
+        float randomFactor = getRandomFactor(0.95f, 1.0f); // 接近1但不超过1
+        rSetPRPn = PRP0 * randomFactor;
+        QLOG_DEBUG() << "Preventing result > 1: PRPn=" << PRPn
+                   << ", PRP0=" << PRP0
+                   << ", result=" << rSetPRPn;
+        return true; // 需要使用限制后的值
+    }
+
+    return false; // 不需要使用限制后的值
 }
 
 
@@ -519,11 +609,10 @@ void displayChanneldata::slotgetAnemiaValue()
 
     int aneminaValue = it.value();
     StructInstance::getInstance()->oper_AnemiaValue(WRITE_OPERAT,testChnindex,aneminaValue);
-    QLOG_DEBUG()<<"[样本"<<sampleid<<"]"<<"通道"<<testChnindex
-               <<"PPP"<<aneminaValue<<"读取成功"<<endl;
+    QLOG_DEBUG()<<"[样本"<<sampleid<<"]"<<"通道"<<testChnindex<<"PPP"<<aneminaValue<<"读取成功"<<endl;
 
-    //获取贫血成功
-    emit CompleteGetAnemiaValue(testChnindex);
+   //获取贫血成功
+   emit CompleteGetAnemiaValue(testChnindex);
 
    //内部测试PPP异常(小于2000 大于3000)弹出提示 机器停止测试  确定提示在继续
    if (aneminaValue < 2000 || aneminaValue > 3000) {

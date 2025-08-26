@@ -245,8 +245,6 @@ void Calibrate::showContextpup(const QPoint &pos){
         mpdatawidget.reset(new CustomFixTableView());
         connect(this, &Calibrate::hideCurveUi, mpdatawidget.data(),
                 &CustomFixTableView::hideWithAnimation);
-
-
     }
 
     QTableWidgetItem* targetItem = ptablewidget->item(clickrow,SEXSAMPLE);

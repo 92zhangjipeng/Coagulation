@@ -162,7 +162,9 @@ private:
     void handleCmd3(const QStringList& recvdata, ConsumablesOper* consumables);
     void handleCmd5(const QStringList& recvdata, ConsumablesOper* consumables);
 
+	//数据处理
     void handleRecvdata();
+	void processCompleteFrames();
 	void processFrame(const QByteArray& frame);
 
     void clearWriteQueue();
@@ -261,7 +263,10 @@ private:
 	QThread m_thread;
     QMutex m_serialMutex;
     QMutex m_bufferMutex;
+	QReadWriteLock m_bufferLock;
 
+
+	std::atomic<bool> m_portOpen{ false };
 
     QSerialPort *mserialPort = nullptr;
 

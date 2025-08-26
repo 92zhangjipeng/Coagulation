@@ -108,6 +108,7 @@ void SuoweiSerialPort::cleanupSerialPort()
         mserialPort = nullptr;
     }
     m_errorSignalConnected = false;
+	m_portOpen = false;
 }
 
 QString SuoweiSerialPort::getSerialPortErrorString(QSerialPort* port)
@@ -265,49 +266,54 @@ void SuoweiSerialPort::handleBytesWritten(qint64 bytes) {
 
 void  SuoweiSerialPort::handleRecvdata(){
 
-    const quint64 bytesAvailable = mserialPort->bytesAvailable();
-    if(bytesAvailable <= 0) return;
+	if (!mserialPort || !m_portOpen) return;
 
-    // 使用局部变量读取数据，减少锁持有时间
-    QByteArray newData = mserialPort->readAll();
-    const int newSize = newData.size();
+	const qint64 bytesAvailable = mserialPort->bytesAvailable();
+	if (bytesAvailable <= 0) return;
 
-    // 提前检查缓冲区溢出
-    {
-        QMutexLocker locker(&m_bufferMutex);
-        if (m_buffer.size() + newSize > MAX_BUFFER_SIZE) {
-            // 计算需要保留的空间，优先保留新数据
-            int overflow = (m_buffer.size() + newSize) - MAX_BUFFER_SIZE;
-            int removeCount = qMin(overflow, m_buffer.size());
-            m_buffer.remove(0, removeCount);
-            QLOG_WARN() << "Buffer overflow! Removed" << removeCount << "bytes";
-        }
-        m_buffer.append(newData);
-    }
+	// 修复：使用正确的类型转换
+	const qint64 readSize = qMin<qint64>(bytesAvailable, 1024);
+	QByteArray newData = mserialPort->read(readSize);
 
-    // 性能测试模式判断移到循环外
-    const bool isPerfTest = Performanceverification::instance()->returnPerformanceTestFlag();
+	{
+		QWriteLocker locker(&m_bufferLock);
+		if (m_buffer.size() + newData.size() > MAX_BUFFER_SIZE) {
+			int overflow = m_buffer.size() + newData.size() - MAX_BUFFER_SIZE;
+			m_buffer.remove(0, overflow);
+			QLOG_WARN() << "Buffer overflow! Removed" << overflow << "bytes";
+		}
+		m_buffer.append(newData);
+	}
 
+	processCompleteFrames();
 
-    // 分帧处理
-    while (m_buffer.size() >= PROTOCOL_LENGTH) {
-        QByteArray frame;
-        {
-            QMutexLocker locker(&m_bufferMutex);
-            frame = m_buffer.left(PROTOCOL_LENGTH);
-            m_buffer.remove(0, PROTOCOL_LENGTH);
-        }
-
-        if (isPerfTest) {
-            processFrame(frame);
-        } else {
-            // 使用 lambda 捕获 frame 的拷贝，避免共享数据问题
-            QtConcurrent::run(m_threadPool, [this, frame]() {
-                processFrame(frame);
-            });
-        }
-    }
 }
+
+void SuoweiSerialPort::processCompleteFrames()
+{
+	QReadLocker locker(&m_bufferLock);
+
+	while (m_buffer.size() >= PROTOCOL_LENGTH) {
+		QByteArray frame = m_buffer.left(PROTOCOL_LENGTH);
+		m_buffer.remove(0, PROTOCOL_LENGTH);
+
+		if (Performanceverification::instance()->returnPerformanceTestFlag()) {
+			processFrame(frame);
+		}
+		else {
+			if (m_threadPool->activeThreadCount() < m_threadPool->maxThreadCount()) {
+				QtConcurrent::run(m_threadPool, [this, frame]() {
+					processFrame(frame);
+				});
+			}
+			else {
+				processFrame(frame);
+			}
+		}
+	}
+}
+
+
 
 void SuoweiSerialPort::processFrame(const QByteArray& frame) {
 
@@ -363,22 +369,21 @@ void SuoweiSerialPort::toReadSuckAirsValBack(const QStringList& recv_data){
 
 // 新增队列处理函数
 void SuoweiSerialPort::processWriteQueue() {
-    QPair<QByteArray, QString> task;
+	if (!m_portOpen || !mserialPort || !mserialPort->isOpen()) {
+		clearWriteQueue();
+		emit connectionStateChanged(false);
+		return;
+	}
 
-    // 获取待处理任务
+	// 获取待处理任务
+    QPair<QByteArray, QString> task;
     {
         QMutexLocker locker(&m_writeMutex);
         if (m_writeQueue.isEmpty()) return;
         task = m_writeQueue.dequeue();
     }
 
-    // 设备状态检查
-    if (!mserialPort || !mserialPort->isOpen()) {
-        QLOG_ERROR() << "串口未初始化或已关闭" << task.second;
-        clearWriteQueue();
-        emit connectionStateChanged(false);
-        return;
-    }
+    
 
     // USB流量控制（关键优化）
     const qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
@@ -399,8 +404,7 @@ void SuoweiSerialPort::processWriteQueue() {
 
     // 错误处理
     if (bytesWritten == -1) {
-        QLOG_ERROR() << "异步写入失败:" << task.second
-                      << "错误:" << mserialPort->errorString();
+        QLOG_ERROR() << "异步写入失败:" << task.second<< "错误:" << mserialPort->errorString();
         clearWriteQueue();
         emit connectionStateChanged(false);
     }
@@ -495,7 +499,9 @@ void SuoweiSerialPort::closePort() {
 	if (mserialPort && mserialPort->isOpen()) {
 		mserialPort->close();
 	}
+	m_portOpen = false;
 }
+
 bool SuoweiSerialPort::_bufferfull(const int buffer_num, const int _addr)
 {
     if(buffer_num >= 255 && !mreminderbufferfull)
@@ -730,7 +736,7 @@ bool  SuoweiSerialPort::openSerialPort(const QString portname)
         }
 
         isOpened = true;
-        //使用信号通知代替直接修改全局变量
+		m_portOpen = true;
         emit connectionStateChanged(true);
     }
     else
@@ -741,6 +747,7 @@ bool  SuoweiSerialPort::openSerialPort(const QString portname)
         //错误
         handleOpenError(errorMsg);
         isOpened = false;
+		m_portOpen = false;
     }
 
     // 优化7：统一状态管理
@@ -765,7 +772,7 @@ void SuoweiSerialPort::recvdisConnectCloseSerial() {
 
 			// 3. 重置错误信号标志
 			m_errorSignalConnected = false;
-
+			m_portOpen = false;
 			// 4. 通知连接状态变化
             emit connectionStateChanged(false);
 	}
@@ -817,9 +824,8 @@ void SuoweiSerialPort::safeClosePort() {
 
     // 执行关闭操作
     mserialPort->close();
+	m_portOpen = false;
     QLOG_INFO() << "串口已安全关闭";
-
-
 }
 
 
@@ -1163,15 +1169,33 @@ void SuoweiSerialPort::handleCmd5(const QStringList& recvdata, ConsumablesOper* 
 
 void SuoweiSerialPort::handleSerialError(QSerialPort::SerialPortError error)
 {
-    if (error == QSerialPort::NoError)
-        return;
+	if (error == QSerialPort::NoError) return;
 
+	QString errorMsg = getSerialPortErrorString(mserialPort);
+	QLOG_WARN() << "串口错误:" << errorMsg << "(" << error << ")";
 
-    QString errorMsg = getSerialPortErrorString(mserialPort);
-    QLOG_WARN() << "串口异常: " << errorMsg;
+	switch (error) {
+	case QSerialPort::DeviceNotFoundError:
+	case QSerialPort::PermissionError:
+	case QSerialPort::OpenError:
+		m_portOpen = false;
+		emit connectionStateChanged(false);
+		//scheduleReconnect();
+		break;
 
-    QLOG_ERROR() << "Serial port error occurred:"<< mserialPort->errorString()
-                << "(" << error << ")";
+	case QSerialPort::WriteError:
+	case QSerialPort::ReadError:
+		//recoverFromIOError();
+		break;
+
+	case QSerialPort::ResourceError:
+		m_portOpen = false;
+		//handleDeviceRemoved();
+		break;
+	default:
+		QLOG_DEBUG() << "串口次要错误:" << errorMsg;
+		break;
+	}
 }
 
 /**

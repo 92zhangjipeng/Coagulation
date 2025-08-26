@@ -74,6 +74,18 @@ private:
 
     void initCreatCPGraph(QCustomPlot* pshowcurvedata);
     void initCreateCurveWidget(QCustomPlot *customPlot);
+    //初始化图样
+    void initModernPlotTitle(QCustomPlot* customPlot);
+    void setupSmoothInteractions(QCustomPlot* customPlot);
+    void setupBeautifulAxes(QCustomPlot* customPlot);
+    void setupModernAxis(QCPAxis* axis, const QString& label,
+                         double lower, double upper,
+                         double tickStep, int tickCount);
+    void setupElegantGrid(QCustomPlot* customPlot);
+    void addShadowEffect(QCustomPlot* customPlot);
+
+
+
     void showCurveTestEnd(const quint8& testEndReagent, const bool  &smooth);
 
 

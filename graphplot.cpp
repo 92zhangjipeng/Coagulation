@@ -221,20 +221,7 @@ void  GraphPlot::_initCreatCurveWidget(QCustomPlot* pPlotWidget,int indexchn)
     pPlotWidget->setInteraction(QCP::iRangeDrag, true);
     //pPlotWidget->setInteractions(QCP::iRangeDrag | QCP::iSelectPlottables);
 
-
     pPlotWidget->setFont(QFont(font().family(), 10));//设置文本的字体
-
-    connect(pPlotWidget, &QCustomPlot::mouseMove, this, [=](QMouseEvent *event) {
-        double x = event->pos().x();
-        double y = event->pos().y();
-
-        double x_ = pPlotWidget->xAxis->pixelToCoord(x);
-        double y_ = pPlotWidget->yAxis->pixelToCoord(y);
-
-        QString str = QString("x:%1;\ny:%2").arg(QString::number(x_, 10, 3))
-        .arg(QString::number(y_, 10, 3));
-        QToolTip::showText(cursor().pos(), str, pPlotWidget);
-    });
 
 
     // 设置背景色
@@ -253,18 +240,33 @@ void  GraphPlot::_initCreatCurveWidget(QCustomPlot* pPlotWidget,int indexchn)
     pPlotWidget->xAxis->grid()->setZeroLinePen(QPen(QColor(Qt::darkGray)));
     pPlotWidget->yAxis->grid()->setZeroLinePen(QPen(QColor(Qt::darkGray)));
 
+
+
     // 设置X/Y轴刻度范围
     pPlotWidget->xAxis->setRange(0, 300);
     pPlotWidget->yAxis->setRange(-20, 100);
 
-    //设置X/Y轴刻度数，也就是分为几段
-    QSharedPointer<QCPAxisTickerFixed> MyTicker (new QCPAxisTickerFixed);
-    MyTicker.data()->setTickStep(30);
-    MyTicker.data()->setTickCount(10);
-    pPlotWidget->xAxis->setTicker(MyTicker);
+    //刻度设置优化
+    QSharedPointer<QCPAxisTickerFixed> xTicker(new QCPAxisTickerFixed);
+    xTicker->setTickStep(30);
+    xTicker->setTickCount(10);
+    pPlotWidget->xAxis->setTicker(xTicker);
 
-    //pPlotWidget->xAxis->ticker()->setTickCount(10);
-    pPlotWidget->yAxis->ticker()->setTickCount(10);
+    QSharedPointer<QCPAxisTickerFixed> yTicker(new QCPAxisTickerFixed);
+    yTicker->setTickStep(12); // (-20到100共120单位，分10段)
+    yTicker->setTickCount(10);
+    pPlotWidget->yAxis->setTicker(yTicker);
+
+    //网格和零线设置
+    QPen zeroLinePen;
+    zeroLinePen.setColor(QColor(Qt::darkGreen));  // 修正：使用Qt::darkGreen
+    zeroLinePen.setWidth(2);
+    pPlotWidget->xAxis->grid()->setZeroLinePen(zeroLinePen);
+    pPlotWidget->yAxis->grid()->setZeroLinePen(zeroLinePen);
+
+
+
+
     pPlotWidget->xAxis->ticker()->setTickStepStrategy(QCPAxisTicker::tssReadability);//可读性优于设置
     pPlotWidget->yAxis->ticker()->setTickStepStrategy(QCPAxisTicker::tssReadability);
 

@@ -338,8 +338,6 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     customPlot->yAxis->setLabelColor(QColor(Qt::red));
 
 
-
-
     // 设置X/Y轴刻度范围
     customPlot->xAxis->setRange(0, 300);
     customPlot->yAxis->setRange(-20, 100);
@@ -509,8 +507,21 @@ void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag
     //线程安全地更新图表数据
     QMetaObject::invokeMethod(this, [this, graph, posx, rawData]() {
         if (graph && !posx.isEmpty() && !rawData.isEmpty()) {
-            graph->setData(posx, rawData);
-            ui->Inquire_curve_1->replot();
+			// 过滤掉 NaN 值
+			QVector<double> filteredPosx;
+			QVector<double> filteredData;
+
+			for (int i = 0; i < rawData.size(); ++i) {
+				if (!std::isnan(rawData[i]) && !std::isnan(posx[i])) {
+					filteredData.append(rawData[i]);
+					filteredPosx.append(posx[i]);
+				}
+			}
+
+			if (!filteredPosx.isEmpty() && !filteredData.isEmpty()) {
+				graph->setData(filteredPosx, filteredData);
+				ui->Inquire_curve_1->replot();
+			}
         }
     }, Qt::QueuedConnection);
 }
