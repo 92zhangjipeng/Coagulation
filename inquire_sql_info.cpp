@@ -337,7 +337,6 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     customPlot->xAxis->setLabelColor(QColor(Qt::red));
     customPlot->yAxis->setLabelColor(QColor(Qt::red));
 
-
     // 设置X/Y轴刻度范围
     customPlot->xAxis->setRange(0, 300);
     customPlot->yAxis->setRange(-20, 100);
@@ -461,7 +460,7 @@ void Inquire_Sql_Info::SelectItem(QTableWidgetItem *item)
 void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag)
 {
     if (dataList.isEmpty()) {
-        qWarning() << "Empty data list provided for reagent index:" << indexReag;
+        QLOG_WARN() << "Empty data list provided for reagent index:" << indexReag;
         return;
     }
 
@@ -471,18 +470,26 @@ void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag
     int conversionErrors = 0;
     std::transform(dataList.cbegin(), dataList.cend(), std::back_inserter(rawData),
                 [&conversionErrors](const QString& str) {
-                      bool ok;
-                      double val = str.toDouble(&ok) * 100.0;
-                      if (!ok) {
-                          qWarning() << "Failed to convert string to double:" << str;
-                          conversionErrors++;
-                          return 0.0;
+                    bool ok;
+                    double val = str.toDouble(&ok) * 100.0;
+                    if (!ok) {
+                        //QLOG_WARN() << "数据点转换失败:" << str;
+                        conversionErrors++;
+                        return 0.0;
+                    }
+
+                    //检查是否为无穷大或NaN
+                    if (std::isinf(val) || std::isnan(val)) {
+                        //QLOG_WARN() << "特殊值转换失败(inf/nan):" << str;
+                        conversionErrors++;
+                        return 0.0;
                     }
                     return val;
                  });
 
-    if (conversionErrors > 0) {
-        qWarning() << "Found" << conversionErrors << "conversion errors in data for reagent:" << indexReag;
+    if (conversionErrors == 300) {
+        QLOG_DEBUG() << "Found" << conversionErrors << "conversion errors in data for reagent:" << indexReag;
+        return;
     }
 
     //生成坐标
@@ -507,21 +514,21 @@ void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag
     //线程安全地更新图表数据
     QMetaObject::invokeMethod(this, [this, graph, posx, rawData]() {
         if (graph && !posx.isEmpty() && !rawData.isEmpty()) {
-			// 过滤掉 NaN 值
-			QVector<double> filteredPosx;
-			QVector<double> filteredData;
+            // 过滤掉 NaN 值
+            QVector<double> filteredPosx;
+            QVector<double> filteredData;
 
-			for (int i = 0; i < rawData.size(); ++i) {
-				if (!std::isnan(rawData[i]) && !std::isnan(posx[i])) {
-					filteredData.append(rawData[i]);
-					filteredPosx.append(posx[i]);
-				}
-			}
+            for (int i = 0; i < rawData.size(); ++i) {
+                if (!std::isnan(rawData[i]) && !std::isnan(posx[i])) {
+                    filteredData.append(rawData[i]);
+                    filteredPosx.append(posx[i]);
+                }
+            }
 
-			if (!filteredPosx.isEmpty() && !filteredData.isEmpty()) {
-				graph->setData(filteredPosx, filteredData);
-				ui->Inquire_curve_1->replot();
-			}
+            if (!filteredPosx.isEmpty() && !filteredData.isEmpty()) {
+                graph->setData(filteredPosx, filteredData);
+                ui->Inquire_curve_1->replot();
+            }
         }
     }, Qt::QueuedConnection);
 }

@@ -313,7 +313,7 @@ void MainWindow::init_style_all()
 
     CreatActionExecution();  //单个动作完成状态信号
 
-    listentoUsb();
+
 
     initTestTaskThread(); //初始化启动任务线程
 
@@ -2738,6 +2738,7 @@ void MainWindow::writeConsumablesExit(){
            FullyAutomatedPlatelets::mainWindow()->deleteExitSoftware();
     });
 }
+
 void MainWindow::slotbootInitCleanFinished()
 {
     if (!m_pProgress.isNull()) {
@@ -2832,6 +2833,11 @@ void MainWindow::slotCleaningProgress(quint8 index, quint8 total)
        if (!m_pProgress.isNull()) {
            m_pProgress->_setprogresstotalnum(total);
            m_pProgress->_setprogressvalue("初始清洗进度:", index + 1);
+           static bool isusbListen = false;
+           if(index > 10 && index < 40 && !isusbListen){
+               isusbListen = true;
+               listentoUsb();
+           }
        }
    });
    return;

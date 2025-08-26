@@ -339,7 +339,6 @@ void  GraphPlot::CompleteOneSample(const quint8 indexChannel, const quint8 reage
 
     resetvect(indexChannel,testIndexReagent);
 
-
 	QCustomPlot* pPlot = GetCurvepWidget(indexChannel);
 	QString outdata = "测试完成";
 	notifyplotname(indexChannel, pPlot, outdata);
@@ -347,19 +346,8 @@ void  GraphPlot::CompleteOneSample(const quint8 indexChannel, const quint8 reage
     //恢复异常通道显示状态
     FullyAutomatedPlatelets::pinstanceTesting()->giveupSampleChannelFlash(true,indexChannel);
 
-    // 恢复通道状态（主线程执行）
-//    QMetaObject::invokeMethod(this, [indexChannel] {
-//        if (auto platelets = FullyAutomatedPlatelets::pinstanceTesting()) {
-//            platelets->giveupSampleChannelFlash(true, indexChannel);
-//        }
-//    }, Qt::QueuedConnection);
-
     QLOG_DEBUG()<<"试剂"<<GlobalData::mapIndexReagentnames(reagents)<<"测试结束通道"<<
                   indexChannel + 1<<"清空进度状态"<<endl;
-
-//    QtConcurrent::run([this, indexChannel, reagents, sampleid] {
-//       save_test_data_to_sqllite(indexChannel, reagents, sampleid);
-//    });
 
     save_test_data_to_sqllite(indexChannel,reagents,sampleid); //保存测试的数据到数据库
     return;
@@ -448,7 +436,14 @@ void GraphPlot::GetTestingValue(const QString &Sample, const quint8 &project, co
 
     //绘制曲线
     mTestDataX[testingChannel][testingReagents].push_back(mTestDataY[testingChannel][testingReagents].size());
-    mTestDataY[testingChannel][testingReagents].push_back(testingdata*100.00);
+    if (!std::isfinite(testingdata)) {
+        // 处理 NaN 或 Inf 的情况
+         mTestDataY[testingChannel][testingReagents].push_back( 0 * 100.00);
+    }else{
+         mTestDataY[testingChannel][testingReagents].push_back(testingdata*100.00);
+    }
+
+
 
     //绘制测试界面模组的进度条
     emit DrawProgressbar(testingChannel, calculateProgress(testingChannel, testingReagents));

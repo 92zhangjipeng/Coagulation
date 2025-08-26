@@ -251,7 +251,7 @@ void CustomFixTableView::setupModernAxis(QCPAxis* axis, const QString& label,
    axis->setBasePen(axisPen);
 
    // 刻度线样式
-   QPen tickPen(QColor("#ff00ff"), 1, Qt::SolidLine);
+   QPen tickPen(QColor("#1C1C1C"), 1, Qt::SolidLine);
    axis->setTickPen(tickPen);
 
    // 子刻度线样式
@@ -283,12 +283,11 @@ void CustomFixTableView::addShadowEffect(QCustomPlot* customPlot)
     customPlot->setGraphicsEffect(shadowEffect);
 
 
-
     // 设置图表区域边距，确保刻度文字可见
     customPlot->axisRect()->setAutoMargins(QCP::msAll);
     customPlot->axisRect()->setMinimumMargins(QMargins(30, 20, 20, 30)); // 确保足够的边距
 
-        // 设置背景颜色和圆角
+    // 设置背景颜色和圆角
     customPlot->axisRect()->setBackground(QBrush(Qt::white));
     customPlot->axisRect()->setBackgroundScaled(false);
 
@@ -420,15 +419,37 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
     );
 
     // 检查数据有效性和长度匹配
-    if (reagentCurvedata.size() != timePoints.size() ||
-        std::all_of(reagentCurvedata.begin(), reagentCurvedata.end(),
-                   [](double val) { return std::isnan(val); })) {
-        //graph->data()->clear();
+    if (reagentCurvedata.size() != timePoints.size()) {
+        QLOG_WARN() << "Curve data size mismatch for reagent:" << testEndReagent;
         return;
     }
 
+    // 检查数据中是否包含无效值（无穷大或NaN）
+    bool hasInvalidData = false;
+    for (double val : reagentCurvedata) {
+        if (std::isinf(val) || std::isnan(val)) {
+            hasInvalidData = true;
+            QLOG_WARN() << "Invalid value (inf/nan) found in curve data for reagent:"
+                       << testEndReagent << ", value:" << val;
+            break;
+        }
+    }
 
-    // 4. 设置曲线数据
+    if (hasInvalidData) {
+        // 可以选择清除无效数据或直接返回
+        QLOG_WARN() << "Skipping curve display due to invalid data for reagent:" << testEndReagent;
+        //QMessageBox::warning(this,"显示无效","测试曲线数据异常NAN/INF");
+        return;
+    }
+
+    // 检查是否所有数据都是NaN（原代码中的检查）
+    if (std::all_of(reagentCurvedata.begin(), reagentCurvedata.end(),
+                   [](double val) { return std::isnan(val); })) {
+        QLOG_WARN() << "All data is NaN for reagent:" << testEndReagent;
+        return;
+    }
+
+    //设置曲线数据
     if (auto graph = reagentGraphMap.value(testEndReagent, nullptr)) {
         if(!smooth)
             graph->setData(timePoints, reagentCurvedata);
