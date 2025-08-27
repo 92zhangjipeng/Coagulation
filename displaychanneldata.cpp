@@ -415,17 +415,12 @@ float displayChanneldata::calculateAggregationRate(const bool isLogMode, float P
 {
     constexpr float EPSILON = std::numeric_limits<float>::epsilon() * 10;
 
-
-
     // 检查是否需要应用限制逻辑
     float restrictedPRPn = 0;
-    float tmpPrpn = PRPn;
-    bool needRestriction = CheckPRPrestrictionLogic(isLogMode, PRPn, PRP0, PPP, restrictedPRPn);
-
-
-    if (needRestriction) {
-        PRPn = restrictedPRPn; // 使用限制后的值
+    if(CheckPRPrestrictionLogic(isLogMode, PRPn, PRP0, PPP, restrictedPRPn)){
+         PRPn = restrictedPRPn; // 使用限制后的值
     }
+
 
     float result = 0.0f;
 
@@ -461,12 +456,8 @@ float displayChanneldata::calculateAggregationRate(const bool isLogMode, float P
         }
 
         result = std::log10(ratio) / std::log10(denominatorRatio);
-
-        // 确保结果不会大于1（额外的保护）
-        if (result > 1.0f) {
-            QLOG_DEBUG() << "Clamping result from " << result << " to 1.0";
-            result = 1.0f;
-        }
+        // 确保结果在合理范围内 [-1, 1]
+        //result = std::clamp(result, -1.0f, 1.0f);
     }
     else {
         // 线性模式
@@ -484,17 +475,15 @@ float displayChanneldata::calculateAggregationRate(const bool isLogMode, float P
         }
 
         result = (PRPn - PRP0) / denominator;
-
-        // 确保结果在合理范围内
-        if (result > 1.0f) result = 1.0f;
-        if (result < -1.0f) result = -1.0f;
+        //result = std::clamp(result, -1.0f, 1.0f);
     }
 
     // 更新上一个PRPn值
-    m_prevPRPn = tmpPrpn;
-
+    m_prevPRPn = PRPn;
     return result;
 }
+
+
 float displayChanneldata::getRandomFactor(float min, float max) {
     // 简单的随机数生成，你可以根据需要使用更复杂的随机数生成器
     static std::random_device rd;
@@ -505,41 +494,48 @@ float displayChanneldata::getRandomFactor(float min, float max) {
 bool displayChanneldata::CheckPRPrestrictionLogic(const bool isLogMode, float PRPn,
                                                   float PRP0, float PPP, float& rSetPRPn) {
     if (!isLogMode) {
-        // 线性模式暂时不实现限制逻辑
         return false;
     }
 
     rSetPRPn = PRPn; // 默认值
+    static int overflowCount = 0;
 
     if (PRPn > PPP) {
-        if (m_prevPRPn < PPP) {
-            float randomFactor = getRandomFactor(0.8f, 0.95f);
-            rSetPRPn = m_prevPRPn * randomFactor;
-            QLOG_DEBUG() << "(PRPn > PPP && 上一秒PRPn < PPP )采集: PRPn=" << PRPn << ",前一秒PRPn="
-                         << m_prevPRPn<< ",newPRPn=" << rSetPRPn;
-            return true; // 需要使用限制后的值
-        }
-        else if (m_prevPRPn >= PPP) {
-            float randomFactor = getRandomFactor(0.8f, 0.95f);
-            float result = PPP * randomFactor;
-            rSetPRPn = std::abs(result);
-            QLOG_DEBUG() << "(PRPn > PPP && 上一秒PRPn >= PPP): PRPn=" << PRPn
-                       << ", 前一秒PRPn=" << m_prevPRPn
-                       << ", newPRPn=" << rSetPRPn;
-            return true; // 需要使用限制后的值
-        }
-    }
-    else if (PPP < PRP0 && PRPn < PPP) {
-        // 这种情况下结果会大于1，需要进行限制
-        float randomFactor = getRandomFactor(0.95f, 1.0f); // 接近1但不超过1
-        rSetPRPn = PRP0 * randomFactor;
-        QLOG_DEBUG() << "Preventing result > 1: PRPn=" << PRPn
-                   << ", PRP0=" << PRP0
-                   << ", result=" << rSetPRPn;
-        return true; // 需要使用限制后的值
-    }
+        overflowCount++;
 
-    return false; // 不需要使用限制后的值
+        // 平滑处理策略 - 基于PPP而不是前一个值
+        if (overflowCount == 1) {
+            // 第一次超过：使用PPP的98%或m_prevPRPn的较小值
+            float pppBased = PPP * getRandomFactor(0.95f, 0.98f);
+            rSetPRPn = std::min(pppBased, m_prevPRPn);
+            QLOG_DEBUG() << "First overflow: PRPn=" << PRPn << ", using min(PPP*0.96, prev) = " << rSetPRPn;
+        }
+        else if (overflowCount <= 3) {
+            // 连续2-3次超过：使用PPP的92%-95%
+            rSetPRPn = PPP * getRandomFactor(0.92f, 0.95f);
+            QLOG_DEBUG() << "Consecutive overflow " << overflowCount
+                        << ": PRPn=" << PRPn << ", using PPP*0.93 = " << rSetPRPn;
+        }
+        else {
+            // 连续4次以上超过：保持在PPP的88%-92%范围内
+            rSetPRPn = PPP * getRandomFactor(0.88f, 0.92f);
+            QLOG_DEBUG() << "Persistent overflow " << overflowCount
+                       << ": PRPn=" << PRPn << ", using PPP*0.90 = " << rSetPRPn;
+        }
+
+        // 更新m_prevPRPn为限制后的值
+        m_prevPRPn = rSetPRPn;
+        return true;
+    }
+    else{
+        // 重置计数器
+        overflowCount = 0;
+         m_prevPRPn = PRPn; // 正常情况更新
+        if (PPP < PRP0 && PRPn < PPP) {
+            QLOG_WARN()<<"PPP <PRP0 && PRPn < PPP"<<"PPP:"<<PPP<<"PPR0"<<PRP0<<"PRPn"<<PRPn;
+        }
+    }
+    return false;
 }
 
 
