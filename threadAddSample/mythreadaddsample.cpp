@@ -208,6 +208,7 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 			SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, bloody_suck_tohole, MOTOR_BLOOD_INDEX, spit_bloody_axis);
 			Bloodydata.bloody_axis = spit_bloody_axis; //吐富血坐标
 			spit_bloody_poslist.push_back(spit_bloody_axis);
+
             QLOG_DEBUG() << "富血孔" << bloody_suck_tohole << GlobalData::mapIndexReagentnames(index_)
                          << "吐富血坐标" << spit_bloody_axis;
 
@@ -218,7 +219,14 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 		//加样动作
 		QByteArrayList out_directives_anemia;
         QUIUtils::suckPPPEndSplitPPP(out_directives_anemia, AnaemiAaxis, AnaemiinEmptyAaxis);
-        QUIUtils::SuckPRPandSpitoutPRP(out_directives_anemia, data_stu->_testheighvalue, suckbloodyAxis, spit_bloody_poslist);
+
+        //PRP加样
+        QUIUtils::SuckPRPandSpitoutPRP(out_directives_anemia,
+                                       data_stu->_testheighvalue,
+                                       suckbloodyAxis,
+                                       spit_bloody_poslist
+                                       );
+
 		StructInstance::getInstance()->creataddSampleCommands(out_directives_anemia, pSampleBasicInfo);
 
 		//清洗血样针

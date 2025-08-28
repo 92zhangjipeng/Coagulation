@@ -2869,62 +2869,66 @@ int QUIUtils::suckPPPEndSplitPPP(QByteArrayList &out_directives,
 }
 
 
-
 int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
                                     int Testheigt,
-                                    QPoint suck_bloodypos ,
-                                    QList<QPoint> spit_bloody_axisList)
+                                    QPoint sourcePosition ,
+                                    const QList<QPoint>& targetPositions)
 {
     auto &ini = INI_File();
     double  suckSpitPRPRatio    =   ini.getPRPConvertTheratioColumn();//PRP样本系数
     int     suckmiter           =   ini.GetLearnSamplevolume();      //单份血样吸取的样本量
     int     EmptyDownPinHigh    =   ini.GetEmptyTubeDownHigh();      //血样针在空试管区下降高度
-    int     The_security_value  =   ini.GetSecurityValue();          //空回值
+    const int   theSecurityValue  = ini.GetSecurityValue();          //空回值
+    double compensateNumberSteps  = theSecurityValue/0.347;
     const bool  bsuckAir        =   ini.rConfigPara(FIRSTSUCKAIRS).toBool();   //吸空气校准
     const int   firstSuckAir    =   ini._getsuckairsuckPRP() + BIG_BEN_INHALE_ARI/2;
-    int     total_              =   spit_bloody_axisList.size();
+    const int   targetCount     =   targetPositions.size();
 
-    quint8 num_ = out_directives.size()%255;
+    quint8 directiveNum  = out_directives.size()%255;
     auto *pActive = Testing::m_TaskDll;
 
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(suck_bloodypos,0,0,num_));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(sourcePosition,0,0,directiveNum ));
     if(bsuckAir)
-        out_directives.push_back(pActive->BigBenActive(true,firstSuckAir,num_,DIS_WASHES_PUMPS,0));
+        out_directives.push_back(pActive->BigBenActive(true,firstSuckAir,directiveNum ,DIS_WASHES_PUMPS,0));
     else
         QLOG_DEBUG()<<"PRP加样不吸空气";
 
-    out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,Testheigt,0,num_,
+    out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,Testheigt,0,directiveNum ,
                                                                  false,Testheigt,false,GRIPPERNORMAL));
     double addSuckReaugent = suckmiter * 0.2;
 
     //吸取的富血样本量: 样本个数 * 单个量 * 720+360
-    int suck_ul = total_ * suckmiter * suckSpitPRPRatio + firstSuckAir + addSuckReaugent;
-    int TotalSuck_mm = suck_ul; //吸的总量
-    QLOG_DEBUG()<<QString("PRP吸取的量:(%1)[试剂个数==%2]").arg(suck_ul).arg(total_);
-    out_directives.push_back(pActive->BigBenActive(true,suck_ul,num_,DIS_WASHES_PUMPS,0));
-    out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false)); //血样针复位
+    const int totalSuckVolumeRRP  = targetCount  * suckmiter * suckSpitPRPRatio + firstSuckAir + addSuckReaugent;
+    QLOG_DEBUG()<<QString("PRP吸取的步数:(%1)[试剂个数==%2]").arg(totalSuckVolumeRRP).arg(targetCount );
+    out_directives.push_back(pActive->BigBenActive(true,totalSuckVolumeRRP,directiveNum ,DIS_WASHES_PUMPS,0));
+    out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,directiveNum ,false)); //血样针复位
 
     //吐富血
-    int spit_ul = 0;
-    for(int k = 0; k < total_ ; k++)
+    int remainingVolume  = totalSuckVolumeRRP; //吸的总量
+    int spitRPRul = 0;
+    QLOG_DEBUG()<<"空回补偿步数:"<<compensateNumberSteps;
+    for(int k = 0; k < targetCount; k++)
     {
-        QPoint BloodyinEmptyAxis = spit_bloody_axisList.at(k);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(BloodyinEmptyAxis,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,EmptyDownPinHigh,
-                                                                    0,num_,false,EmptyDownPinHigh,false,GRIPPERNORMAL));
+        const QPoint& targetPosition  = targetPositions.at(k);
+
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetPosition,0,0,directiveNum ));
+
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,EmptyDownPinHigh,0,
+                                                                     directiveNum ,false,EmptyDownPinHigh,
+                                                                     false,GRIPPERNORMAL
+                                                                     ));
         if(k == 0)
         {
-            TotalSuck_mm = TotalSuck_mm - (suckmiter * suckSpitPRPRatio + The_security_value);
-            spit_ul = TotalSuck_mm;
+            remainingVolume = remainingVolume - (suckmiter * suckSpitPRPRatio + compensateNumberSteps);
+            spitRPRul = remainingVolume;
         }
         else
         {
-            TotalSuck_mm = TotalSuck_mm - (suckmiter * suckSpitPRPRatio);
-            spit_ul = TotalSuck_mm ;
+            remainingVolume = remainingVolume - (suckmiter * suckSpitPRPRatio);
+            spitRPRul = remainingVolume ;
         }
-        QLOG_DEBUG()<<QUIUtils::index_reagent_mapping_reagentName("吐血样试剂",k+1)<<"== ["<<spit_ul<<"setp]"<<endl;
-        out_directives.push_back(pActive->BigBenActive(false,spit_ul,num_,DIS_WASHES_PUMPS,0));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false)); //血样针复位
+        out_directives.push_back(pActive->BigBenActive(false,spitRPRul,directiveNum ,DIS_WASHES_PUMPS,0));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,directiveNum ,false));
     }
     return 1;
 }

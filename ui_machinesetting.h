@@ -177,8 +177,8 @@ public:
     QWidget *widget_bottom;
     QHBoxLayout *horizontalLayout_4;
     QLabel *label_displayReminder;
-    QPushButton *pushButtonsavedimming;
     QToolButton *toolButton_oopenall;
+    QPushButton *pushButtonsavedimming;
     QWidget *tab_6;
     QGridLayout *gridLayout_14;
     QWidget *tab_LIS;
@@ -1631,22 +1631,22 @@ public:
 
         horizontalLayout_4->addWidget(label_displayReminder);
 
-        pushButtonsavedimming = new QPushButton(widget_bottom);
-        pushButtonsavedimming->setObjectName(QStringLiteral("pushButtonsavedimming"));
-        pushButtonsavedimming->setMinimumSize(QSize(120, 30));
-        pushButtonsavedimming->setMaximumSize(QSize(120, 30));
-
-        horizontalLayout_4->addWidget(pushButtonsavedimming);
-
         toolButton_oopenall = new QToolButton(widget_bottom);
         toolButton_oopenall->setObjectName(QStringLiteral("toolButton_oopenall"));
         toolButton_oopenall->setMinimumSize(QSize(120, 30));
-        toolButton_oopenall->setMaximumSize(QSize(120, 30));
+        toolButton_oopenall->setMaximumSize(QSize(160, 30));
         toolButton_oopenall->setStyleSheet(QStringLiteral(""));
         toolButton_oopenall->setIconSize(QSize(32, 32));
         toolButton_oopenall->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
         horizontalLayout_4->addWidget(toolButton_oopenall);
+
+        pushButtonsavedimming = new QPushButton(widget_bottom);
+        pushButtonsavedimming->setObjectName(QStringLiteral("pushButtonsavedimming"));
+        pushButtonsavedimming->setMinimumSize(QSize(120, 30));
+        pushButtonsavedimming->setMaximumSize(QSize(160, 30));
+
+        horizontalLayout_4->addWidget(pushButtonsavedimming);
 
 
         verticalLayout_4->addWidget(widget_bottom);
@@ -4382,7 +4382,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(3);
+        tabWidget_config->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);
@@ -4448,8 +4448,8 @@ public:
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(MachineTestConfigure), QApplication::translate("MachineSetting", "\351\200\232\351\201\223\347\212\266\346\200\201", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_basicpara), QApplication::translate("MachineSetting", "\345\257\271\346\257\224", nullptr));
         label_displayReminder->setText(QString());
-        pushButtonsavedimming->setText(QApplication::translate("MachineSetting", "PushButton", nullptr));
         toolButton_oopenall->setText(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\350\275\254\345\212\250", nullptr));
+        pushButtonsavedimming->setText(QApplication::translate("MachineSetting", "PushButton", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(ChannelVale_display), QApplication::translate("MachineSetting", "\351\200\232\351\201\223\345\200\274", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_6), QApplication::translate("MachineSetting", "\350\264\250\346\216\247", nullptr));
         checkBox_endAuditoutdata->setText(QApplication::translate("MachineSetting", "\345\256\241\346\240\270\345\220\216\350\207\252\345\212\250\350\276\223\345\207\272\346\225\260\346\215\256", nullptr));
@@ -4490,7 +4490,7 @@ public:
         label_failedlinque_3->setText(QApplication::translate("MachineSetting", "\346\240\267\346\234\254\351\222\210\346\270\205\346\264\227\346\216\242\346\265\213\351\253\230\345\272\246:", nullptr));
         spinBox_CleanLinqueFailedHigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         spinBox_CleanLinqueFailedHigh->setPrefix(QString());
-        SecurityValue_box->setSuffix(QApplication::translate("MachineSetting", "step", nullptr));
+        SecurityValue_box->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));
         SecurityValue_box->setPrefix(QString());
         Testheighdownheigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         Testheighdownheigh->setPrefix(QString());

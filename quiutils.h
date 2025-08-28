@@ -542,9 +542,9 @@ namespace QUIUtils
                             const QPoint splitPPPloc);
 
     int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
-							int Testheigt,
-							QPoint suck_bloodypos ,
-							QList<QPoint> spit_bloody_axisList);
+                            int Testheigt,
+                            QPoint sourcePosition ,
+                            const QList<QPoint> &targetPositions);
 
     /**
 
