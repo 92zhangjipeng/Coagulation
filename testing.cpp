@@ -215,28 +215,49 @@ void Testing::resizeEvent(QResizeEvent *event)
     return;
 }
 
-void Testing::initControlShowChannelProgress(quint8 &startChannel,QWidget * progressChannel,
-                                                QWidget *ptestChannel,QPalette pa){
+void Testing::initControlShowChannelProgress(quint8 startChannel,
+                                                QWidget * progressChannel,
+                                                QWidget *ptestChannel,
+                                                const QPalette& pa){
+
     QList<ProgressBar*> channelControl = progressChannel->findChildren<ProgressBar* >();
     QList<QLabel *> chnStateTextList = ptestChannel->findChildren<QLabel* >();
-    for(int n = 0; n < channelControl.size(); n++)
-    {
-        channelControl.at(n)->flashingReminder(true);
-        m_channelShowsTheProgress.push_back(channelControl.at(n));
-        Channelreminder.push_back(chnStateTextList.at(n));
-        channelControl.at(n)->setRange(0, 100);
-        channelControl.at(n)->installEventFilter(this);
-        bool usedChannel = INI_File().rConfigPara(QString("TestTheChanne1Opening_%1").arg(startChannel + 1)).toBool();
-        if(!usedChannel)
-           channelControl.at(n)->setChnTextindex(-1);
-        else
-           channelControl.at(n)->setChnTextindex(startChannel + 1);
-        if (!alreadyinitchannelui)
-        {
-            chnStateTextList.at(n)->setPalette(pa);
-            chnStateTextList.at(n)->hide();
+
+    //安全检查
+    if(channelControl.size() != chnStateTextList.size()){
+        QLOG_WARN()<<"通道显示进度控件和提示测试Labels数量不匹配!";
+        return;
+    }
+
+
+    // 使用局部变量避免修改外部参数
+    quint8 currentChannel = startChannel;
+
+    for(int i = 0; i < channelControl.size(); ++i){
+        ProgressBar* progressBar = channelControl[i];
+        QLabel* label = chnStateTextList[i];
+
+        //初始化进度条
+        progressBar->flashingReminder(true);
+        progressBar->setRange(0, 100);
+        progressBar->installEventFilter(this);
+
+        //配置通道文本
+        bool usedChannel = INI_File().rConfigPara(
+                    QString("TestTheChanne1Opening_%1").arg(currentChannel + 1)).toBool();
+        progressBar->setChnTextindex(usedChannel ? currentChannel + 1 : -1);
+
+        // 存储引用（使用原始指针但明确所有权）
+        m_channelShowsTheProgress.append(progressBar);
+        Channelreminder.append(label);
+
+        // 初始化标签
+        if (!alreadyinitchannelui) { // 建议重命名alreadyinitchannelui
+            label->setPalette(pa);
+            label->hide();
         }
-        startChannel++;
+
+        ++currentChannel;
     }
 
 }
@@ -290,14 +311,50 @@ void Testing::updateChannelProgressAndStatus(bool isWaitstate, quint8 channelInd
         QLOG_WARN()<<("Invalid channel index: %d", channelIndex);
         return;
     }
+
+    // 检查指针有效性
+    if (!m_channelShowsTheProgress[channelIndex] || !Channelreminder[channelIndex]) {
+        QLOG_WARN() << "Null pointer for channel index:" << channelIndex;
+        return;
+    }
+
+    // 重置进度条
     m_channelShowsTheProgress[channelIndex]->setValue(0);
+
     QLabel* reminderLabel = Channelreminder[channelIndex];
-    QString prefix = (reminderLabel->text().indexOf(':')) ? reminderLabel->text().left(reminderLabel->text().indexOf(':'))
-                                                            : reminderLabel->text();
-    QString outText = (isWaitstate) ? prefix + tr("[等待]") : "";
+    QString currentText = reminderLabel->text();
+    QString prefix;
+
+    // 正确检查冒号位置
+    int colonIndex = currentText.indexOf(':');
+    if (colonIndex != -1) {
+        prefix = currentText.left(colonIndex + 1); // 包含冒号
+    } else {
+        prefix = currentText;
+    }
+
+    // 根据状态设置文本
+    QString outText;
+    if (isWaitstate) {
+        outText = prefix + tr("[等待]");
+    } else {
+        // 恢复原始文本或设置默认状态
+        outText = prefix; // 或者根据需求设置其他状态
+        // 例如：outText = prefix + tr("[就绪]");
+    }
     reminderLabel->setText(outText);
+
     // 强制刷新界面
     reminderLabel->repaint();
+
+//    m_channelShowsTheProgress[channelIndex]->setValue(0);
+//    QLabel* reminderLabel = Channelreminder[channelIndex];
+//    QString prefix = (reminderLabel->text().indexOf(':')) ? reminderLabel->text().left(reminderLabel->text().indexOf(':'))
+//                                                            : reminderLabel->text();
+//    QString outText = (isWaitstate) ? prefix + tr("[等待]") : "";
+//    reminderLabel->setText(outText);
+//    // 强制刷新界面
+//    reminderLabel->repaint();
 }
 
 
@@ -573,13 +630,32 @@ void  Testing::SlotRemderbloodhole(int richhole)
 
 void Testing::DrawChannelProgress(quint8 Index ,double proportion)
 {
-    ProgressBar *PupdateTestProgress =  m_channelShowsTheProgress.at(Index);
-    PupdateTestProgress->setValue(proportion);
-    PupdateTestProgress->show();
-    // 限制界面刷新频率（避免频繁重绘）
-    QTimer::singleShot(0, this, [this]() { update(); });
+    // 基本安全检查
+    if (Index >= static_cast<quint8>(m_channelShowsTheProgress.size())) {
+        QLOG_ERROR()<<"索引"<<Index <<"大于等于"<<m_channelShowsTheProgress.size();
+        return;
+    }
+
+    ProgressBar* progressBar = m_channelShowsTheProgress.value(Index, nullptr);
+    if (!progressBar) {
+        return;
+    }
+
+    // 设置值并确保显示
+    progressBar->setValue(qBound(0.0, proportion, 100.0));
+    progressBar->setVisible(true);
+
+    // 请求更新（Qt会自动合并多次更新）
+    update();
+
+//    ProgressBar *PupdateTestProgress =  m_channelShowsTheProgress.at(Index);
+//    PupdateTestProgress->setValue(proportion);
+//    PupdateTestProgress->show();
+//    // 限制界面刷新频率（避免频繁重绘）
+//    QTimer::singleShot(0, this, [this]() { update(); });
     return;
 }
+
 
 /*********** 测高函数 *********************************************************/
 //测高完成
@@ -679,24 +755,67 @@ void Testing::slot_throwtesttube()
 /*所有样本测试完成*/
 void Testing::AllSampleTested()
 {
-    ui->widget_showtips->setValue(100);
-    m_ProTotalTube = 0; //需要测试的样本数
-    m_ThrowTube = 0;    //弃杯数
+    // 线程安全检查
+//    if(QThread::currentThread() != thread()) {
+//        QMetaObject::invokeMethod(this, "AllSampleTested", Qt::QueuedConnection);
+//        return;
+//    }
 
-    //放弃样本血样孔闪烁状态回归
-    mflashingTubeList.clear();
-    mtimer->stop();
-    for(auto *pProgress : m_channelShowsTheProgress)
-        pProgress->flashingReminder(true);
+    // 检查对象是否有效
+    if (!this) {
+        QLOG_ERROR() << "this pointer is null!";
+        return;
+    }
 
+    // 添加调试输出，确认方法确实被调用
+    QLOG_INFO() << "线程中调用的 AllSampleTested 方法:" << QThread::currentThread();
 
+    try{
+        // 批量UI更新开始
+        setUpdatesEnabled(false);
 
-    //试管选中状态复位 重新初始化血样下拉框血样孔
-    FullyAutomatedPlatelets::pinstanceAddsampletest()->_initNumAnaemiaHole();
-    ComplBackColorBloodArea();  //完成测试 血样区复原
-    emit tsetfinishedbackorigin();
+        ui->widget_showtips->setValue(100);
+        m_ProTotalTube = 0; //需要测试的样本数
+        m_ThrowTube = 0;    //弃杯数
 
-    update();
+        //放弃样本血样孔闪烁状态回归
+        mflashingTubeList.clear();
+
+        // 安全停止timer
+        if(mtimer) {
+            mtimer->stop();
+        }
+
+        // 安全遍历progress列表
+        for(auto *pProgress : m_channelShowsTheProgress) {
+            if(pProgress) {  // 空指针检查
+                pProgress->flashingReminder(true);
+            }
+        }
+
+        //试管选中状态复位 重新初始化血样下拉框血样孔
+        if(FullyAutomatedPlatelets::pinstanceAddsampletest()) {
+            FullyAutomatedPlatelets::pinstanceAddsampletest()->_initNumAnaemiaHole();
+        }
+
+        //完成测试 血样区复原
+        ComplBackColorBloodArea();
+
+        // 批量UI更新结束
+        setUpdatesEnabled(true);
+        update();
+
+        // 最后发射信号
+        emit tsetfinishedbackorigin();
+
+    }catch (const std::exception& e) {
+        QLOG_WARN() << "Exception in AllSampleTested:" << e.what();
+        // 确保UI更新恢复
+        setUpdatesEnabled(true);
+    } catch (...) {
+        QLOG_WARN() << "Unknown exception in AllSampleTested";
+        setUpdatesEnabled(true);
+    }
     return;
 }
 

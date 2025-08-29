@@ -78,7 +78,13 @@ StructInstance::StructInstance(QObject *parent) : QObject(parent)
 //清空内存
 void StructInstance::_setemptynull()
 {
+    for (auto& sample : m_BloodsampleInfo) {
+        if (sample != nullptr) {
+            delete sample;
+        }
+    }
     m_BloodsampleInfo.clear();
+
     m_BloodsampleInfo.squeeze();
     m_BloodsampleInfo.shrink_to_fit();
     QLOG_DEBUG()<<"全部完成释放样本任务内存capacity:"<<m_BloodsampleInfo.capacity();
@@ -267,23 +273,23 @@ void StructInstance::root_getinitvaluedata(const quint8 finishChn,quint8 index_r
             {
                 case AA_REAGENT:
                     sycn_testdat_index_reag(TestedDatamap, (*it)->AA_testchndata_);
-                    _delReagentData(&(*it)->AA_testchndata_);
+                    _safeDelReagentData(&(*it)->AA_testchndata_);
                 break;
                 case ADP_REAGENT:
                     sycn_testdat_index_reag(TestedDatamap, (*it)->ADP_testchndata_);
-                    _delReagentData(&(*it)->ADP_testchndata_);
+                    _safeDelReagentData(&(*it)->ADP_testchndata_);
                 break;
                 case EPI_REAGENT:
                     sycn_testdat_index_reag(TestedDatamap, (*it)->EPI_testchndata_);
-                    _delReagentData(&(*it)->EPI_testchndata_);
+                    _safeDelReagentData(&(*it)->EPI_testchndata_);
                 break;
                 case COL_REAGENT:
                     sycn_testdat_index_reag(TestedDatamap, (*it)->COL_testchndata_);
-                    _delReagentData(&(*it)->COL_testchndata_);
+                    _safeDelReagentData(&(*it)->COL_testchndata_);
                 break;
                 case RIS_REAGENT:
                     sycn_testdat_index_reag(TestedDatamap, (*it)->RIS_testchndata_);
-                    _delReagentData(&(*it)->RIS_testchndata_);
+                    _safeDelReagentData(&(*it)->RIS_testchndata_);
                 break;
                 default:
                     break;
@@ -525,18 +531,29 @@ void StructInstance::cancelsampletask(quint8 cancelsanpleid,int &canceltube_num,
     return;
 }
 
-void StructInstance::_delReagentData(chntest_reagdata* pdelchndata)
+void StructInstance::_safeDelReagentData(chntest_reagdata* pdelchndata)
 {
-    auto it = pdelchndata->begin();
-    while (it != pdelchndata->end())
-    {
-        if (*it != nullptr) {
-            delete *it;
-            *it = nullptr;
+    if(pdelchndata == nullptr) return;
+
+    for(auto& item : *pdelchndata){
+        if (item != nullptr) {
+            delete item;
+            item = nullptr;
         }
-        it++;
     }
-    pdelchndata->erase(std::remove(pdelchndata->begin(), pdelchndata->end(), nullptr), pdelchndata->end());
+
+    pdelchndata->clear();
+
+//    auto it = pdelchndata->begin();
+//    while (it != pdelchndata->end())
+//    {
+//        if (*it != nullptr) {
+//            delete *it;
+//            *it = nullptr;
+//        }
+//        it++;
+//    }
+//    pdelchndata->erase(std::remove(pdelchndata->begin(), pdelchndata->end(), nullptr), pdelchndata->end());
     return;
 }
 
@@ -548,23 +565,23 @@ void StructInstance::_deleteOneSampleTesteddata(const quint8 _chntested ,const i
 
         if((*it) != nullptr)
         {
-            _delReagentData(&(*it)->AA_testchndata_);
+            _safeDelReagentData(&(*it)->AA_testchndata_);
             QVector<TESTCHNDATA *>().swap((*it)->AA_testchndata_);
             QLOG_DEBUG() << "清除通道" << _chntested + 1 << "AA删除通道数据leng=" << (*it)->AA_testchndata_.capacity();
 
-            _delReagentData(&(*it)->ADP_testchndata_);
+            _safeDelReagentData(&(*it)->ADP_testchndata_);
             QVector<TESTCHNDATA *>().swap((*it)->ADP_testchndata_);
             QLOG_DEBUG() << "清除通道" << _chntested + 1 << "ADP删除通道数据leng=" << (*it)->ADP_testchndata_.capacity();
 
-            _delReagentData(&(*it)->EPI_testchndata_);
+            _safeDelReagentData(&(*it)->EPI_testchndata_);
             QVector<TESTCHNDATA *>().swap((*it)->EPI_testchndata_);
             QLOG_DEBUG() << "清除通道" << _chntested + 1 << "EPI删除通道数据leng=" << (*it)->EPI_testchndata_.capacity();
 
-            _delReagentData(&(*it)->COL_testchndata_);
+            _safeDelReagentData(&(*it)->COL_testchndata_);
             QVector<TESTCHNDATA *>().swap((*it)->COL_testchndata_);
             QLOG_DEBUG() << "清除通道" << _chntested + 1 << "COL删除通道数据leng=" << (*it)->COL_testchndata_.capacity();
 
-            _delReagentData(&(*it)->RIS_testchndata_);
+            _safeDelReagentData(&(*it)->RIS_testchndata_);
             QVector<TESTCHNDATA *>().swap((*it)->RIS_testchndata_);
             QLOG_DEBUG() << "清除通道" << _chntested + 1 << "RIS删除通道数据leng=" << (*it)->RIS_testchndata_.capacity();
 
@@ -637,8 +654,10 @@ void StructInstance::clearSampleDataByNumber(DATASAMPLESTRUCT& data, int targetS
 
     // 清空所有指针容器成员（需手动释放内存）
     auto clearPtrList = [](auto& list) {
-        qDeleteAll(list);    // Qt内置函数等效于遍历+delete
-        list.clear();
+        if(!list.empty()){
+            qDeleteAll(list);    // Qt内置函数等效于遍历+delete
+            list.clear();
+        }
     };
 
     clearPtrList(data.prePatchActions);
@@ -677,13 +696,17 @@ void StructInstance::clearSampleDataByNumber(DATASAMPLESTRUCT& data, int targetS
     data.bgivesample = false;
     data.bPendingtimeSample = false;
 }
+
+
 void StructInstance::clearTestingReagentData(TESTING_REAGENT* reagent) {
     if (!reagent) return;
 
     // 定义通用指针容器清理lambda
     auto clearPtrList = [](auto& list) {
-        qDeleteAll(list); // 释放所有指针内存
-        list.clear();     // 清空容器
+        if(!list.empty()){
+            qDeleteAll(list); // 释放所有指针内存
+            list.clear();     // 清空容器
+        }
     };
 
     // 清空所有 tSingleActive_list 成员
@@ -700,6 +723,7 @@ void StructInstance::clearTestingReagentData(TESTING_REAGENT* reagent) {
     reagent->inintBloodyValue = 0;
     reagent->testfinished = false;
 }
+
 void StructInstance::clearTestingReagentContainer(tVariousReagentsvec& container) {
     for (auto* reagent : container) {
         clearTestingReagentData(reagent); // 清空内部数据
@@ -707,20 +731,56 @@ void StructInstance::clearTestingReagentContainer(tVariousReagentsvec& container
     }
     container.clear(); // 清空容器
 }
-void StructInstance::removeSampleFromContainer(DataSampleList& container, int target) {
-    for (auto it = container.begin(); it != container.end();) {
-        if ((*it)->sample_num == target) {
-            clearSampleDataByNumber(**it, target); // 清空数据
-            delete *it;        // 释放结构体内存
-            it = container.erase(it); // 移除指针
-        } else {
+
+void StructInstance::clearAllContainersSafely()
+{
+    // 安全清理所有容器
+    for (auto& item : m_testChnStructvec_) {
+        if (item != nullptr) {
+            delete item;
+        }
+    }
+    m_testChnStructvec_.clear();
+
+    for (auto& sample : m_BloodsampleInfo) {
+        if (sample != nullptr) {
+            delete sample;
+        }
+    }
+    m_BloodsampleInfo.clear();
+}
+
+void StructInstance::safeRemoveSampleFromContainer(DataSampleList& container, int target) {
+    if(container.empty()) return;
+
+    auto it = container.begin();
+    while(it != container.end()){
+        if(*it != nullptr && (*it)->sample_num == target){
+            // 先保存指针，避免悬空引用
+            auto* sampleToDelete = *it;
+            it = container.erase(it); // 先从容器中移除
+
+            // 然后安全地清理和删除
+            clearSampleDataByNumber(*sampleToDelete, target);
+            delete sampleToDelete;
+        } else{
             ++it;
         }
     }
+
+//    for (auto it = container.begin(); it != container.end();) {
+//        if ((*it)->sample_num == target) {
+//            clearSampleDataByNumber(**it, target); // 清空数据
+//            delete *it;        // 释放结构体内存
+//            it = container.erase(it); // 移除指针
+//        } else {
+//            ++it;
+//        }
+//    }
 }
 void StructInstance::onetestend_del(int indexSample)
 {
-    removeSampleFromContainer(m_BloodsampleInfo,indexSample);
+    safeRemoveSampleFromContainer(m_BloodsampleInfo,indexSample);
 }
 
 void StructInstance::SampleTotal(int &num_total)
@@ -2485,7 +2545,57 @@ void StructInstance::updte_saveChnTestData(const quint8 &IndexChannel,const quin
 
 void StructInstance::delalltaskinfo(const bool exitapp)
 {
-    for (auto iter = m_testChnStructvec_.begin(); iter != m_testChnStructvec_.end(); ++iter)
+
+    for(auto& item : m_testChnStructvec_){
+        if(item != nullptr){
+           // 使用安全的方式释放试剂数据
+           _safeDelReagentData(&item->AA_testchndata_);
+           _safeDelReagentData(&item->ADP_testchndata_);
+           _safeDelReagentData(&item->EPI_testchndata_);
+           _safeDelReagentData(&item->COL_testchndata_);
+           _safeDelReagentData(&item->RIS_testchndata_);
+
+           if (exitapp) {
+               delete item;
+               item = nullptr;
+           } else {
+               item->Reagent = ANEMIA;
+               item->samplename.clear();
+               // 清空向量但不释放内存（非退出模式）
+               item->AA_testchndata_.clear();
+               item->ADP_testchndata_.clear();
+               item->EPI_testchndata_.clear();
+               item->COL_testchndata_.clear();
+               item->RIS_testchndata_.clear();
+           }
+        }
+    }
+
+    if (exitapp) {
+        // 安全地清理向量
+        m_testChnStructvec_.erase(
+            std::remove(m_testChnStructvec_.begin(), m_testChnStructvec_.end(), nullptr),
+            m_testChnStructvec_.end()
+        );
+        m_testChnStructvec_.clear();
+        m_testChnStructvec_.shrink_to_fit();
+    }
+
+    // 安全地释放样本运动数据
+    QList<int> delSampleid;
+    for (const auto& sample : m_BloodsampleInfo) {
+        if (sample != nullptr) {
+            delSampleid.push_back(sample->sample_num);
+        }
+    }
+
+    for (int delId : delSampleid) {
+        safeRemoveSampleFromContainer(m_BloodsampleInfo, delId);
+    }
+
+
+
+    /*for (auto iter = m_testChnStructvec_.begin(); iter != m_testChnStructvec_.end(); ++iter)
     {
         if ((*iter) != nullptr)
         {
@@ -2531,7 +2641,7 @@ void StructInstance::delalltaskinfo(const bool exitapp)
 	for (int delId : delSampleid) {
 		removeSampleFromContainer(m_BloodsampleInfo,delId);
 	}
-    return;
+    return;*/
 }
 
 

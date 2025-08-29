@@ -103,7 +103,6 @@ signals:
 private slots:
      void toggleBlinkState();
 
-
 public slots:
 
 
@@ -135,8 +134,8 @@ private:
     void    ChaneColorEmptyAreaTray(QString);//选中改变空试管颜色
 
     //显示通道测试控件初始化
-    void initControlShowChannelProgress(quint8 &startChannel, QWidget * progressChannel,
-                                           QWidget *ptestChannel, QPalette pa);
+    void initControlShowChannelProgress(quint8 startChannel, QWidget * progressChannel,
+                                           QWidget *ptestChannel, const QPalette &pa);
 
     //取消任务
     void    ClickCanelTask(int posx,int posy);
@@ -205,7 +204,6 @@ public slots:
     void    slot_sycn_SampleTestingChangInitColor(QPoint maphole,quint8 indexChn);
 
 public:
-
      static UsbCodeDispose *m_TaskDll;//USB任务数据库
 
 private:
@@ -245,7 +243,8 @@ private:
     QMap<quint8,QPointF> m_Test_Tray_has_hole;		//任务已分配的试管孔
     QMap<quint8,QPointF> m_Test_tray_useded ;		//试管盘已经用的
 
-    quint8  minstrumentType; /*仪器类型*/
+     /*仪器类型*/
+    quint8  minstrumentType;
    
 	bool mInituiBloodArea;
 	bool mInitEmptyArea[4];
@@ -264,10 +263,8 @@ private:
 	bool alreadyinitchannelui;
 
     //通道显示进度
-    QList<ProgressBar *>  m_channelShowsTheProgress;
-    //QList<QLabel *>     Channelreminder;
-
-    QList<QPointer<QLabel>> Channelreminder;
+    QList<ProgressBar *>     m_channelShowsTheProgress;
+    QList<QPointer<QLabel>>  Channelreminder;
 
 	QMap<int, QString> m_notassignment;
 	int mReminderTube;  //提示要放的孔号

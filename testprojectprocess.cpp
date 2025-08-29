@@ -1324,7 +1324,9 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
 
     if(remaining  == ALL_SAMPLE_TESTED){
         FullyAutomatedPlatelets::pinstanceTesting()->AllSampleTested();
+
         instance->delalltaskinfo(false); //删除所有样本信息
+
         instance->_setemptynull();
     }
     else {

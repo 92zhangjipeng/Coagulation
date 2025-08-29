@@ -116,12 +116,13 @@ public:
 
     //清空内存
     void _setemptynull();
+    void clearAllContainersSafely();
 
     //删除一整个测试样本包括通道数据
     void onetestend_del(int indexSample);
 
     void clearSampleDataByNumber(DATASAMPLESTRUCT& data, int targetSample);
-    void removeSampleFromContainer(DataSampleList &container, int target);
+    void safeRemoveSampleFromContainer(DataSampleList &container, int target);
 
     void clearTestingReagentContainer(tVariousReagentsvec& container);
     void clearTestingReagentData(TESTING_REAGENT* reagent);
@@ -227,7 +228,7 @@ public:
 
     //删除完成通道数据
     void _deleteOneSampleTesteddata(const quint8 _chntested, const int indexSample);
-    void _delReagentData(chntest_reagdata *pdelchndata);
+    void _safeDelReagentData(chntest_reagdata *pdelchndata);
 
 
 

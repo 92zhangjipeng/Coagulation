@@ -212,21 +212,64 @@ void  Height_Data::_initcreat()
 
 void  Height_Data::_initNumAnaemiaHole()
 {
-    m_pressedhole.clear();
-    quint8 totalHole_ = 0;
-    quint8 kindEquipment_= 0;
-    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,kindEquipment_);
-    switch(kindEquipment_){
-    case    KS600:  totalHole_ = 30; break;
-    case    KS800:  totalHole_ = 45; break;
-    case    KS1200: totalHole_ = 60; break;
-    default: totalHole_ = 60; break;
-    }
-    for(int n = 0 ; n < totalHole_; n++)
-        m_pressedhole.insert(QString::number(2 * n + 1), false);
+    try{
+        m_pressedhole.clear();
+        m_selbloodholetemp.clear();
 
-    m_selbloodholetemp.clear();
-    return;
+        quint8 totalHole = 0;
+        quint8 kindEquipment = 0;
+
+        // 添加错误处理
+        SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, kindEquipment);
+
+        // 使用更清晰的逻辑结构
+        switch (kindEquipment) {
+        case KS600:
+            totalHole = 30;
+            break;
+        case KS800:
+            totalHole = 45;
+            break;
+        case KS1200:
+            totalHole = 60;
+            break;
+        default:
+            totalHole = 60;
+            QLOG_DEBUG() << "Unknown equipment kind:" << kindEquipment << ", using default 60 holes";
+            break;
+        }
+        // 预分配内存提高性能
+        //m_pressedhole.reserve(totalHole);
+
+        // 使用更高效的循环和避免字符串转换开销
+        for (int n = 0; n < totalHole; ++n) {
+            // 使用QString::number的静态版本，或者考虑使用整数作为键
+            QString key = QString::number(2 * n + 1);
+            m_pressedhole.insert(key, false);
+        }
+
+        // 确保容器被清空
+        m_selbloodholetemp.clear();
+
+    }catch (const std::exception& e) {
+        QLOG_ERROR() << "Exception in _initNumAnaemiaHole:" << e.what();
+        // 确保在异常情况下也有合理的状态
+        m_pressedhole.clear();
+        m_selbloodholetemp.clear();
+
+        // 设置默认值
+        for (int n = 0; n < 60; ++n) {
+            m_pressedhole.insert(QString::number(2 * n + 1), false);
+        }
+    } catch (...) {
+        QLOG_ERROR() << "Unknown exception in _initNumAnaemiaHole";
+        m_pressedhole.clear();
+        m_selbloodholetemp.clear();
+
+        for (int n = 0; n < 60; ++n) {
+            m_pressedhole.insert(QString::number(2 * n + 1), false);
+        }
+    }
 }
 
 //补回用掉的试管孔
