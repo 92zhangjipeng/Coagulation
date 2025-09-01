@@ -210,7 +210,7 @@ private:
     * @brief NotifyShowInstrumentPoint
     * @param displayPoint
     */
-    void NotifyShowInstrumentPoint(QMap<quint8,QPoint> displayPoint, const QString);
+    void NotifyShowInstrumentPoint(QMap<quint8, QPoint> &displayPoint, const QString &tableName);
 
     /** 修改一个其它左边跟着变化
     * @brief InsertOneChangeOthersChange
@@ -236,14 +236,14 @@ private:
     * @brief SelectHoleChangebgm
     * @param SelIndexRows
     */
-    void SelectHoleChangebgm(bool bChangecolor, int SelIndexRows, int indexTray);
+    void SelectHoleChangebgm(bool changeColor, int selectedIndex, int indexTray);
 
     /** 修改控件背景色&&还原
     * @brief ChangeControlColors
     * @param bChangecolor
     * @param SelIndexRows
     */
-    void ChangeControlColors(bool bChangecolor,int SelIndexRows);
+    void ChangeControlColors(bool bChangecolor, int selectedIndex);
 
     void DelTableText();/*清空列表先*/
 
@@ -253,7 +253,10 @@ private:
 
     void _sendmoveActiveToEquipment(AreasCalibration indexZone, QPoint MovingAxis, quint8 indexZ); //移动测试命令发送到机器
 
-    void ExitCoordinateSaving(); //退出调试时写入缓存坐标
+    //退出调试时写入缓存坐标
+    void ExitCoordinateSaving();
+
+
 signals:
     void writdAxisata(const QByteArrayList ,QString);
 

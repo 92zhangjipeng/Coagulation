@@ -211,7 +211,9 @@ public:
     static bool writeCoordinate(const QString &filePath);
 
     // 从文本文件导入设备坐标
-    static EquipmentAXIS_ importFromCoordinateText(const QString& filePath);
+	static void clearEquipmentData(EquipmentAXIS_& equipment);
+    static bool importFromCoordinateText(const QString& filePath);
+    static bool parseEquipmentInfoLine(const QString& line, EquipmentAXIS_& equipment);
 
     //根据试剂针移动的位置输出试剂索引
     static quint8 outPutLossReagentIndex(const QPoint &locpos);

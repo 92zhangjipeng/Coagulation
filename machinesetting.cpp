@@ -2049,21 +2049,25 @@ void MachineSetting::_initconfigmodulefucn()
 //导入==将坐标配置文件导入到仪器配置
 void MachineSetting::on_toolButton_Import_clicked()
 {
-    QString file_path = "";
+    QString filePath = "";
     QString defaultpath = QApplication::applicationDirPath() + "/coordinateFile.txt";//默认路径
     QDir dir(defaultpath);
     if(dir.exists())
     {
-        file_path = QFileDialog::getOpenFileName(this,tr("导入坐标文件"),defaultpath,"txt files(*.txt)");
+        filePath = QFileDialog::getOpenFileName(this,tr("导入坐标文件"),defaultpath,"txt files(*.txt)");
     }
     else
     {
-        file_path = QFileDialog::getOpenFileName(this,tr("导入坐标文件"),".../","txt files(*.txt)");
+        filePath = QFileDialog::getOpenFileName(this,tr("导入坐标文件"),".../","txt files(*.txt)");
     }
-    ui->lineEdit_showPath->setText(file_path);
-    if(!file_path.isEmpty())
+    ui->lineEdit_showPath->setText(filePath);
+
+    if(!filePath.isEmpty())
     {
-        SingletonAxis::GetInstance()->importtCoordinate(file_path); //先读文件坐标 再写入到仪器
+        //SingletonAxis::GetInstance()->importtCoordinate(filePath); //先读文件坐标 再写入到仪器
+        if(SingletonAxis::GetInstance()->importFromCoordinateText(filePath)){
+           QMessageBox::about(this,"导入坐标文件","导入坐标文件成功!");
+        }
     }
 }
 

@@ -4098,6 +4098,7 @@ public:
 
         groupBox_curvepara = new QGroupBox(tab);
         groupBox_curvepara->setObjectName(QStringLiteral("groupBox_curvepara"));
+        groupBox_curvepara->setMinimumSize(QSize(0, 500));
         groupBox_curvepara->setMaximumSize(QSize(600, 16777215));
         groupBox_curvepara->setStyleSheet(QString::fromUtf8("QGroupBox\n"
 "{\n"
@@ -4127,6 +4128,7 @@ public:
         verticalLayout_7->setContentsMargins(5, 5, 5, 5);
         groupBox_4 = new QGroupBox(groupBox_curvepara);
         groupBox_4->setObjectName(QStringLiteral("groupBox_4"));
+        groupBox_4->setMinimumSize(QSize(0, 140));
         groupBox_4->setStyleSheet(QLatin1String("QGroupBox::title\n"
 "{\n"
 "	subcontrol-origin:margin;\n"
@@ -4174,6 +4176,7 @@ public:
 
         groupBox_3 = new QGroupBox(groupBox_curvepara);
         groupBox_3->setObjectName(QStringLiteral("groupBox_3"));
+        groupBox_3->setMinimumSize(QSize(0, 150));
         groupBox_3->setStyleSheet(QLatin1String("QGroupBox::title\n"
 "{\n"
 "	subcontrol-origin:margin;\n"
@@ -4222,6 +4225,7 @@ public:
 
         groupBox_6 = new QGroupBox(groupBox_curvepara);
         groupBox_6->setObjectName(QStringLiteral("groupBox_6"));
+        groupBox_6->setMinimumSize(QSize(0, 140));
         groupBox_6->setStyleSheet(QLatin1String("QGroupBox::title\n"
 "{\n"
 "	subcontrol-origin:margin;\n"
@@ -4382,7 +4386,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(0);
+        tabWidget_config->setCurrentIndex(3);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);

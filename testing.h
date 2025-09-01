@@ -269,7 +269,6 @@ private:
 	QMap<int, QString> m_notassignment;
 	int mReminderTube;  //提示要放的孔号
 
-
     int m_ProTotalTube;
     int m_ThrowTube; //丟掉试管
 

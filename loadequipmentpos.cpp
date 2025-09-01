@@ -278,6 +278,18 @@ void SingletonAxis::bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos)
 {
     if(bWrite == true)
     {
+        //先查找是否已存在相同 index 的记录
+        auto it = g_pEquipAxiaspos->bloodSampleAxisPos.begin();
+        while (it != g_pEquipAxiaspos->bloodSampleAxisPos.end())
+        {
+            if ((*it)->index == numhole) {
+                // 已存在，更新位置
+                (*it)->axisPos = pos;
+                return;
+            }
+            it++;
+        }
+        // 不存在，创建新记录
         SAMPLEBLOODZONEAXISPOS_ *pbloodholestu = new SAMPLEBLOODZONEAXISPOS_;
         pbloodholestu->index = numhole;
         pbloodholestu->axisPos = pos;
@@ -603,6 +615,7 @@ bool SingletonAxis::writeCoordinate(const QString &filePath)
 {
     return exportToCoordinateText(*g_pEquipAxiaspos,filePath);
 }
+
 bool SingletonAxis::exportToCoordinateText(const EquipmentAXIS_& equipment, const QString& filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -671,9 +684,266 @@ bool SingletonAxis::exportToCoordinateText(const EquipmentAXIS_& equipment, cons
 }
 
 // 从文本文件导入设备坐标
-EquipmentAXIS_ SingletonAxis::importFromCoordinateText(const QString& filePath)
+QStringList parseCSVLine(const QString& line)
 {
-    EquipmentAXIS_ equipment;
+	QStringList result;
+	QString currentField;
+	bool inQuotes = false;
+	bool wasInQuotes = false;
+
+	for (int i = 0; i < line.length(); ++i) {
+		QChar c = line[i];
+
+		if (c == '\"') {
+			if (inQuotes && i + 1 < line.length() && line[i + 1] == '\"') {
+				// 转义引号
+				currentField += '\"';
+				i++; // 跳过下一个引号
+			}
+			else {
+				inQuotes = !inQuotes;
+				wasInQuotes = true;
+			}
+		}
+		else if (c == ',' && !inQuotes) {
+			result.append(currentField);
+			currentField.clear();
+			wasInQuotes = false;
+		}
+		else {
+			currentField += c;
+		}
+	}
+
+	result.append(currentField);
+
+	// 去除字段两端的引号（如果原本有的话）
+	for (int i = 0; i < result.size(); ++i) {
+		if (result[i].startsWith('\"') && result[i].endsWith('\"')) {
+			result[i] = result[i].mid(1, result[i].length() - 2);
+		}
+	}
+
+	return result;
+}
+
+void updateCurrentSection(const QString& line, QString& currentSection)
+{
+    if (line.contains("Reagent Zone Coordinates", Qt::CaseInsensitive)) {
+            currentSection = "Reagent";
+    } else if (line.contains("Channel Coordinates", Qt::CaseInsensitive)) {
+        currentSection = "Channel";
+    } else if (line.contains("Test Tube Zone Coordinates", Qt::CaseInsensitive)) {
+        currentSection = "TestTube";
+    } else if (line.contains("Blood Sample Zone Coordinates", Qt::CaseInsensitive)) {
+        currentSection = "Blood";
+    } else if (line.contains("Equipment Configuration", Qt::CaseInsensitive)) {
+        currentSection = "Header";
+    }
+}
+
+REAGENTZONEAXIS_* parseReagentLine(const QString& line, int lineNumber)
+{
+    QStringList fields = parseCSVLine(line);
+    if (fields.size() < 4) {
+        throw std::runtime_error(QString("Reagent zone data format error at line %1").arg(lineNumber).toStdString());
+    }
+
+    REAGENTZONEAXIS_* reagent = new REAGENTZONEAXIS_();
+    try {
+        reagent->index = static_cast<quint8>(fields[0].toUInt());
+        reagent->reagname = fields[1].replace("\"\"", "\""); // 处理转义引号
+        reagent->Axispos.setX(fields[2].toInt());
+        reagent->Axispos.setY(fields[3].toInt());
+    } catch (...) {
+        delete reagent;
+        throw;
+    }
+
+    return reagent;
+}
+
+ChnAxis_* parseChannelLine(const QString& line, int lineNumber)
+{
+    QStringList fields = parseCSVLine(line);
+    if (fields.size() < 4) {
+        throw std::runtime_error(QString("Channel data format error at line %1").arg(lineNumber).toStdString());
+    }
+
+    ChnAxis_* channel = new ChnAxis_();
+    try {
+        channel->indexChn = static_cast<quint8>(fields[0].toUInt());
+        channel->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
+        channel->axisPos.setX(fields[2].toInt());
+        channel->axisPos.setY(fields[3].toInt());
+    } catch (...) {
+        delete channel;
+        throw;
+    }
+
+    return channel;
+}
+
+TRYTHECUPAXIS_* parseTestTubeLine(const QString& line, int lineNumber)
+{
+    QStringList fields = parseCSVLine(line);
+    if (fields.size() < 5) {
+        throw std::runtime_error(QString("Test tube zone data format error at line %1").arg(lineNumber).toStdString());
+    }
+
+    TRYTHECUPAXIS_* tube = new TRYTHECUPAXIS_();
+    try {
+        tube->numTube = static_cast<quint8>(fields[0].toUInt());
+        tube->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
+        tube->indexTray = static_cast<quint8>(fields[2].toUInt());
+        tube->axisPos.setX(fields[3].toInt());
+        tube->axisPos.setY(fields[4].toInt());
+    } catch (...) {
+        delete tube;
+        throw;
+    }
+
+    return tube;
+}
+
+
+
+SAMPLEBLOODZONEAXISPOS_* parseBloodLine(const QString& line, int lineNumber)
+{
+    QStringList fields = parseCSVLine(line);
+    if (fields.size() < 3) {
+        throw std::runtime_error(QString("Blood sample zone data format error at line %1").arg(lineNumber).toStdString());
+    }
+
+    SAMPLEBLOODZONEAXISPOS_* blood = new SAMPLEBLOODZONEAXISPOS_();
+    try {
+        blood->index = static_cast<quint8>(fields[0].toUInt());
+        blood->axisPos.setX(fields[1].toInt());
+        blood->axisPos.setY(fields[2].toInt());
+    } catch (...) {
+        delete blood;
+        throw;
+    }
+
+    return blood;
+}
+
+bool SingletonAxis::parseEquipmentInfoLine(const QString& line, EquipmentAXIS_& equipment)
+{
+    QString trimmedLine = line.trimmed();
+
+    if (trimmedLine.startsWith("# Equipment Type:")) {
+        equipment.equipmentType = trimmedLine.section(':', 1).trimmed();
+        return true;
+    }
+    else if (trimmedLine.startsWith("# Origin Axis:")) {
+        QString coordStr = trimmedLine.section(':', 1).trimmed();
+        QStringList coords = coordStr.split(',');
+        if (coords.size() == 2) {
+            bool okX, okY;
+            int x = coords[0].trimmed().toInt(&okX);
+            int y = coords[1].trimmed().toInt(&okY);
+            if (okX && okY) {
+                equipment.OriginAxis.setX(x);
+                equipment.OriginAxis.setY(y);
+                return true;
+            }
+        }
+    }
+    else if (trimmedLine.startsWith("# Clean Zone (Reagent):")) {
+        QString coordStr = trimmedLine.section(':', 1).trimmed();
+        QStringList coords = coordStr.split(',');
+        if (coords.size() == 2) {
+            bool okX, okY;
+            int x = coords[0].trimmed().toInt(&okX);
+            int y = coords[1].trimmed().toInt(&okY);
+            if (okX && okY) {
+                equipment.cleanZoneoffsetRegNedl.setX(x);
+                equipment.cleanZoneoffsetRegNedl.setY(y);
+                return true;
+            }
+        }
+    }
+    else if (trimmedLine.startsWith("# Clean Zone (Blood):")) {
+        QString coordStr = trimmedLine.section(':', 1).trimmed();
+        QStringList coords = coordStr.split(',');
+        if (coords.size() == 2) {
+            bool okX, okY;
+            int x = coords[0].trimmed().toInt(&okX);
+            int y = coords[1].trimmed().toInt(&okY);
+            if (okX && okY) {
+                equipment.cleanZoneoffsetBlodNedl.setX(x);
+                equipment.cleanZoneoffsetBlodNedl.setY(y);
+                return true;
+            }
+        }
+    }
+    else if (trimmedLine.startsWith("# Throw Hole Axis:")) {
+        QString coordStr = trimmedLine.section(':', 1).trimmed();
+        QStringList coords = coordStr.split(',');
+        if (coords.size() == 2) {
+            bool okX, okY;
+            int x = coords[0].trimmed().toInt(&okX);
+            int y = coords[1].trimmed().toInt(&okY);
+            if (okX && okY) {
+                equipment.ThrowHoleAxis.setX(x);
+                equipment.ThrowHoleAxis.setY(y);
+                return true;
+            }
+        }
+    }
+    else if (trimmedLine.startsWith("# Equipment Index:")) {
+        bool ok;
+        int index = trimmedLine.section(':', 1).trimmed().toInt(&ok);
+        if (ok) {
+            equipment.euqipmentIndex = index;
+            return true;
+        }
+    }
+    else if (trimmedLine.startsWith("# Sync Status:")) {
+		equipment.bsycnFinished = ("Completed" == trimmedLine.section(':', 1).trimmed()) ? true : false;
+        return true;
+    }
+    else if (trimmedLine.startsWith("# Generated:")) {
+        equipment.AxixsSaveTime = trimmedLine.section(':', 1).trimmed();
+        return true;
+    }
+
+    return false; // 不是设备信息行
+}
+
+void SingletonAxis::clearEquipmentData(EquipmentAXIS_& equipment)
+{
+    // 清空试剂区
+    qDeleteAll(equipment.reagentZoneAxispos);
+    equipment.reagentZoneAxispos.clear();
+
+    // 清空通道区
+    qDeleteAll(equipment.pchnAxisPoint);
+    equipment.pchnAxisPoint.clear();
+
+    // 清空试杯区
+    qDeleteAll(equipment.testTubeZoneAxisPos);
+    equipment.testTubeZoneAxisPos.clear();
+
+    // 清空血样区
+    qDeleteAll(equipment.bloodSampleAxisPos);
+    equipment.bloodSampleAxisPos.clear();
+
+    // 重置其他字段（可选）
+    equipment.equipmentType.clear();
+    equipment.bsycnFinished = false;
+    equipment.OriginAxis = QPoint(0, 0);
+    equipment.euqipmentIndex = 0;
+    equipment.cleanZoneoffsetRegNedl = QPoint(0, 0);
+    equipment.cleanZoneoffsetBlodNedl = QPoint(0, 0);
+    equipment.ThrowHoleAxis = QPoint(0, 0);
+    equipment.AxixsSaveTime.clear();
+}
+
+bool SingletonAxis::importFromCoordinateText(const QString& filePath)
+{
+    EquipmentAXIS_ newEquipment;
     QFile file(filePath);
 
     if (!file.exists()) {
@@ -689,141 +959,100 @@ EquipmentAXIS_ SingletonAxis::importFromCoordinateText(const QString& filePath)
     QString currentSection;
     int lineNumber = 0;
 
-    while (!in.atEnd()) {
-        QString line = in.readLine().trimmed();
-        lineNumber++;
+    // 使用智能指针或确保异常时的内存清理
+    QList<REAGENTZONEAXIS_*> tempReagents;
+    QList<ChnAxis_*> tempChannels;
+    QList<TRYTHECUPAXIS_*> tempTubes;
+    QList<SAMPLEBLOODZONEAXISPOS_*> tempBloodSamples;
 
-        // 跳过空行和注释行
-        if (line.isEmpty() || line.startsWith("#")) {
-            // 检查是否有节标题
-            if (line.contains("Reagent Zone")) currentSection = "Reagent";
-            else if (line.contains("Channel Coordinates")) currentSection = "Channel";
-            else if (line.contains("Test Tube Zone")) currentSection = "TestTube";
-            else if (line.contains("Blood Sample Zone")) currentSection = "Blood";
-            continue;
-        }
+    try {
+           while (!in.atEnd()) {
+               QString line = in.readLine().trimmed();
+               lineNumber++;
 
-        try {
-            if (currentSection == "Reagent") {
-                QStringList fields = line.split(",");
-                if (fields.size() < 4) {
-                    throw std::runtime_error(QString("试剂区数据格式错误，行 %1").arg(lineNumber).toStdString());
-                }
+               // 跳过空行
+               if (line.isEmpty()) {
+                   continue;
+               }
 
-                REAGENTZONEAXIS_* reagent = new REAGENTZONEAXIS_;
-                reagent->index = static_cast<quint8>(fields[0].toUInt());
+               // 处理节标识行
+               if (line.startsWith("#")) {
 
-                // 处理可能带引号的试剂名
-                QString name = fields[1];
-                if (name.startsWith('"') && name.endsWith('"')) {
-                    name = name.mid(1, name.length() - 2);
-                }
-                reagent->reagname = name;
+                   if (parseEquipmentInfoLine(line, newEquipment)) {
+                       continue; // 如果成功解析了设备信息，继续下一行
+                   }
 
-                reagent->Axispos.setX(fields[2].toInt());
-                reagent->Axispos.setY(fields[3].toInt());
-                equipment.reagentZoneAxispos.append(reagent);
-            }
-            else if (currentSection == "Channel") {
-                QStringList fields = line.split(",");
-                if (fields.size() < 4) {
-                    throw std::runtime_error(QString("通道区数据格式错误，行 %1").arg(lineNumber).toStdString());
-                }
+                   updateCurrentSection(line, currentSection);
+                   continue;
+               }
 
-                ChnAxis_* channel = new ChnAxis_;
-                channel->indexChn = static_cast<quint8>(fields[0].toUInt());
-                channel->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
-                channel->axisPos.setX(fields[2].toInt());
-                channel->axisPos.setY(fields[3].toInt());
-                equipment.pchnAxisPoint.append(channel);
-            }
-            else if (currentSection == "TestTube") {
-                QStringList fields = line.split(",");
-                if (fields.size() < 5) {
-                    throw std::runtime_error(QString("试杯区数据格式错误，行 %1").arg(lineNumber).toStdString());
-                }
 
-                TRYTHECUPAXIS_* tube = new TRYTHECUPAXIS_;
-                tube->numTube = static_cast<quint8>(fields[0].toUInt());
-                tube->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
-                tube->indexTray = static_cast<quint8>(fields[2].toUInt());
-                tube->axisPos.setX(fields[3].toInt());
-                tube->axisPos.setY(fields[4].toInt());
-                equipment.testTubeZoneAxisPos.append(tube);
-            }
-            else if (currentSection == "Blood") {
-                QStringList fields = line.split(",");
-                if (fields.size() < 3) {
-                    throw std::runtime_error(QString("血样区数据格式错误，行 %1").arg(lineNumber).toStdString());
-                }
+               if (currentSection == "Reagent") {
+                   REAGENTZONEAXIS_* reagent = parseReagentLine(line, lineNumber);
+                   if(reagent)
+                        tempReagents.append(reagent);
+               }
+               else if (currentSection == "Channel") {
+                   ChnAxis_* channel = parseChannelLine(line, lineNumber);
+                   if(channel){
+                       tempChannels.append(channel);
+                   }
+               }
+               else if (currentSection == "TestTube") {
+                   TRYTHECUPAXIS_* tube = parseTestTubeLine(line, lineNumber);
+                   if(tube){
+                       tempTubes.append(tube);
+                   }
+               }
+               else if (currentSection == "Blood") {
+                   SAMPLEBLOODZONEAXISPOS_* blood = parseBloodLine(line, lineNumber);
+                   if(blood)
+                        tempBloodSamples.append(blood);
+               } 
+           }
 
-                SAMPLEBLOODZONEAXISPOS_* blood = new SAMPLEBLOODZONEAXISPOS_;
-                blood->index = static_cast<quint8>(fields[0].toUInt());
-                blood->axisPos.setX(fields[1].toInt());
-                blood->axisPos.setY(fields[2].toInt());
-                equipment.bloodSampleAxisPos.append(blood);
-            }
-            else {
-                if (line.startsWith("Equipment Type: ")) {
-                    equipment.equipmentType = line.mid(16).trimmed();
-                }
-                else if (line.startsWith("Sync Status: ")) {
-                    equipment.bsycnFinished = (line.mid(13).trimmed() == "Completed");
-                }
-                else if (line.startsWith("Origin Axis: ")) {
-                    QString coords = line.mid(13).trimmed();
-                    if (coords.startsWith("(") && coords.endsWith(")")) {
-                        coords = coords.mid(1, coords.length()-2);
-                        QStringList xy = coords.split(",");
-                        if (xy.size() == 2) {
-                            equipment.OriginAxis.setX(xy[0].toInt());
-                            equipment.OriginAxis.setY(xy[1].toInt());
-                        }
-                    }
-                }
-                else if (line.startsWith("Equipment Index: ")) {
-                    equipment.euqipmentIndex = static_cast<quint8>(line.mid(17).trimmed().toUInt());
-                }
-                else if (line.startsWith("Clean Zone (Reagent): ")) {
-                    QString coords = line.mid(22).trimmed();
-                    QStringList xy = coords.split(",");
-                    if (xy.size() == 2) {
-                        equipment.cleanZoneoffsetRegNedl.setX(xy[0].toInt());
-                        equipment.cleanZoneoffsetRegNedl.setY(xy[1].toInt());
-                    }
-                }
-                else if (line.startsWith("Clean Zone (Blood): ")) {
-                    QString coords = line.mid(20).trimmed();
-                    QStringList xy = coords.split(",");
-                    if (xy.size() == 2) {
-                        equipment.cleanZoneoffsetBlodNedl.setX(xy[0].toInt());
-                        equipment.cleanZoneoffsetBlodNedl.setY(xy[1].toInt());
-                    }
-                }
-                else if (line.startsWith("Throw Hole Axis: ")) {
-                    QString coords = line.mid(17).trimmed();
-                    QStringList xy = coords.split(",");
-                    if (xy.size() == 2) {
-                        equipment.ThrowHoleAxis.setX(xy[0].toInt());
-                        equipment.ThrowHoleAxis.setY(xy[1].toInt());
-                    }
-                }
-                else if (line.startsWith("Generated: ")) {
-                    equipment.AxixsSaveTime = line.mid(11).trimmed();
-                }
-            }
-        }
-        catch (const std::exception& e) {
-            file.close();
-            throw std::runtime_error(QString("解析错误，行 %1: %2").arg(lineNumber).arg(e.what()).toStdString());
-        }
-    }
+           // 所有解析成功，转移数据到equipment
+           newEquipment.reagentZoneAxispos = tempReagents;
+           newEquipment.pchnAxisPoint = tempChannels;
+           newEquipment.testTubeZoneAxisPos = tempTubes;
+           newEquipment.bloodSampleAxisPos = tempBloodSamples;
 
-    file.close();
-    return equipment;
+       } catch (const std::exception& e) {
+           // 清理临时分配的内存
+           qDeleteAll(tempReagents);
+           qDeleteAll(tempChannels);
+           qDeleteAll(tempTubes);
+           qDeleteAll(tempBloodSamples);
+           file.close();
+           throw std::runtime_error(std::string("解析错误: ") + e.what());
+       }
+       file.close();
+
+       try{
+           EquipmentAXIS_* pequipment = GetpStruct();
+           if(!pequipment){
+               throw std::runtime_error("Failed to get equipment structure");
+           }
+
+           // 清空现有数据
+           clearEquipmentData(*pequipment);
+
+           // 复制数据到单例
+           *pequipment = newEquipment;
+
+          /* QLOG_INFO() << "配置文件导入成功:"
+                        << "设备类型:" << newEquipment.equipmentType
+                        << "原点坐标:" << newEquipment.originAxis.x() << "," << newEquipment.originAxis.y()
+                        << "试剂清洁区:" << newEquipment.cleanZoneReagent.x() << "," << newEquipment.cleanZoneReagent.y()
+                        << "血液清洁区:" << newEquipment.cleanZoneBlood.x() << "," << newEquipment.cleanZoneBlood.y()
+                        << "废液孔:" << newEquipment.throwHoleAxis.x() << "," << newEquipment.throwHoleAxis.y();*/
+
+           return true;
+       }catch (const std::exception& e) {
+           QLOG_ERROR() << "导入失败:" << e.what();
+           return false;
+       }
 }
-
-
 
 
 

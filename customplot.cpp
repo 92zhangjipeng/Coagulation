@@ -397,19 +397,17 @@ void CustomPlot::CheckGipperDownHigh(QAbstractButton *btn)
 //弃杯孔
 void CustomPlot::displayThrowHole(bool bFindShow,bool bWrite_x,int notifyValue)
 {
-    //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
-    if(bFindShow)
-    {
-        QMap<quint8,QPoint> readAxis;
-        readAxis.clear();
-        QPoint backPoint(0,0);
-        SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT,backPoint);
-        readAxis.insert(0,backPoint);
-        NotifyShowInstrumentPoint(readAxis,"弃杯孔(抓手)微调");
+    auto* axis = SingletonAxis::GetInstance();
+    if(bFindShow){
+        // 显示弃杯孔位置
+        QPoint throwHolePoint;
+        axis->throwTubeHolePos(READ_OPERRAT, throwHolePoint);
+        QMap<quint8, QPoint> points = {{0, throwHolePoint}};
+        NotifyShowInstrumentPoint(points, "弃杯孔(抓手)微调");
     }
     else
     {
-        SingletonAxis::GetInstance()->oper_ThrowTubeHolePos(bWrite_x,notifyValue);
+        axis->oper_ThrowTubeHolePos(bWrite_x,notifyValue);
     }
 }
 
@@ -418,41 +416,41 @@ void CustomPlot::displayThrowHole(bool bFindShow,bool bWrite_x,int notifyValue)
 //查找原点坐标
 void CustomPlot::displayOriginAxisPoint(bool bFindShow,bool bWrite_x,int notifyValue)
 {
-    //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
-    if(bFindShow)
-    {
-        QMap<quint8,QPoint> readAxis;
-        readAxis.clear();
-        QPoint backPoint(0,0);
-        SingletonAxis::GetInstance()->originPos(READ_OPERRAT,backPoint);
-        readAxis.insert(0,backPoint);
-        NotifyShowInstrumentPoint(readAxis,"微调原点坐标");
+    auto* pconfAxis = SingletonAxis::GetInstance();
+    if(bFindShow){
+
+        QPoint originPoint;
+		pconfAxis->originPos(READ_OPERRAT, originPoint);
+        QMap<quint8, QPoint> points = {{0, originPoint}};
+        NotifyShowInstrumentPoint(points, "微调原点坐标");
     }
     else
     {
-        SingletonAxis::GetInstance()->oper_OriginAxis(bWrite_x,notifyValue);
+        pconfAxis->oper_OriginAxis(bWrite_x,notifyValue);
     }
 }
 
 //清洗液区
 void CustomPlot::displayCleanLinqueAxisPoint(bool bFindShow, quint8  indexZ,bool bWrite_x, int notifyValue)
 {
-    //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
+    auto* pconfAxis = SingletonAxis::GetInstance();
     if(bFindShow)
     {
-        QMap<quint8,QPoint> readAxis;
-        readAxis.clear();
-        QPoint backPoint(0,0);
-        SingletonAxis::GetInstance()->cleanZoneAxisPos(READ_OPERRAT,indexZ,backPoint);
-        readAxis.insert(0,backPoint);
-        if(indexZ == MOTOR_BLOOD_INDEX)
-            NotifyShowInstrumentPoint(readAxis,"清洗液(样本针)微调");
-        else if(indexZ == MOTOR_REAGNET_INDEX)
-            NotifyShowInstrumentPoint(readAxis,"清洗液(试剂针)微调");
+        QPoint cleanPoint;
+		pconfAxis->cleanZoneAxisPos(READ_OPERRAT, indexZ, cleanPoint);
+
+        QMap<quint8, QPoint> points = {{0, cleanPoint}};
+        switch (indexZ) {
+            case MOTOR_BLOOD_INDEX:
+                NotifyShowInstrumentPoint(points, "清洗液(样本针)微调");
+                break;
+            case MOTOR_REAGNET_INDEX:
+                NotifyShowInstrumentPoint(points, "清洗液(试剂针)微调");
+                break;
+        }
     }
-    else
-    {
-        SingletonAxis::GetInstance()->oper_CleanZonePos(bWrite_x,indexZ,notifyValue);
+    else{
+        pconfAxis->oper_CleanZonePos(bWrite_x,indexZ,notifyValue);
     }
     return;
 }
@@ -777,40 +775,71 @@ void CustomPlot::AddBtnSave_backValue(int rowIndex,bool NeedChaneOther)
 
 
 
-void CustomPlot::NotifyShowInstrumentPoint(QMap<quint8,QPoint> displayPoint ,const QString Tablename)
+void CustomPlot::NotifyShowInstrumentPoint(QMap<quint8,QPoint>& displayPoint ,const QString& tableName)
 {
-    ui->label_title->setText(Tablename);
-    auto iter = displayPoint.begin();
-    while(iter != displayPoint.end())
-    {
-        int row = ui->tableWidget_displayPos->rowCount();
-        ui->tableWidget_displayPos->insertRow(row);
+    ui->label_title->setText(tableName);
 
-        QTableWidgetItem *item = new QTableWidgetItem(QString("%1").arg(row + 1));
-        item->setFlags(item->flags() & (~Qt::ItemIsEditable));//不可编辑
-        item->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-        ui->tableWidget_displayPos->setItem(row,TableIndexPos::IndexNum,item);
-        ui->tableWidget_displayPos->item(row,TableIndexPos::IndexNum)->setBackground(QBrush(QColor(204,204,204)));//改变单元格颜色
-        //设置X
-        QSpinBox *DisplayXvalue = new QSpinBox(this);
-        DisplayXvalue->setStyleSheet(m_SpinboxsheetX);
-        DisplayXvalue->setAlignment(Qt::AlignCenter);
-        DisplayXvalue->setMaximum(7000);
-        DisplayXvalue->setFixedHeight(30);
-        DisplayXvalue->setValue(iter.value().x());
-        ui->tableWidget_displayPos->setCellWidget(row,TableIndexPos::Instrument_xpos,DisplayXvalue);//添加控件到tableWidget上
-        //设置Y
-        QSpinBox *DisplayYvalue = new QSpinBox(this);
-        DisplayYvalue->setMaximum(7000);
-        DisplayYvalue->setFixedHeight(30);
-        DisplayYvalue->setAlignment(Qt::AlignCenter);
-        DisplayYvalue->setStyleSheet(m_SpinboxsheetY);
-        DisplayYvalue->setValue(iter.value().y());
-        ui->tableWidget_displayPos->setCellWidget(row,TableIndexPos::Instrument_ypos, DisplayYvalue);
-        //保存按钮
-        AddBtnSave_backValue(row,false);
-        iter++;
-    }
+    auto createSpinBox = [this](int value, const QString& style) -> QSpinBox* {
+        auto* spinBox = new QSpinBox(this);
+        spinBox->setStyleSheet(style);
+        spinBox->setAlignment(Qt::AlignCenter);
+        spinBox->setMaximum(5500);
+        spinBox->setFixedHeight(30);
+        spinBox->setValue(value);
+        return spinBox;
+    };
+
+   for(auto iter = displayPoint.constBegin(); iter != displayPoint.constEnd(); ++iter) {
+       const int row = ui->tableWidget_displayPos->rowCount();
+       ui->tableWidget_displayPos->insertRow(row);
+
+       QTableWidgetItem* item = new QTableWidgetItem(QString::number(row + 1));
+       item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+       item->setTextAlignment(Qt::AlignCenter);
+       item->setBackground(QColor(204, 204, 204));
+       ui->tableWidget_displayPos->setItem(row, TableIndexPos::IndexNum, item);
+
+       ui->tableWidget_displayPos->setCellWidget(row, TableIndexPos::Instrument_xpos,
+           createSpinBox(iter.value().x(), m_SpinboxsheetX));
+
+       ui->tableWidget_displayPos->setCellWidget(row, TableIndexPos::Instrument_ypos,
+           createSpinBox(iter.value().y(), m_SpinboxsheetY));
+
+       AddBtnSave_backValue(row, false);
+   }
+
+
+//    auto iter = displayPoint.begin();
+//    while(iter != displayPoint.end())
+//    {
+//        int row = ui->tableWidget_displayPos->rowCount();
+//        ui->tableWidget_displayPos->insertRow(row);
+
+//        QTableWidgetItem *item = new QTableWidgetItem(QString("%1").arg(row + 1));
+//        item->setFlags(item->flags() & (~Qt::ItemIsEditable));//不可编辑
+//        item->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
+//        ui->tableWidget_displayPos->setItem(row,TableIndexPos::IndexNum,item);
+//        ui->tableWidget_displayPos->item(row,TableIndexPos::IndexNum)->setBackground(QBrush(QColor(204,204,204)));//改变单元格颜色
+//        //设置X
+//        QSpinBox *DisplayXvalue = new QSpinBox(this);
+//        DisplayXvalue->setStyleSheet(m_SpinboxsheetX);
+//        DisplayXvalue->setAlignment(Qt::AlignCenter);
+//        DisplayXvalue->setMaximum(5500);
+//        DisplayXvalue->setFixedHeight(30);
+//        DisplayXvalue->setValue(iter.value().x());
+//        ui->tableWidget_displayPos->setCellWidget(row,TableIndexPos::Instrument_xpos,DisplayXvalue);//添加控件到tableWidget上
+//        //设置Y
+//        QSpinBox *DisplayYvalue = new QSpinBox(this);
+//        DisplayYvalue->setMaximum(5500);
+//        DisplayYvalue->setFixedHeight(30);
+//        DisplayYvalue->setAlignment(Qt::AlignCenter);
+//        DisplayYvalue->setStyleSheet(m_SpinboxsheetY);
+//        DisplayYvalue->setValue(iter.value().y());
+//        ui->tableWidget_displayPos->setCellWidget(row,TableIndexPos::Instrument_ypos, DisplayYvalue);
+//        //保存按钮
+//        AddBtnSave_backValue(row,false);
+//        iter++;
+//    }
 }
 
 
@@ -836,7 +865,7 @@ void CustomPlot::InsertOneChangeOthersChange(QMap<quint8,QPoint> displayPoint, c
             QSpinBox *DisplayXvalue = new QSpinBox(this);
             DisplayXvalue->setStyleSheet(m_SpinboxsheetX);
             DisplayXvalue->setAlignment(Qt::AlignCenter);
-            DisplayXvalue->setMaximum(7000);
+            DisplayXvalue->setMaximum(5000);
             DisplayXvalue->setFixedHeight(30);
             DisplayXvalue->setValue(iter.value().x());
             ui->tableWidget_displayPos->setCellWidget(InsertRow,TableIndexPos::Instrument_xpos,DisplayXvalue);//添加控件到tableWidget上
@@ -849,7 +878,7 @@ void CustomPlot::InsertOneChangeOthersChange(QMap<quint8,QPoint> displayPoint, c
             });
             //设置Y
             QSpinBox *DisplayYvalue = new QSpinBox(this);
-            DisplayYvalue->setMaximum(7000);
+            DisplayYvalue->setMaximum(5000);
             DisplayYvalue->setFixedHeight(30);
             DisplayYvalue->setAlignment(Qt::AlignCenter);
             DisplayYvalue->setStyleSheet(m_SpinboxsheetY);
@@ -962,7 +991,7 @@ void CustomPlot::BtnClickSavePoint()
         default:
             break;
     }
-    emit this->writdAxisata(sendcommd,"缓存坐标指令");
+    emit writdAxisata(sendcommd,"缓存坐标指令");
     //btn->setText("已保存");
     return;
 }
@@ -1078,6 +1107,9 @@ void CustomPlot::writeboard(quint8 intdexZ,quint8 row, QByteArrayList &sendcommd
     sendcommd.push_back(y_arry);
 }
 
+
+
+
 //保存一个整体已偏移此刻发送命令就行
 void CustomPlot::BtnClickOthersSavePoint()
 {
@@ -1113,50 +1145,42 @@ void CustomPlot::BtnClickOthersSavePoint()
         default:
             break;
     }
-    emit this->writdAxisata(sendcommd,"缓存坐标指令");
+    emit writdAxisata(sendcommd,"缓存坐标指令");
     return;
 }
+
 
 
 //清空列表内容
 void CustomPlot::DelTableText()
 {
-     int totalrow = ui->tableWidget_displayPos->rowCount();
-     for(int i = 0  ; i < totalrow ; i++)
-     {
-         ui->tableWidget_displayPos->removeRow(0);
-     }
-     ui->label_movedPos->setText(QString("校验位置: "));
+    ui->tableWidget_displayPos->setRowCount(0);
+    ui->label_movedPos->setText("校验位置: ");
 }
 
 //复位
 void CustomPlot::on_toolButton_Backorigin_clicked()
 {
-    emit this->Resetmaneuver();
-    //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
+    emit Resetmaneuver();
+    auto *pconfAxis = SingletonAxis::GetInstance();
     QPoint locAxis(0,0);
-    SingletonAxis::GetInstance()->originPos(READ_OPERRAT,locAxis);
+    pconfAxis->originPos(READ_OPERRAT,locAxis);
     ui->label_movedPos->setText(QString("复位位置: X[%2]  Y[%3]").arg(locAxis.x()).arg(locAxis.y()));
     return;
 }
 
 void CustomPlot::closeEvent(QCloseEvent* event)
 {
-    auto temp = QMessageBox::information(this, "修正完成", "是否要关闭?", QMessageBox::Yes | QMessageBox::No);
-    if(temp == QMessageBox::Yes)
-    {
-        if(cglobal::gserialConnecStatus)
-        {
-            emit this->Resetmaneuver();
-            ExitCoordinateSaving();
-        }
-        event->accept();
-    }
-    else
-    {
-        event->ignore();
-    }
-    return;
+    if (QMessageBox::question(this, "修正完成", "是否要关闭?",
+                           QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+       if (cglobal::gserialConnecStatus) {
+           emit Resetmaneuver();
+           ExitCoordinateSaving();
+       }
+       event->accept();
+   } else {
+       event->ignore();
+   }
 }
 
 
@@ -1180,7 +1204,7 @@ void CustomPlot::ExitCoordinateSaving()
     send_data_.push_back(writeinboard);
 
     QLOG_DEBUG()<<"退出坐标调试保存坐标尾端"<< writeinboard.toHex(' ').trimmed().toUpper()<<"leng="<<writeinboard.size()<<endl;
-    emit this->writdAxisata(send_data_,"保存坐标微调界面坐标");
+    emit writdAxisata(send_data_,"保存坐标微调界面坐标");
     return;
 }
 
@@ -1195,54 +1219,42 @@ bool CustomPlot::QuerytoModifyCoordinates(QMap<int,QPoint> PointGather,int FindI
 }
 
 
-void CustomPlot::SelectHoleChangebgm(bool bChangecolor, int SelIndexRows,int indexTray)
+void CustomPlot::SelectHoleChangebgm(bool changeColor, int selectedIndex, int indexTray)
 {
-    if(SelIndexRows <= 0)   return;
-    QTableWidgetItem *item_x = ui->tableWidget_displayPos->item(SelIndexRows,Instrument_xpos);
-    if(item_x != nullptr)
-    {
-        if(item_x->text().isEmpty() == false)
-        {
-           if(bChangecolor)
-           {
-                item_x->setBackground(QBrush(QColor(255, 0, 0)));
-                ui->tableWidget_displayPos->selectRow(SelIndexRows );
-                m_selectRows = SelIndexRows + indexTray*60;
-           }
-           else
-                item_x->setBackground(QBrush(QColor(255 ,255 ,255)));
+    if (selectedIndex <= 0) return;
+
+    auto updateItem = [this, changeColor](int row, int column) {
+        QTableWidgetItem* item = ui->tableWidget_displayPos->item(row, column);
+        if (item && !item->text().isEmpty()) {
+            item->setBackground(changeColor ? QColor(255, 0, 0) : QColor(255, 255, 255));
         }
+    };
+
+    updateItem(selectedIndex, Instrument_xpos);
+    updateItem(selectedIndex, Instrument_ypos);
+
+    if (changeColor) {
+        ui->tableWidget_displayPos->selectRow(selectedIndex);
+        m_selectRows = selectedIndex + indexTray * 60;
     }
-    QTableWidgetItem *item_y = ui->tableWidget_displayPos->item(SelIndexRows,Instrument_ypos);
-    if(item_y != nullptr)
-    {
-        if(item_y->text().isEmpty() == false)
-        {
-            if(bChangecolor)
-                 item_y->setBackground(QBrush(QColor(255, 0, 0)));
-            else
-                 item_y->setBackground(QBrush(QColor(255 ,255 ,255)));
-        }
-    }
-    return ;
 }
-void CustomPlot::ChangeControlColors(bool bChangecolor,int SelIndexRows)
+
+void CustomPlot::ChangeControlColors(bool changeColor,int selectedIndex)
 {
-    QTableWidgetItem *item_x = ui->tableWidget_displayPos->item(SelIndexRows,IndexNum);
-    if(item_x != nullptr)
-    {
-        if(item_x->text().isEmpty() == false)
-        {
-           if(bChangecolor)
-           {
-                item_x->setBackground(QBrush(QColor(255, 0, 0)));
-                m_selectRows = SelIndexRows;
-           }
-           else
-                item_x->setBackground(QBrush(QColor(204,204,204)));
-        }
+    static const QColor SELECTED_COLOR(255, 0, 0);
+    static const QColor DEFAULT_COLOR(204, 204, 204);
+
+    QTableWidgetItem* item = ui->tableWidget_displayPos->item(selectedIndex, IndexNum);
+    if (!item || item->text().isEmpty()) {
+        return;
     }
-    return;
+
+    if (changeColor) {
+        item->setBackground(SELECTED_COLOR);
+        m_selectRows = selectedIndex;
+    } else {
+        item->setBackground(DEFAULT_COLOR);
+    }
 }
 
 //血样区BtnClick
@@ -1269,106 +1281,139 @@ void  CustomPlot::ClickBloodTube()
 
     SelectHoleChangebgm(true,index,0);
     QByteArrayList modifyarry = Testing:: m_TaskDll->XYLocation(mbtnClickPos,MOTOR_BLOOD_INDEX,OFFSET_BLOODAREA,m_downhigh,mcodeNum,m_downhigh);
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
+    emit SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
     ui->label_movedPos->setText(QString("校验位置: X[%2]  Y[%3]").arg(mbtnClickPos.x()).arg(mbtnClickPos.y()));
     return;
 }
 
-//试管区
+//Click 试管区
 void CustomPlot::ClickEmptyTube()
 {
-    QObject *object = QObject::sender();
-    QToolButton *pushbtn = qobject_cast<QToolButton *>(object);
-    QString object_name = pushbtn->text();
-    int index = object_name.toInt() - 1;
+    QToolButton* button = qobject_cast<QToolButton*>(QObject::sender());
+    if (!button) return;
 
-    quint8 Click_Tray = 0; //定位哪个试管盘
-    //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
-    QString outStr;
-    QPoint getOutPoint(0,0);
-    int downIndex_Needle = 0;
-    if(m_CalibrationArea >= EmptyTube_1_BloodNeedle &&  m_CalibrationArea <= EmptyTube_4_BloodNeedle)
-    {
-        Click_Tray = SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,index,MOTOR_BLOOD_INDEX,getOutPoint);
-        outStr = QString("试杯区(血样针)校验位置: [%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y());
-        downIndex_Needle = MOTOR_BLOOD_INDEX;
-    }
-    else if(m_CalibrationArea >= EmptyTube_1_Hands &&  m_CalibrationArea <= EmptyTube_4_Hands)
-    {
-         Click_Tray = SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,index,MOTOR_HANDS_INDEX,getOutPoint);
-         outStr = QString("试杯区(抓手)校验位置: [%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y());
-         downIndex_Needle = MOTOR_HANDS_INDEX;
-    }
-    else
-    {
-        QMessageBox::about(this,"试管区","请选择匹配的校准区域!");
+    bool ok = false;
+    int index = button->text().toInt(&ok) - 1;
+    if (!ok || index < 0) return;
+
+    quint8 trayId = 0;
+    QPoint targetPoint;
+    int needleIndex = 0;
+    QString statusText;
+
+    if (m_CalibrationArea >= EmptyTube_1_BloodNeedle && m_CalibrationArea <= EmptyTube_4_BloodNeedle) {
+        trayId = SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, MOTOR_BLOOD_INDEX, targetPoint);
+        statusText = QString("试杯区(血样针)校验位置: [%1,%2]").arg(targetPoint.x()).arg(targetPoint.y());
+        needleIndex = MOTOR_BLOOD_INDEX;
+    } else if (m_CalibrationArea >= EmptyTube_1_Hands && m_CalibrationArea <= EmptyTube_4_Hands) {
+        trayId = SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, MOTOR_HANDS_INDEX, targetPoint);
+        statusText = QString("试杯区(抓手)校验位置: [%1,%2]").arg(targetPoint.x()).arg(targetPoint.y());
+        needleIndex = MOTOR_HANDS_INDEX;
+    } else {
+        QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
         return;
     }
-    if(m_selectRows != index && m_selectRows > 0)
-    {
-        SelectHoleChangebgm(false,m_selectRows - 60*(Click_Tray - 1),Click_Tray - 1);
-    }
-	mcodeNum = 0;
-    QByteArrayList modifyarry = Testing:: m_TaskDll->XYLocation(getOutPoint, downIndex_Needle,1, m_downhigh, mcodeNum,m_downhigh);
-    ui->label_movedPos->setText(outStr);
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
 
+    if (m_selectRows != index && m_selectRows > 0) {
+        SelectHoleChangebgm(false, m_selectRows - 60 * (trayId - 1), trayId - 1);
+    }
+
+    mcodeNum = 0;
+    QByteArrayList modifyArray = Testing::m_TaskDll->XYLocation(targetPoint, needleIndex,
+                                                                    1, m_downhigh, mcodeNum, m_downhigh);
+
+    ui->label_movedPos->setText(statusText);
+    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
 }
 
 void CustomPlot::ReminderTable(int TableRow)
 {
-    int rowscount = ui->tableWidget_displayPos->rowCount();
-    for(int i = 0; i < rowscount; i++)
-    {
-        int rownum = ui->tableWidget_displayPos->item(i,TableIndexPos::IndexNum)->text().toInt() - 1;
-        if(TableRow == rownum)
-        {
-           ui->tableWidget_displayPos->item(i,TableIndexPos::IndexNum)->setBackgroundColor(QColor(220,44,44));
-        }
-        else
-        {
-           ui->tableWidget_displayPos->item(i,TableIndexPos::IndexNum)->setBackgroundColor(QColor(204,204,204));
-        }
+    static const QColor SELECTED_COLOR(220, 44, 44);
+    static const QColor DEFAULT_COLOR(204, 204, 204);
+
+    const int rowCount = ui->tableWidget_displayPos->rowCount();
+
+    for (int i = 0; i < rowCount; ++i) {
+        QTableWidgetItem* item = ui->tableWidget_displayPos->item(i, TableIndexPos::IndexNum);
+        if (!item) continue;
+
+        bool ok = false;
+        const int rowNum = item->text().toInt(&ok) - 1;
+        if (!ok) continue;
+
+        item->setBackground(TableRow == rowNum ? SELECTED_COLOR : DEFAULT_COLOR);
     }
 }
 
 //点击测试通道
 void  CustomPlot::ClickTestChannelTube()
 {
-    quint8  codenum = 0%255;
-    QObject *object = QObject::sender();
-    QToolButton *pushbtn = qobject_cast<QToolButton *>(object);
-    QString object_name = pushbtn->text();
-    int index = object_name.toInt() - 1;
-    if(m_selectRows != index)
-        ChangeControlColors(false,m_selectRows);
+    QToolButton* button = qobject_cast<QToolButton*>(QObject::sender());
+    if (!button) return;
 
-    QByteArrayList modifyarry;
-    modifyarry.clear();
+    bool ok = false;
+    int index = button->text().toInt(&ok) - 1;
+    if (!ok || index < 0) return;
 
-    QPoint getOutPoint(0,0);
-    if(m_CalibrationArea == TestChannel_ReagentNeedle || m_CalibrationArea == TestChannel_Hands)
-    {
-        if(m_CalibrationArea == TestChannel_ReagentNeedle)
-        {
-            SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,index,MOTOR_REAGNET_INDEX,getOutPoint);
-            modifyarry = Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_REAGNET_INDEX, 0, m_downhigh, codenum, m_downhigh);
-        }
-        else if(m_CalibrationArea == TestChannel_Hands)
-        {
-            SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,index,MOTOR_HANDS_INDEX,getOutPoint);
-            modifyarry =  Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_HANDS_INDEX, 0, m_downhigh, codenum, m_downhigh);
-        }
-        ChangeControlColors(true,index);
+    if (m_selectRows != index) {
+        ChangeControlColors(false, m_selectRows);
     }
-    else
-    {
-         SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,index,MOTOR_HANDS_INDEX,getOutPoint);
-         modifyarry =  Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_HANDS_INDEX, 0, m_downhigh, codenum, m_downhigh);
+
+    quint8 codeNum = 0;
+    QPoint targetPoint;
+    int motorIndex = MOTOR_HANDS_INDEX;
+    QByteArrayList modifyArray;
+
+    if (m_CalibrationArea == TestChannel_ReagentNeedle || m_CalibrationArea == TestChannel_Hands) {
+        motorIndex = (m_CalibrationArea == TestChannel_ReagentNeedle) ? MOTOR_REAGNET_INDEX : MOTOR_HANDS_INDEX;
+        SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT, index, motorIndex, targetPoint);
+        ChangeControlColors(true, index);
+    } else {
+        SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT, index, MOTOR_HANDS_INDEX, targetPoint);
+        motorIndex = MOTOR_HANDS_INDEX;
     }
-    ui->label_movedPos->setText(QString("测试通道校验位置:[%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y()));
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
-    return;
+
+    modifyArray = Testing::m_TaskDll->XYLocation(targetPoint, motorIndex, 0, m_downhigh, codeNum, m_downhigh);
+
+    ui->label_movedPos->setText(QString("测试通道校验位置:[%1,%2]").arg(targetPoint.x()).arg(targetPoint.y()));
+    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
+
+
+
+//    quint8  codenum = 0%255;
+//    QObject *object = QObject::sender();
+//    QToolButton *pushbtn = qobject_cast<QToolButton *>(object);
+//    QString object_name = pushbtn->text();
+//    int index = object_name.toInt() - 1;
+//    if(m_selectRows != index)
+//        ChangeControlColors(false,m_selectRows);
+
+//    QByteArrayList modifyarry;
+//    modifyarry.clear();
+
+//    QPoint getOutPoint(0,0);
+//    if(m_CalibrationArea == TestChannel_ReagentNeedle || m_CalibrationArea == TestChannel_Hands)
+//    {
+//        if(m_CalibrationArea == TestChannel_ReagentNeedle)
+//        {
+//            SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,index,MOTOR_REAGNET_INDEX,getOutPoint);
+//            modifyarry = Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_REAGNET_INDEX, 0, m_downhigh, codenum, m_downhigh);
+//        }
+//        else if(m_CalibrationArea == TestChannel_Hands)
+//        {
+//            SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,index,MOTOR_HANDS_INDEX,getOutPoint);
+//            modifyarry =  Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_HANDS_INDEX, 0, m_downhigh, codenum, m_downhigh);
+//        }
+//        ChangeControlColors(true,index);
+//    }
+//    else
+//    {
+//         SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,index,MOTOR_HANDS_INDEX,getOutPoint);
+//         modifyarry =  Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_HANDS_INDEX, 0, m_downhigh, codenum, m_downhigh);
+//    }
+//    ui->label_movedPos->setText(QString("测试通道校验位置:[%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y()));
+//    emit SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
+//    return;
 }
 
 //点击试剂区
@@ -1399,7 +1444,7 @@ void  CustomPlot::ClickReagentsTube()
     SelectHoleChangebgm(true,index,0);
     QByteArrayList modifyarry = Testing::m_TaskDll->XYLocation(getOutPoint,MOTOR_REAGNET_INDEX, 0, m_downhigh,codenum, m_downhigh);
     ui->label_movedPos->setText(QString("试剂区校验位置:[%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y()));
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry); //试剂区
+    emit SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry); //试剂区
     return;
 }
 
@@ -1424,7 +1469,7 @@ void CustomPlot::_sendmoveActiveToEquipment(AreasCalibration indexZone, QPoint M
         break;
     }
     ui->label_movedPos->setText(QString("%1:[%2,%3]").arg(outputText).arg(MovingAxis.x()).arg(MovingAxis.y()));
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
+    emit SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
     return;
 }
 
@@ -1466,6 +1511,7 @@ void CustomPlot::on_toolButton_Clean_1_clicked()
         SingletonAxis::GetInstance()->cleanZoneAxisPos(READ_OPERRAT,MOTOR_REAGNET_INDEX,getOutPoint);
         indexZ = MOTOR_REAGNET_INDEX;
     }
+
     ChangeControlColors(true,0);
 
     _sendmoveActiveToEquipment(detergent,getOutPoint,indexZ);
@@ -1477,39 +1523,38 @@ void CustomPlot::on_toolButton_Clean_1_clicked()
 //点击弃杯孔
 void CustomPlot::on_toolButton_throwTube_clicked()
 {
-    quint8  codenum = 0%255;
-    int  index = 0;
-    QPoint getOutPoint(0,0);
-    SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT,getOutPoint);
-    QByteArrayList modifyarry;
-    modifyarry.clear();
-    if(ThrowCup_Hands != m_CalibrationArea  )
-    {
-        //后退丢杯
-        int _throwcupsdown = INI_File()._gethandsdownthrowcpus();
-        modifyarry = Testing:: m_TaskDll->AdjustModeThrowTube(getOutPoint, MOTOR_HANDS_INDEX, 0, _throwcupsdown, codenum);
-		ui->label_movedPos->setText(QString("弃杯:[%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y()));
+    quint8 codeNum = 0;
+    QPoint throwPoint;
+    SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT, throwPoint);
+
+    QByteArrayList modifyArray;
+    QString statusText;
+
+    if (ThrowCup_Hands != m_CalibrationArea) {
+        int throwCupsDown = INI_File()._gethandsdownthrowcpus();
+        modifyArray = Testing::m_TaskDll->AdjustModeThrowTube(throwPoint, MOTOR_HANDS_INDEX, 0, throwCupsDown, codeNum);
+        statusText = QString("弃杯:[%1,%2]").arg(throwPoint.x()).arg(throwPoint.y());
+    } else {
+        modifyArray = Testing::m_TaskDll->XYLocation(throwPoint, MOTOR_HANDS_INDEX, 0, m_downhigh, codeNum, m_downhigh);
+        ChangeControlColors(true, 0);
+        statusText = QString("弃杯校验位置:[%1,%2]").arg(throwPoint.x()).arg(throwPoint.y());
     }
-    else
-    {
-        modifyarry =  Testing:: m_TaskDll->XYLocation(getOutPoint, MOTOR_HANDS_INDEX, 0, m_downhigh, codenum, m_downhigh); //只移动到位置
-        ChangeControlColors(true,index);
-        ui->label_movedPos->setText(QString("弃杯校验位置:[%1,%2]").arg(getOutPoint.x()).arg(getOutPoint.y()));
-    }
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
-    return;
+
+    ui->label_movedPos->setText(statusText);
+    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
 }
 
 
 void CustomPlot::Recv_CalibrationMoved()
 {
-    QString gettext = ui->label_movedPos->text();
-    if(!gettext.contains("完成",Qt::CaseSensitive))
-    {
-        QString setstr = QString("%1 [%2]").arg(gettext).arg("完成");
-        ui->label_movedPos->setText(setstr);
+    QString text = ui->label_movedPos->text();
+    if (text.indexOf("完成") == -1) {
+        ui->label_movedPos->setText(text + " [完成]");
     }
 }
+
+
+
 
 
 void Generate_random_numbers(QVector<int> & Randomnum ,int spacevalue)
@@ -1658,10 +1703,11 @@ void CustomPlot::send_test_cups_accurate()
 //移动到摄像头区域下样本针
 void CustomPlot::on_toolButton_video_clicked()
 {
-    const QPoint locVideo(190,3140);
-    quint8 codenum = 0 ;
-    QByteArrayList modifyarry = Testing:: m_TaskDll->XYLocation(locVideo, Blood_z, 2, m_downhigh,codenum, m_downhigh);
+    static const QPoint locVideo(190, 3140);
+    quint8 codeNum = 0;
+
+    auto modifyArray = Testing::m_TaskDll->XYLocation(locVideo, Blood_z, 2, m_downhigh, codeNum, m_downhigh);
+
     ui->label_movedPos->setText(QString("信息录入坐标:[%1,%2]").arg(locVideo.x()).arg(locVideo.y()));
-    emit this->SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);//血样针
-    return;
+    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
 }
