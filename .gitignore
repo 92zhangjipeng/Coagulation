@@ -24,4 +24,6 @@ Release/
 
 # 其他
 *.ui
-*.qrc
+*.qrc*.opensdf
+*.sdf
+*.suo
