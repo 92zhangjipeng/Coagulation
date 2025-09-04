@@ -25,6 +25,7 @@
 #include "cglobal.h"
 #include "channelvaluepanel.h"
 #include "doqualitycontrol.h"
+#include "dilag/custompppvalue.h"
 #include <iostream>
 #include <cmath>
 #include <memory>
@@ -90,7 +91,10 @@ private:
 
     void itemChangeValue(const int row,const int cols, const int val);
 
-    void initSheet();//初始化设置界面的控件样式
+    //初始化设置界面的控件样式
+    void initSheet();
+
+    void initshowPPPinit();
 
     //信号与槽连接
     void intsignalsMable();
@@ -293,7 +297,7 @@ private:
     Ui::MachineSetting *ui;
     QButtonGroup *mResultMode = nullptr;  //测试结果数据模式
 
-
+    std::shared_ptr<customPPPValue> m_pppValueWidget; //PPPValue
 
     QList<quint8> QualityChannel; //质控通道
     //functionclass *m_pQualityTest;

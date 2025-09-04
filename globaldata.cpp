@@ -8,6 +8,7 @@
 #include <QTextStream>
 #include <QLineEdit>
 #include <QDateTime>
+#include "aligndelegate.h"
 #include "cglobal.h"
 #include "ini_file.h"
 #include "quiutils.h"
@@ -155,7 +156,13 @@ void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget,const QSt
     CustomTableWidget->setMouseTracking(true);  //设置鼠标追踪
     CustomTableWidget->setSelectionBehavior(QAbstractItemView::SelectItems); //整行选中的方式
     CustomTableWidget->setEditTriggers(QAbstractItemView::CurrentChanged); //禁止编辑
-    CustomTableWidget->horizontalHeader()->setFont(QFont("楷体", 16));
+
+
+    QFont cellFont;
+    cellFont.setPointSize(11); // 设置较大的字号
+    cellFont.setBold(false);
+    CustomTableWidget->horizontalHeader()->setFont(cellFont);
+
     //表列随着表格变化而自适应变化++
     CustomTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     CustomTableWidget->setAlternatingRowColors(true); //隔行换色
@@ -164,9 +171,10 @@ void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget,const QSt
     CustomTableWidget->horizontalHeader()->setHighlightSections(false);
 
     //设置表头字体加粗
-    QFont font = CustomTableWidget->horizontalHeader()->font();
-    font.setBold(true);
-    CustomTableWidget->horizontalHeader()->setFont(font);
+    QFont headerFont = CustomTableWidget->horizontalHeader()->font();
+    headerFont.setBold(true);
+    headerFont.setPointSize(12); // 增大表头字号
+    CustomTableWidget->horizontalHeader()->setFont(headerFont);
     CustomTableWidget->verticalHeader()->setHidden(true);       //隐藏行号列
     CustomTableWidget->setWindowTitle(TableName);
 
@@ -185,6 +193,26 @@ void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget,const QSt
         CustomTableWidget->verticalHeader()->setVisible(false);
         CustomTableWidget->verticalHeader()->setDefaultSectionSize(35); //默认行高
     }
+
+    // 设置表头样式 - 更美观
+    CustomTableWidget->horizontalHeader()->setStyleSheet(
+        "QHeaderView::section {"
+        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+        "   color: white;"
+        "   padding: 8px;"
+        "   border: 1px solid #3a3a3a;"
+        "   font-weight: bold;"
+        "   font-size: 12pt;"  // 增大表头字号
+        "}"
+        "QHeaderView::section:first {"
+        "   border-left: 1px solid #3a3a3a;"
+        "}"
+        "QHeaderView::section:last {"
+        "   border-right: 1px solid #3a3a3a;"
+        "}"
+    );
+
 
     QString cssTable = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
                        "QTableWidget::item:selected{background-color:rgb(139, 139, 122)}"
@@ -205,14 +233,8 @@ void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget,const QSt
                        "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,stop:0 rgba(188, 187, 186, 255), "
                        "stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
     CustomTableWidget->setStyleSheet(cssTable);
-    CustomTableWidget->horizontalHeader()->setStyleSheet("QHeaderView::section{background-color:rgb(188, 187, 186); font: 18pt '楷体';color: black; border:2px;};");
-
-    //设置水平、垂直滚动条样式
-    CustomTableWidget->horizontalScrollBar()->setStyleSheet("QScrollBar{background:transparent; height:10px;}"
-    "QScrollBar::handle{background:lightgray; border:2px solid transparent; border-radius:5px;}"
-    "QScrollBar::handle:hover{background:gray;}"
-    "QScrollBar::sub-line{background:transparent;}"
-    "QScrollBar::add-line{background:transparent;}");
+    // 设置代理以实现编辑时文字居中
+    CustomTableWidget->setItemDelegate(new AlignDelegate(CustomTableWidget));
     CustomTableWidget->update();
     return;
 }

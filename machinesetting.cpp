@@ -42,7 +42,9 @@ MachineSetting::MachineSetting(QWidget *parent) :
     QWidget(parent),
     mbopendallchannel(false),
     m_initAdjustcoordinates(false),
+    m_pppValueWidget(std::make_shared<customPPPValue>()),
     ui(new Ui::MachineSetting)
+
 {
     ui->setupUi(this);
     this->setWindowTitle(tr("仪器参数设置"));
@@ -57,6 +59,8 @@ MachineSetting::MachineSetting(QWidget *parent) :
     ui->checkBox_Recapture->hide();
     //ui->groupBox_setfile->hide();
     ui->pushButton_backsetting->hide();
+
+    initshowPPPinit();
 }
 
 MachineSetting::~MachineSetting()
@@ -169,6 +173,7 @@ void MachineSetting::_initpara()
     _innitHands(m_typedequipment);
 
     intsignalsMable();
+
 
     QObject::connect(ui->pushButton_SWITCH,&QPushButton::clicked,this,[=]()
     {
@@ -2960,18 +2965,6 @@ void MachineSetting::insertDataItem(QTableWidget* pdimmingTable,
 }
 
 
-//void MachineSetting::insertDataItem(QTableWidget *pdimmingTable,int rows,int cols,QString itemdata,bool enable)
-//{
-//    QTableWidgetItem *item_ = new QTableWidgetItem(itemdata);
-//    item_->setTextColor(QColor(0 ,0, 0));
-//    pdimmingTable->setItem(rows,cols,item_);
-//    if(!enable)
-//        item_->setFlags(Qt::ItemIsEnabled);//设置改item不可修改;
-//    pdimmingTable->item(rows,cols)->setFont(QFont( "楷体", 14, QFont::Black ));
-//    pdimmingTable->item(rows,cols)->setTextAlignment(Qt::AlignVCenter|Qt::AlignHCenter);
-//    return;
-//}
-
 void MachineSetting::tableinsertBtn(QTableWidget *pdimmingTable,int row,int col,const QString& customQss)
 {
 
@@ -3252,4 +3245,43 @@ void MachineSetting::handlebackHandssuck(bool issuck,int airval){
 void MachineSetting::on_pushButtonsavedimming_clicked()
 {
     configWriteDimming2Board();
+}
+
+
+void MachineSetting::initshowPPPinit(){
+    QLOG_DEBUG() << "Initializing PPP value display...";
+
+    // 确保widget存在
+    if (!m_pppValueWidget) {
+        m_pppValueWidget = std::make_unique<customPPPValue>();
+    }
+
+    // 设置widget的最小大小，确保可见
+    //m_pppValueWidget->setMinimumSize(400, 300);
+
+    // 清除现有布局
+    if (ui->groupBoxShowPPPinit->layout()) {
+        QLayout* oldLayout = ui->groupBoxShowPPPinit->layout();
+        while (QLayoutItem* item = oldLayout->takeAt(0)) {
+            if (QWidget* widget = item->widget()) {
+                widget->setParent(nullptr);
+            }
+            delete item;
+        }
+        delete oldLayout;
+    }
+
+    // 创建新布局
+    QVBoxLayout *layout = new QVBoxLayout(ui->groupBoxShowPPPinit);
+    layout->setContentsMargins(5, 5, 5, 5); // 上边距稍大以容纳标题
+    layout->setSpacing(5);
+
+    // 添加到布局
+    layout->addWidget(m_pppValueWidget.get());
+
+    // 确保所有部件都可见
+    m_pppValueWidget->show();
+    ui->groupBoxShowPPPinit->show();
+
+    QLOG_DEBUG() << "PPP Value Widget initialized";
 }

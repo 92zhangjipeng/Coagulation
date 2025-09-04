@@ -1203,10 +1203,23 @@ void QualityControl::Capacity_display_init(QTableWidget *_ptablewidget)
     _ptablewidget->horizontalHeader()->setFixedHeight(40); //设置表头的高度
     _ptablewidget->setAlternatingRowColors(true); //隔行换色
 
-   _ptablewidget->horizontalHeader()->setStyleSheet("QHeaderView::section{border:1px solid #696969;"
-                                                     "background-color:rgb(188, 187, 186); "
-                                                     "font:14pt '楷体'; "
-                                                     "color: black;};");
+   _ptablewidget->horizontalHeader()->setStyleSheet("QHeaderView::section {"
+          "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+          "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+          "   color: white;"
+          "   padding: 8px;"
+          "   border: 1px solid #3a3a3a;"
+          "   font-weight: bold;"
+          "   font-size: 12pt;"  // 增大表头字号
+          "}"
+          "QHeaderView::section:first {"
+          "   border-left: 1px solid #3a3a3a;"
+          "}"
+          "QHeaderView::section:last {"
+          "   border-right: 1px solid #3a3a3a;"
+          "}");
+
+
     _ptablewidget->setStyleSheet(InitTalbe_css);
     //设置水平、垂直滚动条样式
     _ptablewidget->horizontalScrollBar()->setStyleSheet("QScrollBar{background:transparent; height:10px;}"

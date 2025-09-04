@@ -267,8 +267,6 @@ typedef QVector<REAGENT_CONSUMABLES_* > equipmentConsumablesVec;
 
 
 
-
-
 class ConsumablesOper
 {
 public:
@@ -289,13 +287,9 @@ public:
     //更换整体体耗材比例设置为512
     static void updateReplaceLocRatio(bool isWrite, quint8 indexReag, quint16 &bottleRatio);
 
-
     static  void TotalConsumablesAlarm(quint8 indexReag,bool &alarms); //对比总耗材报警
-
     static void updateReagentTotal(bool bwrite, quint8 indexReag, quint16 &ReagentTol); //更新试剂总容量
-
     static void updateReagentLimit(bool bwrite,quint8 indexReag,quint8 &limitArlm);     //更新试剂限位
-
     static bool _ObtainConsumablesBalance(quint8 index_Supplies, quint8 &remainingQuantity); //获得耗材余额
 
 
@@ -458,45 +452,33 @@ private:
 
     //翻译转换2个字节一个坐标的参数
     void Translation_conversion(const QStringList origindata, QMap<quint8, quint16> &conversiondata);
-
     void recvEquipmentKind(const QStringList hexArry); //0x00  收仪器型号？
 
     //0X01
     void recvParaIData(const QStringList hexArry);
-
     //0x02
     void recvParaIIdData(const QStringList hexArry);
-
     //0x03
     void recvReagentLimit(const QStringList hexArry);
-
     //0x04
     void recvBloodPinq16data(const QStringList hexArry);
-
     //0x16
     void recvBloodOtherdataAll(const QStringList hexArry);
-
      //0x17
     void recvReagentData(const QStringList hexArry);
-
     //0x18
     void recvReagentDataOther(const QStringList hexArry);
-
     //0x19
     void recveBottleLimit(const QStringList hexArry);
-
     //0x1a 吸杯负压判断值
     void recveNegativePressure(const QStringList hexArry);
-
     //0x1b 模组调光值
     void recveModuleDataPressure(const QStringList& hexArry);
-
 
 
     void recvReagentCapacity(const QStringList hexArry);
 
     void recvOrininAxis(const QStringList hexArry); //0x06 收到原点坐标x...
-
     void _recvOrininAxisY(const QStringList hexArry); //0x07 收到原点坐标y...
 
     //通道相对试剂针1-5
@@ -524,11 +506,8 @@ private:
 
 
     void groupReagentinfo(bool bread);
-
     void _Parsing_received_messages(const QStringList ArryRecvdata); //解析接收数据
-
     void _equipmentParaParsing(quint8 index_, const QStringList ArryRecvdata);
-
     void _mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata); //读取主板内试剂耗材信息
 
 
@@ -556,9 +535,7 @@ private:
 
 
     void _obatinwriteOrder();
-
     void _sendWriteAxisOrder(quint8 index);
-
     void _writeFinish(quint8 index);
 
     //填充坐标写入到仪器

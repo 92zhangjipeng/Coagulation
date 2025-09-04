@@ -37,7 +37,7 @@ Calibrate::Calibrate(QWidget *parent) :
 
 
     qRegisterMetaType<QVariant>("QVariant");
-    m_loadTableColor.setRgb(139, 134, 130);
+    m_loadTableColor.setRgb(10, 200, 10);
 
 }
 
@@ -74,16 +74,16 @@ void Calibrate::InitSaveTableList(QTableWidget * pTable)
     pTable->setHorizontalHeaderLabels(headerList);
 
 
-    QFont font ;
-    font.setFamily("楷体");
-    font.setPixelSize(14);
-    font.setBold(true);
+    QFont headerFont ;
+    headerFont.setFamily("楷体");
+    headerFont.setPointSize(12);
+    headerFont.setBold(true);
 
     pTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
     pTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     pTable->horizontalHeader()->setFixedHeight(40);
 
-    pTable->horizontalHeader()->setFont(font);
+    pTable->horizontalHeader()->setFont(headerFont);
     pTable->horizontalHeader()->setStretchLastSection(true); //设置充满表宽度
     pTable->verticalHeader()->setDefaultSectionSize(30);    //设置行高
 
@@ -111,14 +111,31 @@ void Calibrate::InitSaveTableList(QTableWidget * pTable)
         //pTable->horizontalHeader()->resizeSection(i,110); //设置表头第一列的宽度为
     }
 
-    pTable->horizontalHeader()->setFixedHeight(30); //设置表头的高度
+
+    pTable->horizontalHeader()->setFixedHeight(35); //设置表头的高度
     pTable->horizontalHeader()->setStretchLastSection(true); //使行列头自适应宽度，所有列平均分来填充空白部分
     pTable->setAlternatingRowColors(true); //隔行换色
     pTable->verticalHeader()->show();// 显示行号
 
 
+    pTable->horizontalHeader()->setStyleSheet(
+        "QHeaderView::section {"
+        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+        "   color: white;"
+        "   padding: 2px;"
+        "   border: 1px solid #3a3a3a;"
+        "   font-weight: bold;"
+        "   font-size: 12pt;"  // 增大表头字号
+        "}"
+        "QHeaderView::section:first {"
+        "   border-left: 1px solid #3a3a3a;"
+        "}"
+        "QHeaderView::section:last {"
+        "   border-right: 1px solid #3a3a3a;"
+        "}"
+    );
 
-    pTable->horizontalHeader()->setStyleSheet("QHeaderView::section{background-color:#FFFFFF; font:14pt '楷体';color: black;};");
     pTable->setStyleSheet(TableWidgetCss);
     pTable->verticalScrollBar()->setStyleSheet(VScroBarCss);
 

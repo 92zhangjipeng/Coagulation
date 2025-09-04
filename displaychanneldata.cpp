@@ -356,7 +356,18 @@ void displayChanneldata::OutputModulTestResult()
 }
 
 
-/*公式部分*/
+
+
+
+/**公式部分
+ * @brief displayChanneldata::Calculation_formula
+ * @param sampleNum  样本id
+ * @param reagentIndex 试剂编号
+ * @param currentRichValue 实时PRP
+ * @param baselinePoor   初始PPP
+ * @param baselineRich   初始PRP
+ * @param channelIdx   测试通道从1开始
+ */
 void displayChanneldata::Calculation_formula(const QString& sampleNum,
                                                 quint8 reagentIndex,
                                                 int currentRichValue,
@@ -370,6 +381,11 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
 
     // 3. 根据算法模式计算
     const bool isLogMode = INI_File().rConfigPara("AbsorbanceAlgorithm").toBool();
+
+    //取PPP固值  
+    quint16 channelPPPValue = customPPPValue::getChannelPPPValues(channelIdx);
+    baselinePoor = channelPPPValue;
+
     const float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
                                                        static_cast<float>(baselineRich),
                                                        static_cast<float>(baselinePoor));

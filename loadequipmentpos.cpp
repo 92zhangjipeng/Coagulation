@@ -177,59 +177,25 @@ void SingletonAxis::reagetZoneAxisPos(bool bWrite, quint8 indexReag, QPoint &pos
             });
 
     if (bWrite) {
-            if (findIt != container.end()) {
-                // 存在则直接更新
-                (*findIt)->Axispos = pos;
-                (*findIt)->reagname.clear(); // 明确清空而非赋空字符串
-            } else {
-                // 不存在则创建新项（使用智能指针避免内存泄漏）
-                auto newItem = std::make_unique<REAGENTZONEAXIS_>();
-                newItem->index = indexReag;
-                newItem->Axispos = pos;
-                newItem->reagname.clear();
-                container.append(newItem.release()); // 假设容器管理原始指针
-            }
+        if (findIt != container.end()) {
+            // 存在则直接更新
+            (*findIt)->Axispos = pos;
+            (*findIt)->reagname.clear(); // 明确清空而非赋空字符串
         } else {
-            // 读取时直接赋值或保持pos不变
-            if (findIt != container.end()) {
-                pos = (*findIt)->Axispos;
-            }
-            // 未找到时返回错误状态或默认值（根据需求）
+            // 不存在则创建新项（使用智能指针避免内存泄漏）
+            auto newItem = std::make_unique<REAGENTZONEAXIS_>();
+            newItem->index = indexReag;
+            newItem->Axispos = pos;
+            newItem->reagname.clear();
+            container.append(newItem.release()); // 假设容器管理原始指针
         }
-
-
-//	auto it = g_pEquipAxiaspos->reagentZoneAxispos.begin();
-//	if (bWrite)
-//	{
-//		bool hadkey = false; //写的时候如果存在就是修改 不存在就是++ 存在就是改
-//		while (it != g_pEquipAxiaspos->reagentZoneAxispos.end())
-//		{
-//			if ((*it)->index == indexReag) {
-//				(*it)->reagname = "";
-//				(*it)->Axispos = pos;
-//				hadkey = true;
-//				break;
-//			}
-//			it++;
-//		}
-//		if (!hadkey) {
-//			REAGENTZONEAXIS_ *psingReaget = new REAGENTZONEAXIS_;
-//			psingReaget->index = indexReag;
-//			psingReaget->Axispos = pos;
-//			psingReaget->reagname = "";
-//			g_pEquipAxiaspos->reagentZoneAxispos.append(psingReaget);
-//		}
-//	}
-//	else
-//	{
-//		while (it != g_pEquipAxiaspos->reagentZoneAxispos.end()){
-//			if ((*it)->index == indexReag){
-//				pos = (*it)->Axispos;
-//				break;
-//			}
-//			it++;
-//		}
-//	}
+    } else {
+        // 读取时直接赋值或保持pos不变
+        if (findIt != container.end()) {
+            pos = (*findIt)->Axispos;
+        }
+        // 未找到时返回错误状态或默认值（根据需求）
+    }
 	return;
 }
 
@@ -1615,20 +1581,19 @@ void loadEquipmentPos::receiveInfo()
 
             for(int k = 0; k < PROTOCOL_LENGTH; k++)
                 singledata.push_back(dataList.at(i*15+k));
-
             data_.push_back(singledata);
         }
         for(int k = 0 ; k < data_.size() ; k++)
         {
             QStringList recv_data = data_.at(k);
-
             _Parsing_received_messages(recv_data); //解析
 
         }
     }
     else
     {
-        QLOG_ERROR()<<"收到数据长度异常数据"<<recvedata.toHex(' ').trimmed().toUpper()<<"长度"<<size_<<__FILE__<<__LINE__<<endl;
+        QLOG_ERROR()<<"收到数据长度异常数据"<<recvedata.toHex(' ').trimmed().toUpper()<<
+                      "长度"<<size_<<__FILE__<<__LINE__<<endl;
     }
     recvedata.clear();
     return;
@@ -1714,8 +1679,6 @@ void loadEquipmentPos::RecvSuippleNextStepOnlyRatio(const bool bRead,quint8 fini
     }
     return;
 }
-
-
 
 
 void loadEquipmentPos::_mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata)

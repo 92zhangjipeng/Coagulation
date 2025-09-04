@@ -199,9 +199,21 @@ void Inquire_Sql_Info::Init_tablewidget_style()
     pinquireTable->setAlternatingRowColors(true); //隔行换色
    //pinquireTable->verticalHeader()->show();// 显示行号
 
-   pinquireTable->horizontalHeader()->setStyleSheet("QHeaderView::section{border:1px solid #696969;"
-                                                                   "background-color:rgb(188, 187, 186); font:14pt '楷体'; "
-                                                                   "color: black;};");
+   pinquireTable->horizontalHeader()->setStyleSheet( "QHeaderView::section {"
+                                                     "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                                                     "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+                                                     "   color: white;"
+                                                     "   padding: 8px;"
+                                                     "   border: 1px solid #3a3a3a;"
+                                                     "   font-weight: bold;"
+                                                     "   font-size: 12pt;"  // 增大表头字号
+                                                     "}"
+                                                     "QHeaderView::section:first {"
+                                                     "   border-left: 1px solid #3a3a3a;"
+                                                     "}"
+                                                     "QHeaderView::section:last {"
+                                                     "   border-right: 1px solid #3a3a3a;"
+                                                     "}");
     pinquireTable->setStyleSheet(TableWidgetCss);
     pinquireTable->verticalScrollBar()->setStyleSheet(VScroBarCss); //垂直
     pinquireTable->horizontalScrollBar()->setStyleSheet("QScrollBar{background:transparent; height:8px;}"

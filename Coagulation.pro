@@ -239,7 +239,8 @@ SOURCES += \
     custom_style/frozentablewidget.cpp \
     dilag/customfixtableview.cpp \
     custom_style/customtablemodel.cpp \
-    SerialPortException.cpp
+    SerialPortException.cpp \
+    dilag/custompppvalue.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -374,7 +375,9 @@ HEADERS += \
     dilag/customfixtableview.h \
     custom_style/customtablemodel.h \
     custom_style/animationprocessbar.h \
-    SerialPortException.h
+    SerialPortException.h \
+    dilag/custompppvalue.h \
+    aligndelegate.h
 
 FORMS += \
     mainwindow.ui \
@@ -420,7 +423,8 @@ FORMS += \
     dilag/batchaddsample.ui \
     dilag/pedata.ui \
     Machinewidget/bloodpinparaset.ui \
-    dilag/customfixtableview.ui
+    dilag/customfixtableview.ui \
+    dilag/custompppvalue.ui
 
 RESOURCES += \
     picture.qrc

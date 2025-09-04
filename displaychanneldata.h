@@ -16,7 +16,7 @@
 #include "mydatabase.h"
 #include "mycustomcurve.h"
 #include <creatcurve_data/customcurveadp.h>
-
+#include "dilag/custompppvalue.h"
 
 
 struct gatherdata
@@ -40,8 +40,8 @@ public:
     void    _start();
 
     void    UpdateChannelValue(const int Channel ,const int ChannelData);
-
     int     GetChannelValue(quint8);  //获取通道值
+
 signals:
     void    SetChannelValueUpdate(const int,const int); /*更新显示设置界面的通道数据*/
 
