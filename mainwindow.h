@@ -162,7 +162,7 @@ private:
 
     void centerWindow(QWidget* widget);
 
-    void initTestPprHeight();
+    void initializeAltimeterHardware();
 
     // 封装信号连接逻辑
     void setupDimmingConnections(QSharedPointer<ControltheModuletemp> widget,
@@ -183,7 +183,7 @@ private:
     void    initchnstate();
 
      /*根据仪器类型配置界面*/
-    void    updateModuleVisibilityBasedOnInstrumentType();
+    void updateModuleVisibilityBasedOnInstrumentType();
 
     void    _serialConnection();
 
@@ -295,10 +295,12 @@ public slots:
 
     void    handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle);
 
-     /*触发测高开关*/
-    void    recv_MainBoardHeighTigger() ;
+    //触发测高开关
+    void recvTriggerAltimetrySignal() ;
 
-    void    Recv_Module_temperature(const quint8 IndexMode, const double tempValue);//模组温度
+
+    //模组温度
+    void  recvModuleTemperature(const quint8 IndexMode, const double tempValue);
 
     void    DisplaysConsumablesRemaining();  /*更新主界面显示耗材余量*/
 
@@ -398,14 +400,14 @@ signals:
 
 private slots:
 
-    void    onReminderRequested(QString, QString);
+    void onReminderRequested(QString, QString);
+    void onStartTestClicked(); //开始测试
 
-
-    void    on_sStatusInfo_clicked();
-    void    on_toolButton_quality_reset_clicked();
-    void    on_toolButton_quality_cleaning_clicked();
-    void    on_toolButton_quality_sample_clicked();
-    void    on_sStatusInfo_text_clicked();
+    void on_sStatusInfo_clicked();
+    void on_toolButton_quality_reset_clicked();
+    void on_toolButton_quality_cleaning_clicked();
+    void on_toolButton_quality_sample_clicked();
+    void on_sStatusInfo_text_clicked();
 
 private:
     QIcon m_pauseIcon;
@@ -424,6 +426,17 @@ private:
     void logTabSwitchEvent(int index);
     void handleFunctionButtonClick(const int indexed); //点击跳转页面
 
+    //主界面模组温度状态栏
+    void updateTemperatureDisplay(quint8 moduleIndex, const QString& displayText, double tempValue);
+    void setTemperatureColor(QLabel* label, double temperature);
+
+    //触发测高信号处理函数
+    bool isWholeBloodMode();
+    void handleNonWholeBloodMode();
+    bool checkCameraAvailability();
+    bool checkAltimeterStatus();
+    bool initializeAltimeter();
+    void triggerHeightMeasurement();
     
 
     //写入耗材余量 退出关闭软件
@@ -438,7 +451,6 @@ private:
     bool m_iconsLoaded = false;
 
 private:
-    static constexpr int TRAY_MESSAGE_DURATION = 5000; // 托盘消息显示时长
     QSystemTrayIcon *m_systemTray = nullptr; //托盘
     QMenu*   m_trayMenu; //托盘目录
     void initTrayFunction();   //初始化托盘功能
@@ -446,6 +458,10 @@ private:
     void setupTrayMenuStyle();
     void connectTraySignals();
     void checkTrayAvailability();
+    void setTrayIcon();
+    void toggleWindowVisibility();
+    void showTrayMessage(const QString& title, const QString& message,
+                         QSystemTrayIcon::MessageIcon icon, int timeout);
 
 private:
     Ui::MainWindow *ui;
@@ -470,17 +486,13 @@ private:
 
 
     //theTestModuleProtocol *mtestmoduleprotocol = nullptr;
-
-
     //QSharedPointer <CustomPlot> m_calibrationLoca;  //位置校准
 
     //执行动作命令线程
     QThread mThreaddotest;
     QScopedPointer<TestProjectProcess> m_pdoingTesting;
 
-
     bool m_shutdownClean;//关机清洗标志
-
     QMap<quint8, QLabel*> displayRatioLab;  //耗材Label
 
     /*异常启动后任务处理*/
@@ -489,7 +501,8 @@ private:
     /*多次点击打开设置界面*/
     bool m_bmachineconfigureSignal;
 
-    bool m_MachineAlreadyInitCleanned; //机器已经初始化清洗
+    //机器已经初始化清洗
+    bool m_MachineAlreadyInitCleanned;
 
 
     //ThreadReminderTsetTube *m_ThreadReminderTsetTube = nullptr;
@@ -503,7 +516,6 @@ private:
     //SendMachineSportInfo *Machinesport = nullptr;
 
     bool  m_benterapp; //输入密码进入软件标志
-
     quint8  minstrumentType;  /*读取到仪器类型*/
 
     QVector<quint8 > m_QualitylastChannel; //测试质控通道

@@ -3,6 +3,7 @@
 #include "warn_interface.h"
 #include "ui_warn_interface.h"
 #include <QDesktopWidget>
+#include <QTimer>
 
 warn_interface::warn_interface(QString titlestr, QString  warmtext,QWidget *parent) :
     QWidget(parent),
@@ -41,6 +42,21 @@ void warn_interface::showTransientWarning(const QString& title, const QString& m
     warn->raise();
     warn->activateWindow();
 }
+
+void  warn_interface::showTimeTransientWarning(const QString& title, const QString& message, int autoCloseMs) {
+	warn_interface* warn = new warn_interface(title, message);
+	warn->setWindowFlags(Qt::WindowStaysOnTopHint | Qt::Tool | Qt::FramelessWindowHint);
+	warn->setAttribute(Qt::WA_DeleteOnClose);
+	warn->setWindowModality(Qt::NonModal);
+
+	// 设置自动关闭定时器
+	QTimer::singleShot(autoCloseMs, warn, &warn_interface::close);
+
+	warn->show();
+	warn->raise();
+	warn->activateWindow();
+}
+
 
 void warn_interface::settitle(QString title_)
 {

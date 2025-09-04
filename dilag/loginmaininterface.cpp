@@ -303,18 +303,20 @@ void loginmaininterface::_loaduser()
 
 void loginmaininterface::on_toolButton_enter_clicked()
 {
+	const int closeTimeLegth = 1000;
+	const QString widgetTitle = "登入失败";
     QString user = ui->comboBox_user->currentText().trimmed();
     QString password = ui->lineEdit_password->text();
 
     // 校验用户名
     if (user.isEmpty()) {
-        warn_interface::showTransientWarning(tr("登入失败"), tr("账户名为空!")); // 封装警告弹窗
+        warn_interface::showTimeTransientWarning(widgetTitle, tr("账户名为空!"), closeTimeLegth); // 封装警告弹窗
         ui->comboBox_user->setFocus();
         return;
     }
 
     if (password.isEmpty()) {
-        warn_interface::showTransientWarning(tr("登入失败"), tr("密码不能为空!"));
+        warn_interface::showTimeTransientWarning(widgetTitle, tr("密码不能为空!"), closeTimeLegth);
         ui->lineEdit_password->setFocus();
         return;
     }
@@ -322,7 +324,7 @@ void loginmaininterface::on_toolButton_enter_clicked()
     // 查询数据库密码
     QString dbPassword = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword(user);
     if (dbPassword.isNull()) {
-       warn_interface::showTransientWarning(tr("登入失败"), tr("用户不存在!"));
+       warn_interface::showTimeTransientWarning(widgetTitle, tr("用户不存在!"), closeTimeLegth);
        return;
     }
 

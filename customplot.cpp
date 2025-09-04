@@ -1289,41 +1289,77 @@ void  CustomPlot::ClickBloodTube()
 //Click 试管区
 void CustomPlot::ClickEmptyTube()
 {
-    QToolButton* button = qobject_cast<QToolButton*>(QObject::sender());
-    if (!button) return;
+	QToolButton* button = qobject_cast<QToolButton*>(QObject::sender());
+	if (!button) return;
 
-    bool ok = false;
-    int index = button->text().toInt(&ok) - 1;
-    if (!ok || index < 0) return;
+	bool ok = false;
+	int index = button->text().toInt(&ok) - 1;
+	if (!ok || index < 0) return;
 
-    quint8 trayId = 0;
-    QPoint targetPoint;
-    int needleIndex = 0;
-    QString statusText;
+	quint8 trayId = (index / 60) + 1;;
+	QPoint targetPoint;
+	int needleIndex = 0;
+	QString statusText;
+	QString operationType;
 
-    if (m_CalibrationArea >= EmptyTube_1_BloodNeedle && m_CalibrationArea <= EmptyTube_4_BloodNeedle) {
-        trayId = SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, MOTOR_BLOOD_INDEX, targetPoint);
-        statusText = QString("试杯区(血样针)校验位置: [%1,%2]").arg(targetPoint.x()).arg(targetPoint.y());
-        needleIndex = MOTOR_BLOOD_INDEX;
-    } else if (m_CalibrationArea >= EmptyTube_1_Hands && m_CalibrationArea <= EmptyTube_4_Hands) {
-        trayId = SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, MOTOR_HANDS_INDEX, targetPoint);
-        statusText = QString("试杯区(抓手)校验位置: [%1,%2]").arg(targetPoint.x()).arg(targetPoint.y());
-        needleIndex = MOTOR_HANDS_INDEX;
-    } else {
-        QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
-        return;
-    }
+	// 定义校准区域类型
+	bool isBloodNeedleArea = (m_CalibrationArea >= EmptyTube_1_BloodNeedle &&
+		m_CalibrationArea <= EmptyTube_4_BloodNeedle);
+	bool isHandsArea = (m_CalibrationArea >= EmptyTube_1_Hands &&
+		m_CalibrationArea <= EmptyTube_4_Hands);
 
-    if (m_selectRows != index && m_selectRows > 0) {
-        SelectHoleChangebgm(false, m_selectRows - 60 * (trayId - 1), trayId - 1);
-    }
+	if (!isBloodNeedleArea && !isHandsArea) {
+		QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
+		return;
+	}
 
-    mcodeNum = 0;
-    QByteArrayList modifyArray = Testing::m_TaskDll->XYLocation(targetPoint, needleIndex,
-                                                                    1, m_downhigh, mcodeNum, m_downhigh);
+	// 确定针类型和操作类型
+	if (isBloodNeedleArea) {
+		needleIndex = MOTOR_BLOOD_INDEX;
+		operationType = "血样针";
+		SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, needleIndex, targetPoint);
+	}
+	else {
+		needleIndex = MOTOR_HANDS_INDEX;
+		operationType = "抓手";
+		SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, needleIndex, targetPoint);
+	}
 
-    ui->label_movedPos->setText(statusText);
-    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
+	// 根据枚举值计算期望的托盘ID
+	int expectedTrayId = 0;
+	if (isBloodNeedleArea) {
+		expectedTrayId = m_CalibrationArea - EmptyTube_1_BloodNeedle + 1;
+	}
+	else {
+		expectedTrayId = m_CalibrationArea - EmptyTube_1_Hands + 1;
+	}
+
+	// 验证托盘ID匹配
+	if (trayId != expectedTrayId) {
+		QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
+		return;
+	}
+
+	// 生成状态文本
+	statusText = QString("试杯区%1(%2)校验位置: [%3,%4]")
+		.arg(trayId)
+		.arg(operationType)
+		.arg(targetPoint.x())
+		.arg(targetPoint.y());
+
+	// 更新选择的行
+	if (m_selectRows != index && m_selectRows > 0) {
+		SelectHoleChangebgm(false, m_selectRows - 60 * (trayId - 1), trayId - 1);
+	}
+
+	// 生成运动指令
+	mcodeNum = 0;
+	QByteArrayList modifyArray = Testing::m_TaskDll->XYLocation(targetPoint, needleIndex,
+		1, m_downhigh, mcodeNum, m_downhigh);
+
+	// 更新UI并发送信号
+	ui->label_movedPos->setText(statusText);
+	emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
 }
 
 void CustomPlot::ReminderTable(int TableRow)
@@ -1468,7 +1504,7 @@ void CustomPlot::_sendmoveActiveToEquipment(AreasCalibration indexZone, QPoint M
 
         break;
     }
-    ui->label_movedPos->setText(QString("%1:[%2,%3]").arg(outputText).arg(MovingAxis.x()).arg(MovingAxis.y()));
+    ui->label_movedPos->setText(QString("%1[%2,%3]").arg(outputText).arg(MovingAxis.x()).arg(MovingAxis.y()));
     emit SportActive(COORDINATE_FINE_TUNING_TEST,modifyarry);
     return;
 }
@@ -1617,7 +1653,7 @@ void CustomPlot::on_pushButton_TrayHands_clicked()
 }
 void CustomPlot::slotsendcode(QByteArrayList data_)
 {
-     emit this->writdAxisata(data_,"吸吐");
+     emit writdAxisata(data_,"吸吐");
      //QLOG_DEBUG()<<"=============";
 }
 

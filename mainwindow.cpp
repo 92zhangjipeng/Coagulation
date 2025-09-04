@@ -201,8 +201,8 @@ MainWindow::~MainWindow()
     QsLogging::Logger::destroyInstance();
 
 
-	// 确保所有资源已释放
-	QCoreApplication::processEvents();
+    // 确保所有资源已释放
+    QCoreApplication::processEvents();
 
     delete ui;
 }
@@ -234,39 +234,39 @@ void MainWindow::configReminderIcon(quint8 index_)
 
 void MainWindow::_dimmingprogress(bool isDimmingInProgress)
 {
-	// 使用更清晰的变量名
-	static const bool isDimmingFinished = cglobal::g_controldimmingfinished;
+    // 使用更清晰的变量名
+    static const bool isDimmingFinished = cglobal::g_controldimmingfinished;
 
-	// 提前终止条件放在最前面
-	if (isDimmingFinished) {
-		initcreatprogressingDimming(false); // 终止调光进度条
-		return;
-	}
+    // 提前终止条件放在最前面
+    if (isDimmingFinished) {
+        initcreatprogressingDimming(false); // 终止调光进度条
+        return;
+    }
 
-	// 使用局部静态变量缓存模块值，避免重复读取INI文件
-	static int cachedModValues[3] = { -1, -1, -1 };
-	static bool valuesCached = false;
+    // 使用局部静态变量缓存模块值，避免重复读取INI文件
+    static int cachedModValues[3] = { -1, -1, -1 };
+    static bool valuesCached = false;
 
-	if (!valuesCached) {
-		cachedModValues[0] = INI_File().getModuledimmingVal(MODULE_1);
-		cachedModValues[1] = INI_File().getModuledimmingVal(MODULE_2);
-		cachedModValues[2] = INI_File().getModuledimmingVal(MODULE_3);
-		valuesCached = true;
-	}
+    if (!valuesCached) {
+        cachedModValues[0] = INI_File().getModuledimmingVal(MODULE_1);
+        cachedModValues[1] = INI_File().getModuledimmingVal(MODULE_2);
+        cachedModValues[2] = INI_File().getModuledimmingVal(MODULE_3);
+        valuesCached = true;
+    }
 
-	// 使用更清晰的逻辑判断
-	bool anyModuleDisabled = (cachedModValues[0] == 0) ||
-		(cachedModValues[1] == 0) ||
-		(cachedModValues[2] == 0);
+    // 使用更清晰的逻辑判断
+    bool anyModuleDisabled = (cachedModValues[0] == 0) ||
+        (cachedModValues[1] == 0) ||
+        (cachedModValues[2] == 0);
 
-	if (anyModuleDisabled) {
-		QLOG_ERROR() << "所有模组调光值设置为0 调光异常!";
-		return;
-	}
+    if (anyModuleDisabled) {
+        QLOG_ERROR() << "所有模组调光值设置为0 调光异常!";
+        return;
+    }
 
-	// 更新进度条状态
-	initcreatprogressingDimming(isDimmingInProgress);
-	update();
+    // 更新进度条状态
+    initcreatprogressingDimming(isDimmingInProgress);
+    update();
 }
 
 void MainWindow::init_style_all()
@@ -462,7 +462,7 @@ void MainWindow::init_style_all()
 
 
     //初始化启动测高线程
-    initTestPprHeight();
+    initializeAltimeterHardware();
 
     return;
 }
@@ -630,7 +630,7 @@ void MainWindow::initmainboradthread()
 
     //触发测高
     connect(mainBoardData,&mainControlBoardProtocol::MainBoardHeightTrigger,
-        this,&MainWindow::recv_MainBoardHeighTigger);
+        this,&MainWindow::recvTriggerAltimetrySignal);
 
     mainBoardData->_start(minstrumentType);
     return;
@@ -868,7 +868,7 @@ void MainWindow::onDeviceConnected(usbDevice dev)
 
 }
 void MainWindow::recvprepareReconnectGetData() {
-	pauseObtainmodulecommand("USB仪器设备连接", false);
+    pauseObtainmodulecommand("USB仪器设备连接", false);
 }
 
 void MainWindow::onDeviceDisconnected(usbDevice dev)
@@ -876,11 +876,11 @@ void MainWindow::onDeviceDisconnected(usbDevice dev)
     QLOG_DEBUG()<<"仪器掉线类型:"<<dev.type;
     QString usbDisconnect = QString("仪器断线:%1").arg(dev.type);
     const QString ErrOut = "仪器USB掉线,请检查接口!";
-	ThreadSafeReminder(usbDisconnect, ErrOut);
-	//设置状态 关闭串口
-	slotconnectionStateChanged(false);
-	emit cleanModuleBuffData(); //清空模组缓存数据
-	emit disConnectCloseSerial();
+    ThreadSafeReminder(usbDisconnect, ErrOut);
+    //设置状态 关闭串口
+    slotconnectionStateChanged(false);
+    emit cleanModuleBuffData(); //清空模组缓存数据
+    emit disConnectCloseSerial();
     emit ReminderTextOut(ERRORLOG, ErrOut);
     return;
 }
@@ -1137,9 +1137,9 @@ void MainWindow::_serialConnection()
     //重新连接
     connect(this,&MainWindow::requestReconnect,
             serial, &SuoweiSerialPort::prepareReconnect);
-	//断开连接 关闭窗口
-	connect(this, &MainWindow::disConnectCloseSerial,
-			serial, &SuoweiSerialPort::recvdisConnectCloseSerial);
+    //断开连接 关闭窗口
+    connect(this, &MainWindow::disConnectCloseSerial,
+            serial, &SuoweiSerialPort::recvdisConnectCloseSerial);
 
 
 
@@ -1162,9 +1162,9 @@ void MainWindow::_serialConnection()
     connect(serial,&SuoweiSerialPort::connectionStateChanged,
             this,&MainWindow::slotconnectionStateChanged);
 
-	connect(serial, &SuoweiSerialPort::prepareReconnectGetData,
+    connect(serial, &SuoweiSerialPort::prepareReconnectGetData,
             this, &MainWindow::recvprepareReconnectGetData);
-	
+
 
 
     //串口异常消息提示
@@ -1375,13 +1375,72 @@ void MainWindow::CreatActionExecution()
 }
 
 
+void MainWindow::showTrayMessage(const QString& title, const QString& message,
+                               QSystemTrayIcon::MessageIcon icon, int timeout)
+{
+    if (!m_systemTray || !m_systemTray->isVisible()) {
+        QLOG_WARN() << "无法显示消息：托盘图标未初始化或不可见";
+        return;
+    }
+
+    if (!QSystemTrayIcon::supportsMessages()) {
+        QLOG_WARN() << "系统不支持托盘消息功能";
+        return;
+    }
+
+    // 确保在主线程中执行
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, "showTrayMessage",
+                                Qt::QueuedConnection,
+                                Q_ARG(QString, title),
+                                Q_ARG(QString, message),
+                                Q_ARG(QSystemTrayIcon::MessageIcon, icon),
+                                Q_ARG(int, timeout));
+        return;
+    }
+
+    m_systemTray->showMessage(title, message, icon, timeout);
+}
+
+void MainWindow::toggleWindowVisibility()
+{
+    if (isVisible() && !isMinimized()) {
+        hide();
+    } else {
+        showNormal();
+        raise();
+        activateWindow();
+    }
+}
+void MainWindow::setTrayIcon()
+{
+    QIcon trayIcon;
+    QString customIconPath = ":/Picture/suowei.png";
+
+    if (QFile::exists(customIconPath)) {
+        trayIcon = QIcon(customIconPath);
+        QLOG_DEBUG() << "成功加载自定义图标:" << customIconPath;
+    } else {
+        QLOG_WARN() << "自定义图标不存在:" << customIconPath;
+        // 尝试使用内置图标
+        trayIcon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
+    }
+
+    m_systemTray->setIcon(trayIcon);
+    QLOG_DEBUG() << "托盘图标设置" << (trayIcon.isNull() ? "失败" : "成功");
+}
 void MainWindow::checkTrayAvailability()
 {
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {
         QMessageBox::critical(this,
-                            tr("System Tray Unavailable"),
-                            tr("This application requires system tray support."));
+                            tr("系统托盘"),
+                            tr("系统不支持托盘功能！\n请确保系统托盘服务正在运行."));
         QCoreApplication::exit(EXIT_FAILURE);
+    }
+
+    // 额外检查消息系统支持
+    if (!QSystemTrayIcon::supportsMessages()) {
+        QLOG_WARN() << "系统不支持托盘消息提示功能";
     }
 }
 void MainWindow::setupTrayMenuStyle()
@@ -1405,65 +1464,60 @@ void MainWindow::setupTrayMenuStyle()
         }
     )");
 }
+
 void MainWindow::createTrayActions()
 {
-    // 使用动作容器管理生命周期
-    QList<QAction*> actions;
+    // 清空现有菜单项（如果之前已创建）
+    m_trayMenu->clear();
 
-    // 消息通知
-    auto* messageAction = new QAction(tr("系统消息状态"), this);
-    connect(messageAction, &QAction::triggered, [this] {
-        m_systemTray->showMessage(tr("System Status"),
-                                tr("Automated Analysis System Ready"),
-                                QSystemTrayIcon::Information,
-                                TRAY_MESSAGE_DURATION);
-    });
-    actions.append(messageAction);
+	// 创建并添加消息通知动作
+	auto* messageAction = new QAction(tr("关于"), m_trayMenu);
+	connect(messageAction, &QAction::triggered, this, [this] {
+		ui->toolButton_about->click(); // 触发信号
+	});
+	m_trayMenu->addAction(messageAction);
+	m_trayMenu->addSeparator();
 
-    // 窗口控制动作
-    struct WindowAction {
-        QString text;
-        std::function<void()> callback;
-    };
+     // 使用函数添加动作，避免结构体初始化问题
+     auto addTrayAction = [this](const QString& text, std::function<void()> handler, bool addSeparator = false) {
+         auto* action = new QAction(text, m_trayMenu);
+         connect(action, &QAction::triggered, this, handler);
+         m_trayMenu->addAction(action);
+         if (addSeparator) {
+             m_trayMenu->addSeparator();
+         }
+     };
 
-    const QList<WindowAction> windowActions = {
-        { tr("显示窗口"), [this]{ showMaximized(); } },
-        { tr("最小化到托盘"), [this]{ hide(); } },
-        { tr("打开设置"), [this]{ openSettingsDialog(); } }
-    };
+     // 添加窗口控制动作
+     addTrayAction(tr("显示主窗口"), [this] {
+         showNormal();
+         raise();
+         activateWindow();
+     });
 
-    // 批量创建动作
-    for (const auto& action : windowActions) {
-        auto* act = new QAction(action.text, this);
-        connect(act, &QAction::triggered, action.callback);
-        actions.append(act);
-    }
+     addTrayAction(tr("最小化到托盘"), [this] {
+         hide();
+     });
 
-    // 退出动作
-    auto* exitAction = new QAction(tr("退出"), this);
-    connect(exitAction, &QAction::triggered, [] {
-        qApp->closeAllWindows();
-    });
-    actions.append(exitAction);
+     addTrayAction(tr("打开设置"), [this] {
+         openSettingsDialog();
+     }, true); // 添加分隔符
 
-    // 构建菜单结构
-    m_trayMenu->addActions(actions.mid(0, 1));       // 消息通知
-    m_trayMenu->addSeparator();
-    m_trayMenu->addActions(actions.mid(1, 2));       // 窗口控制
-    m_trayMenu->addSeparator();
-    m_trayMenu->addAction(actions[3]);               // 设置
-    m_trayMenu->addSeparator();
-    m_trayMenu->addAction(actions.last());           // 退出
-
-    m_systemTray->setContextMenu(m_trayMenu);
+     addTrayAction(tr("退出系统"), [] {
+         qApp->closeAllWindows();
+         //qApp->quit();
+     });
 }
+
 void MainWindow::connectTraySignals()
 {
     // 托盘激活事件
     connect(m_systemTray, &QSystemTrayIcon::activated, this,
         [this](QSystemTrayIcon::ActivationReason reason) {
             if (reason == QSystemTrayIcon::DoubleClick) {
-                showMaximized();
+                toggleWindowVisibility();
+            }else if(reason == QSystemTrayIcon::Trigger){
+
             }
         });
 
@@ -1472,25 +1526,34 @@ void MainWindow::connectTraySignals()
         QDesktopServices::openUrl(QUrl("app:notifications"));
     });
 }
+
 void MainWindow::initTrayFunction()
 {
     // 检查系统托盘可用性
     checkTrayAvailability();
 
     // 初始化托盘图标
-    m_systemTray = new QSystemTrayIcon(QIcon(":/Picture/suowei.png"), this);
+    m_systemTray = new QSystemTrayIcon(this);
+
+    // 设置托盘图标
+    setTrayIcon();
+
     m_systemTray->setToolTip(tr("全自动血小板聚集分析系统"));
 
-    // 创建托盘菜单和动作
+    // 创建托盘菜单
     m_trayMenu = new QMenu(this);
     setupTrayMenuStyle();
     createTrayActions();
 
+    // 设置上下文菜单
+    m_systemTray->setContextMenu(m_trayMenu);
+
     // 事件连接
     connectTraySignals();
 
-    // 显示托盘和主窗口
+    // 显示托盘图标
     m_systemTray->show();
+
     showMaximized();
     return;
 }
@@ -1513,6 +1576,7 @@ void MainWindow::InitMainUiLayout()
     for (auto* btn : ui->widget_top->findChildren<QToolButton*>()) {
         btn->setStyleSheet(minitTopBtnQss); // 仅应用到特定按钮
     }
+
     //暂停状态
     QFile styleFilePause(":/Picture/SetPng/continueState.qss");
     if(styleFilePause.open(QIODevice::ReadOnly)) {
@@ -1540,7 +1604,8 @@ void MainWindow::InitMainUiLayout()
     m_graphplot.data()->innitKindequipment();
 
     MachineSetting*pequipmentconfig = FullyAutomatedPlatelets::pinstanceequipmentconfig();
-    connect(mtestmoduleprotocol.data(),&theTestModuleProtocol::sendReminder,pequipmentconfig,&MachineSetting::slotsendReminder);
+    connect(mtestmoduleprotocol.data(),&theTestModuleProtocol::sendReminder,
+            pequipmentconfig,&MachineSetting::slotsendReminder);
 
 
     connect(FullyAutomatedPlatelets::pinstanceequipmentconfig(),&MachineSetting::sycnViewCurvePara,
@@ -1549,22 +1614,9 @@ void MainWindow::InitMainUiLayout()
 
     FullyAutomatedPlatelets::pinstancepatientdata()->initstyle();
 
-
     //开始按钮
-    QToolButton *pbeginTest = ui->toolButton_quality_start;
-
-    QObject::connect(pbeginTest,&QToolButton::clicked,this,[=](){
-
-        emit ReminderTextOut(PROMPTLOG,"点击开始测试按键");
-        if(!cglobal::gserialConnecStatus){
-            ThreadSafeReminder("开始失败","仪器未连接!");
-            return;
-        }
-        bool hadwaittesttasknum = false; //有待测任务
-        equipment_will_test_num(hadwaittesttasknum);
-        if(!hadwaittesttasknum) return;
-        _begingTesting();
-    });
+    connect(ui->toolButton_quality_start, &QToolButton::clicked,
+                this, &MainWindow::onStartTestClicked);
 
     _setupMainInterface();
 
@@ -1575,7 +1627,7 @@ void MainWindow::InitMainUiLayout()
 
 //控温时显示模组温度
 void MainWindow::displayPara(int Indexmodul, const double tempvalve){
-    Recv_Module_temperature(Indexmodul,tempvalve);
+    recvModuleTemperature(Indexmodul,tempvalve);
 }
 
 
@@ -1585,7 +1637,7 @@ void MainWindow::ChannelValueshow(QStringList moduleData)
 }
 
 
-void MainWindow::initTestPprHeight(){
+void MainWindow::initializeAltimeterHardware(){
 
     static QPointer<opencvfindHeigh> safeAltimeterTrigger = mAltimetertrigger;
 
@@ -1594,7 +1646,6 @@ void MainWindow::initTestPprHeight(){
     }
 
     safeAltimeterTrigger = mAltimetertrigger;
-
     mAltimetertrigger->moveToThread(&mTesthighThread);
 
     connect(&mTesthighThread,&QThread::started,mAltimetertrigger,&opencvfindHeigh::Start);
@@ -1635,32 +1686,7 @@ void MainWindow::initTestPprHeight(){
 }
 
 
-void MainWindow::recv_MainBoardHeighTigger()
-{
-    if(!INI_File().GetWholeBloodModel())
-    {
-        emit ReminderTextOut(PROMPTLOG,tr("血浆模式不支持测高"));
-        ThreadSafeReminder("提示异常","血浆模式不支持测高!");
-        return;
-    }
 
-
-    QList<QCameraInfo> camerasList = QCameraInfo::availableCameras();
-    if(camerasList.isEmpty())
-    {
-        ThreadSafeReminder("识别异常","仪器无摄像设备!");
-        return;
-    }
-
-    // 安全发射信号
-    if (mAltimetertrigger) {
-        emit triggerTestHeight();
-    } else {
-        QLOG_ERROR() << "测高模块未正确初始化";
-    }
-    return;
-
-}
 
 void MainWindow::initCameras() {
     QList<QCameraInfo> availableCameras;
@@ -1790,7 +1816,6 @@ void MainWindow::_setupMainInterface()
 
     // 配置辅助按钮
     setupUtilityButtons();
-
 
 }
 
@@ -1979,62 +2004,62 @@ void MainWindow::handleFunctionButtonClick(const int indexed)
 
 void MainWindow::openSettingsDialog()
 {
-	auto* pEquipment = FullyAutomatedPlatelets::pinstanceequipmentconfig();
-	if (!pEquipment) return;
+    auto* pEquipment = FullyAutomatedPlatelets::pinstanceequipmentconfig();
+    if (!pEquipment) return;
 
-	// Ensure dialog is properly shown
-	if (pEquipment->isHidden() || pEquipment->isMinimized()) {
-		pEquipment->showNormal();
-		pEquipment->raise();
-		pEquipment->activateWindow();
-	}
-	else {
-		// If already visible but not focused, just bring to front
-		pEquipment->raise();
-		pEquipment->activateWindow();
-	}
+    // Ensure dialog is properly shown
+    if (pEquipment->isHidden() || pEquipment->isMinimized()) {
+        pEquipment->showNormal();
+        pEquipment->raise();
+        pEquipment->activateWindow();
+    }
+    else {
+        // If already visible but not focused, just bring to front
+        pEquipment->raise();
+        pEquipment->activateWindow();
+    }
 
-	pEquipment->updatepara(cglobal::g_StartTesting);
-	pEquipment->show();
+    pEquipment->updatepara(cglobal::g_StartTesting);
+    pEquipment->show();
 
-	// Connect signals only once
-	if (!m_bmachineconfigureSignal) {
-		auto* pPatient = FullyAutomatedPlatelets::pinstancepatientdata();
-		if (!pPatient || !mlocalSerial) return;
+    // Connect signals only once
+    if (!m_bmachineconfigureSignal) {
+        auto* pPatient = FullyAutomatedPlatelets::pinstancepatientdata();
+        if (!pPatient || !mlocalSerial) return;
 
-		// Connect all signals in one clear block
-		connect(pEquipment, &MachineSetting::SetParatoInstrument,
-			this, [this](const QByteArrayList& d, QString s) {
-			emit _sendcodeList(d, s);
-		});
+        // Connect all signals in one clear block
+        connect(pEquipment, &MachineSetting::SetParatoInstrument,
+            this, [this](const QByteArrayList& d, QString s) {
+            emit _sendcodeList(d, s);
+        });
 
         connect(pEquipment, &MachineSetting::testdownheight,
-			this, [this](QByteArrayList d, int i) {
-			emit CeratActionDate(i, d);
-		});
+            this, [this](QByteArrayList d, int i) {
+            emit CeratActionDate(i, d);
+        });
 
-		// State synchronization connections
-		connect(pEquipment, &MachineSetting::Synchronizeupdates,
-			pPatient, &Calibrate::updatecommboxInfo);
+        // State synchronization connections
+        connect(pEquipment, &MachineSetting::Synchronizeupdates,
+            pPatient, &Calibrate::updatecommboxInfo);
 
-		connect(pEquipment, &MachineSetting::OpenChannelMotor,
-			this, [this](quint8 i, bool b) {
-			emit _controlmotorrunning(i, b);
-		});
+        connect(pEquipment, &MachineSetting::OpenChannelMotor,
+            this, [this](quint8 i, bool b) {
+            emit _controlmotorrunning(i, b);
+        });
 
-		connect(pEquipment, &MachineSetting::controlallchn,
-			this, [this](bool b) {
-			emit controlallchnstate(b);
-		});
+        connect(pEquipment, &MachineSetting::controlallchn,
+            this, [this](bool b) {
+            emit controlallchnstate(b);
+        });
 
-		connect(pEquipment, &MachineSetting::pauseConnectModule,
-			this, [this](bool b) {
-			pauseObtainmodulecommand("设置界面保存模组", b);
-		});
+        connect(pEquipment, &MachineSetting::pauseConnectModule,
+            this, [this](bool b) {
+            pauseObtainmodulecommand("设置界面保存模组", b);
+        });
 
-		pEquipment->openKeyboard();
-		m_bmachineconfigureSignal = true;
-	}
+        pEquipment->openKeyboard();
+        m_bmachineconfigureSignal = true;
+    }
 }
 
 
@@ -2672,7 +2697,7 @@ void MainWindow::updateModuleVisibilityBasedOnInstrumentType()
         widget->setVisible(shouldShow);
 
         if (shouldShow) {
-            Recv_Module_temperature(moduleId, 0.00); // 初始化温度
+            recvModuleTemperature(moduleId, 0.00); // 初始化温度
         }
     }
 
@@ -2771,25 +2796,7 @@ void MainWindow::slotbootInitCleanFinished()
     return;
 }
 
-void MainWindow::Recv_Module_temperature(const quint8 IndexMode, const double tempValue)
-{
-    QString originallyText = QString::number(tempValue, 'f', 2);
-    switch(IndexMode)
-    {
-        case MODULE_1:
-            ui->label_showModule1_value->setText(originallyText);
-        break;
-        case MODULE_2:
-            ui->label_showModule2_value_2->setText(originallyText);
-        break;
-        case MODULE_3:
-            ui->label_showModule3_value_2->setText(originallyText);
-        break;
-        default: break;
-    }
-    update();
-    return;
-}
+
 
 void MainWindow::_slotsycnPaintentInfo(QString id_,QString addtime,QString barcode_,QString testProject)
 {
@@ -2906,8 +2913,9 @@ void MainWindow::initErrorDisplayMap()
                 &m_warmwasteliquor
             )
         },
+
         {
-			static_cast<quint8>(equipmentTipInfo::LinqueCleanShortage),
+            static_cast<quint8>(equipmentTipInfo::LinqueCleanShortage),
             ErrorDisplayInfo(
                 ":/Picture/SetPng/outside_clean.png",
                 ":/Picture/SetPng/outside_clean_warming.png",
@@ -2919,9 +2927,9 @@ void MainWindow::initErrorDisplayMap()
             // 可以继续添加其他错误类型
         };
 
-	for (const auto &pair : errorInfoList) {
-		m_errorInfoMap.insert(pair.first, pair.second);
-	}
+    for (const auto &pair : errorInfoList) {
+        m_errorInfoMap.insert(pair.first, pair.second);
+    }
 }
 
 //优化
@@ -3192,6 +3200,249 @@ void MainWindow::handletheGripperFailed(const int sampleid, const QString outstr
 void MainWindow::handleControlChannelRevolve(const quint8&channelNum,const bool& isRevolve){
     emit _controlmotorrunning(channelNum,isRevolve);
 }
+
 void MainWindow::handleoutErrInfo(const QString titles,const QString errStr){
     ThreadSafeReminder(titles,errStr);
+}
+
+
+
+
+
+
+
+
+
+/**   更新主界面状态栏模组温度
+ * @brief MainWindow::recvModuleTemperature
+ * @param IndexMode
+ * @param tempValue
+ */
+void MainWindow::recvModuleTemperature(const quint8 IndexMode, const double tempValue)
+{
+
+    // 参数验证
+    if (IndexMode < MODULE_1 || IndexMode > MODULE_3) {
+        QLOG_WARN() << "无效的模块索引:" << IndexMode;
+        return;
+    }
+
+    if (tempValue < -50.0 || tempValue > 150.0) {
+        QLOG_WARN() << "温度值异常:" << tempValue << "，模块:" << IndexMode;
+        return;
+    }
+
+    // 格式化温度值
+    QString temperatureText = QString::number(tempValue, 'f', 2)/* + " °C"*/;
+
+    // 根据模块索引更新对应的UI标签
+    updateTemperatureDisplay(IndexMode, temperatureText, tempValue);
+}
+void MainWindow::updateTemperatureDisplay(quint8 moduleIndex, const QString& displayText, double tempValue)
+{
+    QLabel* targetLabel = nullptr;
+
+    switch(moduleIndex) {
+        case MODULE_1:
+            targetLabel = ui->label_showModule1_value;
+            break;
+        case MODULE_2:
+            targetLabel = ui->label_showModule2_value_2;
+            break;
+        case MODULE_3:
+            targetLabel = ui->label_showModule3_value_2;
+            break;
+        default:
+            return;
+    }
+
+    if (targetLabel) {
+        targetLabel->setText(displayText);
+
+        // 根据温度值设置颜色提示
+        setTemperatureColor(targetLabel, tempValue);
+
+        // 记录最新温度值
+        //m_moduleTemperatures[moduleIndex] = tempValue;
+
+        //QLOG_DEBUG() << "模块" << moduleIndex << "温度更新:" << tempValue << "°C";
+    }
+}
+
+void MainWindow::setTemperatureColor(QLabel* label, double temperature)
+{
+    // 定义温度阈值
+    const double CRITICAL_LOW = 35.0;
+    const double NORMAL_LOW = 36.0;
+    const double NORMAL_HIGH = 37.5;
+    const double WARNING_HIGH = 38.0;
+    const double CRITICAL_HIGH = 40.0;
+
+    QColor textColor;
+
+    if (temperature < CRITICAL_LOW) {
+        textColor = QColor(0, 0, 255);      // 蓝色 - 严重过低
+    } else if (temperature < NORMAL_LOW) {
+        textColor = QColor(100, 100, 255);  // 浅蓝色 - 略低
+    } else if (temperature <= NORMAL_HIGH) {
+        textColor = QColor(0, 128, 0);      // 绿色 - 正常范围
+    } else if (temperature <= WARNING_HIGH) {
+        textColor = QColor(255, 140, 0);    // 橙色 - 轻微偏高
+    } else if (temperature <= CRITICAL_HIGH) {
+        textColor = QColor(255, 69, 0);     // 红色橙色 - 警告
+    } else {
+        textColor = QColor(255, 0, 0);      // 红色 - 危险
+    }
+
+    QPalette palette = label->palette();
+    palette.setColor(QPalette::WindowText, textColor);
+    label->setPalette(palette);
+
+    // 可选：同时设置字体粗细以增强视觉效果
+    QFont font = label->font();
+    if (temperature < CRITICAL_LOW || temperature > WARNING_HIGH) {
+        font.setBold(true);  // 异常温度加粗显示
+    } else {
+        font.setBold(false);
+    }
+    label->setFont(font);
+}
+
+
+/**  触发测高信号
+ * @brief MainWindow::recvTriggerAltimetrySignal
+ */
+void MainWindow::recvTriggerAltimetrySignal()
+{
+    QLOG_DEBUG() << "接收到主板高度触发信号";
+
+    // 检查工作模式
+   if (!isWholeBloodMode()) {
+       handleNonWholeBloodMode();
+       return;
+   }
+
+   // 检查摄像头设备
+   if (!checkCameraAvailability()) {
+       return;
+   }
+
+   // 检查测高模块状态
+   if (!checkAltimeterStatus()) {
+       return;
+   }
+
+   // 触发测高测试
+   triggerHeightMeasurement();
+
+}
+bool MainWindow::isWholeBloodMode()
+{
+    bool isWholeBlood = INI_File().GetWholeBloodModel();
+    if (!isWholeBlood) {
+        QLOG_INFO() << "当前为血浆模式，不支持测高功能";
+    }
+    return isWholeBlood;
+}
+void MainWindow::handleNonWholeBloodMode()
+{
+    QString message = tr("血浆模式不支持测高");
+    QString title = tr("模式限制");
+
+    emit ReminderTextOut(PROMPTLOG, message);
+    ThreadSafeReminder(title, message);
+
+    QLOG_WARN() << message;
+}
+bool MainWindow::checkCameraAvailability()
+{
+    QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
+
+    if (cameras.isEmpty()) {
+        QString errorMsg = tr("未检测到可用的摄像设备");
+        QString title = tr("硬件错误");
+
+        ThreadSafeReminder(title, errorMsg);
+        QLOG_ERROR() << errorMsg;
+        return false;
+    }
+
+    QLOG_DEBUG() << "检测到" << cameras.size() << "个摄像设备";
+    return true;
+}
+bool MainWindow::checkAltimeterStatus()
+{
+    if (!mAltimetertrigger) {
+        QString errorMsg = tr("测高模块未初始化或初始化失败");
+        QString title = tr("模块错误");
+
+        ThreadSafeReminder(title, errorMsg);
+        QLOG_ERROR() << errorMsg;
+
+        // 可选：尝试重新初始化
+        if (initializeAltimeter()) {
+            QLOG_INFO() << "测高模块重新初始化成功";
+            return true;
+        }
+        return false;
+    }
+
+    return true;
+}
+bool MainWindow::initializeAltimeter()
+{
+    // 测高模块初始化逻辑
+    // 这里应该是实际的初始化代码
+    try {
+        // 模拟初始化过程
+        //mAltimetertrigger = initializeAltimeterHardware();
+        if (mAltimetertrigger) {
+            QLOG_INFO() << "测高模块初始化成功";
+            return true;
+        } else {
+            QLOG_ERROR() << "测高模块初始化失败";
+            return false;
+        }
+    } catch (const std::exception& e) {
+        QLOG_ERROR() << "测高模块初始化异常:" << e.what();
+        return false;
+    }
+}
+void MainWindow::triggerHeightMeasurement()
+{
+    try {
+        QLOG_INFO() << "开始触发测高测试";
+        // 发射测高触发信号
+        emit triggerTestHeight();
+        QLOG_DEBUG() << "测高触发信号已发射";
+
+    } catch (const std::exception& e) {
+        QLOG_ERROR() << "触发测高过程中发生异常:" << e.what();
+        ThreadSafeReminder(tr("系统错误"), tr("测高触发失败"));
+    }
+}
+
+
+
+/**  开始测试按钮
+* @brief MainWindow::onStartTestClicked
+*/
+void MainWindow::onStartTestClicked()
+{
+
+    emit ReminderTextOut(PROMPTLOG,"点击开始测试按键");
+
+    if(!cglobal::gserialConnecStatus){
+        ThreadSafeReminder("开始失败","仪器未连接!");
+        return;
+    }
+
+    // 检查测试任务
+    bool hasTestTask = false;
+    equipment_will_test_num(hasTestTask);
+    if(!hasTestTask){
+        return;
+    }
+    // 开始测试
+    _begingTesting();
 }

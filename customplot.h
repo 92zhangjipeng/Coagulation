@@ -150,15 +150,11 @@ private slots:
     void on_comboBox_calibrationAarea_activated(int index);
 
     void  on_toolButton_Backorigin_clicked();
-
     void  on_toolButton_Clean_1_clicked();
     void  on_toolButton_throwTube_clicked();
     void  on_pushButton_TrayHands_clicked();
-
     void on_spinBox_downValue_valueChanged(int arg1);
-
     void on_pushButton_TrayHands_2_clicked();
-
     void on_toolButton_video_clicked();
 
 private:
@@ -201,7 +197,8 @@ private:
     //测试通道
     void displayTestChnAxisPoint(bool bFindShow, bool bWrite_x, quint8 indexZ, quint8 ChnNum, int notifyValue);
 
-    int displayEmptyTrayAxisPoint(bool bFindShow, bool bWrite_x, quint8 indexZ, quint8 indexTray, quint8 tubeNum,int notifyValue);
+    int displayEmptyTrayAxisPoint(bool bFindShow, bool bWrite_x, quint8 indexZ,
+                                     quint8 indexTray, quint8 tubeNum,int notifyValue);
 
     //血样区
     int displayBloodHoleAxisPoint(bool bFindShow, bool bWrite_x,quint8 indexhole, int notifyValue);
@@ -245,13 +242,17 @@ private:
     */
     void ChangeControlColors(bool bChangecolor, int selectedIndex);
 
-    void DelTableText();/*清空列表先*/
+    /*清空列表先*/
+    void DelTableText();
 
-    void ReminderTable(int TableRow);/*显示测试区试管坐标抓手*/
+    /*显示测试区试管坐标抓手*/
+    void ReminderTable(int TableRow);
 
-    void test_catch_putdown_cup(const int form_, const int end_, QMap<int,QByteArrayList> &group_directives); //测试抓试管杯命令
+    //测试抓试管杯命令
+    void test_catch_putdown_cup(const int form_, const int end_, QMap<int,QByteArrayList> &group_directives);
 
-    void _sendmoveActiveToEquipment(AreasCalibration indexZone, QPoint MovingAxis, quint8 indexZ); //移动测试命令发送到机器
+    //移动测试命令发送到机器
+    void _sendmoveActiveToEquipment(AreasCalibration indexZone, QPoint MovingAxis, quint8 indexZ);
 
     //退出调试时写入缓存坐标
     void ExitCoordinateSaving();
@@ -260,20 +261,20 @@ private:
 signals:
     void writdAxisata(const QByteArrayList ,QString);
 
-    void Resetmaneuver(); //复位调用按钮复位
+    //复位调用按钮复位
+    void Resetmaneuver();
 
-    void SportActive(int ACtionType, const QByteArrayList GroupAction); /*仪器校准动作*/
+     //仪器校准动作
+    void SportActive(int ACtionType, const QByteArrayList GroupAction);
 
-    void TrayMoveTest(const QByteArrayList,const bool,const quint8);//试管托盘运动测试
+    //试管托盘运动测试
+    void TrayMoveTest(const QByteArrayList,const bool,const quint8);
 
 public slots:
 
    void ClickBloodTube();
-
    void ClickEmptyTube();
-
    void ClickTestChannelTube();
-
    void ClickReagentsTube();
 
     /** 收到校准消息完成
@@ -284,8 +285,8 @@ public slots:
     void recv_scynTestCommand(int index, const QByteArrayList commdArry); //吸试剂到测试通道调试
 
     void send_test_cups_accurate(); //抓杯测试收到完成一个
-
     void slotsendcode(QByteArrayList data_);
+
 private:
     Ui::CustomPlot *ui;
     QFont mfont;

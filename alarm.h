@@ -1,14 +1,15 @@
 ﻿#ifndef ALARM_H
 #define ALARM_H
+
 #include "json.h"
+#include "analyticaljson.h"
+#include "cglobal.h"
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
 #include <QVariant>
 #include <QWidget>
-#include "analyticaljson.h"
-#include "cglobal.h"
 #include <QMutex>
-
+#include <QScopedPointer>
 
 #define OUT_UI_SIZE_WIDTH  650
 #define OUT_UI_SIZE_HEIGHT 400
@@ -26,60 +27,52 @@ public:
     explicit Alarm(QWidget *parent = 0);
     ~Alarm();
 
+
 signals:
-    void AlarmIconState(quint8 );
+    void AlarmIconState(quint8 state);
+
+public slots:
+    void OnOffSound(bool open);
+    //测试流程提示信息
+    void handleReminderText(quint8 reminderKind,const QString outtext);
+    void InsertText(quint8 ReminderKind, const QString);
 
 protected:
-    //鼠标点击事件
-    void mousePressEvent(QMouseEvent *event);
-    //鼠标移动事件
-    void mouseMoveEvent(QMouseEvent *event);
-    //鼠标释放事件
-    void mouseReleaseEvent(QMouseEvent *event);
-
-    void paintEvent(QPaintEvent *);
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private slots:
     void on_Close_clicked();
-
     void on_Horn_clicked();
-
     void on_makesureAlarm_clicked();
-
-public slots:
-
-    void OnOffSound(bool open);
-
-    //测试流程提示信息
-    void handleReminderText(quint8 reminderKind,const QString outtext);
-
-
-    void InsertText(quint8 ReminderKind, const QString);
 
 
 private:
     void appendLog(const QString &reminderHead, const QString &detailedDescription, const QString &color);
     void logToFile(const QString &logMessage);
-    QMutex mutex;
+    void setupUI();
+    void setupMediaPlayer();
+
+    QMutex m_textMutex;
+    QMutex m_fileMutex;
+
+    QScopedPointer<QMediaPlayer> m_playSound;
+    QScopedPointer<QMediaPlaylist> m_play;
+
+
 private:
     Ui::Alarm *ui;
 
     QPoint m_lastPoint;
-
     static bool m_SoundAlarm; //报警声
 
-    QMediaPlayer  *m_playSound = nullptr;
-
-    QMediaPlaylist *m_play = nullptr;
-
     AnalyticalJson m_Analytical;
-
     QVariant m_AnalyticalOneData;//解析出的一个数据
 
     QAction *pAction = nullptr;
-
     QAction *DisAction = nullptr;
-
     QStringList m_hadReminder;
 };
 

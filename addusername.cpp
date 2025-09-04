@@ -2,7 +2,6 @@
 #include "addusername.h"
 #include "loginui.h"
 #include "ui_addusername.h"
-
 #include <operclass/fullyautomatedplatelets.h>
 
 AddUserName::AddUserName(char UserSet, QWidget *parent ):

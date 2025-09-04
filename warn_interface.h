@@ -20,6 +20,8 @@ public:
     // 新增静态方法封装弹窗逻辑
     static void showTransientWarning(const QString& title, const QString& message);
 
+	static void showTimeTransientWarning(const QString& title, const QString& message, int autoCloseMs = 3000);
+
     void settitle(QString title_);
     void setremtext(QString outputText);
     void replaceSupplyIndex(const int Index);
