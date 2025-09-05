@@ -153,7 +153,7 @@ void  Height_Data::_initcreat()
     QObject::connect(FullyAutomatedPlatelets::pinstanceTestproject(),
                      &ConfigureProjectItem::_setallsampletestproject,this,[=](QString text){
         QList<int> item_List;
-        _obtainSelectedSample(item_List);
+        obtainSelectedSample(item_List);
         for(int i = 0 ; i< item_List.size() ;i++){
             int rows = item_List.at(i);
             SetColumnText(rows,PROJECT_ITEM,text);
@@ -172,12 +172,12 @@ void  Height_Data::_initcreat()
 
     QObject::connect(ui->toolButton_ok,&QToolButton::clicked,this,[=]()
     {
-        _savewaitTestSample(); //保存任务
+        savewaitTestSample(); //保存任务
     });
 
     QObject::connect(ui->toolButton_Delete_sel_item,&QToolButton::clicked,this,[=]()
     {
-        _deleteSelectedSample(); //删除选中待测样本
+        deleteSelectedSample(); //删除选中待测样本
     });
 
     QObject::connect(ui->toolButtonbatchAddTask,&QToolButton::clicked,this,[=]()
@@ -192,14 +192,14 @@ void  Height_Data::_initcreat()
         qRegisterMetaType<WAIT_TEST_SAMPLE_DATA>("WAIT_TEST_SAMPLE_DATA");
         qRegisterMetaType<QList<quint8> > ("QList<quint8>");
 
-        connect(this,&Height_Data::_sycnwaittestsampledata,
-                m_threadaddsample,&mythreadaddsample::_waittestsampledata);
+        connect(this,&Height_Data::sycnwaittestsampledata,
+                m_threadaddsample,&mythreadaddsample::waittestsampledata);
 
-        connect(m_threadaddsample,&mythreadaddsample::_addprogress,
-                this,&Height_Data::_updateaddprogress);
+        connect(m_threadaddsample,&mythreadaddsample::addprogress,
+                this,&Height_Data::updateaddprogress);
 
-        connect(m_threadaddsample,&mythreadaddsample::_updatetestui,
-                this,&Height_Data::_slotupdatetestui);
+        connect(m_threadaddsample,&mythreadaddsample::updatetestui,
+                this,&Height_Data::slotupdatetestui);
 
         connect(m_threadaddsample,&mythreadaddsample::_sycnPaintentInfo,
                 FullyAutomatedPlatelets::mainWindow(),&MainWindow::_slotsycnPaintentInfo);
@@ -480,22 +480,30 @@ void Height_Data::InitTablewidget()
     return;
 }
 
-void Height_Data::_obtainSelectedSample(QList<int> &itemList)
+
+
+void Height_Data::obtainSelectedSample(QList<int> &itemList)
 {
     itemList.clear();
-    QCheckBox *pcheckbox = nullptr;
-    quint16 totalItem = ui->Sample_Data_tablewidget->rowCount();
-    quint16 irows = 0;
-    for(;irows < totalItem ;irows++)
-    {
-        if(QWidget *pwidgetCall = ui->Sample_Data_tablewidget->cellWidget(irows, CHECK_ROW)){
-            pcheckbox = qobject_cast<QCheckBox*>(pwidgetCall->children().at(1));
-            if(pcheckbox->checkState() == Qt::Checked){
-                itemList.append(irows);
+    itemList.reserve(ui->Sample_Data_tablewidget->rowCount()); // 预分配内存
+
+    const int totalRows = ui->Sample_Data_tablewidget->rowCount();
+    for (int row = 0; row < totalRows; ++row) {
+        if (QWidget* cellWidget = ui->Sample_Data_tablewidget->cellWidget(row, CHECK_ROW)) {
+            // 使用静态转换提高性能（如果确定类型）
+            QCheckBox* checkbox = static_cast<QCheckBox*>(
+                cellWidget->children().value(1, nullptr));
+
+            if (checkbox && checkbox->isChecked()) {
+                itemList.append(row);
             }
         }
     }
 }
+
+
+
+
 
 //修改单个item
 // 判断是否需要忽略点击
@@ -504,23 +512,101 @@ bool Height_Data::shouldIgnoreClick(int col) const {
            col == static_cast<int>(CHECK_ROW) ||
            col == static_cast<int>(RICHBLOOD_HOLE);
 }
+
+
 // 保存原始值
 void Height_Data::saveOriginalValue(int row, int col) {
-    if (auto* item = ui->Sample_Data_tablewidget->item(row, col)) {
-        m_OriginallyValue = item->text();
+    // 参数有效性检查
+    if (row < 0 || col < 0) {
+        QLOG_WARN() << "Invalid row or column index:" << row << col;
+        return;
     }
+
+    QTableWidget* tableWidget = ui->Sample_Data_tablewidget;
+    if (!tableWidget) {
+        QLOG_ERROR() << "Table widget is null!";
+        return;
+    }
+
+    // 检查行列范围
+    if (row >= tableWidget->rowCount() || col >= tableWidget->columnCount()) {
+        QLOG_WARN() << "Index out of range - row:" << row << "/" << tableWidget->rowCount()
+                   << ", col:" << col << "/" << tableWidget->columnCount();
+        return;
+    }
+
+    // 获取单元格项
+    QTableWidgetItem* item = tableWidget->item(row, col);
+    if (!item) {
+        // 可选：如果单元格为空，可以创建新项目或处理为空的情况
+        QLOG_DEBUG() << "No item at row:" << row << "col:" << col;
+        m_OriginallyValue.clear(); // 清空原始值
+        return;
+    }
+
+    // 保存原始值
+    m_OriginallyValue = item->text();
+    QLOG_DEBUG() << "Saved original value:" << m_OriginallyValue << "at [" << row << "," << col << "]";
 }
+
 // 处理样本名称和高度数据列点击
 void Height_Data::handleSampleOrHeightClick(int row, int col) {
-    //m_correctdata->setRowColData(row, col, m_OriginallyValue);
-    if (auto* nameItem = ui->Sample_Data_tablewidget->item(row, static_cast<int>(SAMLPE_NAME))) {
-        m_correctdata->ClickSamplename(nameItem->text());
+    // 参数有效性检查
+    if (row < 0 || col < 0) {
+        qWarning() << "Invalid row or column index:" << row << col;
+        return;
+    }
+
+    QTableWidget* tableWidget = ui->Sample_Data_tablewidget;
+    if (!tableWidget) {
+        qCritical() << "Table widget is null!";
+        return;
+    }
+
+
+    // 检查行列范围
+    if (row >= tableWidget->rowCount() || col >= tableWidget->columnCount()) {
+        qWarning() << "Index out of range - row:" << row << "/" << tableWidget->rowCount()
+                   << ", col:" << col << "/" << tableWidget->columnCount();
+        return;
+    }
+
+    // 检查 m_correctdata 指针有效性
+    if (!m_correctdata) {
+        qCritical() << "m_correctdata pointer is null!";
+        return;
+    }
+
+    // 只在点击样本名称列时处理
+    if (col == static_cast<int>(SAMLPE_NAME) || col == static_cast<int>(HEIGHT_DATA)) {
+        QTableWidgetItem* nameItem = tableWidget->item(row, col);
+        if (!nameItem) {
+            qDebug() << "No item at sample name column, row:" << row;
+            return;
+        }
+
+        QString sampleName = nameItem->text().trimmed();
+        if (sampleName.isEmpty()) {
+            qDebug() << "Sample name is empty at row:" << row;
+            return;
+        }
+
+        // 设置校正数据
+        m_correctdata->ClickSamplename(sampleName);
         m_correctdata->setrows(row);
         m_correctdata->setcols(col);
         m_correctdata->setorigindata(m_OriginallyValue);
+
+        qDebug() << "Sample name clicked:" << sampleName << "at row:" << row;
     }
+
+    // 显示校正窗口
     m_correctdata->show();
+    m_correctdata->raise();    // 确保窗口在最前面
+    m_correctdata->activateWindow(); // 激活窗口
 }
+
+
 // 处理项目项点击
 void Height_Data::handleProjectItemClick(int row, int col) {
     auto* projectWindow = FullyAutomatedPlatelets::pinstanceTestproject();
@@ -545,7 +631,7 @@ void Height_Data::handleBarcodeClick(int row, int col) {
 
 void Height_Data::tableItemClicked(int row,int col){
 
-if (shouldIgnoreClick(col)) return;
+    if (shouldIgnoreClick(col)) return;
 
     saveOriginalValue(row, col);
     ui->Sample_Data_tablewidget->removeCellWidget(row, col);
@@ -584,44 +670,112 @@ void Height_Data::SlotNotifyTestHeight(int Rows, int cols, QString Value)
 //修改样本重复校验
 void Height_Data::Slot_ConfigureData(unsigned int Rows,int cols,QString data)
 {
-    QString remindertext;
-    if(!repeatData(data))
-    {
-        remindertext = QString("%1").arg(tr("任务列表样本号已存在,请勿重复!"));
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("修改样本id失败",remindertext);
-        SetColumnText(Rows, cols, m_OriginallyValue);
+    // 数据校验
+    if (data.isEmpty()) {
+        showErrorReminder(tr("修改样本id失败"), tr("样本号不能为空!"));
+        restoreOriginalValue(Rows, cols);
         return;
     }
 
-    if(SQLTheSameItem(data))
-    {
-        remindertext = QString("%1").arg(tr("样本数据库号已存在,请勿重复!"));
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("修改样本id失败",remindertext);
-        SetColumnText(Rows, cols, m_OriginallyValue);
+    // 重复性检查
+    if (!validateSampleUniqueness(data)) {
+        restoreOriginalValue(Rows, cols);
         return;
     }
 
-    //创建时间 --不显示在任务栏内
-    if(mCreatTime.contains(m_OriginallyValue))
-        mCreatTime.remove(m_OriginallyValue); //删除修改前的
-    QString current_date = QDateTime::currentDateTime().toString("MM.dd hh:mm:ss");
-    QString exchangesamplename = ui->Sample_Data_tablewidget->item(Rows, SAMLPE_NAME)->text();
-    mCreatTime.insert(exchangesamplename, current_date);
+    // 更新创建时间映射
+    updateCreationTimeMapping(Rows,data);
+
+    // 更新表格显示
     SetColumnText(Rows, cols, data);
-    return;
 }
 
-//修改样本号 遍历表任务中是否有相同号
-bool Height_Data::repeatData(QString textchange)
+bool Height_Data::validateSampleUniqueness(const QString &sampleData)
 {
-    int countrows = ui->Sample_Data_tablewidget->rowCount();
-    for(int k = 0 ; k < countrows ;k++)
-    {
-        QString itemstr = ui->Sample_Data_tablewidget->item(k,SAMLPE_NAME)->text();
-        if(textchange == itemstr)
-          return false;
+    // 检查任务列表中的重复
+    if (!repeatData(sampleData)) {
+        showErrorReminder(tr("修改样本id失败"),
+                         tr("任务列表样本号已存在,请勿重复!"));
+        return false;
     }
+
+    // 检查数据库中的重复
+    if (SQLTheSameItem(sampleData)) {
+        showErrorReminder(tr("修改样本id失败"),
+                         tr("样本数据库号已存在,请勿重复!"));
+        return false;
+    }
+
     return true;
+}
+void Height_Data::updateCreationTimeMapping(unsigned int rows,const QString &newSampleData)
+{
+    // 移除旧的创建时间记录
+    if (mCreatTime.contains(m_OriginallyValue)) {
+        mCreatTime.remove(m_OriginallyValue);
+    }
+    // 获取样本名称 - 添加安全检查
+    QTableWidgetItem *sampleNameItem = ui->Sample_Data_tablewidget->item(rows, SAMLPE_NAME);
+    if (!sampleNameItem) {
+		QLOG_WARN() << "无法获取样本名称，行:" << rows << "列:" << SAMLPE_NAME;
+        return;
+    }
+
+    QString sampleName = sampleNameItem->text();
+
+    // 添加新的创建时间记录
+    QString currentTime = QDateTime::currentDateTime().toString("MM.dd hh:mm:ss");
+    mCreatTime.insert(sampleName, currentTime);
+
+    QLOG_DEBUG() << "更新创建时间映射 - 样本:" << sampleName << "时间:" << currentTime;
+}
+void Height_Data::restoreOriginalValue(unsigned int rows, int cols)
+{
+    SetColumnText(rows, cols, m_OriginallyValue);
+}
+void Height_Data::showErrorReminder(const QString &title, const QString &message)
+{
+    FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder(title, message);
+}
+
+
+
+
+
+
+
+//修改样本号 遍历表任务中是否有相同号
+bool Height_Data::repeatData(QString textChange)
+{
+    // 空值检查
+   if (textChange.isEmpty()) {
+       QLOG_WARN() << "重复检查: 输入文本为空";
+       return false; // 空字符串视为重复（根据业务逻辑调整）
+   }
+
+    const int rowCount = ui->Sample_Data_tablewidget->rowCount();
+
+   // 提前返回空表情况
+   if (rowCount == 0) {
+       return true;
+   }
+
+   // 遍历检查重复
+   for (int row = 0; row < rowCount; ++row) {
+       QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+
+       // 空项安全检查
+       if (!item || item->text().isEmpty()) {
+           continue;
+       }
+
+       // 字符串比较（考虑大小写敏感性）
+       if (textChange.compare(item->text(), Qt::CaseSensitive) == 0) {
+           QLOG_DEBUG() << "发现重复数据 - 行:" << row << "值:" << textChange;
+           return false;
+       }
+   }
+   return true;
 }
 
 //修改样本号 遍历数据库表任务中是否有相同号
@@ -640,31 +794,70 @@ bool Height_Data::SQLTheSameItem(QString textchange)
 //点击表头
 void Height_Data::sortByColumn(int col)
 {
-    if(ui->Sample_Data_tablewidget->rowCount() == 0 ) return;
-    if(col == PROJECT_ITEM)
-    {
-        FullyAutomatedPlatelets::pinstanceTestproject()->Slot_ChangeSingleItem(0,col,false);
-        FullyAutomatedPlatelets::pinstanceTestproject()->setWindowModality(Qt::NonModal);
-        FullyAutomatedPlatelets::pinstanceTestproject()->setWindowFlags(Qt::Window | Qt::FramelessWindowHint |Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
-        FullyAutomatedPlatelets::pinstanceTestproject()->show();
+    // 安全检查：确保表格有数据
+    if (ui->Sample_Data_tablewidget->rowCount() == 0) {
+        return;
     }
+
+     if(col != PROJECT_ITEM) return;
+
+    // 获取项目选择窗口实例
+    ConfigureProjectItem *projectWindow = FullyAutomatedPlatelets::pinstanceTestproject();
+    if (!projectWindow) {
+        QLOG_ERROR() << "无法获取项目选择窗口实例";
+        return;
+    }
+
+    // 设置窗口属性
+    projectWindow->setWindowModality(Qt::NonModal);
+    projectWindow->setWindowFlags(Qt::Window | Qt::FramelessWindowHint |
+                                 Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+
+    // 显示窗口
+    projectWindow->show();
+
+    // 发送初始化信号
+    projectWindow->Slot_ChangeSingleItem(0, PROJECT_ITEM, false);
 }
 
 
 void Height_Data::SetColumnText(int row,int col,QString text)
 {
-    QTableWidgetItem *item = new QTableWidgetItem(text);
-    if(HEIGHT_DATA == col)
-    {
-        double val = text.toDouble();
-        if(val <= 0)
-            item ->setBackgroundColor(QColor(255,0,0));
+    QColor originbgc(188,187,186);
+    QTableWidgetItem *existingItem = ui->Sample_Data_tablewidget->item(row, col);
+    if (existingItem) {
+        originbgc = existingItem->background().color();
     }
-    item->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-    ui->Sample_Data_tablewidget->setItem(row,col,item);
-    return;
-}
 
+    // 创建表格项并设置文本和对齐方式
+    QTableWidgetItem *item = new QTableWidgetItem(text);
+    item->setTextAlignment(Qt::AlignCenter); // 使用AlignCenter简化代码
+
+    // 根据列类型设置不同的背景色
+    if (col == HEIGHT_DATA) {
+        setHeightDataBackground(item, text);
+    } else if(col == PROJECT_ITEM){
+        item->setTextColor(QColor(0,0,0));
+    }else {
+        // 为其他列设置默认背景色（可选）
+        item->setBackground(originbgc);
+    }
+
+    // 设置表格项
+    ui->Sample_Data_tablewidget->setItem(row, col, item);
+}
+void Height_Data::setHeightDataBackground(QTableWidgetItem *item, const QString &text)
+{
+    bool conversionOk = false;
+    double value = text.toDouble(&conversionOk);
+
+    // 检查转换是否成功且数值有效
+    if (!conversionOk || value <= 0.0) {
+        item->setBackground(QColor(255, 0, 0)); // 红色表示无效或非正值
+    } else {
+        item->setBackground(QColor(255, 255, 255)); // 白色表示有效值
+    }
+}
 
 
 
@@ -688,46 +881,66 @@ bool Height_Data::SameSampleandtube(QList<int> TaskList, QTableWidget *TaskWidge
     return  bhandsame_;
 }
 
-bool Height_Data::WidetItemNUll(QTableWidget *TaskWidget, QList<int> selRows)
+bool Height_Data::validateTableItems(QTableWidget* taskWidget, const QList<int>& selectedRows)
 {
-    for (auto Rows : selRows)
-    {
-        for (int i = 1; i < 6; i++)
-        {
-            if (i != 3)
-            {
-                if (TaskWidget->item(Rows, i) == nullptr || TaskWidget->item(Rows, i)->text().isEmpty())
-                    return false;
-            }
+    if (!taskWidget) {
+        qWarning() << "Task widget is null";
+        return false;
+    }
+
+    //const int totalColumns = taskWidget->columnCount();
+    for (int row : selectedRows) {
+        // 检查行号有效性
+        if (row < 0 || row >= taskWidget->rowCount()) {
+            qWarning() << "Invalid row number:" << row;
+            return false;
         }
 
+        // 检查指定列（跳过第3列）
+        for (int col = 1; col <= 5; ++col) {
+            if (col == 3) continue; // 跳过第3列
+
+            QTableWidgetItem* item = taskWidget->item(row, col);
+            if (!item || item->text().trimmed().isEmpty()) {
+                qDebug() << "Missing or empty item at row:" << row << "column:" << col;
+                return false;
+            }
+        }
     }
     return true;
 }
 
 //添加样本的血样孔号存在相同??
 bool Height_Data::TheSameBloodHole()
-{
+{ 
     bool bhadSame = false;
     int  totalRows = ui->Sample_Data_tablewidget->rowCount();
-    QString outtext_ = "";
+    QString outtext = "";
     QMap<QString, bool> suckHoleBlood; suckHoleBlood.clear();
-    for (int i = 0; i < totalRows; i++)
+    for (int row = 0; row < totalRows; ++row)
     {
-        QWidget * widget = ui->Sample_Data_tablewidget->cellWidget(i, RICHBLOOD_HOLE);//获得widget
-        QComboBox *combox = (QComboBox*)widget;//强制转化为QComboBox
-        if (!suckHoleBlood.contains(combox->currentText()))
-        {
-            suckHoleBlood.insert(combox->currentText(), true);
+        QWidget* cellWidget = ui->Sample_Data_tablewidget->cellWidget(row, RICHBLOOD_HOLE);
+        if(!cellWidget){
+            QLOG_WARN() << "Cell widget is null at row:" << row;
+            return false;
         }
-        else
-        {
-            outtext_ += QString("同孔请检查第%1行孔号%2").arg(i + 1).arg(combox->currentText()) + "\n";
-            bhadSame = true;
+        QComboBox* combox = qobject_cast<QComboBox*>(cellWidget);
+        if(!combox){
+            QLOG_WARN() << "Cell widget is not a QComboBox at row:" << row;
+            return false;
+        }
+        QString holeNumber = combox->currentText().trimmed();
+        if(!holeNumber.isEmpty()){
+            if (!suckHoleBlood.contains(holeNumber)){
+                suckHoleBlood.insert(holeNumber, true);
+            }else{
+                outtext += QString("同孔请检查第%1行孔号%2").arg(row + 1).arg(holeNumber) + "\n";
+                bhadSame = true;
+            }
         }
     }
     if (bhadSame) {
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("添加测试样本失败", outtext_);
+        showReminder("添加测试样本失败",outtext);
     }
     return bhadSame;
 }
@@ -1289,88 +1502,111 @@ int Height_Data::_Addtasksmanually()
 }
 
 
-void Height_Data::_savewaitTestSample()
+/** 保存样本任务
+ * @brief Height_Data::handleEmptySelection
+ */
+void Height_Data::handleEmptySelection()
 {
-    QList<int> selecteditem_;
-    _obtainSelectedSample(selecteditem_);
-    QTableWidget *pSampleTable = ui->Sample_Data_tablewidget;
+    ReminderPutBloodHole(-1);
+    QLOG_DEBUG() << "保存添加测试样本为空";
+    emit ReminderTextOut(PROMPTLOG, tr("保存添加测试样本为空"));
+    close();
+}
+bool Height_Data::processSelectedSamples(const QList<int>& selectedRows)
+{
+    try {
+        sycnstudata(selectedRows, ui->Sample_Data_tablewidget);
+        return true;
+    } catch (const std::exception& e) {
+        QLOG_ERROR() << "Failed to process samples:" << e.what();
+        showReminder("处理失败", "样本数据处理过程中发生错误");
+        return false;
+    }
+}
+void Height_Data::cleanupAndClose()
+{
+    DeleteAllItems(ui->Sample_Data_tablewidget);
+    mCreatTime.clear();
+    close();
+}
+void Height_Data::showReminder(const QString& title, const QString& message)
+{
+    if (auto* mainWindow = FullyAutomatedPlatelets::mainWindow()) {
+        mainWindow->ThreadSafeReminder(title, message);
+    }
+}
 
-    int selectedTotal =  selecteditem_.size();
-    int totalrows     =  pSampleTable->rowCount();
 
-    if(totalrows == 0 || selectedTotal == 0)
-    {
-        ReminderPutBloodHole(-1); //提示要放的孔号
-        QLOG_DEBUG()<<"保存添加测试样本为空";
-        emit this->ReminderTextOut(PROMPTLOG,tr("保存添加测试样本为空"));
-        close();
-        return;
+void Height_Data::savewaitTestSample()
+{
+    QList<int> selectedRows;
+    obtainSelectedSample(selectedRows);
+
+    if (selectedRows.isEmpty() || ui->Sample_Data_tablewidget->rowCount() == 0) {
+        handleEmptySelection();
+        return ;
     }
 
     //校验+样本的配置信息
-    if(!WidetItemNUll(pSampleTable, selecteditem_))
-    {
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("添加测试样本失败","请检查样本配置信息!");
+    if(!validateTableItems(ui->Sample_Data_tablewidget,selectedRows)){
+        showReminder("添加测试样本失败","请检查样本配置信息!");
         return;
     }
 
     //校验+样本 血样孔有相同
-    if (TheSameBloodHole()) return;
-
-    //校验测高样本的值=0
-    //if(!testhightValueNotZero(selecteditem_)) return;
+    if (TheSameBloodHole()){
+        return;
+    }
 
     //校验相同样本号
-    if (SameSampleandtube(selecteditem_,pSampleTable))
+    if (SameSampleandtube(selectedRows,ui->Sample_Data_tablewidget))
         return;
 
     int needtube = 0; //所需试杯
     quint8 remainder_tube =  FullyAutomatedPlatelets::pinstancesqlData()->BackEmptyTubeNum();
-    bool  enoughTube = NeedTubeEnouthTesting(remainder_tube,needtube,selecteditem_);
+    bool  enoughTube = NeedTubeEnouthTesting(remainder_tube,needtube,selectedRows);
     if(!enoughTube)
     {
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("添加测试样本失败","剩余试管不足添加新样本!");
+        showReminder("添加测试样本失败","剩余试管不足添加新样本!");
         return;
     }
 
-    bool _dimmingLED;
-    FullyAutomatedPlatelets::pinstancedimming()->getdimming_status(_dimmingLED);
-    if(!_dimmingLED){
+    bool dimmingLED;
+    FullyAutomatedPlatelets::pinstancedimming()->getdimming_status(dimmingLED);
+    if(!dimmingLED){
         emit ReminderTextOut(PROMPTLOG,tr("调光未完成,稍后添加!"));
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("添加测试样本失败","调光未完成,稍后添加!");
+        showReminder("添加测试样本失败","调光未完成,稍后添加!");
         //return;
     }
 
-    _sycnstudata(selecteditem_, pSampleTable);
+    processSelectedSamples(selectedRows);
 
     //配置成功删除任务行和关闭对话框
-    DeleteAllItems(pSampleTable);
-    mCreatTime.clear();
-    this->close();
+    cleanupAndClose();
     return;
 }
 
-void Height_Data::_updateaddprogress(int index_,int _total)
+void Height_Data::updateaddprogress(int index_,int _total)
 {
-   FullyAutomatedPlatelets::mainWindow()->_progressBarconfig(index_,_total);
+    if (auto* mainWindow = FullyAutomatedPlatelets::mainWindow()) {
+        mainWindow->progressBarconfig(index_,_total);
+    }
 }
 
 
 
-void Height_Data::_slotupdatetestui(QList<quint8> marktube, QString sample_name,
+void Height_Data::slotupdatetestui(QList<quint8> marktube, QString sample_name,
                                     quint8 anemiahole,int index_add, int all_add_task)
 {
     QLOG_DEBUG()<<"标记试管["<<marktube<<"]";
     QString date;
     int id;
     GlobalData::apartSampleId(sample_name,date,id);
-    FullyAutomatedPlatelets::pinstanceTesting()->sycn_changeui_status(QString::number(id),anemiahole,
-                                                                      marktube,index_add,all_add_task);
-    return;
+    emit updateTestTubeSatus(QString::number(id),anemiahole,marktube,index_add,all_add_task);
 }
 
 
-void Height_Data::_sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
+void Height_Data::sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
 {
 	if (!TaskWidget || TaskList.isEmpty()) return;
 
@@ -1402,7 +1638,7 @@ void Height_Data::_sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
 			if (combox) CurrRichHole = combox->currentText().toInt(); // 直接获取文本 [[1]]
 		}
 		// 6. 发射信号（使用预计算的totalTasks和savedtime）
-		emit _sycnwaittestsampledata(
+        emit sycnwaittestsampledata(
 			sampleItem->text(),
 			savedtime,
 			barcodeItem->text(),
@@ -1419,11 +1655,43 @@ void Height_Data::_sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
 
 
 //删除样本
-void Height_Data::_deleteSelectedSample()
+void Height_Data::deleteSelectedSample()
 {
-    QList<int> checklist;
+    QList<int> selectedRows;
+    obtainSelectedSample(selectedRows);
+
+   if (selectedRows.isEmpty()) {
+       FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("删除任务失败", "请选择要删除任务!");
+       return;
+   }
+
+   // 按降序排序，以便从后往前删除，避免行号变化导致的问题
+    std::sort(selectedRows.begin(), selectedRows.end(), std::greater<int>());
+
+   for (int row : selectedRows) {
+       // 获取样本名称（如果需要记录日志或其他操作）
+       QString sampleName;
+       if (auto* item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME)) {
+           sampleName = item->text();
+       }
+
+       // 处理富血小板孔位
+       if (QWidget* widget = ui->Sample_Data_tablewidget->cellWidget(row, RICHBLOOD_HOLE)) {
+           if (auto* combobox = qobject_cast<QComboBox*>(widget)) {
+               quint8 currentHole = combobox->currentText().toInt();
+               Makeuptubenum(currentHole);
+           }
+       }
+
+       // 删除行
+       ui->Sample_Data_tablewidget->removeRow(row);
+
+       // 这里不需要手动删除item，removeRow()会自动处理
+   }
+
+    /*QList<int> checklist;
     checklist.clear();
-    _obtainSelectedSample(checklist);
+    obtainSelectedSample(checklist);
     if(checklist.count() <= 0)
     {
         FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("删除任务失败","请选择要删除任务!");
@@ -1453,7 +1721,7 @@ void Height_Data::_deleteSelectedSample()
         if(row != -1)
             ui->Sample_Data_tablewidget->removeRow(row);
     }
-    return;
+    return;*/
 }
 
 
@@ -1489,8 +1757,8 @@ void Height_Data::batchAddTask()
     m_batchaddTestnumSample.data()->show();
 }
 
- void Height_Data::AF_DATA_REQUEST(QVariant sampleiddata)
- {
+void Height_Data::AF_DATA_REQUEST(QVariant sampleiddata)
+{
      SAMPLEIDINFO askData;
      askData = sampleiddata.value<SAMPLEIDINFO>();
      QString  todayLast = GlobalData::ObatinCreatSampleTime();
@@ -1503,5 +1771,5 @@ void Height_Data::batchAddTask()
          SetColumnText(insertRows,PROJECT_ITEM,askData.testProtect);
      }
      return;
- }
+}
 

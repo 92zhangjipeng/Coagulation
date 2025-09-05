@@ -47,7 +47,7 @@ void mythreadaddsample::Start()
 
 }
 
-void  mythreadaddsample::_waittestsampledata(QString samplename, QString savedtime,
+void  mythreadaddsample::waittestsampledata(QString samplename, QString savedtime,
                                                QString barcode_str,
                                                double bottomBloodHeight, QString project_,
                                                quint8 CurrRichHole, int _total,bool insertWholeBloodMode)
@@ -252,8 +252,9 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
                                  data_stu->_testproject,
                                  data_stu->_barcode);
 
-        emit _addprogress(index, total_);
-        emit _updatetestui(mark_tube,
+        emit addprogress(index, total_);
+
+        emit updatetestui(mark_tube,
                            data_stu->_sampleid,
                            suckAenmia_hole,
                            index,

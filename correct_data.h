@@ -21,14 +21,13 @@ public:
     void setrows(const int &row);
     void setcols(const int &col);
     void setorigindata(const QString &Originaldata);
+
 protected:
     bool    eventFilter(QObject *watched, QEvent *event);
     void    closeEvent(QCloseEvent *);
 signals:
     void    ConfigureData(unsigned int,int, QString );
     void    repTestHeight(const QString);
-    void    ShowPointBtn(bool);
-
     void    NotifyTestHeight(int,int,QString);
 
 
@@ -41,14 +40,18 @@ public:
      void  ClickSamplename(const QString);
 private:
     Ui::Correct_Data *ui;
-    QString m_dateSample;
     QString m_Samplename;
     int m_Index;
     unsigned int m_rows;
-    QString m_Data_str;
-    //Virtualkeyboard  *myFrmnum;
-    //QValidator *accountValidator ;
+    QString m_originclickData;
+    QString m_sampleDate;
+
 	enum IndexCols { Cols_Sample = 1, Cols_BloodHeight};
+    void repLoading();
+
+    bool processSampleChange(const QString &inputText);
+    bool processBloodHeightChange(const QString &inputText);
+    void showErrorMessage(int index);
 };
 
 #endif // CORRECT_DATA_H

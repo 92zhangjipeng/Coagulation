@@ -618,6 +618,9 @@ void Testing::Initialize_the_Task_interface()
         mReminderTube = richhole;
         update();
     });
+    connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),&Height_Data::updateTestTubeSatus,
+            this,&Testing::sycnChangeuiTubeStatus,
+            Qt::QueuedConnection);
     return;
 }
 
@@ -820,32 +823,63 @@ void Testing::AllSampleTested()
 }
 
 
-void Testing::sycn_changeui_status(QString sample_name,quint8 anemiahole,QList<quint8> marktube,int index_add,int all_add_task)
+void Testing::sycnChangeuiTubeStatus(const QString& sample_name,quint8 anemiahole,
+                                       const QList<quint8>& marktube,
+                                       int index_add,int all_add_task)
 {
-    m_ProTotalTube = m_ProTotalTube + marktube.size();
-    if(m_ProTotalTube != 0)
-        ui->widget_showtips->setValue(m_ThrowTube*100/m_ProTotalTube);
-    VectorSelectedBloodAreaTube(anemiahole, sample_name);    //选中贫血 --改界面颜色
-    VectorSelectedBloodAreaTube(anemiahole + 1, sample_name);//选中富血
 
-    foreach (quint8 var, marktube)
-    {
-        bool contains_ = m_Testcups.contains(var);
-        if(contains_)
-        {
-            auto tube_ = m_Testcups.find(var);
-            int IndexHole = tube_.key();
-            mEmptyTubeAssigned.insert(IndexHole, tube_.value()); //试管分配血样
-            QString num_ = sample_name.split("-", QString::SkipEmptyParts).last();
-            mEmptyText.insert(var, num_);
+    m_ProTotalTube += marktube.size();
+    if (m_ProTotalTube != 0) {
+        ui->widget_showtips->setValue(m_ThrowTube * 100 / m_ProTotalTube);
+    }
+
+    //更新选中状态
+    VectorSelectedBloodAreaTube(anemiahole, sample_name);    // 选中贫血
+    VectorSelectedBloodAreaTube(anemiahole + 1, sample_name);// 选中富血
+
+    //处理试管分配
+    const auto sampleNum = sample_name.split("-", QString::SkipEmptyParts).last();
+
+    for (const quint8 tubeId : marktube) {
+        const auto it = m_Testcups.constFind(tubeId);
+        if (it != m_Testcups.constEnd()) {
+            mEmptyTubeAssigned.insert(it.key(), it.value()); // 试管分配血样
+            mEmptyText.insert(tubeId, sampleNum);
         }
     }
-    if(cglobal::g_StartTesting && index_add == all_add_task)
-    {
+
+    //触发完成信号
+    if (cglobal::g_StartTesting && index_add == all_add_task) {
         emit testingaddsample();
     }
+
+    //更新界面
     update();
-    return;
+
+//    m_ProTotalTube = m_ProTotalTube + marktube.size();
+//    if(m_ProTotalTube != 0)
+//        ui->widget_showtips->setValue(m_ThrowTube*100/m_ProTotalTube);
+//    VectorSelectedBloodAreaTube(anemiahole, sample_name);    //选中贫血 --改界面颜色
+//    VectorSelectedBloodAreaTube(anemiahole + 1, sample_name);//选中富血
+
+//    foreach (quint8 var, marktube)
+//    {
+//        bool contains_ = m_Testcups.contains(var);
+//        if(contains_)
+//        {
+//            auto tube_ = m_Testcups.find(var);
+//            int IndexHole = tube_.key();
+//            mEmptyTubeAssigned.insert(IndexHole, tube_.value()); //试管分配血样
+//            QString num_ = sample_name.split("-", QString::SkipEmptyParts).last();
+//            mEmptyText.insert(var, num_);
+//        }
+//    }
+//    if(cglobal::g_StartTesting && index_add == all_add_task)
+//    {
+//        emit testingaddsample();
+//    }
+//    update();
+//    return;
 }
 
 void Testing::ChaneColorEmptyAreaTray(QString SampleName)

@@ -437,7 +437,8 @@ public:
 "padding:0 0px;  \n"
 "font-family:'\346\245\267\344\275\223';\n"
 "font-size:20px;\n"
-"background: transparent;"));
+"background: transparent;\n"
+"font-weight: bold;"));
 
         horizontalLayout_2->addWidget(label_connectstate);
 
@@ -481,7 +482,11 @@ public:
         label_showModule1_value->setObjectName(QStringLiteral("label_showModule1_value"));
         label_showModule1_value->setMinimumSize(QSize(40, 20));
         label_showModule1_value->setMaximumSize(QSize(80, 30));
-        label_showModule1_value->setFont(font);
+        QFont font2;
+        font2.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font2.setBold(true);
+        font2.setWeight(75);
+        label_showModule1_value->setFont(font2);
         label_showModule1_value->setStyleSheet(QString::fromUtf8("border: 0px solid rgb(225, 225, 225);  \n"
 "border-radius: 10px;  \n"
 "width: 80px;  \n"
@@ -489,7 +494,8 @@ public:
 "padding:0 0px;  \n"
 "font-family:'\346\245\267\344\275\223';\n"
 "font-size:20px;\n"
-"background: transparent;"));
+"background: transparent;\n"
+"font-weight: bold;"));
         label_showModule1_value->setAlignment(Qt::AlignCenter);
 
         horizontalLayout->addWidget(label_showModule1_value);
@@ -534,7 +540,7 @@ public:
         label_showModule2_value_2->setObjectName(QStringLiteral("label_showModule2_value_2"));
         label_showModule2_value_2->setMinimumSize(QSize(40, 20));
         label_showModule2_value_2->setMaximumSize(QSize(80, 30));
-        label_showModule2_value_2->setFont(font);
+        label_showModule2_value_2->setFont(font2);
         label_showModule2_value_2->setStyleSheet(QString::fromUtf8("border: 0px solid rgb(225, 225, 225);  \n"
 "border-radius: 10px;  \n"
 "width: 80px;  \n"
@@ -542,7 +548,8 @@ public:
 "padding:0 0px;  \n"
 "font-family:'\346\245\267\344\275\223';\n"
 "font-size:20px;\n"
-"background: transparent;"));
+"background: transparent;\n"
+"font-weight: bold;"));
         label_showModule2_value_2->setAlignment(Qt::AlignCenter);
 
         horizontalLayout_13->addWidget(label_showModule2_value_2);
@@ -604,7 +611,7 @@ public:
         label_showModule3_value_2->setObjectName(QStringLiteral("label_showModule3_value_2"));
         label_showModule3_value_2->setMinimumSize(QSize(40, 20));
         label_showModule3_value_2->setMaximumSize(QSize(80, 30));
-        label_showModule3_value_2->setFont(font);
+        label_showModule3_value_2->setFont(font2);
         label_showModule3_value_2->setStyleSheet(QString::fromUtf8("border: 0px solid rgb(225, 225, 225);  \n"
 "border-radius: 10px;  \n"
 "width: 80px;  \n"
@@ -612,7 +619,8 @@ public:
 "padding:0 0px;  \n"
 "font-family:'\346\245\267\344\275\223';\n"
 "font-size:20px;\n"
-"background: transparent;"));
+"background: transparent;\n"
+"font-weight: bold;"));
         label_showModule3_value_2->setAlignment(Qt::AlignCenter);
 
         horizontalLayout_16->addWidget(label_showModule3_value_2);
@@ -623,9 +631,9 @@ public:
         widget_ReminderLiqune = new QWidget(StatusBar);
         widget_ReminderLiqune->setObjectName(QStringLiteral("widget_ReminderLiqune"));
         widget_ReminderLiqune->setMinimumSize(QSize(260, 0));
-        QFont font2;
-        font2.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
-        widget_ReminderLiqune->setFont(font2);
+        QFont font3;
+        font3.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
+        widget_ReminderLiqune->setFont(font3);
         widget_ReminderLiqune->setStyleSheet(QString::fromUtf8("QWidget#widget_ReminderLiqune{  \n"
 "    border: 1px solid  rgb(220, 220, 220);  \n"
 "	background-color: rgb(255, 255, 255); \n"

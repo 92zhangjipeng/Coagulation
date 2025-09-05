@@ -52,15 +52,15 @@ public:
     void Start();
 
 signals:
-   void _addprogress(int index,int total_);
-   void _updatetestui(QList<quint8> marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
+   void addprogress(int index,int total_);
+   void updatetestui(QList<quint8> marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
    void _sycnPaintentInfo(QString,QString,QString,QString);
 
 private slots:
     void Tmain();
 
 public slots:
-    void _waittestsampledata(QString samplename, QString savedtime, QString barcode_str,
+    void waittestsampledata(QString samplename, QString savedtime, QString barcode_str,
                               double bottomBloodHeight, QString project_, quint8 CurrRichHole,
                               int _total, bool insertWholeBloodMode);
 

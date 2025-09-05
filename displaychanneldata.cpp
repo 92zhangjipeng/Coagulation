@@ -383,8 +383,8 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
     const bool isLogMode = INI_File().rConfigPara("AbsorbanceAlgorithm").toBool();
 
     //取PPP固值  
-    quint16 channelPPPValue = customPPPValue::getChannelPPPValues(channelIdx);
-    baselinePoor = channelPPPValue;
+    //quint16 channelPPPValue = customPPPValue::getChannelPPPValues(channelIdx);
+    //baselinePoor = channelPPPValue;
 
     const float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
                                                        static_cast<float>(baselineRich),

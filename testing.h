@@ -106,8 +106,8 @@ private slots:
 public slots:
 
 
-    void sycn_changeui_status(QString sample_name, quint8 anemiahole,
-                                  QList<quint8> marktube, int index_add, int all_add_task);
+    void sycnChangeuiTubeStatus(const QString& sample_name, quint8 anemiahole,
+                                  const QList<quint8> &marktube, int index_add, int all_add_task);
 
     //丟了一个试管杯
     void slot_throwtesttube();

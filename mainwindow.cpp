@@ -2866,7 +2866,7 @@ void MainWindow::initProgressBar(const QString& title, bool isModal,bool ishow)
     return;
 }
 
-void MainWindow::_progressBarconfig(int data_,int max_)
+void MainWindow::progressBarconfig(int data_,int max_)
 {
     //空指针防护
     if (m_pProgress.isNull()) {
@@ -3237,77 +3237,75 @@ void MainWindow::recvModuleTemperature(const quint8 IndexMode, const double temp
 
     // 根据模块索引更新对应的UI标签
     updateTemperatureDisplay(IndexMode, temperatureText, tempValue);
+
+
 }
+
+
 void MainWindow::updateTemperatureDisplay(quint8 moduleIndex, const QString& displayText, double tempValue)
 {
-    QLabel* targetLabel = nullptr;
+    // 使用映射表代替switch，更易维护
+    static const QMap<quint8, QLabel*> moduleLabelMap = {
+        {MODULE_1, ui->label_showModule1_value},
+        {MODULE_2, ui->label_showModule2_value_2},
+        {MODULE_3, ui->label_showModule3_value_2}
+    };
 
-    switch(moduleIndex) {
-        case MODULE_1:
-            targetLabel = ui->label_showModule1_value;
-            break;
-        case MODULE_2:
-            targetLabel = ui->label_showModule2_value_2;
-            break;
-        case MODULE_3:
-            targetLabel = ui->label_showModule3_value_2;
-            break;
-        default:
-            return;
+    QLabel* targetLabel = moduleLabelMap.value(moduleIndex, nullptr);
+    if (!targetLabel) {
+        QLOG_ERROR() << "无效的模块索引:" << moduleIndex;
+        return;
     }
+    targetLabel->setText(displayText);
 
-    if (targetLabel) {
-        targetLabel->setText(displayText);
+    //setTemperatureColorSafe(targetLabel, tempValue);
 
-        // 根据温度值设置颜色提示
-        setTemperatureColor(targetLabel, tempValue);
-
-        // 记录最新温度值
-        //m_moduleTemperatures[moduleIndex] = tempValue;
-
-        //QLOG_DEBUG() << "模块" << moduleIndex << "温度更新:" << tempValue << "°C";
-    }
+    // 记录温度值
+    //m_moduleTemperatures[moduleIndex] = tempValue;
+    //QLOG_DEBUG() << "模块" << moduleIndex << "温度更新:" << tempValue << "°C";
 }
 
-void MainWindow::setTemperatureColor(QLabel* label, double temperature)
+void MainWindow::setTemperatureColorSafe(QLabel* label, double temperature)
 {
-    // 定义温度阈值
-    const double CRITICAL_LOW = 35.0;
-    const double NORMAL_LOW = 36.0;
-    const double NORMAL_HIGH = 37.5;
-    const double WARNING_HIGH = 38.0;
-    const double CRITICAL_HIGH = 40.0;
+    // 可以根据温度值动态调整字号
+    int fontSize = getFontSizeForTemperature(temperature);
+    QString color = getTemperatureColor(temperature);
+    QString fontWeight = (temperature < 35.0 || temperature > 38.0) ? "bold" : "normal";
 
-    QColor textColor;
-
-    if (temperature < CRITICAL_LOW) {
-        textColor = QColor(0, 0, 255);      // 蓝色 - 严重过低
-    } else if (temperature < NORMAL_LOW) {
-        textColor = QColor(100, 100, 255);  // 浅蓝色 - 略低
-    } else if (temperature <= NORMAL_HIGH) {
-        textColor = QColor(0, 128, 0);      // 绿色 - 正常范围
-    } else if (temperature <= WARNING_HIGH) {
-        textColor = QColor(255, 140, 0);    // 橙色 - 轻微偏高
-    } else if (temperature <= CRITICAL_HIGH) {
-        textColor = QColor(255, 69, 0);     // 红色橙色 - 警告
-    } else {
-        textColor = QColor(255, 0, 0);      // 红色 - 危险
-    }
-
-    QPalette palette = label->palette();
-    palette.setColor(QPalette::WindowText, textColor);
-    label->setPalette(palette);
-
-    // 可选：同时设置字体粗细以增强视觉效果
-    QFont font = label->font();
-    if (temperature < CRITICAL_LOW || temperature > WARNING_HIGH) {
-        font.setBold(true);  // 异常温度加粗显示
-    } else {
-        font.setBold(false);
-    }
-    label->setFont(font);
+    QString newStyle = QString("QLabel { "
+                                 "color: %1; "
+                                 "font-weight: %2; "
+                                 "border: none; "
+                                 "background: transparent; "
+                                 "font-size: %3px; "
+                                 "}")
+                          .arg(color)
+                          .arg(fontWeight)
+                          .arg(fontSize);
+    // 只有当样式真正改变时才设置
+   if (m_labelStyleCache.value(label) != newStyle) {
+       label->setStyleSheet(newStyle);
+       m_labelStyleCache[label] = newStyle;
+   }
 }
 
+QString MainWindow::getTemperatureColor(double temperature)
+{
+    if (temperature < 35.0) return "blue";
+    if (temperature < 36.0) return "#6464FF";
+    if (temperature <= 37.5) return "green";
+    if (temperature <= 38.0) return "orange";
+    if (temperature <= 40.0) return "#FF4500";
+    return "red";
+}
+int MainWindow::getFontSizeForTemperature(double temperature)
+{
+    // 异常温度使用更大字号提醒
+    if (temperature < 35.0 || temperature > 38.0) {
+        return 18; // 异常温度，更大字号
+    }
+    return 16; // 正常温度，标准大字
+}
 
 /**  触发测高信号
  * @brief MainWindow::recvTriggerAltimetrySignal
@@ -3429,7 +3427,6 @@ void MainWindow::triggerHeightMeasurement()
 */
 void MainWindow::onStartTestClicked()
 {
-
     emit ReminderTextOut(PROMPTLOG,"点击开始测试按键");
 
     if(!cglobal::gserialConnecStatus){

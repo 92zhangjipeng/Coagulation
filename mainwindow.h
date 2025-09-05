@@ -132,7 +132,7 @@ public:
     //void    ReminderInfo(QString title_, QString outputText); //提示信息
 
     void    _reminderFunctionWidget(QString title_,QString outputtext_, QList<QString> btntext);//功能提示框
-    void    _progressBarconfig(int data_, int max_);
+    void    progressBarconfig(int data_, int max_);
 
     /**   控制模组和主板 暂停、读取状态
      * @brief _pauseObtainmodulecommand
@@ -428,7 +428,9 @@ private:
 
     //主界面模组温度状态栏
     void updateTemperatureDisplay(quint8 moduleIndex, const QString& displayText, double tempValue);
-    void setTemperatureColor(QLabel* label, double temperature);
+    void setTemperatureColorSafe(QLabel* label, double temperature);
+    QString getTemperatureColor(double temperature);
+    int getFontSizeForTemperature(double temperature);
 
     //触发测高信号处理函数
     bool isWholeBloodMode();
@@ -550,7 +552,7 @@ private:
 
     QMutex m_mutex; // 互斥量保护状态
 
-
+    QMap<QLabel*, QString> m_labelStyleCache;
    
 
     //缓存QSS样式

@@ -70,7 +70,7 @@ protected:
     bool    eventFilter(QObject *obj, QEvent *event);
 
 signals:
-    void    _sycnwaittestsampledata(QString samplename,
+    void sycnwaittestsampledata(QString samplename,
                                     QString savedtime,
                                     QString barcode_str,
                                     double done_pin,
@@ -79,15 +79,19 @@ signals:
                                     int totalnum,
                                     bool insertWholeBloodMode);
 
-    void    ReminderTextOut(quint8 ReminderKind,const QString dataStr); //提示文字界面信号
-    void    Taskconfigcloe();
-    void    ReminderHole(int); //提示放置的孔
-    void    myTextChangedSignal(const QString &oldText, const QString &newText);
+    //更新界面试管状态
+    void updateTestTubeSatus(const QString& sample_name,quint8 anemiahole,const QList<quint8> &marktube,
+                                int index_add,int all_add_task);
+
+    void ReminderTextOut(quint8 ReminderKind,const QString dataStr); //提示文字界面信号
+    void Taskconfigcloe();
+    void ReminderHole(int); //提示放置的孔
+    void myTextChangedSignal(const QString &oldText, const QString &newText);
 public slots:
 
     void    Slot_ConfigureData(unsigned int ,int ,QString);
-    void    _updateaddprogress(int index_, int _total);
-    void    _slotupdatetestui(QList<quint8>marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
+    void    updateaddprogress(int index_, int _total);
+    void    slotupdatetestui(QList<quint8>marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
     void    SlotNotifyTestHeight(int,int,QString);
     void    ReminderPutBloodHole(int RichHolenum); //提醒放置的血样孔
     void    slotsavebarcode(unsigned int row,quint8 cols,QString noityBarcode);
@@ -124,28 +128,38 @@ private:
 
     void _updateotherinserthole(int _rows, QString index_); //更新其它选项富血孔
 
+    //保存
+    void savewaitTestSample();
+    void handleEmptySelection();
+    bool processSelectedSamples(const QList<int>& selectedRows);
+    void cleanupAndClose();
+    void showReminder(const QString& title, const QString& message);
 
-    void _savewaitTestSample(); //保存
+    //同步到数据结构中
+    void sycnstudata(QList<int>,QTableWidget *TaskWidget );
 
-    void _sycnstudata(QList<int>,QTableWidget *TaskWidget ); //同步到数据结构中
-
-    void _deleteSelectedSample(); //删除选中待测样本
+    void deleteSelectedSample(); //删除选中待测样本
 
     void batchAddTask(); //批量添加任务
 
-    void _obtainSelectedSample(QList<int> &itemList); //获取选中的样本
+    //获取选中的样本
+    void obtainSelectedSample(QList<int> &itemList);
 
     bool SQLTheSameItem(QString textchange);//重复样本名 sql
 
-    bool repeatData(QString); //重复样本名
+    bool repeatData(QString textChange); //重复样本名
 
     void InitTablewidget();
 
-    void SetColumnText(int row, int col, QString text);//设置列数据
+    //设置列数据
+    void SetColumnText(int row, int col, QString text);
+    //设置PRP下针高度
+    void setHeightDataBackground(QTableWidgetItem *item, const QString &text);
 
     bool testhightValueNotZero(QList<int> checklist);
 
-    bool WidetItemNUll(QTableWidget *TaskWidget, QList<int> selRows); //item 是否为空
+    //item 是否为空
+    bool validateTableItems(QTableWidget* taskWidget, const QList<int>& selectedRows);
 
     void DeleteAllItems(QTableWidget * table);
     void initshowimg();
@@ -164,6 +178,12 @@ private:
     void handleSampleOrHeightClick(int row, int col);
     void handleProjectItemClick(int row, int col);
     void handleBarcodeClick(int row, int col);
+
+
+    bool validateSampleUniqueness(const QString &sampleData);
+    void updateCreationTimeMapping(unsigned int rows,const QString &newSampleData);
+    void restoreOriginalValue(unsigned int rows, int cols);
+    void showErrorReminder(const QString &title, const QString &message);
 
 
 private:
