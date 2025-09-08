@@ -28,6 +28,8 @@ SingletonAxis *SingletonAxis::GetInstance()
     return g_pSingletonAxis;
 }
 
+
+
 EquipmentAXIS_ *SingletonAxis::GetpStruct()
 {
     if (g_pEquipAxiaspos == nullptr)
@@ -37,10 +39,11 @@ EquipmentAXIS_ *SingletonAxis::GetpStruct()
     return g_pEquipAxiaspos;
 }
 
+
+
 void SingletonAxis::deleteInstance()
 {
-    if(g_pSingletonAxis)
-    {
+    if(g_pSingletonAxis){
         delete g_pSingletonAxis;
         g_pSingletonAxis = NULL;
     }
@@ -110,30 +113,24 @@ void SingletonAxis::throwTubeHolePos(bool bWrite, QPoint &pos)
 
 void SingletonAxis::cleanZoneAxisPos(bool bWrite,int indexNedl,QPoint &pos)
 {
-    if(bWrite == true)
-    {
-        switch(indexNedl)
-        {
-            case MOTOR_BLOOD_INDEX:
-                g_pEquipAxiaspos->cleanZoneoffsetBlodNedl = pos;
-            break;
-            case MOTOR_REAGNET_INDEX:
-                g_pEquipAxiaspos->cleanZoneoffsetRegNedl  = pos;
-            break;
-        default:break;
-        }
-    }
-    else
-    {
-        switch(indexNedl)
-        {
-            case MOTOR_BLOOD_INDEX:
-                pos = g_pEquipAxiaspos->cleanZoneoffsetBlodNedl;
-            break;
-            case MOTOR_REAGNET_INDEX:
-                pos = g_pEquipAxiaspos->cleanZoneoffsetRegNedl;
-            break;
-        default:break;
+    EquipmentAXIS_* axisData = GetpStruct(); // 改为指针
+
+    // 使用lambda延迟获取指针，避免静态初始化问题
+    static auto getMotorMap = [axisData]() {
+        std::unordered_map<int, QPoint*> map;
+        map[MOTOR_BLOOD_INDEX] = &axisData->cleanZoneoffsetBlodNedl;
+        map[MOTOR_REAGNET_INDEX] = &axisData->cleanZoneoffsetRegNedl;
+        return map;
+    };
+
+    static const auto motorMap = getMotorMap();
+
+    auto it = motorMap.find(indexNedl);
+    if (it != motorMap.end()) {
+        if (bWrite) {
+            *(it->second) = pos;
+        } else {
+            pos = *(it->second);
         }
     }
 }
@@ -201,151 +198,112 @@ void SingletonAxis::reagetZoneAxisPos(bool bWrite, quint8 indexReag, QPoint &pos
 
 void SingletonAxis::chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,QPoint &pos)
 {
-   
-	auto iter = g_pEquipAxiaspos->pchnAxisPoint.begin();
-    if(bWrite ==  true)
-    {
-		bool bHanditChn = false;
-        while(iter != g_pEquipAxiaspos->pchnAxisPoint.end())
-        {
-             if((*iter)->indexChn == numChn && (*iter)->offsetNeedle == OffsetNedl)
-             {
-				 (*iter)->axisPos = pos;
-                 bHanditChn = true;
-                 break;
-             }
-             iter++;
+    auto axisData = GetpStruct();
+    if (!axisData) return;
+
+    auto& axisPoints = axisData->pchnAxisPoint;
+    // 查找匹配项
+    ChnAxis_* foundItem = nullptr;
+    for (auto* item : axisPoints) {
+        if (item && item->indexChn == numChn && item->offsetNeedle == OffsetNedl) {
+            foundItem = item;
+            break;
         }
-        if(!bHanditChn)
-        {
-            ChnAxis_ * pchnStu = new ChnAxis_;
+    }
+
+    if (bWrite) {
+        if (foundItem) {
+            foundItem->axisPos = pos;
+        } else {
+            ChnAxis_* pchnStu = new ChnAxis_;
             pchnStu->indexChn = numChn;
             pchnStu->offsetNeedle = OffsetNedl;
             pchnStu->axisPos = pos;
-            g_pEquipAxiaspos->pchnAxisPoint.push_back(pchnStu);
+            axisPoints.push_back(pchnStu);
         }
-    }
-    else
-    {
-        while(iter != g_pEquipAxiaspos->pchnAxisPoint.end())
-        {
-            if((*iter)->offsetNeedle == OffsetNedl && numChn == (*iter)->indexChn)
-            {
-                pos = (*iter)->axisPos;
-                break;
-            }
-            iter++;
-        }
+    } else if (foundItem) {
+        pos = foundItem->axisPos;
     }
 	return;
 }
 
 void SingletonAxis::bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos)
 {
-    if(bWrite == true)
-    {
-        //先查找是否已存在相同 index 的记录
-        auto it = g_pEquipAxiaspos->bloodSampleAxisPos.begin();
-        while (it != g_pEquipAxiaspos->bloodSampleAxisPos.end())
-        {
-            if ((*it)->index == numhole) {
-                // 已存在，更新位置
-                (*it)->axisPos = pos;
-                return;
-            }
-            it++;
+    auto axisData = GetpStruct();
+    if (!axisData) return;
+
+    auto& bloodSampleList = axisData->bloodSampleAxisPos;
+    // 查找现有记录
+    auto it = std::find_if(bloodSampleList.begin(), bloodSampleList.end(),
+        [numhole](SAMPLEBLOODZONEAXISPOS_* item) {
+            return item != nullptr && item->index == numhole;
+        });
+
+    if (bWrite) {
+        if (it != bloodSampleList.end()) {
+            (*it)->axisPos = pos;
+        } else {
+            SAMPLEBLOODZONEAXISPOS_* newItem = new SAMPLEBLOODZONEAXISPOS_;
+            newItem->index = numhole;
+            newItem->axisPos = pos;
+            bloodSampleList.append(newItem);
         }
-        // 不存在，创建新记录
-        SAMPLEBLOODZONEAXISPOS_ *pbloodholestu = new SAMPLEBLOODZONEAXISPOS_;
-        pbloodholestu->index = numhole;
-        pbloodholestu->axisPos = pos;
-        g_pEquipAxiaspos->bloodSampleAxisPos.append(pbloodholestu);
-    }
-    else
-    {
-        auto it = g_pEquipAxiaspos->bloodSampleAxisPos.begin();
-        while(it != g_pEquipAxiaspos->bloodSampleAxisPos.end())
-        {
-            if((*it)->index == numhole){
-                pos = (*it)->axisPos;
-                break;
-            }
-            it++;
-        }
+    } else if (it != bloodSampleList.end()) {
+        pos = (*it)->axisPos;
     }
 }
 
 //写试管区坐标
 void SingletonAxis::WriteEmptyTube_Coordinate(quint8 numhole,quint8 indexNeedle,QPoint emptypos)
 {
-    TRYTHECUPAXIS_ *ptestTaryAxisStu = nullptr;
-    bool baddtube = false;
-    if(g_pEquipAxiaspos->testTubeZoneAxisPos.isEmpty())
-    {
-        ptestTaryAxisStu = new TRYTHECUPAXIS_;
-        ptestTaryAxisStu->axisPos = emptypos;
-        ptestTaryAxisStu->offsetNeedle = indexNeedle;
-        ptestTaryAxisStu->numTube = numhole;
-        ptestTaryAxisStu->indexTray = witchoneindexTary(numhole); //在哪个盘
-        g_pEquipAxiaspos->testTubeZoneAxisPos.push_back(ptestTaryAxisStu);
-    }
-    else
-    {
-         auto iter = g_pEquipAxiaspos->testTubeZoneAxisPos.begin();
-         while(iter != g_pEquipAxiaspos->testTubeZoneAxisPos.end())
-         {
-             ptestTaryAxisStu = *iter;
-             if(ptestTaryAxisStu->numTube == numhole && ptestTaryAxisStu->offsetNeedle == indexNeedle)
-             {
-                 ptestTaryAxisStu->axisPos = emptypos;
-                 baddtube = true;
-                 break;
-             }
-             iter++;
-         }
-         if(baddtube == false)
-         {
-             ptestTaryAxisStu = new TRYTHECUPAXIS_;
-             ptestTaryAxisStu->axisPos = emptypos;
-             ptestTaryAxisStu->offsetNeedle = indexNeedle;
-             ptestTaryAxisStu->numTube = numhole;
-             ptestTaryAxisStu->indexTray = witchoneindexTary(numhole); //在哪个盘
-             g_pEquipAxiaspos->testTubeZoneAxisPos.push_back(ptestTaryAxisStu);
-         }
+    auto& tubeList = GetpStruct()->testTubeZoneAxisPos;
+
+    auto it = std::find_if(tubeList.begin(),tubeList.end(),
+        [numhole, indexNeedle](TRYTHECUPAXIS_* item) {
+            return item != nullptr &&
+                   item->numTube == numhole &&
+                   item->offsetNeedle == indexNeedle;
+    });
+    if (it != tubeList.end()) {
+        // 已存在，更新位置
+        (*it)->axisPos = emptypos;
+    } else {
+        // 不存在，创建新记录
+        TRYTHECUPAXIS_* newItem = new TRYTHECUPAXIS_;
+        newItem->axisPos = emptypos;
+        newItem->offsetNeedle = indexNeedle;
+        newItem->numTube = numhole;
+        newItem->indexTray = witchoneindexTary(numhole);
+        tubeList.push_back(newItem);
     }
     return;
 }
+
 //试杯孔在哪个盘
 quint8 SingletonAxis::witchoneindexTary(const quint8 indextube)
 {
-    if (indextube >= 240) return 0;
-    return (indextube / 60) + 1;
+    return indextube >= 240 ? 0 : (indextube / 60) + 1;
 }
 
 quint8 SingletonAxis::testTaryZoneAxisPos(bool bWrite,quint8 numhole,quint8 indexNeedle,QPoint &pos)
 {
-    quint8 indexTray = 0;
-    if(bWrite)
-    {
-        QPoint tubecoord = pos;
-        WriteEmptyTube_Coordinate(numhole,indexNeedle,tubecoord);
+    if (bWrite) {
+        WriteEmptyTube_Coordinate(numhole, indexNeedle, pos);
+        return witchoneindexTary(numhole);
     }
-    else
-    {
-        auto iter = g_pEquipAxiaspos->testTubeZoneAxisPos.constBegin();
-        while(iter != g_pEquipAxiaspos->testTubeZoneAxisPos.constEnd())
-        {
-            TRYTHECUPAXIS_ *ptestTaryAxisStu = (*iter);
-            if(ptestTaryAxisStu->offsetNeedle == indexNeedle && numhole == ptestTaryAxisStu->numTube)
-            {
-                pos = ptestTaryAxisStu->axisPos;
-                indexTray = ptestTaryAxisStu->indexTray;
-                break;
-            }
-            iter++;
-        }
+
+    // 读取操作
+    auto& tubeList = GetpStruct()->testTubeZoneAxisPos;
+    auto it = std::find_if(tubeList.constBegin(), tubeList.constEnd(),
+            [=](TRYTHECUPAXIS_* item) {
+                return item && item->offsetNeedle == indexNeedle && item->numTube == numhole;
+            });
+
+    if (it != tubeList.constEnd()) {
+        pos = (*it)->axisPos;
+        return (*it)->indexTray;
     }
-    return indexTray;
+    return 0;
 }
 
 
@@ -353,79 +311,70 @@ quint8 SingletonAxis::testTaryZoneAxisPos(bool bWrite,quint8 numhole,quint8 inde
 //修改坐标
 void SingletonAxis::oper_OriginAxis(bool bNotif_x,int posValue)
 {
-    if(bNotif_x == true)
-        g_pEquipAxiaspos->OriginAxis.setX(posValue);
-    else
-        g_pEquipAxiaspos->OriginAxis.setY(posValue);
+    auto axisData = GetpStruct();
+    if (!axisData) return;
+
+    bNotif_x ? axisData->OriginAxis.setX(posValue) : axisData->OriginAxis.setY(posValue);
 }
 
 void SingletonAxis::oper_ThrowTubeHolePos(bool bNotif_x,int posValue)
 {
-    if(bNotif_x == true)
-        g_pEquipAxiaspos->ThrowHoleAxis.setX(posValue);
-    else
-        g_pEquipAxiaspos->ThrowHoleAxis.setY(posValue);
+    auto axisData = GetpStruct();
+    if (!axisData) return;
+
+    bNotif_x ? axisData->ThrowHoleAxis.setX(posValue) : axisData->ThrowHoleAxis.setY(posValue);
 }
 
 void SingletonAxis::oper_CleanZonePos(bool bNotif_x,int indexNedl,int posValue)
 {
-    if(bNotif_x == true)
-    {
-        switch(indexNedl)
-        {
-            case MOTOR_BLOOD_INDEX:   g_pEquipAxiaspos->cleanZoneoffsetBlodNedl.setX(posValue);   break;
-            case MOTOR_REAGNET_INDEX: g_pEquipAxiaspos->cleanZoneoffsetRegNedl.setX(posValue);    break;
-        default:break;
-        }
-    }
-    else
-    {
-        switch(indexNedl)
-        {
-            case MOTOR_BLOOD_INDEX:     g_pEquipAxiaspos->cleanZoneoffsetBlodNedl.setY(posValue);   break;
-            case MOTOR_REAGNET_INDEX:   g_pEquipAxiaspos->cleanZoneoffsetRegNedl.setY(posValue);    break;
-        default:break;
-        }
-    }
-}
+	auto axisData = GetpStruct();
+	if (!axisData) return;
 
+	QPoint* targetPoint = nullptr;
+
+	switch (indexNedl) {
+	case MOTOR_BLOOD_INDEX:
+		targetPoint = &axisData->cleanZoneoffsetBlodNedl;
+		break;
+	case MOTOR_REAGNET_INDEX:
+		targetPoint = &axisData->cleanZoneoffsetRegNedl;
+		break;
+	default:
+		return;
+	}
+
+	if (bNotif_x) {
+		targetPoint->setX(posValue);
+	}
+	else {
+		targetPoint->setY(posValue);
+	} 
+}
+// 修改试剂区位置
 void SingletonAxis::oper_ReagentZonePos(bool bNotif_x,quint8 indexReag,quint16 posValue)
 {
-    if(g_pEquipAxiaspos->reagentZoneAxispos.isEmpty())
-    {
-         REAGENTZONEAXIS_ *psingReaget = new REAGENTZONEAXIS_;
-         psingReaget->index = indexReag;
-         psingReaget->reagname = "";
-         if(bNotif_x == true)
-            psingReaget->Axispos.setX(posValue);
-         else
-            psingReaget->Axispos.setY(posValue);
-         g_pEquipAxiaspos->reagentZoneAxispos.push_back(psingReaget);
-    }
-    else
-    {
-        auto it = g_pEquipAxiaspos->reagentZoneAxispos.begin();
-        while(it != g_pEquipAxiaspos->reagentZoneAxispos.end())
-        {
-            REAGENTZONEAXIS_ *psingReaget = (*it);
-            if(psingReaget->index == indexReag)
-            {
-                if(bNotif_x == NOTIFY_XPOINT)
-                    psingReaget->Axispos.setX(posValue);
-                else
-                    psingReaget->Axispos.setY(posValue);
-                break;
-            }
-            it++;
-        }
-    }
+    auto axisData = GetpStruct();
+    if (!axisData) return;
 
+    auto& reagentList = axisData->reagentZoneAxispos;
+
+    // 查找现有试剂
+    auto it = std::find_if(reagentList.begin(), reagentList.end(),
+        [indexReag](REAGENTZONEAXIS_* item) {
+            return item != nullptr && item->index == indexReag;
+    });
+
+    if (it != reagentList.end()) {
+        bNotif_x ? (*it)->Axispos.setX(posValue) : (*it)->Axispos.setY(posValue);
+    } else {
+        // 创建新试剂项
+        REAGENTZONEAXIS_* newReagent = new REAGENTZONEAXIS_;
+        newReagent->index = indexReag;
+        newReagent->reagname = "";
+        bNotif_x ? newReagent->Axispos.setX(posValue) : newReagent->Axispos.setY(posValue);
+        reagentList.push_back(newReagent);
+    }
 }
-
-
-
-
-
 
 
 
@@ -454,70 +403,75 @@ void SingletonAxis::oper_TestChnZoneAxispos(bool isXAxis, quint8 numChn, quint8 
     return;
 }
 
+
 void SingletonAxis::oper_bloodSampleZonePos(bool bNotif_x,quint8 numhole,quint16 posValue)
 {
-    if(g_pEquipAxiaspos->bloodSampleAxisPos.isEmpty())
-    {
-        SAMPLEBLOODZONEAXISPOS_ *pbloodholestu = new SAMPLEBLOODZONEAXISPOS_;
-        pbloodholestu->index = numhole;
-        if(bNotif_x == true)
-            pbloodholestu->axisPos.setX(posValue);
-        else
-            pbloodholestu->axisPos.setY(posValue);
-        g_pEquipAxiaspos->bloodSampleAxisPos.push_back(pbloodholestu);
-    }
-    else
-    {
-        auto it = g_pEquipAxiaspos->bloodSampleAxisPos.begin();
-        while(it != g_pEquipAxiaspos->bloodSampleAxisPos.end())
-        {
-            SAMPLEBLOODZONEAXISPOS_ *pbloodholestu = (*it);
-            if(pbloodholestu->index == numhole)
-            {
-                if(bNotif_x == true)
-                    pbloodholestu->axisPos.setX(posValue);
-                else
-                    pbloodholestu->axisPos.setY(posValue);
-                break;
-            }
-            it++;
-        }
-    }
+    auto axisData = GetpStruct();
+    if (!axisData) return;
 
+    auto& bloodSampleList = axisData->bloodSampleAxisPos;
+
+    // 查找现有记录
+    auto it = std::find_if(bloodSampleList.begin(), bloodSampleList.end(),
+        [numhole](SAMPLEBLOODZONEAXISPOS_* item) {
+            return item != nullptr && item->index == numhole;
+        });
+
+    if (it != bloodSampleList.end()) {
+        // 更新现有记录
+        if (bNotif_x) {
+            (*it)->axisPos.setX(posValue);
+        } else {
+            (*it)->axisPos.setY(posValue);
+        }
+    } else {
+        // 创建新记录
+        SAMPLEBLOODZONEAXISPOS_* newItem = new SAMPLEBLOODZONEAXISPOS_;
+        newItem->index = numhole;
+        if (bNotif_x) {
+            newItem->axisPos.setX(posValue);
+        } else {
+            newItem->axisPos.setY(posValue);
+        }
+        bloodSampleList.push_back(newItem);
+    }
 }
 
 void SingletonAxis::oper_TestTrayZonaPos(bool bNotif_x,quint8 numhole,quint8 indexNeedle,quint16 posValue)
 {
-    bool hand = false;
-    TRYTHECUPAXIS_ *ptestTaryAxisStu = nullptr;
-    auto iter = g_pEquipAxiaspos->testTubeZoneAxisPos.begin();
-    while(iter != g_pEquipAxiaspos->testTubeZoneAxisPos.end())
-    {
-        ptestTaryAxisStu = *iter;
-        if(numhole == ptestTaryAxisStu->numTube && ptestTaryAxisStu->offsetNeedle == indexNeedle)
-        {
-            if(bNotif_x == true)
-                ptestTaryAxisStu->axisPos.setX(posValue);
-            else
-                ptestTaryAxisStu->axisPos.setY(posValue);
-            hand = true;
-            break;
+    auto axisData = GetpStruct();
+    if (!axisData) return;
+
+    auto& tubeList = axisData->testTubeZoneAxisPos;
+
+    // 查找现有记录
+    auto it = std::find_if(tubeList.begin(), tubeList.end(),
+        [numhole, indexNeedle](TRYTHECUPAXIS_* item) {
+            return item != nullptr &&
+                   item->numTube == numhole &&
+                   item->offsetNeedle == indexNeedle;
+        });
+
+    if (it != tubeList.end()) {
+        // 更新现有记录
+        if (bNotif_x) {
+            (*it)->axisPos.setX(posValue);
+        } else {
+            (*it)->axisPos.setY(posValue);
         }
-        iter++;
+    } else {
+        // 创建新记录
+        TRYTHECUPAXIS_* newItem = new TRYTHECUPAXIS_;
+        newItem->numTube = numhole;
+        newItem->offsetNeedle = indexNeedle;
+        newItem->indexTray = witchoneindexTary(numhole);
+        if (bNotif_x) {
+            newItem->axisPos.setX(posValue);
+        } else {
+            newItem->axisPos.setY(posValue);
+        }
+        tubeList.push_back(newItem);
     }
-    if(hand == false)
-    {
-        TRYTHECUPAXIS_ *ptestTaryAxisStu = new TRYTHECUPAXIS_;
-        ptestTaryAxisStu->offsetNeedle = indexNeedle;
-        ptestTaryAxisStu->numTube = numhole;
-        ptestTaryAxisStu->indexTray = witchoneindexTary(numhole); //在哪个盘
-        if(bNotif_x == true)
-            ptestTaryAxisStu->axisPos.setX(posValue);
-        else
-            ptestTaryAxisStu->axisPos.setY(posValue);
-        g_pEquipAxiaspos->testTubeZoneAxisPos.push_back(ptestTaryAxisStu);
-    }
-    return;
 }
 
 
