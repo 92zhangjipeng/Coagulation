@@ -1024,76 +1024,68 @@ void ConsumablesOper::clearReagentInfo(){
 //初始化耗材信息
 void ConsumablesOper::creatReagentIndex(const quint8 index)
 {
-    quint8  Bottlenum = 0;
-    quint16 BottleRatio = 0;
-    quint8  BottleLimit = 0;
-    quint16 BottleCapacity = 0;
+    REAGENT_CONSUMABLES_* pinitConsumables = new REAGENT_CONSUMABLES_(
+                index, 0, "", 0, 0, 0
+    );
 
-    REAGENT_CONSUMABLES_ *pinitConsumables = new REAGENT_CONSUMABLES_;
-    pinitConsumables->indexReag = index;
-    pinitConsumables->remain_Ratio = BottleRatio;
-    pinitConsumables->Expirationdate = "";
-    pinitConsumables->remainingNum = Bottlenum; //剩余的总量 单位是瓶
-    pinitConsumables->LimitAlarm = BottleLimit;
-    pinitConsumables->SingleBottleCapacity = BottleCapacity;
     g_pVecReagentInfo->push_back(pinitConsumables);
-    return;
+    QLOG_DEBUG() << QString("创建耗材索引: %1").arg(index);
 }
 
 
 void  ConsumablesOper::iterateOverEquipmentConsumables()
 {
-    for(int index_ = INDEX_AA_CONSUMABLE; index_ <= INDEX_RIS_1_CONSUMABLE; index_++){
-        creatReagentIndex(index_);
+    for (int index = INDEX_AA_CONSUMABLE; index <= INDEX_RIS_1_CONSUMABLE; ++index) {
+        creatReagentIndex(index);
     }
-    return;
 }
 
 
 void ConsumablesOper::getSuppileAllowance(QMap<quint8,quint16> &AllowanceRatio)
 {
-    auto iter = g_pVecReagentInfo->begin();
-    while(iter != g_pVecReagentInfo->end())
-    {
-        REAGENT_CONSUMABLES_ *psingleReagent = *iter;
-        //if(psingleReagent->bSycnMemory == true)
-        {
-            AllowanceRatio.insert(psingleReagent->indexReag,psingleReagent->remain_Ratio);
+    if (!g_pVecReagentInfo) return;
+
+    for (const auto& psingleReagent : *g_pVecReagentInfo) {
+        if (psingleReagent) {
+            // if (psingleReagent->bSycnMemory == true)  // 如果将来需要条件判断
+            AllowanceRatio.insert(psingleReagent->indexReag, psingleReagent->remain_Ratio);
         }
-        iter++;
     }
 }
 
 void ConsumablesOper::getSuppileInteger(QMap<quint8,quint8> &AllowanceInteger)
 {
-    auto iter = g_pVecReagentInfo->constBegin();
-    while(iter != g_pVecReagentInfo->constEnd())
-    {
-        REAGENT_CONSUMABLES_ *psingleReagent = *iter;
-        AllowanceInteger.insert(psingleReagent->indexReag,psingleReagent->remainingNum);
-        iter++;
+    if (!g_pVecReagentInfo) return;
+
+    for (const auto& psingleReagent : *g_pVecReagentInfo) {
+        if (psingleReagent) {
+            AllowanceInteger.insert(psingleReagent->indexReag, psingleReagent->remainingNum);
+        }
     }
 }
 
-void ConsumablesOper::sycnTubeTotalTray(bool bwrite,quint8 &num_Bottle){
-    if (g_pVecReagentInfo == nullptr) {
+void ConsumablesOper::sycnTubeTotalTray(bool bwrite,quint8 &num_Bottle) {
+    if (!g_pVecReagentInfo) {
         QLOG_DEBUG() << "读写试杯盘总数[失败] 仪器耗材数据结构为NULL" << endl;
         return;
     }
 
     auto iter = std::find_if(g_pVecReagentInfo->begin(), g_pVecReagentInfo->end(),
-                            [](REAGENT_CONSUMABLES_* reagent) {
-                                return reagent->indexReag == INDEX_TESTTUBE_CONSUMABLE;
-                            });
-    if (iter != g_pVecReagentInfo->end()) {
-            REAGENT_CONSUMABLES_* psingleReagent = *iter;
-            if (bwrite) {
-                psingleReagent->remainingNum = num_Bottle;  // 写入模式
-            } else {
-                num_Bottle = psingleReagent->remainingNum;  // 读取模式
-            }
+            [](REAGENT_CONSUMABLES_* reagent) {
+                return reagent && reagent->indexReag == INDEX_TESTTUBE_CONSUMABLE;
+            });
+    if (iter != g_pVecReagentInfo->end() && *iter != nullptr) {
+        REAGENT_CONSUMABLES_* psingleReagent = *iter;
+        if (bwrite) {
+            psingleReagent->remainingNum = num_Bottle;
+            QLOG_DEBUG() << "写入试杯盘总数:" << num_Bottle;
+        } else {
+            num_Bottle = psingleReagent->remainingNum;
+            QLOG_DEBUG() << "读取试杯盘总数:" << num_Bottle;
+        }
     } else {
-        QLOG_DEBUG() << "未找到试杯盘耗材信息，请检查配置或更换耗材" << endl;  // 增强错误提示[[6]]
+        QLOG_ERROR() << "未找到试杯盘耗材信息(索引:" << INDEX_TESTTUBE_CONSUMABLE
+                         << ")，请检查配置或更换耗材";
     }
 }
 
@@ -1137,7 +1129,11 @@ void ConsumablesOper::syacnReagentTotalBottle(bool isWrite, quint8 reagentIndex,
 
 void ConsumablesOper::getCleanLinqueAllowance(quint16 &RatioLast)
 {
-    if(g_pVecReagentInfo->isEmpty()) return;
+    if (!g_pVecReagentInfo || g_pVecReagentInfo->isEmpty()) {
+        RatioLast = 0; // 确保输出参数有默认值
+        return;
+    }
+
     auto iter = g_pVecReagentInfo->constBegin();
     while(iter != g_pVecReagentInfo->constEnd())
     {
@@ -1185,10 +1181,11 @@ void ConsumablesOper::updateReplaceLocRatio(bool isWrite, quint8 indexReag,quint
 
 void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &ReagentTol)
 {
-    if(g_pVecReagentInfo == nullptr){
-        QLOG_DEBUG()<<"更新试剂容量[失败] 仪器耗材数据结构为NULL"<<endl;
+    if (!g_pVecReagentInfo || g_pVecReagentInfo->isEmpty()) {
+        QLOG_WARN() << "更新试剂容量失败: 耗材数据结构为空";
         return;
     }
+
     if(g_pVecReagentInfo->isEmpty()) return;
     auto iter = g_pVecReagentInfo->begin();
     while(iter != g_pVecReagentInfo->end()){
@@ -1290,10 +1287,10 @@ void ConsumablesOper::TotalConsumablesAlarm(quint8 indexReag, bool &alarms)
     return;
 }
 
-
-
-
 ////////////////////////试剂耗材  end///////////////////////////////////////
+
+
+
 
 loadEquipmentPos::loadEquipmentPos(QObject *parent) : QObject(parent)
 {
@@ -1313,45 +1310,100 @@ loadEquipmentPos::~loadEquipmentPos()
 
 void loadEquipmentPos::StatrLoad()
 {
-    if(minitPort == nullptr)
-        minitPort = new QSerialPort(); //实例化串口类一个对象
-	if (minitPort->isOpen()) //如果串口已经打开了 先给他关闭了
-	{
-		QLOG_WARN() << tr("串口已打开，关闭重新打开...");
-		minitPort->clearError();
-		minitPort->clear();
-		minitPort->flush();
-		minitPort->close();
-	}
-    bool _findedcom = false;
-    foreach(const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
-    {
-        int intHex_VID = info.vendorIdentifier();
-        int intHex_PID = info.productIdentifier();
-        if(intHex_VID == VID_NUM && intHex_PID == PID_NUM)
-        {
-            _findedcom = true;
-			emit this->closetimercon(true);
-            mserialname = info.portName();
-            QLOG_INFO()<<QString("仪器串口名称:%1").arg(info.portName());//机器串口名
-            openLoadSerialPort(info.portName());
-            break;
+    QLOG_DEBUG() << "开始加载设备...";
+    if(minitPort == nullptr) {
+        try {
+            minitPort = new QSerialPort();
+        } catch (const std::bad_alloc& e) {
+            QLOG_ERROR() << "内存分配失败:" << e.what();
+            emit closetimercon(false);
+            return;
         }
     }
-   
-    if(!_findedcom)
+    // 安全关闭串口
+    if (minitPort->isOpen()) {
+        QLOG_WARN() << "串口已打开，关闭重新打开...";
+        try {
+            minitPort->clear();
+            minitPort->flush();
+            minitPort->close();
+        } catch (const std::exception& e) {
+            QLOG_ERROR() << "关闭串口时发生异常:" << e.what();
+            // 清理并重新创建
+            delete minitPort;
+            minitPort = new QSerialPort();
+        }
+    }
+
+    // 查找匹配的串口
+    bool found = false;
+    QString targetPortName;
+
+    try {
+        auto ports = QSerialPortInfo::availablePorts();
+        for (const auto& portInfo : ports) {
+            // 检查VID/PID有效性
+            if (!portInfo.hasVendorIdentifier() || !portInfo.hasProductIdentifier()) {
+                continue;
+           }
+
+            if (portInfo.vendorIdentifier() == VID_NUM &&
+                portInfo.productIdentifier() == PID_NUM) {
+                found = true;
+                targetPortName = portInfo.portName();
+                QLOG_INFO() << "找到目标串口:" << targetPortName;
+                break;
+            }
+        }
+    } catch (const std::exception& e) {
+        QLOG_ERROR() << "枚举串口时发生异常:" << e.what();
+    }
+
+    // 处理查找结果
+    if (found) {
+        try {
+            emit closetimercon(true);
+            openLoadSerialPort(targetPortName);
+        } catch (const std::exception& e) {
+            QLOG_ERROR() << "打开串口失败:" << e.what();
+            emit closetimercon(false);
+        }
+    } else {
+        QLOG_WARN() << "未找到匹配的串口设备 (VID:"
+                   << QString::number(VID_NUM, 16)
+                   << ", PID:" << QString::number(PID_NUM, 16) << ")";
         emit closetimercon(false);
-    return;
+    }
 }
 
-void loadEquipmentPos::openLoadSerialPort(const QString Portname)
+void loadEquipmentPos::openLoadSerialPort(const QString &portName)
 {
-    minitPort->setPortName(Portname);
-    if(!minitPort->open(QIODevice::ReadWrite))//用ReadWrite 的模式尝试打开串口
-    {
-        QLOG_ERROR()<<QString("仪器串口%1打开失败!").arg(Portname)<<endl;
+    // 参数检查
+    if (minitPort == nullptr) {
+        QLOG_ERROR() << "串口对象未初始化!";
         return;
     }
+
+    if (portName.isEmpty()) {
+        QLOG_ERROR() << "串口名称为空!";
+        return;
+    }
+
+    // 如果已经打开的是同一个端口，无需重新打开
+    if (minitPort->isOpen() && minitPort->portName() == portName) {
+        QLOG_INFO() << "串口" << portName << "已经打开";
+        return;
+    }
+    // 设置端口名称
+    minitPort->setPortName(portName);
+
+    if(!minitPort->open(QIODevice::ReadWrite))//用ReadWrite 的模式尝试打开串口
+    {
+        const QString errorString = minitPort->errorString();
+        QLOG_ERROR()<< "串口" << portName << "打开失败:" << errorString;
+        return;
+    }
+
     minitPort->setBaudRate(QSerialPort::Baud1000000,QSerialPort::AllDirections);//设置波特率和读写方向
     minitPort->setDataBits(QSerialPort::Data8);              //数据位为8位
     minitPort->setFlowControl(QSerialPort::NoFlowControl);   //无流控制
@@ -1362,18 +1414,38 @@ void loadEquipmentPos::openLoadSerialPort(const QString Portname)
 
     //读取仪器型号
     QByteArray getInstrumentType = QUIUtils::ReadcoordinateArry(EQUIPMENT_TYPED);
-	slotwritedataToEquip(getInstrumentType);
+    handlewritedataToEquip(getInstrumentType);
     QLOG_DEBUG()<<tr("第一次问连接成功,读取仪器类型命令...")<<getInstrumentType.toHex(' ').trimmed().toUpper()<<endl;
 	return;
 }
 
 void loadEquipmentPos::receiveInfo()
 {
-    QByteArray recvedata;
-    recvedata = minitPort->readAll();
-    QString framedata  = recvedata.toHex(' ').trimmed().toUpper();
-    QStringList dataList = framedata.split(" ");
-    int size_ = dataList.size();
+    if (!minitPort || !minitPort->isOpen()) {
+        QLOG_WARN() << "串口未打开或无效，无法接收数据";
+        return;
+    }
+
+
+    const QByteArray recvedata = minitPort->readAll();
+
+    if(recvedata.isEmpty()){
+        return;
+    }
+
+    const QString framedata  = recvedata.toHex(' ').trimmed().toUpper();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+	const QStringList dataList = framedata.split(" ", Qt::SkipEmptyParts);
+#else
+	const QStringList dataList = framedata.split(" ", QString::SkipEmptyParts);
+#endif
+    const int size_ = dataList.size();
+
+    if (size_ == 0) {
+        QLOG_WARN() << "解析后数据为空";
+        return;
+    }
+
     QList<QStringList> data_;
     data_.clear();
 
@@ -1392,7 +1464,7 @@ void loadEquipmentPos::receiveInfo()
         for(int k = 0 ; k < data_.size() ; k++)
         {
             QStringList recv_data = data_.at(k);
-            _Parsing_received_messages(recv_data); //解析
+            parsingReceivedMessages(recv_data); //解析
 
         }
     }
@@ -1401,12 +1473,11 @@ void loadEquipmentPos::receiveInfo()
         QLOG_ERROR()<<"收到数据长度异常数据"<<recvedata.toHex(' ').trimmed().toUpper()<<
                       "长度"<<size_<<__FILE__<<__LINE__<<endl;
     }
-    recvedata.clear();
     return;
 }
 
 
-void  loadEquipmentPos::_Parsing_received_messages(const QStringList ArryRecvdata)
+void  loadEquipmentPos::parsingReceivedMessages(const QStringList ArryRecvdata)
 {
     QString hexstr;
     bool ok;
@@ -1869,7 +1940,7 @@ void loadEquipmentPos::_sendWriteAxisOrder(quint8 index)
         auto iter = m_axiswriteequipment.find(index);
         if(iter.value()->_writefinish == false)
         {
-           slotwritedataToEquip(iter.value()->_writeparaorder); 
+           handlewritedataToEquip(iter.value()->_writeparaorder);
         }
     }
 }
@@ -1891,7 +1962,7 @@ void loadEquipmentPos::GroupReadParaCommder(quint8 index_)
     {
         auto iter = mwriteAxismap.find(index_);
 		if(iter.value()->readfinish == false)
-			slotwritedataToEquip(iter.value()->_readparaorder);
+            handlewritedataToEquip(iter.value()->_readparaorder);
     }
     return;
 }
@@ -3020,7 +3091,7 @@ void loadEquipmentPos::writeEquipmenttyped(const quint8 &index_,bool _ExitParaFi
 
 	QByteArray writedata_;
 	QUIUtils::WriteEquipmentType(index_, EQUIPMENT_TYPED, writedata_);
-	slotwritedataToEquip(writedata_);
+    handlewritedataToEquip(writedata_);
     return;
 }
 
@@ -3688,15 +3759,39 @@ void loadEquipmentPos::initwriteMainReagNum()
 }
 
 
-void loadEquipmentPos::slotwritedataToEquip(const QByteArray arry)
+void loadEquipmentPos::handlewritedataToEquip(const QByteArray &arry)
 {
-    if (!minitPort)  return;
-    quint64 len = minitPort->write(arry);
 
-    if(len != PROTOCOL_LENGTH)
-        QLOG_ERROR()<<"发送命令失败"<<arry.toHex(' ').trimmed().toUpper()<<endl;
+    if (!minitPort || !minitPort->isOpen()) {
+        QLOG_DEBUG() << "串口未打开，无法发送数据";
+        return;
+    }
 
-    return;
+    if (arry.isEmpty()) {
+        QLOG_DEBUG() << "发送数据为空";
+        return ;
+    }
+
+    const qint64 bytesWritten = minitPort->write(arry);
+
+    if (bytesWritten == -1) {
+        QLOG_WARN() << "写入数据失败:" << minitPort->errorString();
+        return ;
+    }
+
+    if (bytesWritten != arry.size()) {
+        QLOG_WARN() << "数据未完全写入，期望:" << arry.size()
+                              << "实际:" << bytesWritten<<"失败命令:"<<arry.toHex(' ').trimmed().toUpper();
+        return;
+    }
+
+    if (!minitPort->waitForBytesWritten(1000)) {
+        QLOG_WARN() << "等待数据写入超时";
+        return ;
+    }
+
+    QLOG_DEBUG() << "成功写入" << bytesWritten << "字节数据";
+    return ;
 }
 
 void loadEquipmentPos::_sycnobtainEquipmenttyped(bool Parafilestate,QString ParaFilePath)
@@ -3711,13 +3806,27 @@ void loadEquipmentPos::_sycnobtainEquipmenttyped(bool Parafilestate,QString Para
 //关闭串口
 void loadEquipmentPos::CloseSerial()
 {
-	if (minitPort)
-	{
-		if (minitPort->isOpen())
-			minitPort->close();
-		delete minitPort;
-		minitPort = nullptr;
-	}
+    if (!minitPort) {
+        return;
+    }
+
+    disconnect(minitPort, &QSerialPort::readyRead,
+               this, &loadEquipmentPos::receiveInfo);
+
+    if (minitPort->isOpen()) {
+        try {
+            minitPort->flush();
+            minitPort->clear();
+            minitPort->close();
+            QLOG_DEBUG() << "坐标串口已安全关闭";
+        } catch (const std::exception &e) {
+            QLOG_WARN() << "关闭串口时发生异常:" << e.what();
+        }
+    }
+
+    delete minitPort;
+    minitPort = nullptr;
+
     qDeleteAll(m_axiswriteequipment);
     m_axiswriteequipment.clear();
 

@@ -63,6 +63,9 @@ public:
     explicit Testing(QWidget *parent = 0);
     ~Testing();
 
+    //USB任务数据库
+    static UsbCodeDispose *m_TaskDll;
+
     void initequipmentKind(const quint8 indextype);
 
     //所有样本测试完成
@@ -82,12 +85,12 @@ public:
     //重测样本号prp高度
     void repPrpheight(const QString idnum,bool );
 
-    void   giveupSampleShowHole(QList<quint8> holeList);
-    void   giveupSampleChannelFlash(const bool &isChannelNormal,const quint8 indexChannel);
+    void giveupSampleShowHole(QList<quint8> holeList);
+    void giveupSampleChannelFlash(const bool &isChannelNormal,const quint8 indexChannel);
 
     void showTestChannelInfo(const quint8& channelIndex,
-                                const   QString& sampleName,
-                                const  quint8&reagentIndex);
+                    const   QString& sampleName,
+                    const  quint8&reagentIndex);
 
 protected:
     void            mousePressEvent(QMouseEvent *event); //鼠标键被按下的事件
@@ -104,13 +107,13 @@ private slots:
      void toggleBlinkState();
 
 public slots:
-
-
-    void sycnChangeuiTubeStatus(const QString& sample_name, quint8 anemiahole,
-                                  const QList<quint8> &marktube, int index_add, int all_add_task);
+    void sycnChangeuiTubeStatus(const QString& sample_name,
+                                  quint8 anemiahole,
+                                  const QList<quint8> &marktube,
+                                  int index_add, int all_add_task);
 
     //丟了一个试管杯
-    void slot_throwtesttube();
+    void slotThrowtesttube();
 
     //测高完成改变标志
     void TiggerTestHighdone(QString ImagePath , double, bool isreplaceteshigh, QString numid);
@@ -118,93 +121,93 @@ public slots:
     //绘制进度条
     void DrawChannelProgress(quint8 index ,double proportion);
 
-    void    SlotRemderbloodhole(int richhole);
+    void SlotRemderbloodhole(int richhole);
 
-    void    Initialize_the_Task_interface();  /*初始化任务界面*/
+    /*初始化任务界面*/
+    void initTheTaskInterface();
 
-    void    EmptyTubeClipMoved(quint8 IndexTube);                       //空试管被夹走
-
-
+    //空试管被夹走
+    void EmptyTubeClipMoved(quint8 IndexTube);
 
 private:
-    void    clickAnaemiaHoleCancelTestTask(QList<int> waitTestSampleId); //取消待测样本
+    //取消待测样本
+    void clickAnaemiaHoleCancelTestTask(QList<int> waitTestSampleId);
 
-    void    initializeMachineUI(const quint8 equipmentIndex);
+    void initializeMachineUI(const quint8 equipmentIndex);
 
-    void    ChaneColorEmptyAreaTray(QString);//选中改变空试管颜色
+    //选中改变空试管颜色
+    void ChaneColorEmptyAreaTray(QString);
 
     //显示通道测试控件初始化
     void initControlShowChannelProgress(quint8 startChannel, QWidget * progressChannel,
                                            QWidget *ptestChannel, const QPalette &pa);
 
     //取消任务
-    void    ClickCanelTask(int posx,int posy);
+    void ClickCanelTask(int posx,int posy);
 
     //切换试剂位置
-    void    ToggletheReagentPosition(int posx,int posy);
+    void ToggletheReagentPosition(int posx,int posy);
 
-    void    VectorReplaceClear(quint8 Index);
+    void VectorReplaceClear(quint8 Index);
 
-    void    ComplBackColorBloodArea();
+    void ComplBackColorBloodArea();
 
-    void    VectorSelectedBloodAreaTube(quint8 IndexTube ,QString);
-    void    CanceltaskbackTubecolor(int PPPHole, int PRPHoles, QList<quint8>);
+    void VectorSelectedBloodAreaTube(quint8 IndexTube ,QString);
+    void CanceltaskbackTubecolor(int PPPHole, int PRPHoles, QList<quint8>);
 
     //更新血样孔状态颜色
-    void    UpdateBloodHoleColors(int State, QMap<quint8, QPoint> &MapBloodHole);
+    void UpdateBloodHoleColors(int State, QMap<quint8, QPoint> &MapBloodHole);
 
+    //创建血样孔坐标
+    void CreatBloodZoneAxisPos();
+    void DrawBloodTopText();
+    void DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap);
 
-    void    CreatBloodZoneAxisPos();      //创建血样孔坐标
-    void    DrawBloodTopText();
-    void    DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap);
-
-    void    plotReagentWellsCoordinates(quint8 totalReagents); /*绘制试剂坐标 */
-    void    showPaintReagents();
+    /*绘制试剂坐标 */
+    void plotReagentWellsCoordinates(quint8 totalReagents);
+    void showPaintReagents();
 
     //初始化试管已加血样
-    void    InitTubeAddBlooded(int tubeIndex, quint8 reagentType, int sampleNumber);
-
-    void    CreatTrayTestTubeUiAxis(int indexTray);
+    void InitTubeAddBlooded(int tubeIndex, quint8 reagentType, int sampleNumber);
+    void CreatTrayTestTubeUiAxis(int indexTray);
 
     /*画测试试管显示UI位置坐标*/
-    void    DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,
+    void DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,
                                    quint8 IndexTray,
                                    quint8 BigRadius,
                                    quint8 SmalleRadius);
 
-    void    showCleaningbit();
-    void    showDiscardTheCup();/*弃杯孔*/
-    void    showCleanreagent(); /*清洗剂*/
+    void showCleaningbit();
+    void showDiscardTheCup();/*弃杯孔*/
+    void showCleanreagent(); /*清洗剂*/
 
 public:
-    void    init_testtube_tray(const int);//初始化试杯盘
+    //初始化试杯盘
+    void init_testtube_tray(const int);
      //bool WanttocloseSoftware(Q);
-    void    TotalTaskProgress(); //开始测试显示进度
-    void    _showaddsamplewidget();
+    //开始测试显示进度
+    void TotalTaskProgress();
+    void _showaddsamplewidget();
 
     //初始化试管已被使用
-    void    InitUIEmptyTubeused(int testTubeIndex);
+    void InitUIEmptyTubeused(int testTubeIndex);
 
     //样本在测试颜色变为init
-    void    SampleTestingChangInitColor(QPoint,quint8);
+    void SampleTestingChangInitColor(QPoint,quint8);
 
     //试管被分配任务 标记
-    void    EmptyTubeAssigned(quint8 IndexTube);
+    void EmptyTubeAssigned(quint8 IndexTube);
 
-    void    _replacEmptyTestTary(int index_tary);
-
+    void replacEmptyTestTary(int index_tary);
 
     //性能检测&&质控  标记试管
     void tubeMarked(const QString& outtext,const quint8& tubeIndex);
 
 public slots:
     //设置通道进度条0显示等待
-    void    updateChannelProgressAndStatus(bool isWaitstate,quint8 index_Chn);
+    void updateChannelProgressAndStatus(bool isWaitstate,quint8 index_Chn);
 
-    void    slot_sycn_SampleTestingChangInitColor(QPoint maphole,quint8 indexChn);
-
-public:
-     static UsbCodeDispose *m_TaskDll;//USB任务数据库
+    void slot_sycn_SampleTestingChangInitColor(QPoint maphole,quint8 indexChn);
 
 private:
     Ui::Testing *ui;

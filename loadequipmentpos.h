@@ -256,11 +256,20 @@ private:
 typedef struct REAGENT_CONSUMABLES
 {
     quint8   indexReag;               //试剂类型 0 - 255
-    quint8   remainingNum;            //剩余总量 0 - 255 瓶
     quint16  remain_Ratio;            //剩余百分比单个  512为 100
+    QString  Expirationdate;          //有效日期
+    quint8   remainingNum;            //剩余总量 0 - 255 瓶
     quint8   LimitAlarm;              //限位报警
     quint16  SingleBottleCapacity;    //单瓶容量
-    QString  Expirationdate;          //有效日期
+
+    // 添加构造函数
+    REAGENT_CONSUMABLES(quint8 index = 0, quint16 ratio = 0,
+                            const QString& date = "", quint8 num = 0,
+                            quint8 limit = 0, quint16 capacity = 0)
+            : indexReag(index), remain_Ratio(ratio), Expirationdate(date),
+              remainingNum(num), LimitAlarm(limit), SingleBottleCapacity(capacity)
+        {}
+
 }REAGENT_CONSUMABLES_;
 typedef QVector<REAGENT_CONSUMABLES_* > equipmentConsumablesVec;
 
@@ -439,9 +448,11 @@ public slots:
     //先设置仪器型号再写坐标
     void writeEquipmenttyped(const quint8 &index_, bool _ExitParaFile, QString _ParaPath);
 
-    void slotwritedataToEquip(const QByteArray arry);
+    void handlewritedataToEquip(const QByteArray &arry);
 
     void _sycnobtainEquipmenttyped(bool Parafilestate,QString ParaFilePath);
+
+
 public:
 	void CloseSerial();
 
@@ -450,7 +461,14 @@ public:
 private:
     void handleReadDevicePara(const QStringList hexArray);
 
-    void openLoadSerialPort(const QString Portname);
+    void openLoadSerialPort(const QString &portName);
+
+
+
+
+
+
+
 
     //翻译转换2个字节一个坐标的参数
     void Translation_conversion(const QStringList origindata, QMap<quint8, quint16> &conversiondata);
@@ -508,7 +526,9 @@ private:
 
 
     void groupReagentinfo(bool bread);
-    void _Parsing_received_messages(const QStringList ArryRecvdata); //解析接收数据
+     //解析接收数据
+    void parsingReceivedMessages(const QStringList ArryRecvdata);
+
     void _equipmentParaParsing(quint8 index_, const QStringList ArryRecvdata);
     void _mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata); //读取主板内试剂耗材信息
 
@@ -599,13 +619,16 @@ signals:
     void setEquipmentIndex();
 
 private:
+
+
     QSerialPort *minitPort = nullptr;
+    QString mserialname ;
 
     bool mcreatSetType = false;       //设置仪器类型标志
 
 
     bool mequipnotconnect; //未连接提示一次标志
-    QString mserialname ;
+
 
     bool m_bParafileExit;
     QString m_ParaFilePath;

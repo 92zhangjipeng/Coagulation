@@ -81,7 +81,9 @@ void Testing::initequipmentKind(const quint8 indextype)
 
     initializeMachineUI(minstrumentType); /*初始化测试界面测试通道*/
 
-    Initialize_the_Task_interface(); //初始化添加样本对话框
+    //初始化添加样本对话框
+    initTheTaskInterface();
+
 }
 
 void  Testing::toggleBlinkState(){
@@ -608,7 +610,7 @@ void Testing::showCleaningbit()
 
 
 /*初始化任务测高界面*/
-void Testing::Initialize_the_Task_interface()
+void Testing::initTheTaskInterface()
 {
     FullyAutomatedPlatelets::pinstanceAddsampletest()->_initcreat();
     connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),&Height_Data::Taskconfigcloe,this,[=](){
@@ -742,7 +744,7 @@ void Testing::TotalTaskProgress()
 
 
 
-void Testing::slot_throwtesttube()
+void Testing::slotThrowtesttube()
 {
     if(m_ProTotalTube == 0) return;
     m_ThrowTube++;
@@ -900,7 +902,7 @@ void Testing::EmptyTubeAssigned(quint8 IndexTube)
 }
 
 /*更换试管盘*/
-void Testing::_replacEmptyTestTary(int index_tary)
+void Testing::replacEmptyTestTary(int index_tary)
 {
     //耗材界面点更换试管盘
     //QtConcurrent::run(this, &Testing::replacementTray, index); //更换试管盘、线程

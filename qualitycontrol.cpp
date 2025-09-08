@@ -1066,7 +1066,7 @@ void QualityControl::updateTestTubeTrat(quint8 replaceIndexTray)
 
     //同步测试界面更新和更新数据库内试管状态
     updatetrayAllTube(replactindex,false); //耗材界面更新
-    FullyAutomatedPlatelets::pinstanceTesting()->_replacEmptyTestTary(replaceIndexTray - 1);
+    FullyAutomatedPlatelets::pinstanceTesting()->replacEmptyTestTary(replaceIndexTray - 1);
     emit  sendDirectives(buffer,"直接写入试管余盘");
     return;
 }

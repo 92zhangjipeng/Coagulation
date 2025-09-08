@@ -220,6 +220,7 @@ bool checkExcessiveBlack(const cv::Mat& roi_mask, const cv::Mat& black_pixels_ma
     double ratio = static_cast<double>(black_pixels) / total_pixels;
     return (ratio > threshold);
 }
+
 //测试识别血样管
 bool opencvfindHeigh::IdentifyRBCHeight(cv::Mat img,double ratioimg,double &BloodHeigh)
 {

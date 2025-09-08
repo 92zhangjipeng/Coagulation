@@ -12,13 +12,9 @@ Virtualkeyboard::Virtualkeyboard(QWidget *parent) :
     ui->setupUi(this);
 
     Init("blue",20);
-
     ui->Btnclear->setFocus();
-
     ui->Btnclear->setShortcut(QKeySequence::InsertParagraphSeparator);
-
     ui->Btnclear->setShortcut(Qt::Key_Enter);
-
     ui->Btnclear->setShortcut(Qt::Key_Return);
 }
 

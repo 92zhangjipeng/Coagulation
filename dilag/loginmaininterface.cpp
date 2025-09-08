@@ -140,7 +140,7 @@ void loginmaininterface::initHardware()
         mLoadcoordinates = new loadEquipmentPos(this); // 设置父对象自动管理内存
 
         // 使用现代Qt连接语法
-        connect(this, &loginmaininterface::sig_start,
+        connect(this, &loginmaininterface::signalStart,
                 mLoadcoordinates, &loadEquipmentPos::StatrLoad);
 
         connect(mLoadcoordinates, &loadEquipmentPos::closetimercon,
@@ -171,7 +171,7 @@ void loginmaininterface::initHardware()
             emit sycnParaConfigFileSatte(m_bparaexit,_parasettingPath);
         });
 
-        emit sig_start();
+        emit signalStart();
     }
 }
 
@@ -195,7 +195,7 @@ void loginmaininterface::InitStyle()
     asyncInitDatabase();
 
     //// 加载用户数据
-    _loaduser();
+    loaduser();
     ui->comboBox_user->setEditable(false);
 
     //// 初始化硬件设备
@@ -277,7 +277,7 @@ void loginmaininterface::onBtnMenuMinClicked()
 }
 
 //导入账户
-void loginmaininterface::_loaduser()
+void loginmaininterface::loaduser()
 {
     QStringList newUsers;
     FullyAutomatedPlatelets::pinstancesqlData()->FindAllUsername(newUsers);
@@ -437,7 +437,6 @@ void loginmaininterface::slotProgressshow(bool bWrite)
     statusLabel->setText(QString("%1 %2%").arg(modeString).arg(progressText));
 
 
-
     // 完成状态处理
     if (safeCompleted >= mtotalcommed) {
         // 异步清理策略
@@ -530,7 +529,7 @@ void loginmaininterface::timerEvent(QTimerEvent *event)
 {
     if(this->mtimerconnect == event->timerId())
     {
-        emit sig_start();
+        emit signalStart();
     }
 }
 

@@ -57,7 +57,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     }
 
 
-
     // 状态栏初始化
     ui->StatusBar->setFixedHeight(60);
     m_reminderTitleStr.clear();
@@ -312,8 +311,6 @@ void MainWindow::init_style_all()
     initmainboradthread(); //主板线程实例化函数&&***触发测高信号
 
     CreatActionExecution();  //单个动作完成状态信号
-
-
 
     initTestTaskThread(); //初始化启动任务线程
 
@@ -774,7 +771,7 @@ void MainWindow::initTestTaskThread()
 
     /*弃杯成功*/
     connect(m_pdoingTesting.data(),&TestProjectProcess::throwtesttube,
-            mptesting.data(),&Testing::slot_throwtesttube);
+            mptesting.data(),&Testing::slotThrowtesttube);
 
     //断线重连
     connect(mlocalSerial.data(),&SuoweiSerialPort::connectEquipmentagin,

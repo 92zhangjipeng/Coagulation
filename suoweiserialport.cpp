@@ -250,8 +250,6 @@ void SuoweiSerialPort::slotcloseseirport()
 }
 
 
-
-
 // 字节写入回调（线程安全）
 void SuoweiSerialPort::handleBytesWritten(qint64 bytes) {
     QMutexLocker locker(&m_writeMutex);
@@ -348,7 +346,6 @@ void SuoweiSerialPort::processFrame(const QByteArray& frame) {
 void  SuoweiSerialPort::slotReadData()
 {
    handleRecvdata();
-
 }
 
 

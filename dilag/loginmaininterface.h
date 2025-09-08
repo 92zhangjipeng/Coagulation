@@ -40,7 +40,7 @@ private:
     void initHardware();
 
 
-    void _loaduser();
+    void loaduser();
 
 private slots:
     void onBtnMenuCloseClicked();
@@ -50,7 +50,7 @@ private slots:
     void on_toolButton_exit_clicked();
 
 signals:
-    void sig_start();
+    void signalStart();
 
     //配置机型坐标 写坐标
     void makesureequipment(const quint8 & ,bool,QString);
