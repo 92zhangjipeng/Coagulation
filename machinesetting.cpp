@@ -2069,7 +2069,6 @@ void MachineSetting::on_toolButton_Import_clicked()
 
     if(!filePath.isEmpty())
     {
-        //SingletonAxis::GetInstance()->importtCoordinate(filePath); //先读文件坐标 再写入到仪器
         if(SingletonAxis::GetInstance()->importFromCoordinateText(filePath)){
            QMessageBox::about(this,"导入坐标文件","导入坐标文件成功!");
         }

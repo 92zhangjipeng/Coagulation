@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QPoint>
 #include <stdexcept>
+#include <memory>
+#include <mutex>
 
 typedef struct REAGENTZONEAXIS{
     quint8 index;
@@ -202,9 +204,6 @@ public:
     //坐标映射空号
     static quint8 TeatTayr_findHole(int indexZ,QPoint moved);
 
-    //导入文件把坐标写入到机器
-    static bool importtCoordinate(const QString filePath);
-
     //把坐标写到坐标配置文件
     static bool exportToCoordinateText(const EquipmentAXIS_& equipment, const QString& filePath);
 
@@ -292,17 +291,20 @@ public:
     static void updateReagentLimit(bool bwrite,quint8 indexReag,quint8 &limitArlm);     //更新试剂限位
     static bool _ObtainConsumablesBalance(quint8 index_Supplies, quint8 &remainingQuantity); //获得耗材余额
 
+    static void clearReagentInfo();
 
 private:
     ConsumablesOper();
     ~ConsumablesOper();
 
     // 将其拷贝构造和赋值构造成为私有函数, 禁止外部拷贝和赋值
-    ConsumablesOper(const ConsumablesOper &consumable);
-    const ConsumablesOper &operator =(const ConsumablesOper &consumable);
+    ConsumablesOper(const ConsumablesOper &consumable)= delete;
+    const ConsumablesOper &operator =(const ConsumablesOper &consumable)= delete;
+
 private:
     static ConsumablesOper  *g_pConsumable;
     static equipmentConsumablesVec *g_pVecReagentInfo;
+    static std::mutex m_instanceMutex;
 };
 
 

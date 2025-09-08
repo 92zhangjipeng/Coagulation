@@ -213,20 +213,7 @@ void LoginUi::enterMainWidget()
     SingletonAxis::GetInstance()->sycnAxisState(READ_OPERRAT,sycnflag);
     if(!sycnflag)
     {
-        //未同步坐标就使用本地文件坐标
-        QString defaultpath = QApplication::applicationDirPath() + "/coordinateFile.txt";//默认路径
-		QFileInfo filepath(defaultpath);
-        if(filepath.isFile())
-        {
-            bool bsycn = SingletonAxis::GetInstance()->importtCoordinate(defaultpath);
-            SingletonAxis::GetInstance()->sycnAxisState(WRITE_OPERAT,bsycn);
-        }
-        else
-        {
-           QString errstr = QString("%1%2").arg("坐标文件不存在").arg(defaultpath);
-           CreatReminderWidget(4,"登入失败",errstr);
-           return;
-        }
+
     }
 
 
@@ -249,30 +236,44 @@ void LoginUi::enterMainWidget()
 
 void LoginUi::on_pushButtonLogin_clicked()
 {
-    QString UserName = ui->comboBoxUser->currentText();     /*用户名*/
-    QString EditPassword = ui->lineEdit_passwod->text();    /*密码*/
-    cglobal::g_UserName_str = UserName;                     /*登录的账户*/
-    QLOG_ERROR()<<"登录用户账号["<<cglobal::g_UserName_str<<"]"<<endl;
-    QString SQLPassword =  FullyAutomatedPlatelets::pinstancesqlData()->FindPassword(UserName);
-    if(cglobal::g_UserName_str.isEmpty())
-    {
-        CreatReminderWidget(0,"登入失败","账户名为空!");
+    QString UserName = ui->comboBoxUser->currentText().trimmed();
+    QString EditPassword = ui->lineEdit_passwod->text();
+
+    // 输入验证
+   if (UserName.isEmpty()) {
+       CreatReminderWidget(0, "登录失败", "请输入用户名!");
+       ui->comboBoxUser->setFocus();
+       return;
+   }
+
+   if (EditPassword.isEmpty()) {
+       ui->lineEdit_passwod->setPlaceholderText("请输入密码!");
+       ui->lineEdit_passwod->setFocus();
+       return;
+   }
+
+   cglobal::g_UserName_str = UserName;
+   QLOG_INFO() << "用户登录尝试:" << UserName;
+
+   QString SQLPassword = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword(UserName);
+
+   if (SQLPassword.isEmpty()) {
+       CreatReminderWidget(0, "登录失败", "用户不存在!");
+       ui->comboBoxUser->setFocus();
+       return;
+   }
+
+   if (EditPassword != SQLPassword) {
+       ui->lineEdit_passwod->setPlaceholderText("密码错误!");
+       ui->lineEdit_passwod->clear();
+       ui->lineEdit_passwod->setFocus();
+       QLOG_WARN() << "登录失败: 密码错误 - " << UserName;
+       return;
     }
-    else if(SQLPassword.isEmpty())
-    {
-        ui->lineEdit_passwod->setPlaceholderText("密码错误!");
-    }
-    if(EditPassword == SQLPassword)
-    {
-        enterMainWidget();
-    }
-    else
-    {
-        ui->lineEdit_passwod->setPlaceholderText("密码错误!");
-        ui->lineEdit_passwod->clear();
-        QLOG_TRACE() << "登入账号输入密码错误";
-    }
-    return;
+
+   // 登录成功
+   QLOG_INFO() << "登录成功:" << UserName;
+   enterMainWidget();
 }
 
 void LoginUi::Deleetmain()

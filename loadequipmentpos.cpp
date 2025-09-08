@@ -15,9 +15,11 @@
 SingletonAxis *SingletonAxis::g_pSingletonAxis = new (std::nothrow) SingletonAxis;
 EquipmentAXIS_ *SingletonAxis::g_pEquipAxiaspos = NULL;
 
+
 //试剂耗材信息
-ConsumablesOper *ConsumablesOper::g_pConsumable = new (std::nothrow) ConsumablesOper;
+ConsumablesOper *ConsumablesOper::g_pConsumable = nullptr /*new (std::nothrow) ConsumablesOper*/;
 equipmentConsumablesVec *ConsumablesOper::g_pVecReagentInfo = nullptr;
+std::mutex ConsumablesOper::m_instanceMutex;
 
 
 
@@ -52,62 +54,49 @@ void SingletonAxis::deleteInstance()
 
 void SingletonAxis::sycnAxisState(bool bWrite, bool &sycnState)
 {
-    if(bWrite == true)
-        g_pEquipAxiaspos->bsycnFinished = sycnState;
-    else
-        sycnState = g_pEquipAxiaspos->bsycnFinished;
-    return;
+    if (auto axisData = GetpStruct()) {
+        bWrite ? axisData->bsycnFinished = sycnState : sycnState = axisData->bsycnFinished;
+    }
 }
 
 void SingletonAxis::equipmentKind(bool bWrite,QString &kindType)
 {
-    if(bWrite == true)
-        g_pEquipAxiaspos->equipmentType = kindType;
-    else
-        kindType = g_pEquipAxiaspos->equipmentType;
-    return;
+    if (auto axisData = GetpStruct()) {
+        bWrite ? axisData->equipmentType = kindType : kindType = axisData->equipmentType;
+    }
 }
 
 
 void SingletonAxis::equipmentKind(bool bWrite, quint8 &kindType)
 {
-	if (g_pEquipAxiaspos)
-	{
-		if (bWrite == true)
-			g_pEquipAxiaspos->euqipmentIndex = kindType;
-		else
-			kindType = g_pEquipAxiaspos->euqipmentIndex;
-	}
-    return ;
+    if (auto axisData = GetpStruct()) {
+        bWrite ? axisData->euqipmentIndex = kindType : kindType = axisData->euqipmentIndex;
+    }
 }
 
 
 void SingletonAxis::paraAxisSaveTime(bool bWrite,QString &timesavestr)
 {
-    if(bWrite == true)
-        g_pEquipAxiaspos->AxixsSaveTime = timesavestr;
-    else
-        timesavestr = g_pEquipAxiaspos->AxixsSaveTime;
-    return;
+    if (auto axisData = GetpStruct()) {
+        bWrite ? axisData->AxixsSaveTime = timesavestr : timesavestr = axisData->AxixsSaveTime;
+    }
 }
 
 
 void SingletonAxis::originPos(const bool &bWrite, QPoint &pos)
 {
-    if(bWrite == true)
-        g_pEquipAxiaspos->OriginAxis = pos;
-    else
-        pos = g_pEquipAxiaspos->OriginAxis;
+    if (auto axisData = GetpStruct()) {
+        bWrite ? axisData->OriginAxis = pos : pos = axisData->OriginAxis;
+    }
 }
 
 
 void SingletonAxis::throwTubeHolePos(bool bWrite, QPoint &pos)
 {
-    if(bWrite == true)
-        g_pEquipAxiaspos->ThrowHoleAxis = pos;
-    else
-        pos = g_pEquipAxiaspos->ThrowHoleAxis;
-    QLOG_DEBUG()<<"弃杯孔坐标:"<< g_pEquipAxiaspos->ThrowHoleAxis<<__FUNCTION__<<__LINE__<<endl;
+    if (auto axisData = GetpStruct()) {
+        bWrite ? axisData->ThrowHoleAxis = pos : pos = axisData->ThrowHoleAxis;
+        QLOG_DEBUG() << "弃杯孔坐标:" << axisData->ThrowHoleAxis << __FUNCTION__ << __LINE__;
+    }
 }
 
 
@@ -478,54 +467,57 @@ void SingletonAxis::oper_TestTrayZonaPos(bool bNotif_x,quint8 numhole,quint8 ind
 
 quint8 SingletonAxis::TeatTayr_findHole(int indexZ,QPoint moved)
 {
-    quint8 backhole = 250;
-    QLOG_DEBUG()<<"映射找试管盘坐标"<<moved<<"offset针"<<indexZ;
-    auto iter = g_pEquipAxiaspos->testTubeZoneAxisPos.begin();
-    while(iter != g_pEquipAxiaspos->testTubeZoneAxisPos.end())
-    {
-        TRYTHECUPAXIS_ *ptestTaryAxisStu = (*iter);
-        if(ptestTaryAxisStu->offsetNeedle == indexZ)
-        {
-            if(ptestTaryAxisStu->axisPos == moved)
-                backhole = ptestTaryAxisStu->numTube;
-            break;
-        }
-        iter++;
-    }
-    return backhole;
+    QLOG_DEBUG() << "映射找试管盘坐标" << moved << "offset针" << indexZ;
+
+    auto axisData = GetpStruct();
+    if (!axisData) return 250;
+
+    auto& tubeList = axisData->testTubeZoneAxisPos;
+
+    // 使用std::find_if查找匹配的元素
+    auto it = std::find_if(tubeList.begin(), tubeList.end(),
+        [indexZ, moved](TRYTHECUPAXIS_* item) {
+            return item != nullptr &&
+                   item->offsetNeedle == indexZ &&
+                   item->axisPos == moved;
+        });
+
+    return (it != tubeList.end()) ? (*it)->numTube : 250;
 }
 
 
 SingletonAxis::SingletonAxis()
 {
-    if (g_pEquipAxiaspos == nullptr)
-    {
+    if (!g_pEquipAxiaspos){
         g_pEquipAxiaspos = new EquipmentAXIS_;
         QLOG_DEBUG() << "坐标结构体分配内存";
+
+        // 确保容器初始化为空
+        g_pEquipAxiaspos->reagentZoneAxispos.clear();
+        g_pEquipAxiaspos->bloodSampleAxisPos.clear();
+        g_pEquipAxiaspos->testTubeZoneAxisPos.clear();
+        g_pEquipAxiaspos->pchnAxisPoint.clear();
     }
 }
 
 SingletonAxis::~SingletonAxis()
 {
-    for(auto it = g_pEquipAxiaspos->reagentZoneAxispos.begin(); it != g_pEquipAxiaspos->reagentZoneAxispos.end();++it){
-        if((*it) != nullptr){
-            delete (*it);
-            (*it) = nullptr;
-        }
-    }
-    g_pEquipAxiaspos->reagentZoneAxispos.clear();
+    if (g_pEquipAxiaspos) {
+        // 使用lambda函数进行安全清理
+        auto safeDeleteContainer = [](auto& container) {
+            for (auto item : container) {
+                if (item) {
+                    delete item;
+                }
+            }
+            container.clear();
+        };
 
-    qDeleteAll(g_pEquipAxiaspos->bloodSampleAxisPos.begin(),g_pEquipAxiaspos->bloodSampleAxisPos.end());
-    g_pEquipAxiaspos->bloodSampleAxisPos.clear();
+        safeDeleteContainer(g_pEquipAxiaspos->reagentZoneAxispos);
+        safeDeleteContainer(g_pEquipAxiaspos->bloodSampleAxisPos);
+        safeDeleteContainer(g_pEquipAxiaspos->testTubeZoneAxisPos);
+        safeDeleteContainer(g_pEquipAxiaspos->pchnAxisPoint);
 
-    qDeleteAll(g_pEquipAxiaspos->testTubeZoneAxisPos.begin(),g_pEquipAxiaspos->testTubeZoneAxisPos.end());
-    g_pEquipAxiaspos->testTubeZoneAxisPos.clear();
-
-    qDeleteAll(g_pEquipAxiaspos->pchnAxisPoint.begin(),g_pEquipAxiaspos->pchnAxisPoint.end());
-    g_pEquipAxiaspos->pchnAxisPoint.clear();
-
-    if(g_pEquipAxiaspos)
-    {
         delete g_pEquipAxiaspos;
         g_pEquipAxiaspos = nullptr;
     }
@@ -976,166 +968,24 @@ bool SingletonAxis::importFromCoordinateText(const QString& filePath)
 
 
 
-
-//导入文件把坐标写入到机器
-bool SingletonAxis::importtCoordinate(const QString filePath)
-{
-	QSettings *configIniRead = new QSettings(filePath, QSettings::IniFormat);
-	quint8  equipmenttype = configIniRead->value("/equipmenttypede/kind").toInt();
-	equipmentKind(WRITE_OPERAT, equipmenttype); //写入仪器类型
-
-	//原点坐标
-	QPoint originpos;
-	originpos.setX(configIniRead->value("/orinigaxis/x").toInt());
-	originpos.setY(configIniRead->value("/orinigaxis/y").toInt());
-	originPos(WRITE_OPERAT, originpos);
-    QLOG_DEBUG() << "配置文件写入仪器原点坐标" << originpos<<"=仪器类型"<< equipmenttype;
-
-    //弃杯坐标
-    QPoint throwpos;
-    throwpos.setX(configIniRead->value("/throwholeaxis/x").toInt());
-    throwpos.setY(configIniRead->value("/throwholeaxis/y").toInt());
-    throwTubeHolePos(WRITE_OPERAT,throwpos);
-    QLOG_DEBUG() << "配置文件写入仪器弃杯孔坐标" << throwpos;
-
-    //血样针offset清洗区
-    QPoint bloodpinoffsetcleanpos;
-    bloodpinoffsetcleanpos.setX(configIniRead->value("/bloodpinoffsetclean/x").toInt());
-    bloodpinoffsetcleanpos.setY(configIniRead->value("/bloodpinoffsetclean/y").toInt());
-    cleanZoneAxisPos(WRITE_OPERAT,MOTOR_BLOOD_INDEX,bloodpinoffsetcleanpos);
-
-    //试剂针offset清洗区
-    QPoint reagpinoffsetcleanpos;
-    reagpinoffsetcleanpos.setX(configIniRead->value("/reagpinoffsetclean/x").toInt());
-    reagpinoffsetcleanpos.setY(configIniRead->value("/reagpinoffsetclean/y").toInt());
-    cleanZoneAxisPos(WRITE_OPERAT,MOTOR_REAGNET_INDEX,reagpinoffsetcleanpos);
-
-    //试剂针offset试剂
-    QPoint firstholepos;
-    firstholepos.setX(configIniRead->value("/reagpinoffsetreaglinque/x").toInt());
-    firstholepos.setY(configIniRead->value("/reagpinoffsetreaglinque/y").toInt());
-    QMap<quint8,QPoint> reagentallPos;
-    reagentallPos.clear();
-    QUIUtils::CreatReagArsOtherAxis(firstholepos,reagentallPos);
-    auto it = reagentallPos.begin();
-    while(it != reagentallPos.end())
-    {
-        reagetZoneAxisPos(WRITE_OPERAT,it.key(),it.value());
-        it++;
-    }
-
-    //血样针offset 血样区
-    QPoint firstbloodpos;
-    firstbloodpos.setX(configIniRead->value("/bloodpinoffsetBloodpos/x").toInt());
-    firstbloodpos.setY(configIniRead->value("/bloodpinoffsetBloodpos/y").toInt());
-    QMap<quint8,QPoint> bloodSampleZone;
-    bloodSampleZone.clear();
-    QUIUtils::creatBloodSampleAxis(equipmenttype, firstbloodpos, bloodSampleZone);
-    auto itmap = bloodSampleZone.begin();
-    while(itmap != bloodSampleZone.end())
-    {
-        bloodSampleZonePos(WRITE_OPERAT,itmap.key(),itmap.value());
-        itmap++;
-    }
-
-    quint8 _totalchn,_toyaltray;
-    switch(equipmenttype){
-        case KS600:
-            _totalchn = 4;
-            _toyaltray = 2;
-        break;
-        case KS800:
-            _totalchn = 8;
-            _toyaltray = 3;
-        break;
-        case KS1200:
-            _totalchn = 12;
-            _toyaltray = 4;
-        break;
-        default:
-            _totalchn = 12;
-            _toyaltray = 4;
-        break;
-    }
-
-
-    //血样针offset试管盘
-    QMap<quint8,QPoint> bloodpinTrayhole;
-    QPoint EmptyTubeFirstPos[4]={};
-    for(int n = 0; n < _toyaltray; n++)
-    {
-         int _nhole = 60*n;
-         QPoint bloodpinoffsetTraypos;
-         QString out_key_x = QString("/bloodpinoffsettubehole%1/x").arg(_nhole);
-         QString out_key_y = QString("/bloodpinoffsettubehole%1/y").arg(_nhole);
-         bloodpinoffsetTraypos.setX(configIniRead->value(out_key_x).toInt());
-         bloodpinoffsetTraypos.setY(configIniRead->value(out_key_y).toInt());
-         EmptyTubeFirstPos[n] = bloodpinoffsetTraypos;
-    }
-    QUIUtils::creatTeatTubeAxiis(MOTOR_BLOOD_INDEX,equipmenttype,bloodpinTrayhole,EmptyTubeFirstPos,4);
-    auto it_ = bloodpinTrayhole.begin();
-    while(it_ != bloodpinTrayhole.end())
-    {
-        testTaryZoneAxisPos(WRITE_OPERAT,it_.key(),MOTOR_BLOOD_INDEX,it_.value());
-        it_++;
-    }
-
-    //抓手offset试管盘
-    QMap<quint8,QPoint> handsTrayhole;
-    QPoint handstrayPos[4]={};
-    for(int n = 0; n < _toyaltray; n++)
-    {
-         int _nhole = 60*n;
-         QPoint HandsoffsetTraypos;
-         QString out_key_x = QString("/handsoffsettubehole%1/x").arg(_nhole);
-         QString out_key_y = QString("/handsoffsettubehole%1/y").arg(_nhole);
-         HandsoffsetTraypos.setX(configIniRead->value(out_key_x).toInt());
-         HandsoffsetTraypos.setY(configIniRead->value(out_key_y).toInt());
-         handstrayPos[n] = HandsoffsetTraypos;
-    }
-    QUIUtils::creatTeatTubeAxiis(MOTOR_HANDS_INDEX,equipmenttype,handsTrayhole,handstrayPos,4);
-    auto _iterhands = handsTrayhole.begin();
-    while(_iterhands != handsTrayhole.end())
-    {
-        testTaryZoneAxisPos(WRITE_OPERAT,_iterhands.key(),MOTOR_HANDS_INDEX,_iterhands.value());
-        _iterhands++;
-    }
-
-    //抓手offset通道
-    for(int chn = 0; chn < _totalchn ;chn++){
-        QPoint chnoffsethands;
-        QString key_x = QString("/handsoffsetChn%1/x").arg(chn + 1);
-        QString key_y = QString("/handsoffsetChn%1/y").arg(chn + 1);
-        chnoffsethands.setX(configIniRead->value(key_x).toInt());
-        chnoffsethands.setY(configIniRead->value(key_y).toInt());
-        chnZoneAxisPos(WRITE_OPERAT,chn,MOTOR_HANDS_INDEX,chnoffsethands);
-    }
-
-    //试剂针offset通道
-    for(int chn = 0; chn < _totalchn ;chn++){
-        QPoint chnoffsetreagpin;
-        QString key_x = QString("/reagpinoffsetChn%1/x").arg(chn + 1);
-        QString key_y = QString("/reagpinoffsetChn%1/y").arg(chn + 1);
-        chnoffsetreagpin.setX(configIniRead->value(key_x).toInt());
-        chnoffsetreagpin.setY(configIniRead->value(key_y).toInt());
-        chnZoneAxisPos(WRITE_OPERAT,chn,MOTOR_REAGNET_INDEX,chnoffsetreagpin);
-    }
-
-    delete configIniRead;
-    QLOG_DEBUG()<<"未连接读取仪器坐标打开软件应用配置坐标";
-    return true;
-}
-
-
-////////////////////////试剂耗材///////////////////////////////////////
+/**   试剂耗材
+* @brief ConsumablesOper::GetpInstance
+* @return
+*/
 ConsumablesOper *ConsumablesOper::GetpInstance()
 {
+    std::lock_guard<std::mutex> lock(m_instanceMutex);
+    if (g_pConsumable == nullptr)
+    {
+        g_pConsumable = new ConsumablesOper();
+    }
     return g_pConsumable;
 }
 
 void ConsumablesOper::del_Instance()
 {
-    if(g_pConsumable)
+    std::lock_guard<std::mutex> lock(m_instanceMutex);
+    if (g_pConsumable)
     {
         delete g_pConsumable;
         g_pConsumable = nullptr;
@@ -1144,8 +994,7 @@ void ConsumablesOper::del_Instance()
 
 ConsumablesOper::ConsumablesOper()
 {
-    if (g_pVecReagentInfo == nullptr)
-    {
+    if (g_pVecReagentInfo == nullptr){
         g_pVecReagentInfo = new equipmentConsumablesVec;
         QLOG_DEBUG() << "耗材结构体分配内存";
     }
@@ -1153,21 +1002,24 @@ ConsumablesOper::ConsumablesOper()
 
 ConsumablesOper::~ConsumablesOper()
 {
-    for(auto iter = g_pVecReagentInfo->begin();iter != g_pVecReagentInfo->end(); ++iter)
-    {
-        if(*iter != nullptr){
-            delete (*iter);
-            (*iter) = nullptr;
+   clearReagentInfo();
+}
+
+void ConsumablesOper::clearReagentInfo(){
+    if (g_pVecReagentInfo){
+        for (auto iter = g_pVecReagentInfo->begin(); iter != g_pVecReagentInfo->end(); ++iter)
+        {
+            if (*iter != nullptr) {
+                delete (*iter);
+                (*iter) = nullptr;
+            }
         }
-    }
-    g_pVecReagentInfo->clear();
-    g_pVecReagentInfo->squeeze();
-    if(g_pVecReagentInfo)
-    {
+        g_pVecReagentInfo->clear();
         delete g_pVecReagentInfo;
         g_pVecReagentInfo = nullptr;
     }
 }
+
 
 //初始化耗材信息
 void ConsumablesOper::creatReagentIndex(const quint8 index)
