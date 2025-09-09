@@ -127,7 +127,7 @@ public:
     * @brief Machine_reset
     * @param Location  true=位置模式
     */
-    void    _backOriginTestFinished();
+    void    backOriginTestFinished();
     void    ThreadSafeReminder(QString title_, QString outputText);
     //void    ReminderInfo(QString title_, QString outputText); //提示信息
 

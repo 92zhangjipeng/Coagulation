@@ -387,7 +387,7 @@ void ConfigureProjectItem::ConfigTestingReagnet()
         if(m_singleitem == false)
             emit _setallsampletestproject(reagent_str);
         else
-            emit _setsinglesampleproject(m_rows,m_clos, reagent_str);
+            emit setsinglesampleproject(m_rows,m_clos, reagent_str);
         this->close();
     }
 

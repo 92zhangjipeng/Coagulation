@@ -49,7 +49,7 @@ public:
      //补回用掉的血样孔
      void   Makeuptubenum(quint8);
      //初始化下拉血样孔
-     void   _initNumAnaemiaHole();
+     void   initNumAnaemiaHole();
      //测高完成
      void   slotShowTestImageTube(QString , double value, const bool &isreplace, const QString &idnum);
      //取消任务返回试管孔号

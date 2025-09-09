@@ -1896,8 +1896,8 @@ QByteArray MachineSetting::outParaOx1aWrite(){
                                         ui->spinBoxSplitAirsMin->value(),
                                         ui->spinBox_suckLatetimer->value(),
                                         FilteringMode,
-                                        ui->checkBox_absorbance->isChecked(),
-                                        ui->checkBoxExperimental->isChecked(),false);
+                                        ui->checkBoxExperimental->isChecked(),
+                                        ui->checkBox_absorbance->isChecked(),false);
 }
 
 

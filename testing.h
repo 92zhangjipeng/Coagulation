@@ -72,15 +72,14 @@ public:
     void AllSampleTested();
 
     //通道禁用主界面显示
-    void recv_NotifyChannleState(const quint8 channelIndexNum,
-                                   const bool bUseing);
+    void recv_NotifyChannleState(const quint8 channelIndexNum,const bool bUseing);
 
     /**
     * @brief _RecvBloodSuck2EmptyTube 测试中..血样加到试管
     * @param banemia                  是否是贫血
     * @param IndexTube                试管孔号
     */
-    void    _RecvBloodSuck2EmptyTube(bool banemia,quint8 IndexTube);
+    void recvBloodSuck2EmptyTube(bool banemia,quint8 IndexTube);
 
     //重测样本号prp高度
     void repPrpheight(const QString idnum,bool );
@@ -205,7 +204,7 @@ public:
 
 public slots:
     //设置通道进度条0显示等待
-    void updateChannelProgressAndStatus(bool isWaitstate,quint8 index_Chn);
+    void updateChannelProgressAndStatus(bool isWaitstate, quint8 index_Chn, const QString &status);
 
     void slot_sycn_SampleTestingChangInitColor(QPoint maphole,quint8 indexChn);
 

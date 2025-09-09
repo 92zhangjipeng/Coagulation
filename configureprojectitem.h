@@ -43,7 +43,7 @@ protected:
 	void keyPressEvent(QKeyEvent *event);
 signals:
     void _setallsampletestproject(QString);
-    void _setsinglesampleproject(int,int,QString); //设置单个样本测试项目
+    void setsinglesampleproject(int,int,QString); //设置单个样本测试项目
 public:
     void Slot_ChangeSingleItem(int rows, int clos,bool signal); //修改全部、修改单个
 private slots:

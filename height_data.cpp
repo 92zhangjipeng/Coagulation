@@ -146,7 +146,7 @@ void  Height_Data::_clickBloodmode(int clickid_)
 
 void  Height_Data::_initcreat()
 {
-    _initNumAnaemiaHole();
+    initNumAnaemiaHole();
 
     FullyAutomatedPlatelets::pinstanceTestproject()->_initstyle();
 
@@ -160,7 +160,7 @@ void  Height_Data::_initcreat()
         }
     });
 
-    QObject::connect(FullyAutomatedPlatelets::pinstanceTestproject(),&ConfigureProjectItem::_setsinglesampleproject,
+    QObject::connect(FullyAutomatedPlatelets::pinstanceTestproject(),&ConfigureProjectItem::setsinglesampleproject,
                      this,[=](int rows,int clos,QString itemtext){
        SetColumnText(rows,clos,itemtext);
     });
@@ -210,7 +210,7 @@ void  Height_Data::_initcreat()
 }
 
 
-void  Height_Data::_initNumAnaemiaHole()
+void  Height_Data::initNumAnaemiaHole()
 {
     try{
         m_pressedhole.clear();

@@ -367,7 +367,7 @@ void MainWindow::init_style_all()
     //所有测试完成复位
     connect(mptesting.data(),&Testing::tsetfinishedbackorigin,this,[=]()
     {
-        _backOriginTestFinished();
+        backOriginTestFinished();
 
         if (!m_pProgress.isNull()) {
             m_pProgress->close();  // 自动触发 delete 并置空 m_pProgress
@@ -375,7 +375,6 @@ void MainWindow::init_style_all()
         }
 
         emit allCurveClear();  //曲线界面复原
-
         mptesting.data()->TotalTaskProgress();//总任务进度试管杯
         update();
     });
@@ -1605,7 +1604,8 @@ void MainWindow::InitMainUiLayout()
             pequipmentconfig,&MachineSetting::slotsendReminder);
 
 
-    connect(FullyAutomatedPlatelets::pinstanceequipmentconfig(),&MachineSetting::sycnViewCurvePara,
+    connect(FullyAutomatedPlatelets::pinstanceequipmentconfig(),
+            &MachineSetting::sycnViewCurvePara,
             m_graphplot.data(),&GraphPlot::recvsycnViewCurvePara);
 
 
@@ -2377,7 +2377,7 @@ void MainWindow::DisplaysConsumablesRemaining()
 
 
 //机器位置复位
-void MainWindow::_backOriginTestFinished()
+void MainWindow::backOriginTestFinished()
 {
     cglobal::g_StartTesting = false;
     ui->toolButton_quality_start->setEnabled(true);

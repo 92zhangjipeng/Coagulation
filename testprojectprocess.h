@@ -60,7 +60,7 @@ signals:
 
     void openTestChnTest(const int ,const quint8, const quint8); //吐试剂完成打开测试通道测试
 
-    void setprogressinitboolwaittext(bool iswait,quint8 index_chn);
+    void setprogressinitboolwaittext(bool iswait,quint8 index_chn, const QString &status);
 
     void sycn_SampleTestingChangInitColor(QPoint,quint8);
 

@@ -242,7 +242,8 @@ signals:
     //质控通道值的获取
     void getchanneldata(const quint8,int);
 
-    void sycnViewCurvePara(int curnum,bool bcheckavge); //测试曲线参数
+    //测试曲线参数
+    void sycnViewCurvePara(int curnum,bool bcheckavge);
 
     void pauseConnectModule(bool bpause);//暂停读模组
 

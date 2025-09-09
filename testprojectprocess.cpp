@@ -139,7 +139,7 @@ void TestProjectProcess::SampleReagTestFinish(QString finishid,const quint8 inde
             }
         }
 
-        emit setprogressinitboolwaittext(true,index_Chn);
+        emit setprogressinitboolwaittext(true,index_Chn,"");
         outputThrowTestChannelReagentFinish(m_focus_sample_id,indexReage);
     }
     return;
@@ -456,7 +456,7 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
      emit openChnMotor(kstopTestChannel, false);//关闭通道旋转
 
      if(indexFocus == FOCUS_CLIP_ANEMIA_TO_CHN){
-         emit setprogressinitboolwaittext(false,kstopTestChannel);
+         emit setprogressinitboolwaittext(false,kstopTestChannel,"[异常]");
          //通道设置为空闲,清空样本,界面进度条归0
          instance->config_testChn_State(kstopTestChannel,CHN_STATUS_FREE);
          //del样本信息 清空通道数据&&测试试剂=贫血
@@ -1048,7 +1048,7 @@ void TestProjectProcess::setupFocusSample(int sampleId, quint8 reagentType)
 // 发送控制命令
 void TestProjectProcess::sendControlCommands(quint8 chn, int sampleId, quint8 reagent)
 {
-    emit setprogressinitboolwaittext(true, chn);
+    emit setprogressinitboolwaittext(true, chn,"");
 
     outputThrowTestChannelReagentFinish(sampleId,reagent);
 }
@@ -1225,7 +1225,7 @@ void TestProjectProcess::updatetubeColorState(const QStringList data)
     if(bemptyzone == true)
     {
         QLOG_DEBUG()<<"改变空试管颜色标识:"<<backHole<<"吐样"<<__FILE__<<__LINE__<<endl;
-        FullyAutomatedPlatelets::pinstanceTesting()->_RecvBloodSuck2EmptyTube(oper_anemia,backHole);
+        FullyAutomatedPlatelets::pinstanceTesting()->recvBloodSuck2EmptyTube(oper_anemia,backHole);
     }
     else
     {
@@ -1274,7 +1274,7 @@ void TestProjectProcess::slot_connectEquipmentagin()
 
 
 
-//测试通道停止测试
+//测试通道无继续待测试剂停止测试完成
 void TestProjectProcess::theTestChannelStopTesting(const bool handError)
 {
     // 获取单例实例一次
@@ -1287,7 +1287,7 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
     emit openChnMotor(kstopTestChannel, false);
 
     //设置通道文字提示
-    emit setprogressinitboolwaittext(false,kstopTestChannel);
+    emit setprogressinitboolwaittext(false,kstopTestChannel,"[完成]");
 
     //失去焦点
     instance->config_dismissFocusSample(m_focus_sample_id);
@@ -1807,7 +1807,7 @@ void TestProjectProcess::exceptionRetest(QString tips){
                 case RIS_REAGENT: focus_index_set = FOCUS_THROW_RIS_TUBE;break;
             }
             StructInstance::getInstance()->write_focusSampleActive(m_focus_sample_id, focus_index_set);
-            emit setprogressinitboolwaittext(true,test_finish_chn);
+            emit setprogressinitboolwaittext(true,test_finish_chn,"");
 
             outputThrowTestChannelReagentFinish(m_focus_sample_id,finish_reag);
         }

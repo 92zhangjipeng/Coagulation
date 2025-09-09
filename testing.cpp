@@ -305,7 +305,7 @@ void Testing::initializeMachineUI(const quint8 equipmentIndex)
 }
 
 
-void Testing::updateChannelProgressAndStatus(bool isWaitstate, quint8 channelIndex)
+void Testing::updateChannelProgressAndStatus(bool isWaitstate, quint8 channelIndex, const QString &status)
 {
     // 防御性检查
     if (channelIndex >= m_channelShowsTheProgress.size() ||
@@ -341,22 +341,20 @@ void Testing::updateChannelProgressAndStatus(bool isWaitstate, quint8 channelInd
         outText = prefix + tr("[等待]");
     } else {
         // 恢复原始文本或设置默认状态
-        outText = prefix; // 或者根据需求设置其他状态
-        // 例如：outText = prefix + tr("[就绪]");
+        outText = prefix + status; // 或者根据需求设置其他状态
     }
-    reminderLabel->setText(outText);
 
-    // 强制刷新界面
-    reminderLabel->repaint();
+    // 只有当文本确实改变时才更新
+    if (reminderLabel->text() != outText) {
+        reminderLabel->setText(outText);
+    }
 
-//    m_channelShowsTheProgress[channelIndex]->setValue(0);
-//    QLabel* reminderLabel = Channelreminder[channelIndex];
-//    QString prefix = (reminderLabel->text().indexOf(':')) ? reminderLabel->text().left(reminderLabel->text().indexOf(':'))
-//                                                            : reminderLabel->text();
-//    QString outText = (isWaitstate) ? prefix + tr("[等待]") : "";
-//    reminderLabel->setText(outText);
-//    // 强制刷新界面
-//    reminderLabel->repaint();
+    reminderLabel->show();
+    reminderLabel->update();
+
+    if(!isWaitstate){
+        QTimer::singleShot(3000, reminderLabel, [reminderLabel]() { reminderLabel->hide();});
+    }
 }
 
 
@@ -633,6 +631,7 @@ void  Testing::SlotRemderbloodhole(int richhole)
     return;
 }
 
+
 void Testing::DrawChannelProgress(quint8 Index ,double proportion)
 {
     // 基本安全检查
@@ -760,11 +759,6 @@ void Testing::slotThrowtesttube()
 /*所有样本测试完成*/
 void Testing::AllSampleTested()
 {
-    // 线程安全检查
-//    if(QThread::currentThread() != thread()) {
-//        QMetaObject::invokeMethod(this, "AllSampleTested", Qt::QueuedConnection);
-//        return;
-//    }
 
     // 检查对象是否有效
     if (!this) {
@@ -776,8 +770,8 @@ void Testing::AllSampleTested()
     QLOG_INFO() << "线程中调用的 AllSampleTested 方法:" << QThread::currentThread();
 
     try{
-        // 批量UI更新开始
-        setUpdatesEnabled(false);
+        // 批量UI更新开始禁用更新，进行多次修改
+        //setUpdatesEnabled(false);
 
         ui->widget_showtips->setValue(100);
         m_ProTotalTube = 0; //需要测试的样本数
@@ -798,16 +792,23 @@ void Testing::AllSampleTested()
             }
         }
 
+        //通道标签
+        for (const QPointer<QLabel> &label : Channelreminder) {
+            if (label) {
+                label->hide();
+            }
+        }
+
         //试管选中状态复位 重新初始化血样下拉框血样孔
         if(FullyAutomatedPlatelets::pinstanceAddsampletest()) {
-            FullyAutomatedPlatelets::pinstanceAddsampletest()->_initNumAnaemiaHole();
+            FullyAutomatedPlatelets::pinstanceAddsampletest()->initNumAnaemiaHole();
         }
 
         //完成测试 血样区复原
         ComplBackColorBloodArea();
 
         // 批量UI更新结束
-        setUpdatesEnabled(true);
+        //setUpdatesEnabled(true);
         update();
 
         // 最后发射信号
@@ -1144,25 +1145,45 @@ void Testing::DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap)
 
 void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHole)
 {
-    QPainter painter(ui->widget_Sample_1);
-    painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
+    // 安全检查
+    if (!ui->widget_Sample_1) {
+        QLOG_WARN() << "widget_Sample_1 is null!";
+        return;
+    }
 
-    QFont font = ConfigureTextstyle(12);
-    painter.setFont(font);
+    QPainter painter(ui->widget_Sample_1);
+    if (!painter.isActive()) {
+        QLOG_WARN() << "Painter is not active!";
+        return;
+    }
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
+    painter.setFont(ConfigureTextstyle(12));
 
     QPen pen;
     pen.setColor(cglobal::g_LineColor);//圆环外圈的颜色
     pen.setWidthF(1);
+    painter.setPen(pen);
 
     // 提前设置渲染提示和画笔，避免在循环中重复设置
     painter.setRenderHint(QPainter::Antialiasing, true);
+
+    // 预先计算文本偏移量，避免在循环中重复计算
+    const int textOffsetSingle = -2;
+    const int textOffsetDouble = -6;
+    const int textOffsetTriple = -11;
+    const int textVerticalOffset = 5;
    
-
-
     for (auto iter = MapBloodHole.constBegin(); iter != MapBloodHole.constEnd(); ++iter) {
             const quint8 holeId = iter.key();
             const QPoint& center = iter.value();
+
+            // 安全检查：确保holeId在有效范围内
+            if (!m_BloodHoleNum.contains(holeId)) {
+                QLOG_WARN() << "Invalid holeId:" << holeId;
+                continue;
+            }
             const QString& showText = m_BloodHoleNum[holeId];
+
             QPalette palette;
 			painter.setPen(pen);
             //确定孔的颜色（根据State和奇偶性）
@@ -1173,6 +1194,7 @@ void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHol
                 break;
                 case TUBE_OUTRESULT: palette.setColor(QPalette::Background, cglobal::g_OutResult); break;
                 default: break;
+
             }
 
 
@@ -1188,17 +1210,26 @@ void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHol
 
             QColor textColor = (holeId % 2 == 0) ? cglobal::g_TextColorRoorblood : cglobal::g_TextColorRichblood;
             painter.setPen(textColor);
-            if(showText.size() == 1){
-                painter.drawText(QPoint(center.x() - 2 , center.y() + 5), showText);
-            } else if(showText.size() == 2){
-                painter.drawText(QPoint(center.x() - 6, center.y() + 5), showText);
-            }else if(showText.size()>= 3){
-                painter.drawText(QPoint(center.x() - 11, center.y() + 5), showText);
+
+            QPoint textPos = center;
+            textPos.setY(textPos.y() + textVerticalOffset);
+
+            if(showText.isEmpty()){
+                // 处理空文本情况
+                continue;
             }
+            else if(showText.size() == 1){
+                 textPos.setX(textPos.x() + textOffsetSingle);
+            } else if(showText.size() == 2){
+               textPos.setX(textPos.x() + textOffsetDouble);
+            }else if(showText.size()>= 3){
+                textPos.setX(textPos.x() + textOffsetTriple);
+            }
+            painter.drawText(textPos, showText);
     }
 
-    DrawBloodHoleInnerText(MapBloodHole); //绘制血样孔内文字和前提醒数字
-    return;
+    //绘制血样孔内文字和前提醒数字
+    DrawBloodHoleInnerText(MapBloodHole);
 }
 
 void Testing::mousePressEvent(QMouseEvent *event)
@@ -1517,21 +1548,25 @@ void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,quint8 IndexTray,quin
 
 
 //血样区的血样被加到空试管区
-void Testing::_RecvBloodSuck2EmptyTube(bool banemia, quint8 IndexTube)
+void Testing::recvBloodSuck2EmptyTube(bool banemia, quint8 IndexTube)
 {
-    bool findit = mEmptyTubeAssigned.contains(IndexTube);
-    if(findit)
-    {
-        auto it = mEmptyTubeAssigned.find(IndexTube);
-        if(banemia)
-            mEmptyTubeAbsorb_Poorblood.insert(IndexTube, it.value());
-        else
-            mEmptyTubeAbsorb_Richblood.insert(IndexTube, it.value());
+    auto it = mEmptyTubeAssigned.find(IndexTube);
+
+    if (it != mEmptyTubeAssigned.end()){
+        // 根据贫血状态选择目标容器
+        auto& targetMap = banemia ? mEmptyTubeAbsorb_Poorblood : mEmptyTubeAbsorb_Richblood;
+
+        targetMap.insert(IndexTube, it.value());
+
+        // 安全地从原容器中移除
         mEmptyTubeAssigned.erase(it);
-        FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(IndexTube,TESTTUBES_SAMPLED);
+
+        // 更新数据库状态
+        FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(
+                IndexTube, TESTTUBES_SAMPLED);
     }
+
     update();
-    return;
 }
 
 void Testing::giveupSampleShowHole(QList<quint8> holeList){
@@ -1548,6 +1583,7 @@ void Testing::giveupSampleChannelFlash(const bool &isChannelNormal, const quint8
     m_channelShowsTheProgress[indexChannel]->flashingReminder(isChannelNormal);
     QColor colors;
     (isChannelNormal)?  colors.setRgb(0,0,0): colors.setRgb(255,0,0);
+    QLOG_WARN()<<"通道"<<indexChannel+1<<"测试状态:"<<isChannelNormal;
     QPalette palette =  Channelreminder[indexChannel]->palette();
     palette.setColor(QPalette::WindowText, colors);
     Channelreminder[indexChannel]->setPalette(palette);
