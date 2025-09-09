@@ -324,10 +324,6 @@
 #define   ALTIMETRY_MODULE          4 //测高模块
 
 
-//打开摄像头位置
-#define   OPEN_DEFAULT              0 //仪器检测到连接只有一个摄像头为打开默认
-#define   OPEN_EXTERNAL             1 //仪器有外界摄像头打开外部摄像头
-
 //日志提示等级
 #define   NORMALLOG             0  //正常
 #define   PROMPTLOG             1  //提示

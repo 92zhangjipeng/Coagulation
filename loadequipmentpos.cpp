@@ -1310,7 +1310,7 @@ loadEquipmentPos::~loadEquipmentPos()
 
 void loadEquipmentPos::StatrLoad()
 {
-    QLOG_DEBUG() << "开始加载设备...";
+    //QLOG_DEBUG() << "登录开始加载设备...";
     if(minitPort == nullptr) {
         try {
             minitPort = new QSerialPort();
@@ -1369,7 +1369,7 @@ void loadEquipmentPos::StatrLoad()
             emit closetimercon(false);
         }
     } else {
-        QLOG_WARN() << "未找到匹配的串口设备 (VID:"
+        QLOG_WARN() << "未找到匹配的串口设备读取参数 (VID:"
                    << QString::number(VID_NUM, 16)
                    << ", PID:" << QString::number(PID_NUM, 16) << ")";
         emit closetimercon(false);

@@ -1,6 +1,14 @@
 ﻿#ifndef OPENCVFINDHEIGH_H
 #define OPENCVFINDHEIGH_H
 
+#ifdef Q_OS_WINDOWS
+#include <windows.h>
+#include <dshow.h>
+#pragma comment(lib, "strmiids.lib")
+#pragma comment(lib, "ole32.lib")
+#endif
+
+
 #pragma execution_character_set("utf-8")
 #include <QObject>
 #include <opencv2/core.hpp>
@@ -34,11 +42,14 @@ public:
 
 public slots:
    void Start();
+   void recvfindCameraIndexByDevicePath(const QString& devicePath);
    void handleTriggerTestHeight();
-   void RecvOpenInstrumentCamera(const quint8 CameraPositioning); /*判断打开摄像头内、外部*/
+
    void handleRepPrpheight(const QString &numid,bool replflag);
 
 private:
+
+   int findCameraIndexByDevicePathWindows(const QString &targetDevicePath);
 
    /*
    * 图片旋转
@@ -85,7 +96,9 @@ private:
    QString m_replaceid;
    bool m_isreptestheigh;
 
-   quint8  m_OpenCameraPosition; //打开摄像头位置
+   //打开摄像头索引
+   int  m_openCameraPosition;
+
 
    const int Image_Width =  480;
    const int Image_Height = 640;

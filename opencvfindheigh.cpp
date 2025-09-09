@@ -12,7 +12,10 @@
 #include <QCameraInfo>
 #include <core/types.hpp>
 
+
+
 const QString opencvfindHeigh::DEFAULT_IMAGE_SUBDIR = "FindHighImage";
+
 opencvfindHeigh::opencvfindHeigh(QObject *parent) : QObject(parent)
   ,m_isreptestheigh(false)
 {
@@ -25,25 +28,38 @@ opencvfindHeigh::~opencvfindHeigh()
 }
 
 
-/* 判断打开摄像头内、外部*/
-void  opencvfindHeigh::RecvOpenInstrumentCamera(const quint8 CameraPositioning)
-{
-    switch(CameraPositioning)
-    {
-        case OPEN_DEFAULT:
-                m_OpenCameraPosition = OPEN_DEFAULT;
-                QLOG_DEBUG()<<"仪器电脑只有一个摄像头在线==打开默认摄像头";
-        break;
-        case OPEN_EXTERNAL:
-                m_OpenCameraPosition = OPEN_EXTERNAL;
-                QLOG_DEBUG()<<"仪器电脑大于一个摄像头在线==打开外置摄像头";
-        break;
-    default:
-         m_OpenCameraPosition = OPEN_DEFAULT;
-        break;
+int opencvfindHeigh::findCameraIndexByDevicePathWindows(const QString &targetDevicePath){
+    QLOG_DEBUG() << "查找设备路径:" << targetDevicePath;
+
+    // 方法1: 首先尝试通过QCameraInfo顺序匹配
+    QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
+
+    // 输出所有摄像头信息用于调试
+    for (int i = 0; i < cameras.size(); i++) {
+        QLOG_DEBUG() << "摄像头" << i << ":" << cameras[i].deviceName()<< "描述:" << cameras[i].description();
+
+        // 检查是否匹配目标设备
+        if (cameras[i].deviceName().contains(targetDevicePath, Qt::CaseInsensitive)) {
+            QLOG_DEBUG() << "找到匹配的摄像头，尝试索引:" << i;
+
+            // 验证索引是否有效
+            cv::VideoCapture cap(i, cv::CAP_DSHOW);
+            if (cap.isOpened()) {
+                QLOG_DEBUG() << "索引" << i << "验证成功";
+                cap.release();
+                return i;
+            }
+            cap.release();
+        }
     }
-    return;
+	return -1;
 }
+
+// 辅助函数：查找摄像头OpenCV索引
+void  opencvfindHeigh::recvfindCameraIndexByDevicePath(const QString &devicePath){
+    m_openCameraPosition = findCameraIndexByDevicePathWindows(devicePath);
+}
+
 
 bool opencvfindHeigh::createImageStorageDirectory()
 {
@@ -435,49 +451,119 @@ void opencvfindHeigh::handleRepPrpheight(const QString &numid,bool replflag){
 void opencvfindHeigh::handleTriggerTestHeight()
 {
     const int MAX_CAMERA_RETRY = 3;
-    //QString titiestr, reminderstr;
+    const int RETRY_DELAY_MS = 100;
     bool isOpened = false;
     cv::VideoCapture capture;
 
+    QLOG_DEBUG() << "尝试打开摄像头，索引:" << m_openCameraPosition;
+
     for (int retry = 0; retry < MAX_CAMERA_RETRY && !isOpened; ++retry) {
-        capture.open(m_OpenCameraPosition, cv::CAP_DSHOW);
+
+        //尝试使用DirectShow后端打开摄像头
+        capture.open(m_openCameraPosition, cv::CAP_DSHOW);
         if (capture.isOpened()) {
+            // 设置摄像头参数（可选）
+            capture.set(cv::CAP_PROP_FRAME_WIDTH, Image_Width);
+            capture.set(cv::CAP_PROP_FRAME_HEIGHT, Image_Height);
+            capture.set(cv::CAP_PROP_FPS, 30); // 设置帧率
+            capture.set(cv::CAP_PROP_AUTOFOCUS, 0); // 关闭自动对焦（如果需要）
+
             // 验证分辨率设置
             double actualWidth = capture.get(cv::CAP_PROP_FRAME_WIDTH);
             double actualHeight = capture.get(cv::CAP_PROP_FRAME_HEIGHT);
-            if (actualWidth != Image_Height || actualHeight != Image_Width) {
-                QLOG_WARN() << "分辨率设置失败，实际分辨率："
-                            << actualWidth << "x" << actualHeight;
+            double actualFps = capture.get(cv::CAP_PROP_FPS);
+
+            QLOG_DEBUG() << "摄像头打开成功 - 实际分辨率:"
+                        << actualWidth << "x" << actualHeight
+                        << "FPS:" << actualFps;
+
+            if (qAbs(actualWidth - Image_Width) > 1 || qAbs(actualHeight - Image_Height) > 1) {
+                QLOG_WARN() << "分辨率设置不匹配，期望:"
+                            << Image_Width << "x" << Image_Height
+                            << "实际:" << actualWidth << "x" << actualHeight;
+
+            // 尝试重新设置分辨率
+            capture.set(cv::CAP_PROP_FRAME_WIDTH, Image_Width);
+            capture.set(cv::CAP_PROP_FRAME_HEIGHT, Image_Height);
+        }
+        isOpened = true;
+    } else {
+            QLOG_DEBUG() << "摄像头打开失败，重试:" << retry + 1 << "/" << MAX_CAMERA_RETRY;
+            // 如果是最后一次重试，尝试其他后端
+            if (retry == MAX_CAMERA_RETRY - 1) {
+                QLOG_DEBUG() << "尝试使用其他后端打开摄像头";
+                capture.open(m_openCameraPosition, cv::CAP_ANY);
+
+                if (capture.isOpened()) {
+                    isOpened = true;
+                    QLOG_DEBUG() << "使用通用后端打开摄像头成功";
+                }
             }
-            isOpened = true;
-        } else {
-            QLOG_DEBUG() << "摄像头打开失败，重试次数：" << retry;
-            QThread::msleep(100);
+
+            QThread::msleep(RETRY_DELAY_MS);
+
         }
     }
 
     if (!isOpened) {
-        QLOG_WARN() << "摄像头最终打开失败，索引:" << m_OpenCameraPosition;
-        emit FindFailed(tr("硬件错误"), tr("摄像头初始化失败 (设备号:%1)").arg(m_OpenCameraPosition));
+        QLOG_ERROR() << "摄像头最终打开失败，索引:" << m_openCameraPosition;
+
+        // 检查摄像头索引是否有效
+        if (m_openCameraPosition < 0) {
+            emit FindFailed(tr("配置错误"), tr("摄像头索引无效: %1").arg(m_openCameraPosition));
+            return;
+        }
+    }
+
+    // 捕获帧允许重试
+    cv::Mat frame;
+    int maxRetry = 5;
+    bool frameCaptured = false;
+
+    while (maxRetry-- > 0 && !frameCaptured) {
+       frameCaptured = capture.read(frame);
+       if (!frameCaptured) {
+            QLOG_DEBUG() << "帧捕获失败，剩余重试次数:" << maxRetry;
+
+            // 添加不同类型的等待策略
+            if (maxRetry > 2) {
+              // 前几次重试使用较短等待
+              cv::waitKey(1);
+            } else {
+              // 后几次重试使用较长等待，让摄像头有时间恢复
+              QThread::msleep(50);
+              cv::waitKey(10);
+            }
+          // 检查摄像头是否仍然打开
+          if (!capture.isOpened()) {
+              QLOG_WARN() << "摄像头在捕获过程中意外关闭";
+              break;
+          }
+       }
+    }
+
+    // 确保释放摄像头资源
+    if (capture.isOpened()) {
+        capture.release();
+        QLOG_DEBUG() << "摄像头资源已释放";
+    }
+
+    // 检查帧是否有效
+    if (frame.empty() || !frameCaptured) {
+        QLOG_WARN() << "无法获取有效帧，重试次数耗尽";
+        emit FindFailed(tr("采集错误"), tr("摄像头画面获取超时"));
         return;
     }
 
-    // 捕获帧（允许重试）
-    cv::Mat frame;
-    int maxRetry = 5;
-    while (maxRetry-- > 0 && !capture.read(frame)) {
-       QLOG_DEBUG() << "帧捕获失败，剩余重试次数:" << maxRetry;
-       cv::waitKey(1); // 短暂等待
+    // 验证帧的尺寸和格式
+    if (frame.cols <= 0 || frame.rows <= 0) {
+        QLOG_WARN() << "获取到无效尺寸的帧:" << frame.cols << "x" << frame.rows;
+        emit FindFailed(tr("采集错误"), tr("摄像头返回无效图像尺寸"));
+        return;
     }
 
-    if (frame.empty()) {
-       QLOG_WARN() << "无法获取有效帧";
-       emit FindFailed(tr("采集错误"), tr("摄像头画面获取超时"));
-       return;
-    }
-    if (capture.isOpened()){
-        capture.release();
-    }
+    QLOG_DEBUG() << "成功捕获帧，尺寸:" << frame.cols << "x" << frame.rows
+                    << "类型:" << frame.type() << "通道:" << frame.channels();
 
     // 图像旋转处理
     cv::Mat rotatedFrame;

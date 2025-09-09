@@ -16,6 +16,7 @@
 #include <hidclass.h>  // 添加HID设备支持
 
 #include <windows.h>
+#include <dshow.h>
 #include <setupapi.h>
 
 #include <devguid.h>
@@ -54,7 +55,6 @@ public:
     // 核心监听方法
     bool startListening();
     void stopListening();
-
   
 protected:
     // Windows 消息过滤器

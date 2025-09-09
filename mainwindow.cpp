@@ -1634,90 +1634,116 @@ void MainWindow::ChannelValueshow(QStringList moduleData)
 }
 
 
+
+
 void MainWindow::initializeAltimeterHardware(){
 
-    static QPointer<opencvfindHeigh> safeAltimeterTrigger = mAltimetertrigger;
-
-    if (!mAltimetertrigger/*safeAltimeterTrigger.isNull()*/) {
+    if(!mAltimetertrigger){
         mAltimetertrigger = new opencvfindHeigh();
+
+        // 立即设置线程亲和性
+        mAltimetertrigger->moveToThread(&mTesthighThread);
+
+        // 连接所有信号槽
+        setupAltimeterConnections();
+
+        mTesthighThread.start();
+
+        // 等待线程启动完成
+        waitForThreadStart();
     }
-
-    safeAltimeterTrigger = mAltimetertrigger;
-    mAltimetertrigger->moveToThread(&mTesthighThread);
-
-    connect(&mTesthighThread,&QThread::started,mAltimetertrigger,&opencvfindHeigh::Start);
-    connect(&mTesthighThread,&QThread::finished,mAltimetertrigger,&opencvfindHeigh::deleteLater);
-
-    connect(this,&MainWindow::triggerTestHeight,
-            mAltimetertrigger,&opencvfindHeigh::handleTriggerTestHeight
-            ,Qt::QueuedConnection);
-
-    connect(mAltimetertrigger,&opencvfindHeigh::FindFailed,this,
-            [=](QString titles,QString contentstr){ThreadSafeReminder(titles,contentstr);});
-
-    connect(this,&MainWindow::OpenInstrumentCamera,mAltimetertrigger,
-            &opencvfindHeigh::RecvOpenInstrumentCamera
-            ,Qt::QueuedConnection);
-
-    connect(mAltimetertrigger,&opencvfindHeigh::FinishTestHigh,
-            FullyAutomatedPlatelets::pinstanceTesting(),&Testing::TiggerTestHighdone
-            ,Qt::QueuedConnection);
-
-    //测高蜂鸣器提示
-    connect(mAltimetertrigger,&opencvfindHeigh::Testheightfinish,
-             this,&MainWindow::TestHeightFinish
-            ,Qt::QueuedConnection);
-
-    //重测
-    connect(FullyAutomatedPlatelets::pinstanceTesting(),&Testing::sendRepPrpheight,
-            mAltimetertrigger,&opencvfindHeigh::handleRepPrpheight
-            ,Qt::QueuedConnection);
-
-    mTesthighThread.start();
-
-    QEventLoop loop;
-    connect(&mTesthighThread, &QThread::started, &loop, &QEventLoop::quit);
-    loop.exec();
 
     initCameras();
 }
 
+void MainWindow::setupAltimeterConnections()
+{
+    if (!mAltimetertrigger) return;
+
+    connect(&mTesthighThread, &QThread::started,
+            mAltimetertrigger, &opencvfindHeigh::Start);
+    connect(&mTesthighThread, &QThread::finished,
+            mAltimetertrigger, &opencvfindHeigh::deleteLater);
+
+    connect(this, &MainWindow::triggerTestHeight,
+            mAltimetertrigger, &opencvfindHeigh::handleTriggerTestHeight,
+            Qt::QueuedConnection);
+
+    connect(mAltimetertrigger, &opencvfindHeigh::FindFailed, this,
+            [this](QString titles, QString contentstr) {
+                ThreadSafeReminder(titles, contentstr);
+            });
 
 
 
-void MainWindow::initCameras() {
-    QList<QCameraInfo> availableCameras;
-    availableCameras = QCameraInfo::availableCameras();
+    connect(this, &MainWindow::findCameraIndexByDevicePath, mAltimetertrigger,
+            &opencvfindHeigh::recvfindCameraIndexByDevicePath,
+            Qt::QueuedConnection);
+
+
+
+    connect(mAltimetertrigger, &opencvfindHeigh::FinishTestHigh,
+            FullyAutomatedPlatelets::pinstanceTesting(), &Testing::TiggerTestHighdone,
+            Qt::QueuedConnection);
+
+    // 测高蜂鸣器提示
+    connect(mAltimetertrigger, &opencvfindHeigh::Testheightfinish,
+            this, &MainWindow::TestHeightFinish,
+            Qt::QueuedConnection);
+
+    // 重测
+    connect(FullyAutomatedPlatelets::pinstanceTesting(), &Testing::sendRepPrpheight,
+            mAltimetertrigger, &opencvfindHeigh::handleRepPrpheight,
+            Qt::QueuedConnection);
+}
+void MainWindow::waitForThreadStart()
+{
+    QEventLoop loop;
+    QTimer::singleShot(100, &loop, &QEventLoop::quit); // 超时保护
+    connect(&mTesthighThread, &QThread::started, &loop, &QEventLoop::quit);
+    loop.exec();
+}
+
+
+void MainWindow::initCameras()
+{
+    QList<QCameraInfo> availableCameras = QCameraInfo::availableCameras();
+    if(availableCameras.isEmpty()){
+        emit ReminderTextOut(ERRORLOG, "无可用摄像头!");
+        return;
+    }
+
+    // 查找仪器摄像头
     QCameraInfo instrumentCamera;
 
     foreach (const QCameraInfo &cameraInfo, availableCameras) {
-        QString devName = cameraInfo.deviceName().toLower();
-        QString desc = cameraInfo.description().toLower();
-        const QStringList keys = {"hd camera" };
+        QString devName = cameraInfo.deviceName();
+        QString desc = cameraInfo.description();
+
+        // 检查是否是目标设备 (VID_1E45&PID_80228M)
+		if (devName.contains("vid_1e45", Qt::CaseInsensitive) &&
+			devName.contains("pid_8022", Qt::CaseInsensitive)) {
+			instrumentCamera = cameraInfo;
+			QLOG_DEBUG() << "发现目标摄像头:" << devName << "描述:" << desc;
+			break;
+		}
+
+        // 同时保留原有的USB HD摄像头检测逻辑
+        const QStringList keys = {"hd camera"};
         bool isUSB = std::any_of(keys.begin(), keys.end(), [&](const QString& key) {
-            return  desc.contains(key);
+            return desc.contains(key, Qt::CaseInsensitive);
         });
-        if (isUSB) {
+
+        if (isUSB && instrumentCamera.isNull()) {
             instrumentCamera = cameraInfo;
-            break;
+            QLOG_DEBUG() << "发现目标摄像头 HD camera:" << devName << "Description:" << desc;
         }
     }
 
-    //QLOG_DEBUG()<<"可用摄像头"<<availableCameras<<"QCameraInfo"<<instrumentCamera;
-    if(availableCameras.size() == 1){
-       emit OpenInstrumentCamera(OPEN_DEFAULT);
-    }else if(availableCameras.size() >= 2){
-        if(!instrumentCamera.isNull()){
-            emit OpenInstrumentCamera(OPEN_EXTERNAL);
-        }
-    }else{
-        QCameraInfo defaultCam = QCameraInfo::defaultCamera();
-        foreach (const QCameraInfo &cam, availableCameras) {
-           if (cam != defaultCam) {
-               emit OpenInstrumentCamera(OPEN_EXTERNAL);
-               break;
-           }
-        }
+
+    if (!instrumentCamera.isNull()) {
+        QLOG_DEBUG() << "使用仪器专用摄像头:" << instrumentCamera.description();
+        emit findCameraIndexByDevicePath(instrumentCamera.deviceName());
     }
 }
 

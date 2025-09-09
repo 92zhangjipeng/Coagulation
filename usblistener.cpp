@@ -454,4 +454,3 @@ bool USBListener::isTargetDevice(uint16_t vid, uint16_t pid) {
 }
 
 
-

@@ -97,7 +97,9 @@ void  TestHeight_Module::SlotCloseCapture()
 	TestHeight_Module::closeFlag = true;
 	return;
 }
-void  TestHeight_Module::SlotOpenCapture()
+
+
+void TestHeight_Module::SlotOpenCapture()
 {
     cv::Mat readImage; //打开图片
     mcap.open(1);  //电脑摄像头默认是 0

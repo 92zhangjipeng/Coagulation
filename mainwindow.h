@@ -155,8 +155,10 @@ private:
     // 单例清理
     void cleanupSingletons();
 
-
+    //测高信号连接+等待线程启动完成+识别摄像头
     void initCameras();
+    void setupAltimeterConnections();
+    void waitForThreadStart();
 
     void initErrorDisplayMap();
 
@@ -384,7 +386,8 @@ signals:
 
     void    SynchronizeEmptyTubeUsed(quint8); /*质控使用试管同步耗材界面*/
 
-    void    OpenInstrumentCamera(const quint8);
+    void OpenInstrumentCamera(const quint8);
+	void findCameraIndexByDevicePath(const QString& );
 
     //触发到测高开始解析图片
     void    triggerTestHeight();
