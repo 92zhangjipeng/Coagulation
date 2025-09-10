@@ -41,7 +41,7 @@ void FunctionCustomWidget::setTextbtnfunction(const int index_,const QString tex
         {
             ui->toolButton_func_1->setText(text_);
             connect(ui->toolButton_func_1,&QToolButton::clicked,this,[=](){
-                emit this->sender_1function_();
+                emit sender_1function_();
                 close();
             });
             break;
@@ -50,7 +50,7 @@ void FunctionCustomWidget::setTextbtnfunction(const int index_,const QString tex
         {
             ui->toolButton_func_2->setText(text_);
             connect(ui->toolButton_func_2,&QToolButton::clicked,this,[=](){
-                emit this->sender_2function_();
+                emit sender_2function_();
                 close();
             });
             break;
@@ -59,7 +59,7 @@ void FunctionCustomWidget::setTextbtnfunction(const int index_,const QString tex
         {
             ui->toolButton_func_3->setText(text_);
             connect(ui->toolButton_func_3,&QToolButton::clicked,this,[=](){
-                emit this->sender_3function_();
+                emit sender_3function_();
                 close();
             });
             break;

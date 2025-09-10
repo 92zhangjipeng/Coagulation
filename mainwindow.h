@@ -112,13 +112,9 @@ public:
     ~MainWindow();
 
     void    init_style_all();
-
     void    ChannelValueshow(QStringList moduleData) override;
-
     void    displayPara(int Indexmodul, const double tempvalve) override;
-
     void    PromptInfo(const quint8 Index, const QString ReminderStr, const quint8 iActive) override;
-
     void    deleteExitSoftware(); //退出软件
 
 
@@ -127,23 +123,22 @@ public:
     * @brief Machine_reset
     * @param Location  true=位置模式
     */
-    void    backOriginTestFinished();
-    void    ThreadSafeReminder(QString title_, QString outputText);
-    //void    ReminderInfo(QString title_, QString outputText); //提示信息
+    void backOriginTestFinished();
+    void ThreadSafeReminder(QString title_, QString outputText);
 
-    void    _reminderFunctionWidget(QString title_,QString outputtext_, QList<QString> btntext);//功能提示框
-    void    progressBarconfig(int data_, int max_);
+    void reminderFunctionWidget(QString title,QString outputtext_, QList<QString> btntext);//功能提示框
+    void progressBarconfig(int data_, int max_);
 
     /**   控制模组和主板 暂停、读取状态
      * @brief _pauseObtainmodulecommand
      * @param info
      * @param connectedCotl  true = 暂停 false = 读取
      */
-    void   pauseObtainmodulecommand(QString info, bool connectedCotl); //暂停读模组数据
-    void   _displayHandoffUser(); //显示切换用户界面
-    void   machineReposition();//复位
-    void   _dimmingprogress(bool isDimmingInProgress); //调光中
-    int    getChannelTestVal(const quint8& indexChannel);
+    void pauseObtainmodulecommand(const QString &info, bool pauseRequested); //暂停读模组数据
+    void displayHandoffUser(); //显示切换用户界面
+    void machineReposition();//复位
+    void dimmingprogress(bool isDimmingInProgress); //调光中
+    int  getChannelTestVal(const quint8& indexChannel);
 
 
 //优化
@@ -171,64 +166,82 @@ private:
                                     const QList<quint8>& failedChn,
                                     QPointer<MainWindow> safeThis);
 
-
 private:
 
-    void    openSettingsDialog(); //打开设置界面
-    void    FirstConnectCleanEquipment();//首次联机清洗
-    bool    checkCleanFluidSufficiency();// 辅助函数：检查清洗液余量
-    void    showAxisSyncErrorDialog();// 辅助函数：显示坐标同步错误
-    void    initProgressBar(const QString &title, bool isModal,bool ishow);
-    void    _begingTesting(); //开始测试
-    void    _creatbeginreadmodule();//构建并开始读取模组数据
-    void    listentoUsb();
-    void    initchnstate();
+    void openSettingsDialog(); //打开设置界面
+    void FirstConnectCleanEquipment();//首次联机清洗
+    bool checkCleanFluidSufficiency();// 辅助函数：检查清洗液余量
+    void showAxisSyncErrorDialog();// 辅助函数：显示坐标同步错误
+    void initProgressBar(const QString &title, bool isModal,bool ishow);
+    void begingTesting(); //开始测试
+    void creatbeginreadmodule();//构建并开始读取模组数据
 
-     /*根据仪器类型配置界面*/
+
+    //提供一个切换监听状态的方法 断开USB监听
+    void toggleUsbListening(bool enable);
+    void listentoUsb();
+    void stopListenToUsb();
+
+    void initchnstate();
+
+    /*根据仪器类型配置界面*/
     void updateModuleVisibilityBasedOnInstrumentType();
 
-    void    _serialConnection();
+    void serialConnection();
 
-    void   _init_read_moduledata_thread(); //初始化实例获取到模组数据线程
+    //初始化实例获取到模组数据线程
+    void init_read_moduledata_thread();
 
-    void   _inittestmodule_data_thread();  //收到模组数据处理线程
+    //收到模组数据处理线程
+    void inittestmodule_data_thread();
 
     //主板线程实例化函数
     void initmainboradthread();
     void handleNormalOperation(quint8 index);
 
+    //初始化启动测试任务线程
+    void initTestTaskThread();
 
-    void   initTestTaskThread(); //初始化启动测试任务线程
+    void DestructionSerialclass();
 
-    void    DestructionSerialclass();
+    //遍历主板
+    void Traverse_through_motherboard_information();
 
-    void    Traverse_through_motherboard_information(); //遍历主板
-
-    void    Traverse_through_ModuleReadInfo(); //遍历模组数据
+    //遍历模组数据
+    void Traverse_through_ModuleReadInfo();
 
     //仪器初始化动作 true=试剂够.false=试剂不足只灌注
-    void    equipmentinitActive(const bool enoughReagent, bool closeClean);
+    void equipmentinitActive(const bool enoughReagent, bool closeClean);
 
-    void    equipment_will_test_num(bool &bgoto_testing); //点击测试待测项目样本数
+    //点击测试待测项目样本数
+    void equipment_will_test_num(bool &bgoto_testing);
 
-    void    _testingchnEnough(bool &benoughChn); //有至少一个可用通道
+    //有至少一个可用通道
+    void testingchnEnough(bool &benoughChn);
 
-    void    _commingfaileddisablechn(QList<quint8> dimmingFiledChnList);
+    void commingfaileddisablechn(QList<quint8> dimmingFiledChnList);
 
-    void    InitMainUiLayout(); //主界面布局
+    //主界面布局
+    void InitMainUiLayout();
 
-    void    initcreatprogressingDimming(bool bdimming); //构建进度条
+    //构建进度条
+    void initcreatprogressingDimming(bool bdimming);
 
+    //开始测试时是否需要控温
+    bool requiresTemperatureControl(quint8 equipmentType);
 
-    bool    requiresTemperatureControl(quint8 equipmentType); //开始测试时是否需要控温
+    //耗材报警提示
+    void ReminderPauseConsumables_alarm(const int Index);
 
-    void    ReminderPauseConsumables_alarm(const int Index);  /*耗材报警提示*/
+    //创建提示框 mesg
+    void CreatReminderWidget(char index,QString titleStr,
+                              QString reminderStr,quint8 indexFucn);
 
-    void    CreatReminderWidget(char index,QString titleStr,QString reminderStr,quint8 indexFucn); //创建提示框 mesg
+    //获取仪器坐标是否同步完成
+    bool getbAxisSycnFinished();
 
-    bool    getbAxisSycnFinished(); //获取仪器坐标是否同步完成
-
-    void    CreatActionExecution(); //开始测试的信号槽
+    //开始测试的信号槽
+    void CreatActionExecution();
 
 protected:
     void    closeEvent(QCloseEvent *event);
@@ -250,15 +263,15 @@ public slots:
     void experimentReadChannel(const quint8& peChannel, const int &index, bool isstart);
 
     //废液、外部清洗液弹出提示后在信息栏提醒
-    void   handleErrorNotification(quint8 index_, const QString& errinfo);
+    void handleErrorNotification(quint8 index_, const QString& errinfo);
 
     //采集通道数据对比失败提示
-    void   recvshowDimmingFailedChn(const QList<quint8> &failedChn);
+    void recvshowDimmingFailedChn(const QList<quint8> &failedChn);
 
-	void   recvprepareReconnectGetData();
+    void recvprepareReconnectGetData();
     
     //测试过程中抓手吸/吐失败
-    void   handletheGripperFailed(const int sampleid,
+    void handletheGripperFailed(const int sampleid,
                                   const QString outstr,
                                   const quint8 indexActive);
 
@@ -267,53 +280,57 @@ public slots:
     void handleoutErrInfo(const QString titles, const QString errStr);
 
     //设置对话框图标
-    void  configReminderIcon(quint8 );
+    void configReminderIcon(quint8 );
 
     //添加样本同步患者界面
-    void   _slotsycnPaintentInfo(QString id_, QString addtime, QString barcode_, QString testProject);
+    void slotsycnPaintentInfo(QString id_, QString addtime, QString barcode_, QString testProject);
 
      //定时遍历模组
-    void   _ObtainModuleData();
+    void ObtainModuleData();
 
     //定时遍历主板
-    void   timeoutObtainMainboadData();
+    void timeoutObtainMainboadData();
 
     //串口连接状态提示
-    void    slotconnectionStateChanged(bool connected);
+    void slotconnectionStateChanged(bool connected);
 
-    void    DisplaySycnMainUiLosserSuppile(int IndexReagent, double Remainingratio);
+    void DisplaySycnMainUiLosserSuppile(int IndexReagent, double Remainingratio);
 
     //开始初始清洗液不足,更换清洗液触发信号
-    void    recvNoinitialCleaning();
+    void recvNoinitialCleaning();
 
     //析构命令异常提示框 mesg
-    void    closeReminder();
+    void closeReminder();
 
      /*串口提示消息显示log*/
-    void    slotExecute_exception_prompt(const quint8 Index,const QString,const quint8 IndexError);
+    void slotExecute_exception_prompt(const quint8 Index,const QString,const quint8 IndexError);
 
     //刷卡提示
-    void    handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,quint16 datetime);
+    void handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,quint16 datetime);
 
-    void    handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle);
+    void handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle);
 
     //触发测高开关
     void recvTriggerAltimetrySignal() ;
 
 
     //模组温度
-    void  recvModuleTemperature(const quint8 IndexMode, const double tempValue);
+    void recvModuleTemperature(const quint8 IndexMode, const double tempValue);
 
-    void    DisplaysConsumablesRemaining();  /*更新主界面显示耗材余量*/
+     /*更新主界面显示耗材余量*/
+    void DisplaysConsumablesRemaining();
 
-    void    slotbootInitCleanFinished(); //开机初始化完成
+    //开机初始化完成
+    void slotbootInitCleanFinished();
 
-    void    slotCleaningProgress(quint8, quint8 total); //开机初始化进度
+    //开机初始化进度
+    void slotCleaningProgress(quint8, quint8 total);
 
-    void    SendCode_2_Serial(QByteArrayList arrycode); //调试模式发送到串口
+    //调试模式发送到串口
+    void SendCode_2_Serial(QByteArrayList arrycode);
 
     /*测高完成蜂鸣提示*/
-    void    TestHeightFinish(const bool finished);
+    void TestHeightFinish(const bool finished);
 
     void onDeviceConnected(usbDevice dev);
     void onDeviceDisconnected(usbDevice dev);
@@ -326,80 +343,77 @@ public slots:
 
 signals:
     //质控获取通道值
-    void	qualityChannelVal(const quint8, int);
+    void qualityChannelVal(const quint8, int);
 
-    void    ReminderTextOut(quint8 ReminderKind,const QString dataStr); //提示文字界面信号
+    void ReminderTextOut(quint8 ReminderKind,const QString dataStr); //提示文字界面信号
 
-    void    AlarmReminderSound(bool bsound); //警报声
+    void AlarmReminderSound(bool bsound); //警报声
 
-    void    delInitfile();
+    void delInitfile();
 
-    void    requestReconnect();  //重新连接
-	void    disConnectCloseSerial();//断线关闭串口
+    void requestReconnect();  //重新连接
+    void disConnectCloseSerial();//断线关闭串口
 
-    void    stopObatinMachineInfo(); //停止读取主板模组信息
+    //停止读取主板模组信息
+    void stopObatinMachineInfo();
 
-    void    aNewconnectMachine();//模组 主板从新开始
+    //模组 主板从新开始
+    void aNewconnectMachine();
 
-    void    _controlmotorrunning(quint8 indexchn,const bool bopen); //控制通道搅拌电机
+    //控制通道搅拌电机
+    void controlmotorrunning(quint8 indexchn,const bool bopen);
 
-    void    controlallchnstate(bool bopen); //控制所有通道开关状态
+    //控制所有通道开关状态
+    void controlallchnstate(bool bopen);
 
-    void    CeratActionDate(int ACtionType, const QByteArrayList GroupAction);
+    void CeratActionDate(int ACtionType, const QByteArrayList GroupAction);
 
     //加样动作未完成--继续执行
-    void    ProceedTask();
+    void ProceedTask();
 
-    void    resumeaTestTask();
+    void resumeaTestTask();
 
     //抓手异常处理是否放弃样本
-    void    gripErrGiveupSample(const bool ,const quint8);
-    void    pendingtimeoutSampleTest(const quint8);
+    void gripErrGiveupSample(const bool ,const quint8);
+    void pendingtimeoutSampleTest(const quint8);
 
-    void    startTheTestTask();
+    void startTheTestTask();
 
     //关机写所有耗材
-    void    closeEquipmentconsumables();
+    void closeEquipmentconsumables();
 
     //设置界面耗材参数写入主板
-    void    _sendcodeList(const QByteArrayList, QString);
+    void sendcodeList(const QByteArrayList, QString);
 
-    void    ExcptionSampleNum(const int);
-
-    void    Thread_5_SendCode(QByteArrayList);  //线程池5 发送机器的配置
-
-    void    Delayed_sending(const QByteArrayList , int delayedmS, bool needDelayed);
-
-    void    WhileReadChannelParam(const int Fromchannel);
+    void ExcptionSampleNum(const int);
+    void Thread_5_SendCode(QByteArrayList);  //线程池5 发送机器的配置
+    void Delayed_sending(const QByteArrayList , int delayedmS, bool needDelayed);
+    void WhileReadChannelParam(const int Fromchannel);
 
 
     //刷卡充值成功
-    void    rechargesuccessful(int index, quint8 num);
+    void rechargesuccessful(int index, quint8 num);
 
     //断线清空模组缓存数据
-    void    cleanModuleBuffData();
+    void cleanModuleBuffData();
 
     /***测试任务处理***/
-    void    syncModuleChannelData(const QStringList); /*解析到模组通道数据*/
-
-    void    ConfigUsedBuzzerMark(const bool UsedBuzzer); /** 蜂鸣器设为启用*/
-
-    void    SynchronizeEmptyTubeUsed(quint8); /*质控使用试管同步耗材界面*/
+    void syncModuleChannelData(const QStringList); /*解析到模组通道数据*/
+    void ConfigUsedBuzzerMark(const bool UsedBuzzer); /** 蜂鸣器设为启用*/
+    void SynchronizeEmptyTubeUsed(quint8); /*质控使用试管同步耗材界面*/
 
     void OpenInstrumentCamera(const quint8);
 	void findCameraIndexByDevicePath(const QString& );
 
     //触发到测高开始解析图片
-    void    triggerTestHeight();
+    void triggerTestHeight();
 
     //所有样本测试完成曲线界面复原
-    void    allCurveClear();
+    void allCurveClear();
 
     //模组控制
-    void    sendmoduleactio(const QByteArrayList &dataList,
-                            const QString &info);
-
-    void    sendOneDirectives(const QByteArray arry, QString kindCommad);
+    void sendmoduleactio(const QByteArrayList &dataList,const QString &info);
+    void sendOneDirectives(const QByteArray arry, QString kindCommad);
 
 private slots:
 
@@ -475,12 +489,12 @@ private:
     QScopedPointer<USBListener> m_USBListener;
 
 
-    QPointer<QualityControl> minstrumentConsumables;//耗材管理
+
     QPointer<Testing> mptesting; //测试界面
     QPointer<GraphPlot> m_graphplot; //测试曲线
     QPointer<SuoweiSerialPort> mlocalSerial; //串口类线程对象
     QPointer<FunctionCustomWidget> preminder;//退出软件对话框
-    QPointer<CustomHighData> mReminder; /*提示充值界面*/
+    QScopedPointer<CustomHighData> mReminder;    /*提示充值界面*/
     QPointer<displayChanneldata> mshowModuledata; //接收显示模组通道数据
     QPointer<ConfigureWriteParameter> WriteParameter;//命令参数写入仪器
     QPointer<CommandExceptional> m_pReminderExceptional;//提示框
@@ -488,10 +502,6 @@ private:
     QPointer<theTestModuleProtocol> mtestmoduleprotocol; //模组数据解析
     QPointer<customProgresscontrols> m_pProgress; //进度条
 
-
-
-    //theTestModuleProtocol *mtestmoduleprotocol = nullptr;
-    //QSharedPointer <CustomPlot> m_calibrationLoca;  //位置校准
 
     //执行动作命令线程
     QThread mThreaddotest;
@@ -513,19 +523,20 @@ private:
     //ThreadReminderTsetTube *m_ThreadReminderTsetTube = nullptr;
     std::unique_ptr<ThreadReminderTsetTube> m_ThreadReminderTsetTube;
 
-
-    //Heightmeasurement * Altimetertrigger = nullptr; /*测高线程*/
+    //测高线程
+    //Heightmeasurement * Altimetertrigger = nullptr;
     QThread mTesthighThread;
     opencvfindHeigh *mAltimetertrigger = nullptr;
 
     //SendMachineSportInfo *Machinesport = nullptr;
 
-    bool  m_benterapp; //输入密码进入软件标志
+    bool    m_benterapp; //输入密码进入软件标志
     quint8  minstrumentType;  /*读取到仪器类型*/
 
     QVector<quint8 > m_QualitylastChannel; //测试质控通道
 
-    QProcess *m_processPrint = nullptr; /**测试用例  打印已未用**/
+    /*测试用例,打印已未用*/
+    QProcess *m_processPrint = nullptr;
 
     //模组读取
     QThread m_threadModule;
@@ -541,7 +552,7 @@ private:
 
     QSet<QString> m_reminderTitleStr;
     mutable QReadWriteLock m_reminderLock;  // 读写锁保护共享数据
-    void RealReminderImpl(QString title_, QString outputText); // 实际实现
+    void RealReminderImpl(QString title, QString outputText); // 实际实现
 
     QMap<quint8, ErrorDisplayInfo> m_errorInfoMap;
 

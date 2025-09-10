@@ -1,13 +1,10 @@
 ﻿#ifndef MODULETIMERTHREAD_H
 #define MODULETIMERTHREAD_H
 
-#pragma once
-#include <qthread.h>
+#include <QObject>
 #include <atomic>
 #include <QMutex>
-#include <QWaitCondition>
 #include <QTimer>
-#include <QObject>
 
 
 
@@ -15,28 +12,23 @@ class moduletimerThread : public QObject
 {
     Q_OBJECT
 public:
-    moduletimerThread(QObject* parent = nullptr);
-    ~moduletimerThread();
-
-private:
-    std::atomic_bool pauseFlag;
-    std::atomic_bool stopFlag;
-    QMutex mutex;
-    QTimer* timer = nullptr;
+    explicit moduletimerThread(QObject* parent = nullptr);
+    ~moduletimerThread() override;
 
 public slots:
-	void stop_th();
-    void pause_Module();
+    void stop();
+    void pause();
     void resume();
-
-    void recvStopObatinMachineInfo();
-    void recvaNewconnectMachine();
-
-    void onCreateTimer();
-    void onTimeout();
-
-signals:
-    //void sendCtrlSignal();//和主线程交互触发的signal
+    void stopObtainMachineInfo();
+    void startObtainMachineInfo();
+    void createTimer();
+private slots:
+	void onTimeout();
+private:
+    std::atomic_bool m_pauseFlag{false};
+    std::atomic_bool m_stopFlag{false};
+    QMutex m_mutex;
+	QTimer* m_timer{ nullptr };
 };
 
 #endif // MODULETIMERTHREAD_H

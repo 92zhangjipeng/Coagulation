@@ -228,15 +228,15 @@ void Inquire_Sql_Info::Init_tablewidget_style()
 
 Inquire_Sql_Info::~Inquire_Sql_Info()
 {
-    m_threadInqure.quit();
-    m_threadInqure.wait();
-
+	if (m_threadInqure.isRunning()) {
+		m_threadInqure.quit();
+		m_threadInqure.wait();
+	}
+ 
     if(mquiredataclass)
         delete mquiredataclass;
     mquiredataclass = nullptr;
-
     delete ui;
-    QLOG_DEBUG()<<"析构查询实例"<<__FILE__<<__LINE__<<endl;
 }
 
 void Inquire_Sql_Info::closeEvent(QCloseEvent *event)

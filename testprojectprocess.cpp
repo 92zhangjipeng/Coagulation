@@ -484,7 +484,7 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
          QLOG_DEBUG()<<"放弃样本后,测试列表为空!";
          FullyAutomatedPlatelets::pinstanceTesting()->AllSampleTested();
          instance->delalltaskinfo(false); //删除所有样本信息
-         instance->_setemptynull();
+         instance->setemptynull();
      }
      else {
          TraverseChnHadFinishTesting(THROW_CUPS_END);
@@ -1327,7 +1327,7 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
 
         instance->delalltaskinfo(false); //删除所有样本信息
 
-        instance->_setemptynull();
+        instance->setemptynull();
     }
     else {
         TraverseChnHadFinishTesting(THROW_CUPS_END);

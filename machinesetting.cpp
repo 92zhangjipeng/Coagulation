@@ -177,7 +177,7 @@ void MachineSetting::_initpara()
 
     QObject::connect(ui->pushButton_SWITCH,&QPushButton::clicked,this,[=]()
     {
-        FullyAutomatedPlatelets::mainWindow()->_displayHandoffUser();//切换用户
+        FullyAutomatedPlatelets::mainWindow()->displayHandoffUser();//切换用户
     });
 
     initSheet();//init按钮等控件样式显示
@@ -3169,7 +3169,7 @@ void MachineSetting::on_pushButton_Adjustcoordinates_clicked()
         // 使用新式语法连接，检查返回值
         bool conn1 = connect(pkjustcoordinate, &CustomPlot::writdAxisata,
                             this, [=](const QByteArrayList data_, QString info) {
-            emit FullyAutomatedPlatelets::mainWindow()->_sendcodeList(data_, info);
+            emit FullyAutomatedPlatelets::mainWindow()->sendcodeList(data_, info);
         });
         Q_ASSERT(conn1); // 确保连接成功 [[15]]
 

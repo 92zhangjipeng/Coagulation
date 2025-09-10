@@ -106,12 +106,20 @@ void MainWindow::stopAndWaitThreads()
         };
     }
 
+    // 添加线程停止获取主板线程方法
+    if (m_ObtainMainBoardData) {
+        m_ObtainMainBoardData->stop();
+    }
     if (m_threadMainBoard.isRunning()) {
         m_threadMainBoard.quit();
-        if (!m_threadMainBoard.wait(500)) {
+        if (!m_threadMainBoard.wait(1000)) {
             QLOG_WARN() << "MainBoard thread termination timeout!";
+            //m_threadMainBoard.terminate();
+            //m_threadMainBoard.wait();
         }
     }
+    m_ObtainMainBoardData = nullptr;
+
 
     if (mThreaddotest.isRunning()) {
         mThreaddotest.quit();
@@ -160,54 +168,68 @@ void MainWindow::cleanupSingletons()
 
 MainWindow::~MainWindow()
 {
-
-    // 停止并等待所有工作线程
+try{
+    // 1. 首先停止并等待所有工作线程（最高优先级）
     stopAndWaitThreads();
 
-    if(m_experimentTimer){
+    // 2. 停止定时器和异步操作
+    if (m_experimentTimer) {
+        m_experimentTimer->stop();
         delete m_experimentTimer;
         m_experimentTimer = nullptr;
     }
 
-    delete preminder; //析构退出软件
+    // 3. 关闭硬件设备和串行通信（尽早释放硬件资源）
+    DestructionSerialclass();
 
-    delete mshowModuledata;//析构接收显示模组数据
-
-    if(mReminder)
-        delete mReminder; //充值提示界面
-
-    // 单例清理
-    cleanupSingletons();
-
-    delete WriteParameter; //析构命令写入仪器
-
-
-    if (m_processPrint)
-    {
-        delete	m_processPrint;
+    // 4. 停止并删除可能还在运行的对象（如打印进程）
+    if (m_processPrint) {
+        delete m_processPrint;
         m_processPrint = nullptr;
     }
 
-    StructInstance::getInstance()->m_garbo;
+    // 5. 删除业务逻辑对象（依赖硬件和线程的对象）
+    delete WriteParameter;
+    WriteParameter = nullptr;
 
-    //delete m_ThreadReminderTsetTube;
-    //m_ThreadReminderTsetTube = nullptr;
+    delete mshowModuledata;
+    mshowModuledata = nullptr;
 
+    // 6. 删除UI相关的非Widget对象
     delete m_graphplot;
+    m_graphplot = nullptr;
 
-    DestructionSerialclass();
+    // 7. 删除对话框和提示界面
+    delete preminder;
+    preminder = nullptr;
 
-    QsLogging::Logger::destroyInstance();
 
+    // 8. 清理单例（在大多数对象之后）
+    cleanupSingletons();
 
-    // 确保所有资源已释放
+    // 9. 处理剩余事件
     QCoreApplication::processEvents();
 
+    // 10. 最后删除UI对象（最低优先级）
     delete ui;
+    ui = nullptr;
+
+    StructInstance::getInstance()->m_garbo;
+
+    // 11. 销毁日志实例（最后执行）
+    QsLogging::Logger::destroyInstance();
+
+    } catch (const std::exception& e) {
+        QLOG_WARN() << "Exception in MainWindow destructor: " << e.what();
+    } catch (...) {
+        QLOG_WARN() << "Unknown exception in MainWindow destructor";
+    }
 }
 
 void MainWindow::configReminderIcon(quint8 index_)
 {
+    if (!ui->sStatusInfo)
+        return;
     static const std::array<QIcon*, 5> iconMap = {
             &m_iconNormal,  // NormalLog
             &m_iconNormal,  // PromptLog
@@ -231,7 +253,7 @@ void MainWindow::configReminderIcon(quint8 index_)
 }
 
 
-void MainWindow::_dimmingprogress(bool isDimmingInProgress)
+void MainWindow::dimmingprogress(bool isDimmingInProgress)
 {
     // 使用更清晰的变量名
     static const bool isDimmingFinished = cglobal::g_controldimmingfinished;
@@ -298,15 +320,15 @@ void MainWindow::init_style_all()
     QThreadPool::globalInstance()->setMaxThreadCount(maxthreadnum); //线程池
     QLOG_DEBUG()<<"线程池最大数"<<maxthreadnum<<endl;
 
-    _serialConnection(); //串口实例化
+    serialConnection(); //串口实例化
 
     //Traverse_through_motherboard_information(); //遍历主板线程
 
     Traverse_through_ModuleReadInfo();  //遍历模组信息
 
-    _init_read_moduledata_thread(); //初始化实例获取到模组数据线程
+    init_read_moduledata_thread(); //初始化实例获取到模组数据线程
 
-    _inittestmodule_data_thread(); //收到模组数据处理线程
+    inittestmodule_data_thread(); //收到模组数据处理线程
 
     initmainboradthread(); //主板线程实例化函数&&***触发测高信号
 
@@ -339,7 +361,7 @@ void MainWindow::init_style_all()
                          mlocalSerial.data(),
                          &SuoweiSerialPort::slotwrite_instructions_group);
 
-        QObject::connect(this,&MainWindow::_sendcodeList,
+        QObject::connect(this,&MainWindow::sendcodeList,
                          FullyAutomatedPlatelets::pinstanceWirteBoard(),
                          &ConsumablesWrite::_slotsendcodeList);
 
@@ -387,11 +409,11 @@ void MainWindow::init_style_all()
 
     /*机器主界面试管使用同步耗材界面试管使用显示 &&质控使用试管*/
     connect(mptesting.data(),&Testing::SynchronizeEmptyTube,
-            minstrumentConsumables.data(),
+            FullyAutomatedPlatelets::pinstanceinstrument(),
             &QualityControl::slotSynchronizeEmptyTube);
 
     connect(this, &MainWindow::SynchronizeEmptyTubeUsed,
-            minstrumentConsumables.data(),
+            FullyAutomatedPlatelets::pinstanceinstrument(),
             &QualityControl::slotSynchronizeEmptyTube);
 
 
@@ -402,7 +424,8 @@ void MainWindow::init_style_all()
             &MachineSetting::handlebackHandssuck,Qt::QueuedConnection);
 
     /** 登录工程师模式  **/
-    connect(pequipmentconfig,&MachineSetting::LoginEngineerMode,
+    connect(pequipmentconfig,
+            &MachineSetting::LoginEngineerMode,
             this,[=](const bool EnginnerMode){
         FullyAutomatedPlatelets::pinstanceInquiredata()->LoginEngineerMode(EnginnerMode);
     });
@@ -420,7 +443,7 @@ void MainWindow::init_style_all()
 
     //读耗材卡确认充值
     connect(this, &MainWindow::rechargesuccessful,
-            minstrumentConsumables.data(),
+            FullyAutomatedPlatelets::pinstanceinstrument(),
             &QualityControl::handleRechargeSuccessful);
 
     //配置机器参数信号耗材修改限位值 、耗材余量
@@ -432,7 +455,8 @@ void MainWindow::init_style_all()
             &SuoweiSerialPort::writedataToEquipment,Qt::QueuedConnection);
 
     //发送指令到仪器、指令信息
-    connect(minstrumentConsumables.data(),&QualityControl::sendDirectives,
+    connect(FullyAutomatedPlatelets::pinstanceinstrument(),
+            &QualityControl::sendDirectives,
             mlocalSerial.data(),
             &SuoweiSerialPort::writedataToEquipment);
 
@@ -465,7 +489,7 @@ void MainWindow::init_style_all()
 
 
 //初始化实例获取到模组数据线程
-void MainWindow::_init_read_moduledata_thread()
+void MainWindow::init_read_moduledata_thread()
 {
     if(mshowModuledata == nullptr)
         mshowModuledata = new displayChanneldata();
@@ -488,7 +512,7 @@ void MainWindow::_init_read_moduledata_thread()
 }
 
 //收到模组数据处理线程
-void  MainWindow::_inittestmodule_data_thread()
+void  MainWindow::inittestmodule_data_thread()
 {
     if(mtestmoduleprotocol == nullptr)
     {
@@ -655,12 +679,12 @@ void MainWindow::initTestTaskThread()
     connect(m_pdoingTesting.data(),&TestProjectProcess::pauseSycnMainuiUpdate,
             this,&MainWindow::testingSuppileLoss,
             Qt::QueuedConnection);
+
     //S1清洗液不足 暂停
     connect(FullyAutomatedPlatelets::pinstanceinstrument(),
             &QualityControl::consumablesLackPauses,this,
             &MainWindow::testingSuppileLoss
             );
-
 
     connect(this,&MainWindow::startTheTestTask,m_pdoingTesting.data(),
             &TestProjectProcess::handleStartTheTestTask,
@@ -703,7 +727,7 @@ void MainWindow::initTestTaskThread()
     connect(m_pdoingTesting.data(),&TestProjectProcess::openChnMotor,
             this,[=](const quint8 indexchn,const bool bopen)
     {
-        emit _controlmotorrunning(indexchn,bopen);
+        emit controlmotorrunning(indexchn,bopen);
     });
 
 
@@ -804,25 +828,42 @@ void MainWindow::initTestTaskThread()
 }
 
 
-void MainWindow::pauseObtainmodulecommand(QString info,bool connectedCotl)
+void MainWindow::pauseObtainmodulecommand(const QString& info, bool pauseRequested)
 {
+    if (!m_moduletimerThread) {
+        QLOG_WARN() << "Cannot control module data acquisition - timer thread not initialized";
+        return;
+    }
+	QString action;
     if(m_moduletimerThread && m_ObtainMainBoardData)
     {
         //模组暂停||主板暂停
-        if(connectedCotl){
+        if(pauseRequested){
             emit stopObatinMachineInfo();
-            emit ReminderTextOut(PROMPTLOG,tr("暂停 获取模组和主板数据"));
-            QLOG_DEBUG()<<info<<"暂停 获取模组数据 && 主板数据";
+            action = tr("暂停");
         }
         else
         {
             emit aNewconnectMachine();
-            emit ReminderTextOut(PROMPTLOG,tr("恢复继续获取模组和主板数据"));
-            QLOG_DEBUG()<<info<<"恢复 获取模组数据 && 主板数据";
+            action = tr("恢复");
         }
     }
+    QString message = QString("%1获取%2数据").arg(action)
+                      .arg(m_ObtainMainBoardData ? tr("模组和主板") : tr("模组"));
+
+    emit ReminderTextOut(PROMPTLOG, message);
+    QLOG_INFO() << info << " - " << message;
 }
 
+//提供一个切换监听状态的方法
+void MainWindow::toggleUsbListening(bool enable)
+{
+    if (enable) {
+        listentoUsb();
+    } else {
+        stopListenToUsb();
+    }
+}
 
 void MainWindow::listentoUsb()
 {
@@ -852,6 +893,21 @@ void MainWindow::listentoUsb()
 
     // 启动线程
     m_USBListener->startListening();
+}
+
+// 断开USB监听
+void MainWindow::stopListenToUsb()
+{
+    if (m_USBListener) {
+        // 断开所有信号连接
+        disconnect(m_USBListener.data(), nullptr, this, nullptr);
+
+        // 停止监听
+        m_USBListener->stopListening();
+
+        // 释放资源
+        m_USBListener.reset();
+    }
 }
 
 
@@ -971,18 +1027,19 @@ void MainWindow::onReminderRequested(QString title_, QString outputText) {
     RealReminderImpl(title_, outputText);
 }
 
-void MainWindow::RealReminderImpl(QString title_, QString outputText)
+
+void MainWindow::RealReminderImpl(QString title, QString outputText)
 {
     QWriteLocker locker(&m_reminderLock);
-    // 1. 快速判断标题是否已存在（QSet优化查询效率）
-    if (m_reminderTitleStr.contains(title_)) return;
+    //快速判断标题是否已存在（QSet优化查询效率）
+    if (m_reminderTitleStr.contains(title)) return;
 
 
-    // 2. 使用QPointer跟踪弹窗对象生命周期（避免悬空指针）
-    QPointer<warn_interface> pwarn = new warn_interface(title_, outputText);
+    //使用QPointer跟踪弹窗对象生命周期（避免悬空指针）
+    QPointer<warn_interface> pwarn = new warn_interface(title, outputText);
 
 
-    //3. 配置弹窗属性（使用Qt属性链式调用）
+    //配置弹窗属性（使用Qt属性链式调用）
     pwarn->setWindowFlags(Qt::FramelessWindowHint |
         Qt::WindowStaysOnTopHint |
         Qt::WindowDoesNotAcceptFocus);
@@ -990,12 +1047,12 @@ void MainWindow::RealReminderImpl(QString title_, QString outputText)
         pwarn->setAttribute(Qt::WA_ShowWithoutActivating); // 不抢占焦点
         pwarn->setWindowModality(Qt::NonModal);     // 非模态窗口
 
-    // 4. 集中初始化弹窗内容（减少冗余调用）
-    pwarn->settitle(title_);
+    //集中初始化弹窗内容（减少冗余调用）
+    pwarn->settitle(title);
     pwarn->setremtext(outputText);
     pwarn->replaceSupplyIndex(-1);
 
-    // 5. 信号连接：用户确认后清理标题集合
+    //信号连接：用户确认后清理标题集合
     connect(pwarn, &warn_interface::makesure, this,
         [this](int,  QString title) {
             QWriteLocker lock(&m_reminderLock);
@@ -1003,7 +1060,7 @@ void MainWindow::RealReminderImpl(QString title_, QString outputText)
     },
     Qt::QueuedConnection);
 
-    //6. 自适应多屏幕居中（基于主窗口所在的屏幕）
+    //自适应多屏幕居中（基于主窗口所在的屏幕）
     if (const QScreen* activeScreen = QGuiApplication::primaryScreen()) {
         const QRect screenGeometry = activeScreen->availableGeometry();
         pwarn->move(
@@ -1011,21 +1068,21 @@ void MainWindow::RealReminderImpl(QString title_, QString outputText)
         );
     }
 
-    // 7. 显示弹窗并记录标题（原子操作避免竞态条件）
+    //显示弹窗并记录标题（原子操作避免竞态条件）
     pwarn->show();
     pwarn->raise(); // 确保窗口在最前面
     pwarn->activateWindow(); // 激活窗口
-    m_reminderTitleStr.insert(title_);
+    m_reminderTitleStr.insert(title);
     return;
 }
 
 
 
-void  MainWindow::_reminderFunctionWidget(QString title_,QString outputtext_,QList<QString> btntext)
+void  MainWindow::reminderFunctionWidget(QString title,QString outputtext_,QList<QString> btntext)
 {
     int btn_ = 0;
     if(preminder == nullptr)
-        preminder = new FunctionCustomWidget(title_,outputtext_);
+        preminder = new FunctionCustomWidget(title,outputtext_);
     preminder.data()->setremimdertext(outputtext_);
     preminder.data()->setAttribute(Qt::WA_QuitOnClose,false);
     // 设置窗口始终位于最前端
@@ -1061,8 +1118,9 @@ void  MainWindow::_reminderFunctionWidget(QString title_,QString outputtext_,QLi
         }
     });
 
-    connect(preminder.data(),&FunctionCustomWidget::sender_3function_,this,[=](){
-        writeConsumablesExit();
+    //直接退出
+    connect(preminder.data(),&FunctionCustomWidget::sender_3function_,
+            this,[=](){ writeConsumablesExit();
     });
     if(preminder.data()->isMinimized()){
         preminder->showNormal();
@@ -1123,7 +1181,7 @@ void MainWindow::FirstConnectCleanEquipment()
 
 
 
-void MainWindow::_serialConnection()
+void MainWindow::serialConnection()
 {
     mlocalSerial = FullyAutomatedPlatelets::pinstanceserialusb();
     mlocalSerial.data()->suoweiportthreadbegin();
@@ -1185,40 +1243,43 @@ void MainWindow::_serialConnection()
     return;
 }
 
-void MainWindow::_creatbeginreadmodule()
+void MainWindow::creatbeginreadmodule()
 {
     QLOG_DEBUG() << "UI thread id:" << QThread::currentThreadId();
-    m_moduletimerThread = new moduletimerThread();
-    m_moduletimerThread->moveToThread(&m_threadModule); //使用moveToThread创建子线程的
-    connect(&m_threadModule, SIGNAL(started()), m_moduletimerThread, SLOT(onCreateTimer())); //在线程启动的时候创建定时器
-    connect(&m_threadModule, &QThread::finished, m_moduletimerThread, &QObject::deleteLater);
-    //connect(m_moduletimerThread,&moduletimerThread::sendCtrlSignal,this,&MainWindow::_ObtainModuleData,Qt::QueuedConnection);
-    connect(this,&MainWindow::stopObatinMachineInfo,
-            m_moduletimerThread,&moduletimerThread::recvStopObatinMachineInfo);
 
-    connect(this,&MainWindow::aNewconnectMachine,
-            m_moduletimerThread,&moduletimerThread::recvaNewconnectMachine);
+    m_moduletimerThread = new moduletimerThread();
+    m_moduletimerThread->moveToThread(&m_threadModule);
+
+    connect(&m_threadModule, &QThread::started, m_moduletimerThread, &moduletimerThread::createTimer);
+    connect(&m_threadModule, &QThread::finished, m_moduletimerThread, &QObject::deleteLater);
+
+    connect(this, &MainWindow::stopObatinMachineInfo,
+            m_moduletimerThread, &moduletimerThread::stopObtainMachineInfo);
+
+    connect(this, &MainWindow::aNewconnectMachine,
+            m_moduletimerThread, &moduletimerThread::startObtainMachineInfo);
+
     m_threadModule.start();
     return;
 }
 
-void MainWindow::_ObtainModuleData()
+void MainWindow::ObtainModuleData()
 {
     if(!cglobal::gserialConnecStatus) return;
 
     quint8 index_equipment = 0;
-    QByteArray* _pModuleDataarry = NULL;
-    Monitor_TrayTest*_pobtainModuledata = FullyAutomatedPlatelets::pinstanceobtainModuledata();
+    QByteArray* pModuleDataarry = NULL;
+    Monitor_TrayTest *pobtainModuledata = FullyAutomatedPlatelets::pinstanceobtainModuledata();
     SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,index_equipment);
-    _pModuleDataarry = new QByteArray[index_equipment + 1];
+    pModuleDataarry = new QByteArray[index_equipment + 1];
     for(int i = 0; i <= index_equipment; i++)
     {
-        _pobtainModuledata->_sycnmoduledata(i + 1,_pModuleDataarry[i]);
+        pobtainModuledata->sycnmoduledata(i + 1,pModuleDataarry[i]);
         QThread::msleep(TIME_SEND_MODULECODER);
-        emit sendOneDirectives(_pModuleDataarry[i],"获取模组数据");
+        emit sendOneDirectives(pModuleDataarry[i],"获取模组数据");
         //QLOG_DEBUG()<<"定时获取模组数据线程id:" << QThread::currentThreadId();
     }
-    delete [] _pModuleDataarry;
+    delete [] pModuleDataarry;
 }
 
 //定时读取模组消息
@@ -1466,13 +1527,13 @@ void MainWindow::createTrayActions()
     // 清空现有菜单项（如果之前已创建）
     m_trayMenu->clear();
 
-	// 创建并添加消息通知动作
-	auto* messageAction = new QAction(tr("关于"), m_trayMenu);
-	connect(messageAction, &QAction::triggered, this, [this] {
-		ui->toolButton_about->click(); // 触发信号
-	});
-	m_trayMenu->addAction(messageAction);
-	m_trayMenu->addSeparator();
+    // 创建并添加消息通知动作
+    auto* messageAction = new QAction(tr("关于"), m_trayMenu);
+    connect(messageAction, &QAction::triggered, this, [this] {
+        ui->toolButton_about->click(); // 触发信号
+    });
+    m_trayMenu->addAction(messageAction);
+    m_trayMenu->addSeparator();
 
      // 使用函数添加动作，避免结构体初始化问题
      auto addTrayAction = [this](const QString& text, std::function<void()> handler, bool addSeparator = false) {
@@ -1584,8 +1645,6 @@ void MainWindow::InitMainUiLayout()
     /*隐藏添加任务进度条*/
     initProgressBar("初始加载进度:",false,false);
 
-    /*仪器耗材初始化*/
-    minstrumentConsumables = FullyAutomatedPlatelets::pinstanceinstrument();
 
     //测试界面
     mptesting = FullyAutomatedPlatelets::pinstanceTesting();
@@ -1721,12 +1780,12 @@ void MainWindow::initCameras()
         QString desc = cameraInfo.description();
 
         // 检查是否是目标设备 (VID_1E45&PID_80228M)
-		if (devName.contains("vid_1e45", Qt::CaseInsensitive) &&
-			devName.contains("pid_8022", Qt::CaseInsensitive)) {
-			instrumentCamera = cameraInfo;
-			QLOG_DEBUG() << "发现目标摄像头:" << devName << "描述:" << desc;
-			break;
-		}
+        if (devName.contains("vid_1e45", Qt::CaseInsensitive) &&
+            devName.contains("pid_8022", Qt::CaseInsensitive)) {
+            instrumentCamera = cameraInfo;
+            QLOG_DEBUG() << "发现目标摄像头:" << devName << "描述:" << desc;
+            break;
+        }
 
         // 同时保留原有的USB HD摄像头检测逻辑
         const QStringList keys = {"hd camera"};
@@ -1756,17 +1815,26 @@ void MainWindow::PromptInfo(const quint8 Index, const QString ReminderStr, const
 
 
 void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,quint16 datetime){
-    if(mReminder == nullptr){
-        mReminder  = new CustomHighData(tips,  CONSUMABLES_READ_SUCESSFULLY,indexReagent, totalnum);
+    if (mReminder) {
+        disconnect(mReminder.data(), nullptr, nullptr, nullptr);
     }
-    connect(mReminder.data(),&CustomHighData::AddSupplies,minstrumentConsumables.data(),
-                             &QualityControl::sltoAddConsumables);
-    connect(mReminder.data(),&CustomHighData::closeDelWidget,this,[=](){
-        if(mReminder)
-            delete mReminder;
+    mReminder.reset(new CustomHighData(tips, CONSUMABLES_READ_SUCESSFULLY,
+                                          indexReagent, totalnum, this));
+
+    connect(mReminder.data(), &CustomHighData::AddSupplies,
+            FullyAutomatedPlatelets::pinstanceinstrument(),
+            &QualityControl::sltoAddConsumables,
+            Qt::UniqueConnection);
+
+    connect(mReminder.data(), &CustomHighData::closeDelWidget, this, [this]() {
+        if (mReminder) {
+            disconnect(mReminder.data(), nullptr, nullptr, nullptr);
+            mReminder.reset();
+        }
     });
-    QLOG_TRACE()<<"刷卡有效期"<<datetime;
-    mReminder.data()->show();
+
+    QLOG_TRACE() << "刷卡有效期" << datetime;
+    mReminder->show();
 }
 
 //提示文字，刷卡试剂、刷卡值
@@ -1782,14 +1850,19 @@ void MainWindow::handleswipeCardSuccessfullyWritten(QString tips, int addindexRe
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     event->ignore();
-    QString outputtext;
+
+    // 检查是否有正在进行的测试
+    QString warningText,titleText;
     QList<QString> btnText;
-    btnText<<"取消退出"<<"清洗后退出"<<"确定退出";
-    if(cglobal::g_StartTesting)
-       outputtext = ("样本测试中...强行退出可能导致测试异常,请等待测试完成!");
-    else
-       outputtext = ("确定退出并关闭软件?");
-    _reminderFunctionWidget("关闭软件",outputtext,btnText);
+    btnText << tr("取消退出") << tr("清洗后退出") << tr("确定退出");
+    if (cglobal::g_StartTesting) {
+         warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
+         titleText  = tr("操作提示");
+    }else{
+        warningText = tr("确定退出并关闭软件？");
+        titleText  = tr("关闭软件");
+    }
+    reminderFunctionWidget(titleText, warningText, btnText);
 }
 
 
@@ -1801,7 +1874,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
 
 
 
-void MainWindow::_displayHandoffUser()
+void MainWindow::displayHandoffUser()
 {
     QScopedPointer<handoff_staff> dialog(new handoff_staff());
     dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -2053,7 +2126,7 @@ void MainWindow::openSettingsDialog()
         // Connect all signals in one clear block
         connect(pEquipment, &MachineSetting::SetParatoInstrument,
             this, [this](const QByteArrayList& d, QString s) {
-            emit _sendcodeList(d, s);
+            emit sendcodeList(d, s);
         });
 
         connect(pEquipment, &MachineSetting::testdownheight,
@@ -2067,7 +2140,7 @@ void MainWindow::openSettingsDialog()
 
         connect(pEquipment, &MachineSetting::OpenChannelMotor,
             this, [this](quint8 i, bool b) {
-            emit _controlmotorrunning(i, b);
+            emit controlmotorrunning(i, b);
         });
 
         connect(pEquipment, &MachineSetting::controlallchn,
@@ -2485,15 +2558,15 @@ void MainWindow::equipment_will_test_num(bool &bgoto_testing)
     else
         bgoto_testing = true;
 }
-void MainWindow::_testingchnEnough(bool &benoughChn){
+void MainWindow::testingchnEnough(bool &benoughChn){
     quint8 _freeChn = 0;
     benoughChn = StructInstance::getInstance()->hadFreeTestChn(_freeChn);//找空闲通道
 }
 
-void MainWindow::_begingTesting()
+void MainWindow::begingTesting()
 {
     bool benoughChn_ = false; //用通道空闲
-    _testingchnEnough(benoughChn_);
+    testingchnEnough(benoughChn_);
     if(!benoughChn_){
         ThreadSafeReminder("开始失败","模组无可用通道!");
         return;
@@ -2747,16 +2820,21 @@ void MainWindow::Traverse_through_motherboard_information()
 {
     if(nullptr == m_ObtainMainBoardData){
         m_ObtainMainBoardData = new ObtainMainBoardData();
-        m_ObtainMainBoardData->moveToThread(&m_threadMainBoard); //使用moveToThread创建子线程的
-        connect(&m_threadMainBoard, SIGNAL(started()), m_ObtainMainBoardData, SLOT(onCreateTimer())); //在线程启动的时候创建定时器
-        connect(&m_threadMainBoard, &QThread::finished, m_ObtainMainBoardData, &QObject::deleteLater);
-        //connect(m_ObtainMainBoardData,&ObtainMainBoardData::sendReadMainboardData,this,&MainWindow::timeoutObtainMainboadData,Qt::QueuedConnection);
-        connect(this,&MainWindow::stopObatinMachineInfo,m_ObtainMainBoardData,&ObtainMainBoardData::recvStopObatinMachineInfo);
-        connect(this,&MainWindow::aNewconnectMachine,m_ObtainMainBoardData,&ObtainMainBoardData::recvaNewconnectMachine);
-        m_threadMainBoard.start();
+        m_ObtainMainBoardData->moveToThread(&m_threadMainBoard);
+
+        connect(&m_threadMainBoard, &QThread::started,
+                       m_ObtainMainBoardData, &ObtainMainBoardData::createTimer);
+       connect(&m_threadMainBoard, &QThread::finished,
+               m_ObtainMainBoardData, &QObject::deleteLater);
+
+       connect(this, &MainWindow::stopObatinMachineInfo,
+                       m_ObtainMainBoardData, &ObtainMainBoardData::stopDataAcquisition);
+       connect(this, &MainWindow::aNewconnectMachine,
+               m_ObtainMainBoardData, &ObtainMainBoardData::startDataAcquisition);
+
+       m_threadMainBoard.start();
+       QLOG_INFO() << "Main board data acquisition thread started";
     }
-    //QLOG_DEBUG() << "主线程Id:" << QThread::currentThreadId();
-    return;
 }
 
 void  MainWindow::timeoutObtainMainboadData()
@@ -2765,13 +2843,18 @@ void  MainWindow::timeoutObtainMainboadData()
         QByteArray _readMainBoard;
         QUIUtils::Traverse_the_motherboard(_readMainBoard);
         emit sendOneDirectives(_readMainBoard,"同步主板信息");
-        //QLOG_DEBUG() << "读主板信息线程mianId:" << QThread::currentThreadId();
     }
     return;
 }
 
 
 void MainWindow::writeConsumablesExit(){
+
+    //停止USB 监听
+    toggleUsbListening(false);
+
+    pauseObtainmodulecommand("退出程序", true);
+
     emit controlallchnstate(false); //关闭所有通道旋转
     QByteArray buffer =  GlobalData::writeBuffer2Equipment();
 
@@ -2807,7 +2890,7 @@ void MainWindow::slotbootInitCleanFinished()
     //开始每秒读取主板耗材信息
     Traverse_through_motherboard_information(); //遍历主板线程
 
-    _creatbeginreadmodule();//开始读取模组线程数据
+    creatbeginreadmodule();//开始读取模组线程数据
 
     mshowModuledata.data()->_start();//开启接收模组数据线程
 
@@ -2821,7 +2904,7 @@ void MainWindow::slotbootInitCleanFinished()
 
 
 
-void MainWindow::_slotsycnPaintentInfo(QString id_,QString addtime,QString barcode_,QString testProject)
+void MainWindow::slotsycnPaintentInfo(QString id_,QString addtime,QString barcode_,QString testProject)
 {
     Calibrate* paddTaskCol = FullyAutomatedPlatelets::pinstancepatientdata();
     paddTaskCol->_addpatientsqltable(id_,addtime,barcode_,testProject);
@@ -2866,7 +2949,7 @@ void MainWindow::slotCleaningProgress(quint8 index, quint8 total)
            static bool isusbListen = false;
            if(index > 10 && index < 40 && !isusbListen){
                isusbListen = true;
-               listentoUsb();
+               toggleUsbListening(true);
            }
        }
    });
@@ -3071,8 +3154,8 @@ void MainWindow::setupDimmingConnections(
         [widget, failedChn, safeThis]() {
             if(!safeThis) return;
 
-            safeThis->_commingfaileddisablechn(failedChn);
-            safeThis->_dimmingprogress(false);
+            safeThis->commingfaileddisablechn(failedChn);
+            safeThis->dimmingprogress(false);
             cglobal::g_controldimmingfinished = true;
 
             QLOG_DEBUG() << "调光失败直接禁用通道(调光完成):" << failedChn;
@@ -3128,7 +3211,7 @@ void MainWindow::recvshowDimmingFailedChn(const QList<quint8>& failedChn)
     return;
 }
 
-void MainWindow::_commingfaileddisablechn(QList<quint8> dimmingFiledChnList)
+void MainWindow::commingfaileddisablechn(QList<quint8> dimmingFiledChnList)
 {
 
     // 1. 使用std::transform转换容器
@@ -3221,7 +3304,7 @@ void MainWindow::handletheGripperFailed(const int sampleid, const QString outstr
 
 //PE测试打开关闭通道控制
 void MainWindow::handleControlChannelRevolve(const quint8&channelNum,const bool& isRevolve){
-    emit _controlmotorrunning(channelNum,isRevolve);
+    emit controlmotorrunning(channelNum,isRevolve);
 }
 
 void MainWindow::handleoutErrInfo(const QString titles,const QString errStr){
@@ -3463,6 +3546,7 @@ void MainWindow::onStartTestClicked()
     if(!hasTestTask){
         return;
     }
+
     // 开始测试
-    _begingTesting();
+    begingTesting();
 }

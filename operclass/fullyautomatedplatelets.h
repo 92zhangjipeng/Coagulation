@@ -90,7 +90,12 @@ private:
 
     Alarm *_mreminderinfowidget; //仪器信息提示
 
-    QualityControl *_minstrumentConsumables; //耗材
+    //耗材
+    QScopedPointer<QualityControl> minstrumentConsumables;
+
+    //数据查询sql
+    QScopedPointer<Inquire_Sql_Info> minquireSqldata;
+
 
     Testing *_mtestingwidget; //测试界面
 
@@ -118,11 +123,10 @@ private:
 
     MachineSetting *_mequipmentconfig; //仪器设置
 
-    Inquire_Sql_Info* _minquiredata;
-
     Printthereport *_mprintPdf;
 
     bool _ready;
+    void disconnectAllConnections();
 
 };
 

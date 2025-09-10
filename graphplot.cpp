@@ -141,17 +141,27 @@ void GraphPlot::innitKindequipment()
     return;
 }
 
-
+/** 所有样本测试结束测试曲线界面恢复
+* @brief GraphPlot::backallCurveClear
+*/
 void GraphPlot::backallCurveClear()
 {
-    auto it =  mcurveWidgetList.begin();
-    while(it != mcurveWidgetList.end())
-    {
-        it.value()->data().data()->clear();
-        int index = it.key();
-        QCustomPlot* pPlot =  GetCurvepWidget(index);
-        pPlot->setBackground(QBrush(QColor("#FFFFFF")));
-        it++;
+    QMapIterator<quint8, QCPGraph*> it(mcurveWidgetList);
+    while (it.hasNext()) {
+        it.next();
+
+        if (QCPGraph* graph = it.value()) {
+            // 清空图形数据
+            graph->data().data()->clear();
+            graph->data().data()->squeeze();
+
+            // 获取对应的 QCustomPlot 并设置背景
+            if (QCustomPlot* pPlot = GetCurvepWidget(it.key())) {
+                notifyplotname(it.key(), pPlot, "");
+                pPlot->setBackground(QBrush(QColor("#FFFFFF")));
+                pPlot->replot(QCustomPlot::rpQueuedReplot);
+            }
+        }
     }
 }
 

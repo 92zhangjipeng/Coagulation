@@ -81,7 +81,7 @@ public slots:
 
 public:
 
-    void _sycnmoduledata(quint8 index_,QByteArray &_onemoduledata);
+    void sycnmoduledata(quint8 index_,QByteArray &_onemoduledata);
 
 private:
     void init_modul_struct();//初始化模组读取命令

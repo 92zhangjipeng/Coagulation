@@ -80,7 +80,7 @@ void controldimming::recvmoduletemp(int module)
    // 进度条件判断
    if (m_testChnDimmingStu.size() >= m_totalchn) {  // 使用>=更安全
        m_startCollectChannelVal = true;
-       FullyAutomatedPlatelets::mainWindow()->_dimmingprogress(true);
+       FullyAutomatedPlatelets::mainWindow()->dimmingprogress(true);
    }
    return;
 }
@@ -160,7 +160,7 @@ void controldimming::ProactiveComparisons(int differenceThreshold)
 	}
 
 	if (failedChannels.isEmpty()) {
-		FullyAutomatedPlatelets::mainWindow()->_dimmingprogress(false); //调光进度条
+        FullyAutomatedPlatelets::mainWindow()->dimmingprogress(false); //调光进度条
 		cglobal::g_controldimmingfinished = true;
 		emit reminderText(PROMPTLOG, "所有模组调光完成!");
 		QLOG_DEBUG() << "所有模组调光完成" << endl;
@@ -191,7 +191,7 @@ void controldimming::Disableitdirectly(QVector<quint8> FailedDimmingChn)
        StructInstance::getInstance()->config_testChn_State(indexChannel,CHN_STATUS_DISABLE);
        FullyAutomatedPlatelets::pinstanceTesting()->recv_NotifyChannleState(indexChannel + 1, false);
     }
-    FullyAutomatedPlatelets::mainWindow()->_dimmingprogress(false); //调光进度条
+    FullyAutomatedPlatelets::mainWindow()->dimmingprogress(false); //调光进度条
     cglobal::g_controldimmingfinished = true;
     emit reminderText(PROMPTLOG,"所有模组调光完成!");
     QLOG_DEBUG()<<"所有模组调光完成"<<endl;

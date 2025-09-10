@@ -157,7 +157,7 @@ void Monitor_TrayTest::configModulTEMPvalue(quint8 indexmodul, double modultemp)
     return;
 }
 
-void Monitor_TrayTest::_sycnmoduledata(quint8 index_,QByteArray &_onemoduledata)
+void Monitor_TrayTest::sycnmoduledata(quint8 index_,QByteArray &_onemoduledata)
 {
     switch(index_)
     {
@@ -315,7 +315,6 @@ void Monitor_TrayTest::modul_1_sycn_directives(QByteArray &moduleCommand)
     fucn_oper.setBit(3, QString(typed_.at(3)).toInt());
     fucn_oper.setBit(4, QString(typed_.at(4)).toInt());
 
-    //QLOG_DEBUG()<<"+++++"<<fucn_oper;
     QString sSendHex = QUIUtils::bitArray2String(fucn_oper);
     QByteArray byte_ = QByteArray::fromHex(sSendHex.toLatin1());
     moduleCommand.push_back(byte_);

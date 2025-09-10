@@ -1,79 +1,90 @@
 ﻿#include "moduletimerThread.h"
 #include "QsLog/include/QsLog.h"
+#include "mainwindow.h"
 #include "operclass/fullyautomatedplatelets.h"
-#include <mainwindow.h>
 
-moduletimerThread::moduletimerThread(QObject* parent): QObject(parent),
-    pauseFlag(false)
+moduletimerThread::moduletimerThread(QObject* parent)
+    : QObject(parent)
 {
+
 }
 
 moduletimerThread::~moduletimerThread()
 {
-    //timer->stop();
-    //timer->deleteLater();
+    stop();
 
-	if(timer->isActive())
-		timer->stop();
-	delete timer;
-	timer = nullptr;
-
+   if (m_timer) {
+       if (m_timer->isActive()) {
+           m_timer->stop();
+       }
+       delete m_timer;
+       m_timer = nullptr;
+   }
 }
 
-void moduletimerThread::onCreateTimer()
+void moduletimerThread::createTimer()
 {
-    //关键点：在子线程中创建QTimer的对象
-    timer = new QTimer();
-    timer->setInterval(100);
-    connect(timer, SIGNAL(timeout()), this, SLOT(onTimeout()));
-    timer->start();
+    QMutexLocker locker(&m_mutex);
+
+    if (!m_timer) {
+        m_timer = new QTimer(this);
+        m_timer->setInterval(100);
+        connect(m_timer, &QTimer::timeout, this, &moduletimerThread::onTimeout);
+        m_timer->start();
+    }
 }
 
 void moduletimerThread::onTimeout()
 {
-    FullyAutomatedPlatelets::mainWindow()->_ObtainModuleData();
-    //emit sendCtrlSignal();
-    //QLOG_DEBUG() << " work thread idModule:" << QThread::currentThreadId();
-}
-
-void moduletimerThread::recvStopObatinMachineInfo()
-{
-    if(timer)
-    {
-        if(timer->isActive())
-        {
-            timer->stop();
-            QLOG_DEBUG()<<"暂停模组遍历消息";
-        }
-    }
-}
-void moduletimerThread::recvaNewconnectMachine()
-{
-    if(timer)
-    {
-        timer->start(100);
-        QLOG_DEBUG()<<"模组从新开始遍历消息";
+    if (m_pauseFlag || m_stopFlag) {
+        return;
     }
 
+    MainWindow* mainWindow = FullyAutomatedPlatelets::mainWindow();
+    if (mainWindow) {
+        mainWindow->ObtainModuleData();
+    } else {
+        QLOG_WARN() << "mainWindow is null in moduletimerThread::onTimeout";
+    }
 }
 
-void moduletimerThread::stop_th()
+void moduletimerThread::stopObtainMachineInfo()
 {
-    QMutexLocker locker(&mutex);
-    stopFlag = false;
+    QMutexLocker locker(&m_mutex);
+    if (m_timer && m_timer->isActive()) {
+        m_timer->stop();
+        QLOG_DEBUG() << "暂停模组遍历消息";
+    }
 }
 
-void moduletimerThread::pause_Module()
+void moduletimerThread::startObtainMachineInfo()
 {
-    QMutexLocker locker(&mutex);
-    pauseFlag = true;
+    QMutexLocker locker(&m_mutex);
+    if (m_timer) {
+        m_timer->start(100);
+        QLOG_DEBUG() << "模组重新开始遍历消息";
+    }
+}
+
+void moduletimerThread::stop()
+{
+    QMutexLocker locker(&m_mutex);
+    m_stopFlag = true;
+    if (m_timer && m_timer->isActive()) {
+        m_timer->stop();
+    }
+}
+
+void moduletimerThread::pause()
+{
+    QMutexLocker locker(&m_mutex);
+    m_pauseFlag = true;
 }
 
 void moduletimerThread::resume()
 {
-    QMutexLocker locker(&mutex);
-    pauseFlag = false;
+    QMutexLocker locker(&m_mutex);
+    m_pauseFlag = false;
 }
-
 
 

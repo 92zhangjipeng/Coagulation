@@ -54,4 +54,4 @@ private:
 
 
 
-//QualityControl ii = QualityControl::instance();
+

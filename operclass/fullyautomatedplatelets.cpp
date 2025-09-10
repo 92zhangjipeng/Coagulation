@@ -26,7 +26,9 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
     _mreminderinfowidget = new Alarm();
 
-    _minstrumentConsumables = new QualityControl();
+    minstrumentConsumables.reset(new QualityControl());
+    minquireSqldata.reset(new Inquire_Sql_Info());
+
 
     _mtestingwidget = new Testing();
 
@@ -56,7 +58,9 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 	_msqldata = new CustomCreatSql();
 
-    _minquiredata = new Inquire_Sql_Info();
+
+
+
 
     _mprintPdf =  new Printthereport();
 
@@ -76,22 +80,20 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 
     //主界面显示耗材余量
-   connect(_minstrumentConsumables,SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
-                     _mainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
+   connect(minstrumentConsumables.data(),SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
+            _mainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
 
-   connect(
-            _msuppilereminder,&instrumentAlarmPrompt::outSideCleanDepleteOne,
-            _minstrumentConsumables,&QualityControl::handleoutSideCleanDepleteOne);
+   connect(_msuppilereminder,&instrumentAlarmPrompt::outSideCleanDepleteOne,
+            minstrumentConsumables.data(),
+           &QualityControl::handleoutSideCleanDepleteOne);
 
-    //QObject::connect(_mainWindow,&MainWindow:: _writeSingleorder ,_mwritecommand,&ConsumablesWrite::_writeordertoboard);
+
 
     //测试界面
-
-
-    QObject::connect(_minstrumentConsumables,&QualityControl::SycnMainUiLosserSuppile,
+    QObject::connect(minstrumentConsumables.data(),&QualityControl::SycnMainUiLosserSuppile,
                      _mainWindow,&MainWindow::DisplaySycnMainUiLosserSuppile);
 
-    QObject::connect(_minstrumentConsumables,&QualityControl::NoinitialCleaning,
+    QObject::connect(minstrumentConsumables.data(),&QualityControl::NoinitialCleaning,
                       _mainWindow,&MainWindow::recvNoinitialCleaning);
 
     QObject::connect(_mainWindow,&MainWindow::AlarmReminderSound,
@@ -128,7 +130,7 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 
     //测试时控制开关通道旋转电机
-    connect(_mainWindow,&MainWindow::_controlmotorrunning,_mpobtainModuledata,
+    connect(_mainWindow,&MainWindow::controlmotorrunning,_mpobtainModuledata,
             &Monitor_TrayTest::controlChnMotorRotating);
 
     //设置界面设置温度
@@ -137,11 +139,15 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
              Qt::QueuedConnection);
 
 
-    connect(_minquiredata,&Inquire_Sql_Info::writepdfprint,
-            _mprintPdf,&Printthereport::slotwritePdf);
+    connect(minquireSqldata.data(),
+            &Inquire_Sql_Info::writepdfprint,
+            _mprintPdf,
+            &Printthereport::slotwritePdf);
 
-    connect(_minquiredata,&Inquire_Sql_Info::_printoutresult,
-            _mprintPdf,&Printthereport::slotprintoutresult);
+    connect(minquireSqldata.data(),
+            &Inquire_Sql_Info::_printoutresult,
+            _mprintPdf,
+            &Printthereport::slotprintoutresult);
 
     _mprintPdf->_Start();
 
@@ -149,99 +155,212 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 FullyAutomatedPlatelets::~FullyAutomatedPlatelets()
 {
-    if(_minstrumentConsumables){
-        delete _minstrumentConsumables;
-        _minstrumentConsumables = nullptr;
-    }
+    // 1. 断开所有信号槽连接
+    disconnectAllConnections();
 
-	if (_mtestingwidget) {
-	
-		delete _mtestingwidget;
-		_mtestingwidget = nullptr;
-	}
+    // 2. 停止所有运行的线程
+    //stopAllThreads();
 
-	if (_mppatientinfo)
-	{
-		delete _mppatientinfo;
-		_mppatientinfo = nullptr;
-		QLOG_DEBUG() << "析构患者实例" << __FUNCTION__ << __LINE__ << endl;
-	}
-	
-	delete _msqldata;
-	_msqldata = nullptr;
-	QLOG_DEBUG() << "析构数据库实例" << __FUNCTION__ << __LINE__ << endl;
+   // 3. 按照依赖关系逆序析构
+   // 先析构UI界面和窗口（最上层）
+   QLOG_DEBUG() << "开始析构UI组件...";
 
-	delete _mpsreialport;
-	_mpsreialport = nullptr;
-	QLOG_DEBUG() << "析构串口USB线程" << __FUNCTION__ << __LINE__ << endl;
+   if (_mtestingwidget) {
+       delete _mtestingwidget;
+       _mtestingwidget = nullptr;
+       QLOG_DEBUG() << "已析构测试窗口";
+   }
 
-    delete _minquiredata;
-    _minquiredata = nullptr;
+   if (_mppatientinfo) {
+       delete _mppatientinfo;
+       _mppatientinfo = nullptr;
+       QLOG_DEBUG() << "已析构患者信息实例";
+   }
 
-    delete _mprintPdf;
-    _mprintPdf = nullptr;
+   if (_mpsetTestproject) {
+       delete _mpsetTestproject;
+       _mpsetTestproject = nullptr;
+       QLOG_DEBUG() << "已析构测试项目配置";
+   }
 
+   if (_maddtestsamplecase) {
+       delete _maddtestsamplecase;
+       _maddtestsamplecase = nullptr;
+       QLOG_DEBUG() << "已析构添加测试样本窗口";
+   }
 
-    delete _mpsetTestproject;
-    _mpsetTestproject = nullptr;
-    QLOG_DEBUG()<<"析构退出配置项目widget"<<__FUNCTION__<<__LINE__;
+   if (_mequipmentconfig) {
+       delete _mequipmentconfig;
+       _mequipmentconfig = nullptr;
+       QLOG_DEBUG() << "已析构设备配置界面";
+   }
 
-    delete _maddtestsamplecase;
-    _maddtestsamplecase = nullptr;
-    QLOG_DEBUG()<<"析构退出添加任务widget"<<__FUNCTION__<<__LINE__;
+   if (_maboutequipment) {
+       delete _maboutequipment;
+       _maboutequipment = nullptr;
+       QLOG_DEBUG() << "已析构关于设备界面";
+   }
 
+   if (_mreminderinfowidget) {
+       delete _mreminderinfowidget;
+       _mreminderinfowidget = nullptr;
+       QLOG_DEBUG() << "已析构提醒信息窗口";
+   }
 
-    delete _mequipmentconfig;
-    _mequipmentconfig = nullptr;
-    QLOG_DEBUG()<<"析构仪器设置界面"<<__FUNCTION__<<__LINE__;
+   if (_msuppilereminder) {
+       delete _msuppilereminder;
+       _msuppilereminder = nullptr;
+       QLOG_DEBUG() << "已析构耗材提醒界面";
+   }
 
-    delete _mainWindow;
-    _mainWindow = nullptr;
+   if (_mLoadingLogfile) {
+       delete _mLoadingLogfile;
+       _mLoadingLogfile = nullptr;
+       QLOG_DEBUG() << "已析构日志加载窗口";
+   }
 
-    delete _mpobtainModuledata;
-    _mpobtainModuledata = nullptr;
+   if (_mAdjustthecoordinates) {
+       delete _mAdjustthecoordinates;
+       _mAdjustthecoordinates = nullptr;
+       QLOG_DEBUG() << "已析构坐标调整界面";
+   }
 
-    delete _mcontroldimming;
-    _mcontroldimming = nullptr;
-    QLOG_DEBUG()<<"析构调光实例化"<<__FUNCTION__<<__LINE__;
+    //析构业务逻辑组件
+    QLOG_DEBUG() << "开始析构业务逻辑组件...";
 
-    delete _maboutequipment;
-    _maboutequipment = nullptr;
-    QLOG_DEBUG()<<"析构关于界面实例化"<<__FUNCTION__<<__LINE__;
+    if(!minstrumentConsumables.isNull())
+		minstrumentConsumables.reset();
+    QLOG_DEBUG() << "已析构仪器耗材管理";
+  
 
+   if (_mprintPdf) {
+       delete _mprintPdf;
+       _mprintPdf = nullptr;
+       QLOG_DEBUG() << "已析构PDF打印组件";
+   }
 
-    delete _mreminderinfowidget;
-    _mreminderinfowidget = nullptr;
-    QLOG_DEBUG()<<"析构提示界面"<<__FUNCTION__<<__LINE__<<endl;
+   if (_mcontroldimming) {
+       delete _mcontroldimming;
+       _mcontroldimming = nullptr;
+       QLOG_DEBUG() << "已析构调光控制组件";
+   }
 
-    delete _msuppilereminder;
-    _msuppilereminder = nullptr;
-    QLOG_DEBUG()<<"析构耗材缺少提示界面"<<__FUNCTION__<<__LINE__<<endl;
+   if (_mpobtainModuledata) {
+       delete _mpobtainModuledata;
+       _mpobtainModuledata = nullptr;
+       QLOG_DEBUG() << "已析构模块数据获取组件";
+   }
 
-    delete _mwritecommand;
-    _mwritecommand = nullptr;
-    QLOG_DEBUG()<<"析构写入仪器耗材线程"<<__FUNCTION__<<__LINE__<<endl;
+   if (!minquireSqldata.isNull()) {
+       minquireSqldata.reset();
+       QLOG_DEBUG() << "已析构数据查询组件";
+   }
 
-    delete _mpSingleactive;
-    _mpSingleactive = nullptr;
+   if (_mpSingleactive) {
+       delete _mpSingleactive;
+       _mpSingleactive = nullptr;
+       QLOG_DEBUG() << "已析构单激活组件";
+   }
 
-    delete _mLoadingLogfile;
-    _mLoadingLogfile = nullptr;
-    QLOG_DEBUG()<<"析构加载日志框"<<__FUNCTION__<<__LINE__<<endl;
+   if (_mparsemainboard) {
+       delete _mparsemainboard;
+       _mparsemainboard = nullptr;
+       QLOG_DEBUG() << "已析构主板解析组件";
+   }
 
-    delete _mAdjustthecoordinates;
-    _mAdjustthecoordinates = nullptr;
-    QLOG_DEBUG()<<"析构校准坐标"<<__FUNCTION__<<__LINE__<<endl;
+   if (_mainWindow) {
+	   delete _mainWindow;
+	   _mainWindow = nullptr;
+	   QLOG_DEBUG() << "已析构主窗口";
+   }
 
-    delete _mparsemainboard;
-    _mparsemainboard = nullptr;
-    QLOG_DEBUG()<<"析构解析主板实例"<<__FUNCTION__<<__LINE__<<endl;
+   // 5. 析构线程对象（确保线程已停止）
+   QLOG_DEBUG() << "开始析构线程对象...";
+
+   if (_mwritecommand) {
+       delete _mwritecommand;
+       _mwritecommand = nullptr;
+       QLOG_DEBUG() << "已析构写入命令线程";
+   }
+
+   if (_mpsreialport) {
+       delete _mpsreialport;
+       _mpsreialport = nullptr;
+       QLOG_DEBUG() << "已析构串口USB线程";
+   }
+
+   // 6. 最后析构数据持久层组件
+   QLOG_DEBUG() << "开始析构数据层组件...";
+
+   if (_msqldata) {
+       delete _msqldata;
+       _msqldata = nullptr;
+       QLOG_DEBUG() << "已析构数据库实例";
+   }
 
 #ifdef Q_OS_WIN
-	CCreateDump::Instance()->Del_Instance();
+   CCreateDump::Instance()->Del_Instance();
+   QLOG_DEBUG() << "已清理Windows dump实例";
 #endif
-   
+
+   QLOG_DEBUG() << "FullyAutomatedPlatelets 析构完成";
 }
+
+
+void FullyAutomatedPlatelets::disconnectAllConnections()
+{
+    QLOG_DEBUG() << "开始断开所有信号槽连接";
+
+    // 获取所有需要断开连接的对象
+    QVector<QObject*> objects = {
+        minstrumentConsumables.data(),
+        _mtestingwidget,
+        _mppatientinfo,
+        _msqldata,
+        _mpsreialport,
+        minquireSqldata.data(),
+        _mprintPdf,
+        _mpsetTestproject,
+        _maddtestsamplecase,
+        _mequipmentconfig,
+        _mpobtainModuledata,
+        _mcontroldimming,
+        _maboutequipment,
+        _mreminderinfowidget,
+        _msuppilereminder,
+        _mwritecommand,
+        _mpSingleactive,
+        _mLoadingLogfile,
+        _mAdjustthecoordinates,
+        _mparsemainboard,
+        _mainWindow
+    };
+
+    int totalDisconnections = 0;
+
+    // 断开所有对象的连接
+    for (QObject* obj : objects) {
+        if (obj) {
+            int count = disconnect(obj, nullptr, nullptr, nullptr);
+            if (count > 0) {
+                QLOG_DEBUG() << "断开" << obj->metaObject()->className()
+                           << "对象的" << count << "个连接";
+                totalDisconnections += count;
+            }
+        }
+    }
+
+    // 断开与this对象相关的所有连接
+    int selfDisconnections = disconnect(this, nullptr, nullptr, nullptr);
+    if (selfDisconnections > 0) {
+        QLOG_DEBUG() << "断开当前对象的" << selfDisconnections << "个连接";
+        totalDisconnections += selfDisconnections;
+    }
+
+    QLOG_DEBUG() << "总共断开" << totalDisconnections << "个信号槽连接";
+}
+
+
 
 FullyAutomatedPlatelets *FullyAutomatedPlatelets::instance()
 {
@@ -272,7 +391,7 @@ Alarm *FullyAutomatedPlatelets::pinstanceinfowidget()
 
 QualityControl *FullyAutomatedPlatelets::pinstanceinstrument()
 {
-    return instance()->_minstrumentConsumables;
+    return instance()->minstrumentConsumables.data();
 }
 
 Testing *FullyAutomatedPlatelets::pinstanceTesting()
@@ -348,7 +467,7 @@ CustomCreatSql* FullyAutomatedPlatelets::pinstancesqlData()
 
 Inquire_Sql_Info* FullyAutomatedPlatelets::pinstanceInquiredata()
 {
-    return instance()->_minquiredata;
+    return instance()->minquireSqldata.data();
 }
 
 Printthereport* FullyAutomatedPlatelets::pinstancePrintPdf()

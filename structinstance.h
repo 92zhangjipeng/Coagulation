@@ -16,11 +16,9 @@ class StructInstance : public QObject
 public:
     static StructInstance *getInstance()
     {
-        if(m_pInstance == NULL)
-        {
+        if(m_pInstance == NULL){
             QMutexLocker mlocker(&m_mutex);
-            if(m_pInstance == NULL)
-            {
+            if(m_pInstance == NULL){
                 m_pInstance = new StructInstance();
             }
         }
@@ -30,7 +28,6 @@ public:
     //vec_sampledata_task m_BloodsampleInfo;  //血样信息
 
     DataSampleList m_BloodsampleInfo;
-
     QVector<TESTCHNSTAUSINFO *> m_testChnStructvec_;  //测试通道
 
  public:
@@ -115,7 +112,7 @@ public:
 
 
     //清空内存
-    void _setemptynull();
+    void setemptynull();
     void clearAllContainersSafely();
 
     //删除一整个测试样本包括通道数据
@@ -439,31 +436,33 @@ private:
     explicit StructInstance(QObject *parent = 0);//构造函数
     StructInstance(const StructInstance &,QObject *parent = 0): QObject(parent) {}//拷贝构造函数
     StructInstance& operator =(const StructInstance&){return *this;}//赋值操作符重写
-    static StructInstance* m_pInstance;//定义单例指针
-    static QMutex m_mutex;//互斥锁
 
+    //定义单例指针
+    static StructInstance* m_pInstance;
+    static QMutex m_mutex;//互斥锁
 	mutable std::mutex m_reagentMutex;
 
-    void backorigintimes();
     int m_handsFailedtimes = 0; //抓手吸杯失败次数
     int m_handsThrowFailedtimes = 0; //抓手丢被失败次数
 
+    void backorigintimes();
 
-    inline void logDebug(const QString& msg) { QLOG_DEBUG() << "[PPP]" << msg; }
-    inline void logError(const QString& msg) { QLOG_ERROR() << "[PPP]" << msg; }
+
+    inline void logDebug(const QString& msg) const  { QLOG_DEBUG() << "[PPP]" << msg; }
+    inline void logError(const QString& msg) const  { QLOG_ERROR() << "[PPP]" << msg; }
 
 public:
-    class Garbo     //专门用来析构m_pInstance指针的类
+    ~StructInstance() override;
+
+    //专门用来析构m_pInstance指针的类
+    class Garbo
     {
         public:
             ~Garbo()
             {
-                if(m_pInstance != NULL)
-                {
-					m_pInstance->delalltaskinfo(true);
+                if(m_pInstance != nullptr){
                     delete m_pInstance;
-                    m_pInstance = NULL;
-                    QLOG_DEBUG()<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<"m_pInstance 被析构";
+                    m_pInstance = nullptr;
                 }
             }
     };

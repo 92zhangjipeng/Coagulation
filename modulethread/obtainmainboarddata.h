@@ -3,34 +3,32 @@
 
 #include <QObject>
 #include <QMutex>
-#include <QThread>
 #include <QTimer>
+#include <atomic>
 
 class ObtainMainBoardData : public QObject
 {
     Q_OBJECT
 public:
-    ObtainMainBoardData(QObject* parent = nullptr);
-    ~ObtainMainBoardData();
+    explicit ObtainMainBoardData(QObject* parent = nullptr);
+    ~ObtainMainBoardData() override;
 
 public slots:
-        void stopImmediately();
-		void pauseImmediately();
-		void resetImmediately();
-private:
-        QMutex m_lock;
-        bool m_isCanRun;
-		bool m_ispause;
-        QTimer* timer = nullptr;
+    void stop();
+    void pause();
+    void resume();
+    void stopDataAcquisition();
+    void startDataAcquisition();
+    void createTimer();
 
-public slots:
-    void onCreateTimer();
+private slots:
     void onTimeout();
-    void recvStopObatinMachineInfo();
-    void recvaNewconnectMachine();
 
-signals:
-      //void  sendReadMainboardData();
+private:
+    QMutex m_mutex;
+    std::atomic_bool m_isStopped{false};
+    std::atomic_bool m_isPaused{false};
+    QTimer* m_timer{nullptr};
 
 };
 

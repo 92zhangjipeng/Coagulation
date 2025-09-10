@@ -16,6 +16,7 @@ QMutex StructInstance::m_mutex;
 
 
 
+
 bool sample_sort(DATASAMPLESTRUCT *pfirst, DATASAMPLESTRUCT *pend)
 {
     return pfirst->sample_num < pend->sample_num; //样本号从小到大排序
@@ -72,11 +73,17 @@ StructInstance::StructInstance(QObject *parent) : QObject(parent)
     m_testChnStructvec_.reserve(MACHINE_SETTING_CHANNEL);
     QLOG_DEBUG()<<"模组结构能够容纳的元素数量="<<m_testChnStructvec_.capacity()
                 <<"已存在容量大小="<<m_testChnStructvec_.size()<<endl;
-
 }
 
+
+StructInstance::~StructInstance(){
+    logDebug("StructInstance destroyed");
+    delalltaskinfo(true);
+}
+
+
 //清空内存
-void StructInstance::_setemptynull()
+void StructInstance::setemptynull()
 {
     for (auto& sample : m_BloodsampleInfo) {
         if (sample != nullptr) {
@@ -2592,56 +2599,6 @@ void StructInstance::delalltaskinfo(const bool exitapp)
     for (int delId : delSampleid) {
         safeRemoveSampleFromContainer(m_BloodsampleInfo, delId);
     }
-
-
-
-    /*for (auto iter = m_testChnStructvec_.begin(); iter != m_testChnStructvec_.end(); ++iter)
-    {
-        if ((*iter) != nullptr)
-        {
-            _delReagentData(&(*iter)->AA_testchndata_);
-            QVector<TESTCHNDATA *>().swap((*iter)->AA_testchndata_);
-
-            _delReagentData(&(*iter)->ADP_testchndata_);
-            QVector<TESTCHNDATA *>().swap((*iter)->ADP_testchndata_);
-
-            _delReagentData(&(*iter)->EPI_testchndata_);
-            QVector<TESTCHNDATA *>().swap((*iter)->EPI_testchndata_);
-
-            _delReagentData(&(*iter)->COL_testchndata_);
-            QVector<TESTCHNDATA *>().swap((*iter)->COL_testchndata_);
-
-            _delReagentData(&(*iter)->RIS_testchndata_);
-            QVector<TESTCHNDATA *>().swap((*iter)->RIS_testchndata_);
-
-            if (exitapp == true){
-                delete (*iter);
-                (*iter) = nullptr;
-            }
-            else{
-                (*iter)->Reagent = ANEMIA;
-                (*iter)->samplename.clear();
-            }
-        }
-    }
-    if (exitapp == true) {
-        m_testChnStructvec_.erase(std::remove(m_testChnStructvec_.begin(),
-                                              m_testChnStructvec_.end(), nullptr), m_testChnStructvec_.end());
-        m_testChnStructvec_.clear();
-        m_testChnStructvec_.shrink_to_fit();
-    }
-
-
-    //释放样本运动数据
-	QList<int> delSampleid;
-	delSampleid.clear();
-    for (auto iter = m_BloodsampleInfo.begin(); iter != m_BloodsampleInfo.end(); ++iter){
-		delSampleid.push_back((*iter)->sample_num);
-    }
-	for (int delId : delSampleid) {
-		removeSampleFromContainer(m_BloodsampleInfo,delId);
-	}
-    return;*/
 }
 
 

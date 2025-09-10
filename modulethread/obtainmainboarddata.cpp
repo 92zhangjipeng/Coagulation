@@ -1,78 +1,89 @@
 ﻿#include "obtainmainboarddata.h"
 #include "QsLog/include/QsLog.h"
 #include "operclass/fullyautomatedplatelets.h"
-#include <mainwindow.h>
+#include "mainwindow.h"
 
 ObtainMainBoardData::ObtainMainBoardData(QObject *parent):QObject(parent)
 {
-	m_ispause = false; //标记非暂停
+
 }
 
-ObtainMainBoardData::~ObtainMainBoardData(){
-
-	if (timer->isActive())
-		timer->stop();
-	delete timer;
-	timer = nullptr;
-}
-
-void ObtainMainBoardData::onCreateTimer()
+ObtainMainBoardData::~ObtainMainBoardData()
 {
+    stop();
 
-    timer = new QTimer();
-    timer->setInterval(1000);
-    connect(timer, SIGNAL(timeout()), this, SLOT(onTimeout()));
-    timer->start();
+    if (m_timer) {
+        if (m_timer->isActive()) {
+            m_timer->stop();
+        }
+        delete m_timer;
+        m_timer = nullptr;
+    }
+}
+
+void ObtainMainBoardData::createTimer()
+{
+    QMutexLocker locker(&m_mutex);
+
+    if (!m_timer) {
+        m_timer = new QTimer(this);
+        m_timer->setInterval(1000);
+        connect(m_timer, &QTimer::timeout, this, &ObtainMainBoardData::onTimeout);
+        m_timer->start();
+        QLOG_DEBUG() << "Main board data timer created and started";
+    }
 }
 
 void ObtainMainBoardData::onTimeout()
 {
-    FullyAutomatedPlatelets::mainWindow()->timeoutObtainMainboadData();
-
-    //emit sendReadMainboardData();
-    //QLOG_DEBUG() <<"work thread id:" << QThread::currentThreadId(); //打印出线程ID，看看是否UI线程的ID不同
-}
-
-void ObtainMainBoardData::recvStopObatinMachineInfo()
-{
-	if (timer)
-	{
-		if (timer->isActive())
-		{
-			timer->stop();
-			QLOG_DEBUG() << "暂停主板遍历消息";
-		}
-	}
-   
-}
-void ObtainMainBoardData::recvaNewconnectMachine()
-{
-    if(timer)
-    {
-        if(!timer->isActive())
-        {
-            timer->start(1000);
-            QLOG_DEBUG()<<"主板从新开始遍历消息";
-        }
+    if (m_isStopped || m_isPaused) {
+        return;
     }
 
+    MainWindow* mainWindow = FullyAutomatedPlatelets::mainWindow();
+    if (mainWindow) {
+        mainWindow->timeoutObtainMainboadData();
+    } else {
+        QLOG_WARN() << "mainWindow is null in ObtainMainBoardData::onTimeout";
+    }
 }
 
-void ObtainMainBoardData::stopImmediately()
+void ObtainMainBoardData::stopDataAcquisition()
 {
-    QMutexLocker locker(&m_lock);
-    m_isCanRun = false;
-}
-void ObtainMainBoardData::pauseImmediately()
-{
-	QMutexLocker locker(&m_lock);
-	m_ispause = true;
+    QMutexLocker locker(&m_mutex);
+    if (m_timer && m_timer->isActive()) {
+        m_timer->stop();
+        QLOG_DEBUG() << "暂停主板数据采集";
+    }
 }
 
-void ObtainMainBoardData::resetImmediately()
+void ObtainMainBoardData::startDataAcquisition()
 {
-	QMutexLocker locker(&m_lock);
-	m_ispause = false;
+    QMutexLocker locker(&m_mutex);
+    if (m_timer && !m_timer->isActive()) {
+        m_timer->start(1000);
+        QLOG_DEBUG() << "恢复主板数据采集";
+    }
 }
 
+void ObtainMainBoardData::stop()
+{
+    QMutexLocker locker(&m_mutex);
+    m_isStopped = true;
+    if (m_timer && m_timer->isActive()) {
+        m_timer->stop();
+    }
+}
+
+void ObtainMainBoardData::pause()
+{
+    QMutexLocker locker(&m_mutex);
+    m_isPaused = true;
+}
+
+void ObtainMainBoardData::resume()
+{
+    QMutexLocker locker(&m_mutex);
+    m_isPaused = false;
+}
 

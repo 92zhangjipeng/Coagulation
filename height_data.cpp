@@ -202,7 +202,7 @@ void  Height_Data::_initcreat()
                 this,&Height_Data::slotupdatetestui);
 
         connect(m_threadaddsample,&mythreadaddsample::_sycnPaintentInfo,
-                FullyAutomatedPlatelets::mainWindow(),&MainWindow::_slotsycnPaintentInfo);
+                FullyAutomatedPlatelets::mainWindow(),&MainWindow::slotsycnPaintentInfo);
 
         m_threadaddsample->Start();
     }
