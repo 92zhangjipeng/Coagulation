@@ -336,6 +336,8 @@ void loginmaininterface::on_toolButton_enter_clicked()
           return;
     }
 
+	killTimer(mtimerconnect);
+	mtimerconnect = 0;
 
     // 登录成功逻辑
     cglobal::g_UserName_str = user;

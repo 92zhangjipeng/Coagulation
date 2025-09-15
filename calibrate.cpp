@@ -228,13 +228,14 @@ void  Calibrate::MarktableWidgetColor(QTableWidget* table, int row, int cols, co
         table->setItem(row, cols, item);
     }
     item->setText(text);
+    item->setTextAlignment(Qt::AlignCenter);
     item->setBackground(color);
 }
 
 void Calibrate::SetColumnText(QTableWidget * tablewiget,int row,int col,QString text)
 {
     QTableWidgetItem *item = new QTableWidgetItem(text);
-    item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    item->setTextAlignment(Qt::AlignCenter);
     tablewiget->setItem(row,col,item);
 }
 

@@ -1329,7 +1329,7 @@ void Testing::clickAnaemiaHoleCancelTestTask(QList<int> waitTestSampleId)
                                                             CancelEmptyTubeList,cancelBackHole);
 
             m_ProTotalTube = m_ProTotalTube - cancelTubeTotalnum;
-            FullyAutomatedPlatelets::pinstanceAddsampletest()->_backcancelhole(cancelBackHole);
+            FullyAutomatedPlatelets::pinstanceAddsampletest()->backcancelhole(cancelBackHole);
             CanceltaskbackTubecolor(cancelAnemiaHole, cancelBackHole, CancelEmptyTubeList);
 
             FullyAutomatedPlatelets::pinstancepatientdata()->cancelSampleResultItem(sampleid);

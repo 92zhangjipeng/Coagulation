@@ -1369,7 +1369,7 @@ void loadEquipmentPos::StatrLoad()
             emit closetimercon(false);
         }
     } else {
-        QLOG_WARN() << "未找到匹配的串口设备读取参数 (VID:"
+        QLOG_WARN() << "未找到摄像头设备读取参数 (VID:"
                    << QString::number(VID_NUM, 16)
                    << ", PID:" << QString::number(PID_NUM, 16) << ")";
         emit closetimercon(false);

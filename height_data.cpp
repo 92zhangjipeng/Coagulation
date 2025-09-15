@@ -272,55 +272,55 @@ void  Height_Data::initNumAnaemiaHole()
     }
 }
 
+
 //补回用掉的试管孔
 void Height_Data::Makeuptubenum(quint8 canceltube)
 {
-    if(canceltube %2 == 0) return;
-
-    // 仅处理奇数孔位
-    if (Q_UNLIKELY(canceltube % 2 == 0)) {
+    // 仅处理奇数孔位（直接返回偶数孔位）
+    if (canceltube % 2 == 0) {
         return;
     }
 
-    auto tubeIt = m_pressedhole.find(QString::number(canceltube));
+    QString tubeKey = QString::number(canceltube);
+    auto tubeIt = m_pressedhole.find(tubeKey);
+
     if(tubeIt != m_pressedhole.end()){
         QLOG_INFO() << "Recovering tube hole:" << canceltube;
         tubeIt.value() = false; // 标记为可用
 
-        //临时用的孔号清除
-        auto it = m_selbloodholetemp.begin();
-        while(it != m_selbloodholetemp.end()){
+        for(auto it = m_selbloodholetemp.begin(); it != m_selbloodholetemp.end(); ){
             if(it.value() == canceltube){
-               m_selbloodholetemp.erase(it);
-               break;
+                it = m_selbloodholetemp.erase(it);
+                break;
+            } else{
+                ++it;
             }
-            it++;
         }
     }
 }
 
 
-
-
 //测试界面取消 补回血样孔
-void Height_Data::_backcancelhole(const quint8 _index)
+void Height_Data::backcancelhole(const quint8 index)
 {
-    QString backhole_ = QString::number(_index);
-    if(m_pressedhole.contains(backhole_))
-    {
-        auto iter = m_pressedhole.find(backhole_);
-        QLOG_DEBUG()<<"测试界面删除样本孔号补回"<<backhole_;
-        iter.value() = false;
-        auto it = m_selbloodholetemp.begin();
-        while(it != m_selbloodholetemp.end()){
-            if(it.value() == _index){
-                m_selbloodholetemp.erase(it);
-                break;
-             }
-            it++;
-       }
+    QString backhole = QString::number(index);
+
+    auto iter = m_pressedhole.find(backhole);
+    if (iter == m_pressedhole.end()) {
+        return;
     }
-    return;
+
+    QLOG_DEBUG() << "测试界面删除样本孔号补回" << backhole;
+    iter.value() = false; // 标记孔位为可用
+
+    for (auto it = m_selbloodholetemp.begin(); it != m_selbloodholetemp.end(); ) {
+       if (it.value() == index) {
+           it = m_selbloodholetemp.erase(it);
+           break; // 找到并删除后立即退出
+       } else {
+           ++it;
+       }
+   }
 }
 
 

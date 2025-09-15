@@ -17,8 +17,8 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
     this->setOrganizationDomain("decawave.com");
     this->setApplicationName("全自动血小板聚集仪");
 
-    _mainWindow = new MainWindow();
-    _mainWindow->resize(availableScreenX,availableScreenY);
+    pmainWindow = new MainWindow();
+    pmainWindow->resize(availableScreenX,availableScreenY);
 
     _mcontroldimming = new controldimming(this);
 
@@ -58,10 +58,6 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 	_msqldata = new CustomCreatSql();
 
-
-
-
-
     _mprintPdf =  new Printthereport();
 
     _ready = true;
@@ -70,7 +66,7 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
     qRegisterMetaType<QList<quint8> >("const QList<quint8> ");
     qRegisterMetaType<QMap<quint8, quint8> >("QMap<quint8,quint8>");
 
-    QObject::connect(_mcontroldimming,&controldimming::showDimmingFailedChn,_mainWindow,
+    QObject::connect(_mcontroldimming,&controldimming::showDimmingFailedChn,pmainWindow,
                      &MainWindow::recvshowDimmingFailedChn);
 
 
@@ -81,7 +77,7 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
     //主界面显示耗材余量
    connect(minstrumentConsumables.data(),SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
-            _mainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
+            pmainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
 
    connect(_msuppilereminder,&instrumentAlarmPrompt::outSideCleanDepleteOne,
             minstrumentConsumables.data(),
@@ -91,16 +87,16 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
     //测试界面
     QObject::connect(minstrumentConsumables.data(),&QualityControl::SycnMainUiLosserSuppile,
-                     _mainWindow,&MainWindow::DisplaySycnMainUiLosserSuppile);
+                     pmainWindow,&MainWindow::DisplaySycnMainUiLosserSuppile);
 
     QObject::connect(minstrumentConsumables.data(),&QualityControl::NoinitialCleaning,
-                      _mainWindow,&MainWindow::recvNoinitialCleaning);
+                      pmainWindow,&MainWindow::recvNoinitialCleaning);
 
-    QObject::connect(_mainWindow,&MainWindow::AlarmReminderSound,
+    QObject::connect(pmainWindow,&MainWindow::AlarmReminderSound,
                      _mreminderinfowidget,&Alarm::OnOffSound); //警示界面报警开关
 
     //插入提示文字
-    QObject::connect(_mainWindow,&MainWindow::ReminderTextOut,
+    QObject::connect(pmainWindow,&MainWindow::ReminderTextOut,
                      _mreminderinfowidget,&Alarm::InsertText);
 
     QObject::connect(_mpsreialport,&SuoweiSerialPort::outArmText,
@@ -114,7 +110,7 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 
     QObject::connect(_mreminderinfowidget,&Alarm::AlarmIconState,
-                     _mainWindow,&MainWindow::configReminderIcon);
+                     pmainWindow,&MainWindow::configReminderIcon);
 
 
     //设置界面写命令到串口
@@ -130,7 +126,7 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 
     //测试时控制开关通道旋转电机
-    connect(_mainWindow,&MainWindow::controlmotorrunning,_mpobtainModuledata,
+    connect(pmainWindow,&MainWindow::controlmotorrunning,_mpobtainModuledata,
             &Monitor_TrayTest::controlChnMotorRotating);
 
     //设置界面设置温度
@@ -268,9 +264,9 @@ FullyAutomatedPlatelets::~FullyAutomatedPlatelets()
        QLOG_DEBUG() << "已析构主板解析组件";
    }
 
-   if (_mainWindow) {
-	   delete _mainWindow;
-	   _mainWindow = nullptr;
+   if (pmainWindow) {
+       delete pmainWindow;
+       pmainWindow = nullptr;
 	   QLOG_DEBUG() << "已析构主窗口";
    }
 
@@ -333,7 +329,7 @@ void FullyAutomatedPlatelets::disconnectAllConnections()
         _mLoadingLogfile,
         _mAdjustthecoordinates,
         _mparsemainboard,
-        _mainWindow
+        pmainWindow
     };
 
     int totalDisconnections = 0;
@@ -369,7 +365,7 @@ FullyAutomatedPlatelets *FullyAutomatedPlatelets::instance()
 
 MainWindow *FullyAutomatedPlatelets::mainWindow()
 {
-    return instance()->_mainWindow;
+    return instance()->pmainWindow;
 }
 
 controldimming *FullyAutomatedPlatelets::pinstancedimming()

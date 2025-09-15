@@ -831,7 +831,7 @@ void MainWindow::initTestTaskThread()
 void MainWindow::pauseObtainmodulecommand(const QString& info, bool pauseRequested)
 {
     if (!m_moduletimerThread) {
-        QLOG_WARN() << "Cannot control module data acquisition - timer thread not initialized";
+        QLOG_WARN() << "无法控制模块数据采集 - 定时器线程未初始化(模组和主板)";
         return;
     }
 	QString action;

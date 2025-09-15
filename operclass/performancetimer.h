@@ -10,15 +10,9 @@ class PerformanceTimer : public QObject
 public:
     explicit PerformanceTimer(QObject *parent = nullptr);
     ~PerformanceTimer();
-signals:
-      void timeout();
-public slots:
-      void start(int);
-      void stop();
-      friend   void WINAPI   CALLBACK PeriodCycle(uint,uint,DWORD_PTR,DWORD_PTR,DWORD_PTR);
+
 private:
-      int m_interval;
-      int m_id;
+
 
 };
 

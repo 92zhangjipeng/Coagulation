@@ -84,10 +84,6 @@ private:
      */
     void    sendoutDimmingCode();
 
-
-
-
-
 signals:
 
     void    reminderText(quint8 index,const QString outtext);
@@ -101,9 +97,6 @@ signals:
 
 private:
     QVector<ModuleChannelData *> m_testChnDimmingStu;
-
-
-	
 
     QMap<quint8,int> dimmingModule; //失败要调光的模组
     bool m_startCollectChannelVal;

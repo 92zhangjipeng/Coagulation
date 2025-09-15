@@ -53,7 +53,7 @@ public:
      //测高完成
      void   slotShowTestImageTube(QString , double value, const bool &isreplace, const QString &idnum);
      //取消任务返回试管孔号
-     void   _backcancelhole(const quint8 _index);
+     void backcancelhole(const quint8 index);
 
 
 private:

@@ -428,10 +428,6 @@ public:
                         const int sampleId, const quint8 indexReag,
                         const std::atomic<bool>& ispendingtime, const bool &isSendSuckCup);
 
-
-
-
-
 private:
     explicit StructInstance(QObject *parent = 0);//构造函数
     StructInstance(const StructInstance &,QObject *parent = 0): QObject(parent) {}//拷贝构造函数

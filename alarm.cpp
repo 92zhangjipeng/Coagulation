@@ -16,7 +16,7 @@
 
 #define TITLE_BACK_COLOR  QColor(135, 206, 250)
 
-bool Alarm::m_SoundAlarm = true;
+bool Alarm::m_SoundAlarm = false;
 
 Alarm::Alarm(QWidget *parent) :
     QWidget(parent),

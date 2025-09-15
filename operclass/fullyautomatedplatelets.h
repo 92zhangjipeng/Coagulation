@@ -80,7 +80,7 @@ public:
 
 private:
 
-    MainWindow *_mainWindow;
+    MainWindow *pmainWindow;
 
 	CustomCreatSql* _msqldata;
 
