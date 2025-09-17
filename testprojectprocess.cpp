@@ -223,9 +223,6 @@ void TestProjectProcess::writeCommandHeader(const QByteArray data,const QString 
     });
 
     mdataAArry = data;
-
-    //QLOG_ERROR() << "发指令:" << mdataAArry.toHex(' ').trimmed().toUpper();
-    //remberSendPara(data,mcontrastCommand);
 }
 
 void TestProjectProcess::missingReagentResetPause(){
@@ -1139,7 +1136,7 @@ void TestProjectProcess::recv_throwCup(quint8 indexActive,const int commandIndex
     }else{
         QString illustrateText  = (isSuction ? "吸(丢测试通道测试杯)3次失败" : "吐(丢测试通道测试杯)杯3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"继续发送丢测试通道测试杯指令";
-        commandNotCompleteOrErr(kGripperFailed,outdata,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,outdata,tips,klaterTimer,false);
    }
 
 }
@@ -1412,8 +1409,10 @@ void TestProjectProcess::receiveInstructionsSampleactive(int index_num, int axis
 
 
 
-void TestProjectProcess::receiveInstructionsPPPCuptoChannel(const int indexcode,const int slaveAddr,
-                                                               const int Action_motor,const QStringList& recvdata)
+void TestProjectProcess::receiveInstructionsPPPCuptoChannel(const int indexcode
+                                                               ,const int slaveAddr
+                                                               ,const int Action_motor
+                                                               ,const QStringList& recvdata)
 {
    if(Action_motor == MOTOR_XY)
        updateEmptyClipAway(recvdata);
@@ -1431,10 +1430,14 @@ void TestProjectProcess::receiveInstructionsPPPCuptoChannel(const int indexcode,
    sendData.clear();
    bool errorHands = GRIPPERMOVE_NORMAL;
    bool klateTimer = false;
-   const bool operationSuccess  = StructInstance::getInstance()->processPPPCupToChannel(m_focus_sample_id,indexcode,
-                                                                                       isHandsControl,isSuction,
-                                                                                       airValue,sendData,
-                                                                                       errorHands,klateTimer);
+   const bool operationSuccess  = StructInstance::getInstance()->processPPPCupToChannel(m_focus_sample_id
+                                                                                        ,indexcode
+                                                                                        ,isHandsControl
+                                                                                        ,isSuction,
+                                                                                        airValue
+                                                                                        ,sendData,
+                                                                                        errorHands
+                                                                                        ,klateTimer);
    if(operationSuccess) {
        QLOG_DEBUG()<<"样本"<<m_focus_sample_id<<"PPP吸到测试通道成功,开始延时1S准备读取PPP初值"<<endl;
        const int configDelay  = INI_File()._getdelayedtime();
@@ -1446,7 +1449,7 @@ void TestProjectProcess::receiveInstructionsPPPCuptoChannel(const int indexcode,
 
        QString illustrateText  = (isSuction ? "吸PPP杯3次失败" : "PPP放到测试通道3次失败");
        QString tips = errorHands ?  illustrateText + "复位等待处理" :"移动PPP试管到测试通道";
-       commandNotCompleteOrErr(errorHands,sendData,tips,klateTimer);
+       commandNotCompleteOrErr(errorHands,sendData,tips,klateTimer,false);
    }
    return;
 }
@@ -1456,17 +1459,30 @@ void TestProjectProcess::receiveInstructionsPPPCuptoChannel(const int indexcode,
 void TestProjectProcess::commandNotCompleteOrErr(const bool isGripperError,
                                                     const QByteArray senddata,
                                                     const QString tips,
-                                                    const bool klatetimer)
+                                                    const bool klatetimer, const bool isBackReagentNeedle)
 {
     if(isGripperError == GRIPPERMOVE_NORMAL && klatetimer){
         int Timelapsesucking = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
         QTimer::singleShot(Timelapsesucking , this, [this, senddata, tips]() {
             writeCommandHeader(senddata, tips,DELAY_TIMENUM);
         });
-    }else if(isGripperError == GRIPPERMOVE_NORMAL && !klatetimer){
-        writeCommandHeader(senddata,tips,DELAY_TIMENUM);
     }
-    else {
+    //不是抓手部分的指令继续发送
+    else if(isGripperError == GRIPPERMOVE_NORMAL && !klatetimer){
+        if(isBackReagentNeedle){
+            QTimer::singleShot(1000 , this, [this, senddata, tips]() {
+                writeCommandHeader(senddata, tips,DELAY_TIMENUM);
+                //QLOG_DEBUG()<<"吸试剂复位命令:"<<senddata.toHex(' ').trimmed().toUpper();
+                QLOG_DEBUG()<<"延时抬试剂针1S";
+            });
+        }
+        //正常继续发送
+        else{
+            writeCommandHeader(senddata,tips,DELAY_TIMENUM);
+        }
+    }
+    else
+    {
         auto* instance = StructInstance::getInstance();
         m_gripperErrTips = tips;
         instance->setHandsErrStatus(m_focus_sample_id,GRIPPERMOVE_ABNORMALLY);
@@ -1535,7 +1551,7 @@ void TestProjectProcess::recv_throwAnemia(const int indexconde,int slaveAddr,int
     }else{
         QString illustrateText  = (isSuction ? "丢PPP杯3次失败" : "PPP丢到弃杯孔3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"丢PPP试管到弃杯孔";
-        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer,false);
     }
     return;
 }
@@ -1565,9 +1581,10 @@ void TestProjectProcess::recvNextTestAA(const int commandIndex,const int slaveAd
     QByteArray sendData;
     bool kGripperFailed = GRIPPERMOVE_NORMAL;
     bool klaterTimer = false;
-    const bool actionCompleted = StructInstance::getInstance()->recv_suckReagentClipTube(
+    bool bnextBackReagentNeedle = false; //下一动作吸完试剂抬针
+    const bool actionCompleted = StructInstance::getInstance()->recvSuckReagentClipTube(
                 m_focus_sample_id,commandIndex,AA_REAGENT,handsControlActive,isSuction,
-                airValue,sendData,kGripperFailed,klaterTimer
+                airValue,sendData,kGripperFailed,klaterTimer,bnextBackReagentNeedle
     );
 
     if (actionCompleted) {
@@ -1577,11 +1594,12 @@ void TestProjectProcess::recvNextTestAA(const int commandIndex,const int slaveAd
             emit readbloodyInitValue(AA_REAGENT,FOCUS_TESTING_AA);
         });
         return;
-
-    }else{
+    }
+    //继续发送未完成的任务
+    else{
         QString illustrateText  = (isSuction ? "吸AA(PRP)杯3次失败" : "吐AA(PRP)杯3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"继续发送吸AA(PRP)到通道测试指令";
-        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer,bnextBackReagentNeedle);
     }
     return;
 }
@@ -1610,9 +1628,11 @@ void TestProjectProcess::recvNextTestADP(const int commandIndex,const int slaveA
     QByteArray sendData; // 延迟到实际需要时声明
     bool kGripperFailed = GRIPPERMOVE_NORMAL;
     bool klaterTimer = false;
-    const bool actionCompleted = StructInstance::getInstance()->recv_suckReagentClipTube(
+    bool bnextBackReagentNeedle = false;
+    const bool actionCompleted = StructInstance::getInstance()->recvSuckReagentClipTube(
                 m_focus_sample_id,commandIndex,ADP_REAGENT,handsControlActive,
-                isSuction,airValue,sendData,kGripperFailed,klaterTimer);
+                isSuction,airValue,sendData,kGripperFailed,klaterTimer,bnextBackReagentNeedle
+                );
 
     if (actionCompleted) {
         QLOG_DEBUG()<<"样本"<<m_focus_sample_id<<"ADP开始延时1S准备读取PrP初值"<<endl;
@@ -1623,7 +1643,7 @@ void TestProjectProcess::recvNextTestADP(const int commandIndex,const int slaveA
     }else{
         QString illustrateText  = (isSuction ? "吸ADP(PRP)杯3次失败" : "吐ADP(PRP)杯3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"继续发送吸ADP(PRP)到通道测试指令";
-        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer,bnextBackReagentNeedle);
     }
     return;
 }
@@ -1652,10 +1672,11 @@ void TestProjectProcess::recvNextTestEPI(const int commandIndex,const int slaveA
     QByteArray sendData; // 延迟到实际需要时声明
     bool kGripperFailed = GRIPPERMOVE_NORMAL;
     bool klaterTimer = false;
-
-    const bool actionCompleted = StructInstance::getInstance()->recv_suckReagentClipTube(
+    bool bnextBackReagentNeedle = false; //下一动作吸完试剂抬针
+    const bool actionCompleted = StructInstance::getInstance()->recvSuckReagentClipTube(
         m_focus_sample_id,commandIndex,EPI_REAGENT,
-        handsControlActive,isSuction,airValue,sendData,kGripperFailed,klaterTimer
+        handsControlActive,isSuction,airValue,sendData,
+        kGripperFailed,klaterTimer,bnextBackReagentNeedle
     );
 
     if (actionCompleted) {
@@ -1667,7 +1688,8 @@ void TestProjectProcess::recvNextTestEPI(const int commandIndex,const int slaveA
     }else{
         QString illustrateText  = (isSuction ? "吸EPI(PRP)杯3次失败" : "吐EPI(PRP)杯3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"继续发送吸EPI(PRP)到通道测试指令";
-        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer,bnextBackReagentNeedle);
+
     }
     return;
 }
@@ -1696,9 +1718,11 @@ void TestProjectProcess::recvNextTestCOL(const int commandIndex,const int slaveA
     QByteArray sendData; // 延迟到实际需要时声明
     bool kGripperFailed = GRIPPERMOVE_NORMAL;
     bool klaterTimer = false;
-    const bool actionCompleted = StructInstance::getInstance()->recv_suckReagentClipTube(
+    bool bnextBackReagentNeedle = false; //下一动作吸完试剂抬针
+    const bool actionCompleted = StructInstance::getInstance()->recvSuckReagentClipTube(
                 m_focus_sample_id,commandIndex, COL_REAGENT,handsControlActive,isSuction,
                 airValue,sendData,kGripperFailed,klaterTimer
+                ,bnextBackReagentNeedle
     );
 
     if (actionCompleted) {
@@ -1710,7 +1734,8 @@ void TestProjectProcess::recvNextTestCOL(const int commandIndex,const int slaveA
     }else{
         QString illustrateText  = (isSuction ? "吸COL(PRP)杯3次失败" : "吐COL(PRP)杯3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"继续发送吸COL(PRP)到通道测试指令";
-        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer,bnextBackReagentNeedle);
+
    }
    return;
 }
@@ -1739,9 +1764,11 @@ void TestProjectProcess::recvNextTestRIS(const int commandIndex,const int slaveA
     bool kGripperFailed = GRIPPERMOVE_NORMAL;
     auto* instance = StructInstance::getInstance();
     bool klaterTimer = false;
-    const bool actionCompleted = instance->recv_suckReagentClipTube(
+    bool bnextBackReagentNeedle = false; //下一动作吸完试剂抬针
+
+    const bool actionCompleted = instance->recvSuckReagentClipTube(
                 m_focus_sample_id,commandIndex,RIS_REAGENT,handsControlActive,isSuction,
-                airValue,sendData,kGripperFailed,klaterTimer
+                airValue,sendData,kGripperFailed,klaterTimer,bnextBackReagentNeedle
     );
 
     if (actionCompleted) {
@@ -1753,7 +1780,7 @@ void TestProjectProcess::recvNextTestRIS(const int commandIndex,const int slaveA
     }else{
         QString illustrateText  = (isSuction ? "吸RIS(PRP)杯3次失败" : "吐RIS(PRP)杯3次失败");
         QString tips = kGripperFailed?  illustrateText + "复位等待处理":"继续发送吸RIS(PRP)到通道测试指令";
-        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer);
+        commandNotCompleteOrErr(kGripperFailed,sendData,tips,klaterTimer,bnextBackReagentNeedle);
    }
    return;
 }

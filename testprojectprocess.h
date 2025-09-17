@@ -240,9 +240,11 @@ private:
      * @param senddata
      * @param tips
      * @param klatetimer
+     * @param isBackReagentNeedle 是否延时复位试剂针
      */
     void commandNotCompleteOrErr(const bool isGripperError, const QByteArray senddata,
-                                   const QString tips, const bool klatetimer);
+                                   const QString tips, const bool klatetimer
+                                  ,const bool isBackReagentNeedle);
 
 
 
@@ -266,6 +268,8 @@ private:
                                                const int slaveAddr,
                                                const  int Action_motor,
                                                const QStringList &recvdata);
+
+
     /** 丟通道内的PPP
      * @brief recv_throwAnemia
      * @param indexconde
@@ -289,11 +293,11 @@ private:
 
     void  recvNextTestADP(const int commandIndex,const int slaveAddr,const int Action_motor,const QStringList &recvdata);
 
-    void recvNextTestEPI(const int commandIndex,const int slaveAddr,const int Action_motor,const QStringList &recvdata);
+    void  recvNextTestEPI(const int commandIndex,const int slaveAddr,const int Action_motor,const QStringList &recvdata);
 
-    void recvNextTestCOL(const int commandIndex,const int slaveAddr,const int Action_motor,const QStringList &recvdata);
+    void  recvNextTestCOL(const int commandIndex,const int slaveAddr,const int Action_motor,const QStringList &recvdata);
 
-    void recvNextTestRIS(const int commandIndex,
+    void  recvNextTestRIS(const int commandIndex,
                             const int slaveAddr,
                             const int Action_motor,
                             const QStringList &recvdata);

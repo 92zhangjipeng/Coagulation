@@ -161,6 +161,8 @@ typedef struct Testing_reagents
     quint8 testPRPsucknum = 0;
     quint8 testPRPsplitnum = 0;
 
+    quint8 nextSteOriginReagentNeedle = 0; //试剂针复位编号
+
     quint8 suckCupIndexCommand = 0;  //吸杯开始指令号
     quint8 index_Reagent = 0;       //测试测试剂
     quint8 indexHole = 0;           //血样的孔

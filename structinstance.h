@@ -347,16 +347,20 @@ public:
      * @param airvale      负压值
      * @param sendData     继续发送的数据
      * @param outErr       吸杯或者吐杯失败3次处理提示
+     * @param outErr       抓杯状态
+     * @param nextStepUpReagentNeedle   下一个动作是 吸完试剂准备抬针
      * @return
      */
-    bool recv_suckReagentClipTube(const int sampleId,
+    bool recvSuckReagentClipTube(const int sampleId,
                                     int index_code,
                                     quint8 indexReag,
                                     bool HandsControl,
                                     bool isSuction,
                                     quint32 airvale,
                                     QByteArray &sendData,
-                                    bool &outErr, bool &laterTimer);
+                                    bool &outErr
+                                   , bool &laterTimer
+                                   , bool &isnextStepUpReagentNeedle);
 
 
     /** 吸试剂抓PRP到测试通道指令发送首个

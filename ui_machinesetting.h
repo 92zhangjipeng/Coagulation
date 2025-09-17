@@ -4460,7 +4460,7 @@ public:
 
         retranslateUi(MachineSetting);
 
-        tabWidgetSetconfigure->setCurrentIndex(7);
+        tabWidgetSetconfigure->setCurrentIndex(2);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
         tabWidget_config->setCurrentIndex(3);

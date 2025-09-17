@@ -2834,7 +2834,7 @@ int QUIUtils::suckPPPEndSplitPPP(QByteArrayList &out_directives,
     const int fail_retract_height = ini.GetFailedLinqueHigh();//液面探测失败下降高度
     double suck_volume = ini.GetLearnSamplevolume();
 
-    const bool use_air_calibration = ini.rConfigPara(FIRSTSUCKAIRS).toBool(); //吸空气校准
+    const bool use_air_calibration =  true;//ini.rConfigPara(FIRSTSUCKAIRS).toBool(); //吸空气校准
     const int  tube_down_height = static_cast<int>(ini.GetEmptyTubeDownHigh());
 
     allZAxisBackOrigin(out_directives,out_directives.size());//先Z轴复位
@@ -2880,7 +2880,7 @@ int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
     int     EmptyDownPinHigh    =   ini.GetEmptyTubeDownHigh();      //血样针在空试管区下降高度
     const int   theSecurityValue  = ini.GetSecurityValue();          //空回值
     double compensateNumberSteps  = theSecurityValue/0.347;
-    const bool  bsuckAir        =   ini.rConfigPara(FIRSTSUCKAIRS).toBool();   //吸空气校准
+    const bool  bsuckAir        =   true; //ini.rConfigPara(FIRSTSUCKAIRS).toBool();   //吸空气校准
     const int   firstSuckAir    =   ini._getsuckairsuckPRP() + BIG_BEN_INHALE_ARI/2;
     const int   targetCount     =   targetPositions.size();
 
@@ -3101,10 +3101,11 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
                                              QPoint &bloodyHoleAxis,
                                              quint8 &suckPRPindex,
                                              quint8 &ktestPRPsuckBacknum ,
-                                             quint8 &ktestPRPsplitBacknum)
+                                             quint8 &ktestPRPsplitBacknum
+                                            ,quint8 &nextSteOriginReagentNeedle)
 {
 
-    bool SuckAirs = true, bLeveldetection = true,bRepeattheGrabCup,bsuck_air;
+    bool SuckAirs = true, bLeveldetection = true,bRepeattheGrabCup,bsuckAir;
     quint8 offsetZNeedle = 0, IndexZone = 0;
     quint8 indexCode = 0%255;
     int setWashTime = 0;
@@ -3114,7 +3115,7 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
     //试剂探测失败下降高度
     int  falilinquehigh    =    INI_File().GetFailedReagentsLinqueHigh();
     bRepeattheGrabCup =         INI_File().rConfigPara(REPEATGRABCUP).toBool(); //重抓标志
-    bsuck_air       =           INI_File().rConfigPara(FIRSTSUCKAIRS).toBool();    //吸空气校准
+    bsuckAir = true; //INI_File().rConfigPara(FIRSTSUCKAIRS).toBool();    //吸空气校准 默认写死
 
 
     //试剂位置
@@ -3128,13 +3129,13 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
 
     auto *pActive = Testing::m_TaskDll;
     outputArry.clear();
-    quint8 totalnum = (bsuck_air)?  13: 12;
+    quint8 totalnum = (bsuckAir)?  13: 12;
     outputArry.reserve(totalnum);
 
 
     outputArry.push_back(pActive->DLL_XYMoveSpecifiedPosition(AbsorbReaentAxis,offsetZNeedle,IndexZone,indexCode));
 
-    if(bsuck_air){
+    if(bsuckAir){
         outputArry.push_back(pActive->SmallBenActive(SuckAirs,
                                                      SMALL_BEN_INHALE_ARI,
                                                      DIS_WASHES_PUMPS,
@@ -3149,13 +3150,10 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
     //总步数吸试剂
     int TotalSuckStep = SuckReagentNumberofSteps(indexReag);
 
-    outputArry.push_back(pActive->SmallBenActive(SuckAirs,
-                                                 TotalSuckStep,
-                                                 DIS_WASHES_PUMPS,
-                                                 indexCode,
-                                                 setWashTime)
+    outputArry.push_back(pActive->SmallBenActive(SuckAirs,TotalSuckStep,DIS_WASHES_PUMPS,indexCode,setWashTime)
                          );
 
+    nextSteOriginReagentNeedle = indexCode;//下一步执行试剂针复位
     outputArry.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,indexCode,false));
 
     suckPRPindex = indexCode;

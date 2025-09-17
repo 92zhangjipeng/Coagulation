@@ -1176,6 +1176,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         //抓PRP血样杯到测试通道
        QVector<QByteArray> suckCup2TestChannel;
        quint8 suckPRPindex = 0,ktestPRPsuckBacknum,ktestPRPsplitBacknum; //吸杯起始指令号
+       quint8 knextSteOriginReagentNeedle = 0;
        QUIUtils::suckReagentClipTubetoChnPut(pReagentInfo->index_Reagent,
                                              testingChannel,
                                              pReagentInfo->indexHole,
@@ -1183,7 +1184,8 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
                                              BloodyoffHandsAxis,
                                              suckPRPindex,
                                              ktestPRPsuckBacknum,
-                                             ktestPRPsplitBacknum);
+                                             ktestPRPsplitBacknum
+                                            ,knextSteOriginReagentNeedle);
 
        pReagentInfo->pTestingReagentActive.reserve(suckCup2TestChannel.size());
        for(const QByteArray &suckPRP2Channel : suckCup2TestChannel){
@@ -1193,6 +1195,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
        }
        pReagentInfo->testPRPsucknum = ktestPRPsuckBacknum;
        pReagentInfo->testPRPsplitnum = ktestPRPsplitBacknum;
+       pReagentInfo->nextSteOriginReagentNeedle = knextSteOriginReagentNeedle;
        pReagentInfo->suckCupIndexCommand = suckPRPindex;
        std::sort(pReagentInfo->pTestingReagentActive.begin(),
                  pReagentInfo->pTestingReagentActive.end(),
@@ -1225,10 +1228,15 @@ void StructInstance::testPrpGripperErr(const int sampleId,quint8 indexReag,bool 
     resettheCupDropAnimation(sampleId,indexReag,false,false);
     return;
 }
-bool StructInstance::recv_suckReagentClipTube(const int sampleId,int index_code,
+
+
+
+bool StructInstance::recvSuckReagentClipTube(const int sampleId,int index_code,
                                                 quint8 indexReag,bool HandsControl,
                                                 bool isSuction,quint32 airvale,QByteArray &sendData,
-                                                bool &outErr,bool &laterTimer)
+                                                bool &outErr
+                                               ,bool &laterTimer
+                                               ,bool &isnextStepUpReagentNeedle)
 {
     bool iscomplete = false;
     const auto iter = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleId));
@@ -1261,6 +1269,8 @@ bool StructInstance::recv_suckReagentClipTube(const int sampleId,int index_code,
 
     Testing_reagents *kptestingReagent = *itreagent;
 
+    const quint8  ReagentbackOrigin = kptestingReagent->nextSteOriginReagentNeedle;
+
     auto itend = find_if(kptestingReagent->pTestingReagentActive.begin(),kptestingReagent->pTestingReagentActive.end(),
                          recv_index(index_code));
 
@@ -1275,7 +1285,11 @@ bool StructInstance::recv_suckReagentClipTube(const int sampleId,int index_code,
 
     if(!HandsControl){
         endReagentCommand->bcompleted = true;
+        quint8 nextStepUpReagentNeedle = endReagentCommand->index_ + 1; //下一步就是复位试剂针
         allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
+        isnextStepUpReagentNeedle = (ReagentbackOrigin == nextStepUpReagentNeedle)? true: false;
+        if(isnextStepUpReagentNeedle)
+            QLOG_DEBUG()<<"吸完试剂准备复位试剂针:"<<isnextStepUpReagentNeedle;
         return iscomplete;
     }
 
@@ -1355,9 +1369,10 @@ bool StructInstance::recv_suckReagentClipTube(const int sampleId,int index_code,
 	return iscomplete;
 }
 void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestReagent,bool &iscomplete,QByteArray &outdata){
-    auto itFinish = find_if(ptestReagent->pTestingReagentActive.cbegin(),
+	auto itFinish = find_if(ptestReagent->pTestingReagentActive.cbegin(),
                             ptestReagent->pTestingReagentActive.cend(),
                             find_allactivefinish(false));
+
     if(itFinish != ptestReagent->pTestingReagentActive.cend())
     {
          iscomplete = false;
@@ -1368,6 +1383,7 @@ void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestRea
         iscomplete = true;
         backorigintimes();
     }
+    return;
 }
 
 

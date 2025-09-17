@@ -215,7 +215,7 @@ public slots:
 
 private:
     Ui::Testing *ui;
-
+    mutable QMutex m_dataMutex;
     QMap<quint8, QPoint> m_BloodHoleInitUiAxis;       //血样孔试管容器 init
     QMap<quint8, QPoint> m_Blood_Tray_Checked;
     QMap<quint8, QPoint> m_Blood_Tray_OutResult;

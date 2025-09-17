@@ -1200,9 +1200,16 @@ void Testing::DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap)
 
 void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHole)
 {
+    QMutexLocker locker(&m_dataMutex);
+
     // 安全检查
     if (!ui->widget_Sample_1) {
         QLOG_WARN() << "widget_Sample_1 is null!";
+        return;
+    }
+
+    // 使用 QPainter 的正确方式 - 确保在 paintEvent 中使用或手动开始绘制
+    if (!ui->widget_Sample_1->isVisible()) {
         return;
     }
 

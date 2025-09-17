@@ -604,16 +604,22 @@ namespace QUIUtils
     void initequipmentgrabcups(quint8 index_equipment,
 								QByteArrayList &_throwthecups);
 
+
     /** 吸试剂-夹杯-放到测试通道
-    * @brief suckReagentClipTubetoChnPut
-    * @param indexReag
-    * @param TestChn
-    * @param emptyHole
-    * @param outputArry
-    */
-    void suckReagentClipTubetoChnPut(quint8 indexReag,int TestChn,quint8 emptyHole,QVector<QByteArray> &outputArry,
-                                       QPoint &bloodyHoleAxis,quint8 &suckPRPindex, quint8 &ktestPRPsuckBacknum,
-                                       quint8 &ktestPRPsplitBacknum);
+     * @brief suckReagentClipTubetoChnPut
+     * @param indexReag
+     * @param TestChn
+     * @param emptyHole
+     * @param outputArry
+     * @param bloodyHoleAxis
+     * @param suckPRPindex
+     * @param ktestPRPsuckBacknum
+     * @param ktestPRPsplitBacknum
+     * @param nextSteOriginReagentNeedle 下一步 试剂针复位
+     */
+    void suckReagentClipTubetoChnPut(quint8 indexReag, int TestChn, quint8 emptyHole, QVector<QByteArray> &outputArry,
+                                       QPoint &bloodyHoleAxis, quint8 &suckPRPindex, quint8 &ktestPRPsuckBacknum,
+                                       quint8 &ktestPRPsplitBacknum, quint8 &nextSteOriginReagentNeedle);
 
     /**
     * @brief spitReanentToTestChn 向测试通道吐试剂

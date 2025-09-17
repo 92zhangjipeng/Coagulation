@@ -1143,7 +1143,7 @@ QByteArrayList GlobalData::outCommandSuckReagent(const quint8 indexReag){
     const quint8 testingReag = indexReag - 1;
     //试剂坐标从0-9下标开始 indexReag = AA:RIS 0 - 4
     SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT,testingReag,suckReagentAxis);
-    const bool issuckAir = INI_File().rConfigPara(FIRSTSUCKAIRS).toBool();    //吸空气校准
+    const bool issuckAir =  true; //INI_File().rConfigPara(FIRSTSUCKAIRS).toBool();    //吸空气校准
     const int  linqueFailedHeigh = INI_File().GetFailedReagentsLinqueHigh();
     auto *pActiveStu = Testing::m_TaskDll;
     int washTime = 0;
