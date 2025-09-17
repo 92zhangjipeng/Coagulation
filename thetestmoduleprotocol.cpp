@@ -8,7 +8,7 @@
 #include <operclass/fullyautomatedplatelets.h>
 
 theTestModuleProtocol::theTestModuleProtocol(QObject *parent) : QObject(parent)
-  ,minstrumentType(0)
+  ,m_equipmentType(2)
   ,m_completeTemp(false)
 {
     moveToThread(&m_thread);
@@ -26,6 +26,7 @@ theTestModuleProtocol::~theTestModuleProtocol()
 
 void theTestModuleProtocol::_start()
 {
+    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,m_equipmentType);
     if(!m_thread.isRunning())
     {
         m_thread.start();
@@ -39,11 +40,11 @@ void  theTestModuleProtocol::_threadrunning()
 
 void theTestModuleProtocol::SynchronizeInstrumentType(quint8 equipment)
 {
-    minstrumentType = equipment;
+    m_equipmentType = equipment;
     m_moduleCommTemp.clear();
     m_remainingModules = 0;  // 新增计数器，跟踪未完成模块数
 
-    switch(minstrumentType)
+    switch(m_equipmentType)
     {
         case KS600:
             m_moduleCommTemp.insert(MODULE_1,false);
@@ -74,78 +75,232 @@ void theTestModuleProtocol::setArgInterface(PassparameterInterface* pInterface)
 
 
 //收到模组数据
-void theTestModuleProtocol::recrModuleprotocolData(const int Slave_addr, const QStringList moduleData)
+
+// 辅助函数：合并两个十六进制值
+int theTestModuleProtocol::combineHexValues(const QString& highByte, const QString& lowByte)
 {
-    quint8 cmd_num = QString(moduleData.at(COMMANDNUMBER)).toInt(nullptr,HEX_SWITCH); //命令编号
+    bool ok1, ok2;
+    int high = highByte.toInt(&ok1, HEX_SWITCH);
+    int low = lowByte.toInt(&ok2, HEX_SWITCH);
 
-    int *moduledata = new int[4]();
-    moduledata[0] = QString("%1%2").arg( moduleData.at(8)).arg( moduleData.at(7)).toInt(nullptr,HEX_SWITCH);
-    moduledata[1] = QString("%1%2").arg( moduleData.at(10)).arg( moduleData.at(9)).toInt(nullptr,HEX_SWITCH);
-    moduledata[2] = QString("%1%2").arg( moduleData.at(12)).arg( moduleData.at(11)).toInt(nullptr,HEX_SWITCH);
-    moduledata[3] = QString("%1%2").arg( moduleData.at(14)).arg( moduleData.at(13)).toInt(nullptr,HEX_SWITCH);
+    if (!ok1 || !ok2) {
+        throw std::runtime_error("Invalid hex value");
+    }
 
-    //4TH模组状态
-    quint8 indexModule4thBit = QString(moduleData.at(4)).toInt(nullptr,HEX_SWITCH);
-    QString hex_data = QString("%1").arg(indexModule4thBit, 8, BINARY_SWITCH, QLatin1Char('0'));
-    //模组的连接状态
-    QString Connectstate_ = QString("%1%2").arg(hex_data.at(5)).arg(hex_data.at(6));
-    quint8 iConnectstate_ = Connectstate_.toInt(nullptr,BINARY_SWITCH);
-    _modulecaseconnectstate(Slave_addr,iConnectstate_,moduleData,hex_data);
+    return (high << 8) | low;
+}
 
-    //模组的编号
-    quint8 _indexModule = Slave_addr;
-
-    switch(cmd_num)
-    {
+// 处理模块命令的独立函数
+void theTestModuleProtocol::handleModuleCommand(int slaveAddr, quint8 cmd_num,
+                                               const std::vector<int>& moduledata,
+                                               const QStringList& moduleData)
+{
+    switch (cmd_num) {
         case MODULE_1:
         case MODULE_2:
         case MODULE_3:
-                    if(m_parameterInterface != nullptr)
-                        m_parameterInterface->ChannelValueshow(moduleData);
-                    Test_module_data(Slave_addr, moduleData);
-        break;
+            if (m_parameterInterface != nullptr) {
+                m_parameterInterface->ChannelValueshow(moduleData);
+            }
+            Test_module_data(slaveAddr, moduleData);
+            break;
 
         case W_MODULE_SPEED:
-            recvWritedDimmingSpeed(Slave_addr);
-        break;
+            recvWritedDimmingSpeed(slaveAddr);
+            break;
 
         case R_MODULE_SPEED:
-            recvReadDimmingSpeed(Slave_addr,moduledata,4);
-        break;
+            recvReadDimmingSpeed(slaveAddr, moduledata.data(), moduledata.size());
+            break;
 
         case W_MODULE_LED:
-                recvWritedDimmingLed(Slave_addr);
-        break;
+            recvWritedDimmingLed(slaveAddr);
+            break;
 
         case R_MODULE_LED:
-            recvReadDimmingLed(Slave_addr,moduledata,4);
-        break;
+            recvReadDimmingLed(slaveAddr, moduledata.data(), moduledata.size());
+            break;
 
         case W_SAVEMODULESETTING:
-        {
-            QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, Slave_addr]() {
-                emit sendReminder(QString("保存模组%1完成!").arg(Slave_addr),W_SAVEMODULESETTING);
-            });
+            handleSaveModuleSetting(slaveAddr);
             break;
-        }
+
         case W_MODULE_LED_DIMMING:
-                recvDimmingLed(_indexModule);
-        break;
+            recvDimmingLed(slaveAddr); // 使用slaveAddr而不是_indexModule
+            break;
 
         case W_SAVEMODULESETTING_DIMMING:
-        {
-            QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, _indexModule]() {
-                emit resetconnectModule();//重新连接模组
-                emit FirstDimmingResult(_indexModule); //首次调光后再检测模组
-                QLOG_DEBUG()<<"初始主动调光保存动作完成!"<<endl;
-            });
+            handleSaveModuleSettingDimming(slaveAddr);
             break;
-        }
 
-        default: break;
+        default:
+            QLOG_DEBUG() << "Unknown command number:" << cmd_num;
+            break;
     }
-    delete []moduledata;
-    return;
+}
+
+// 处理保存模块设置的独立函数
+void theTestModuleProtocol::handleSaveModuleSetting(int slaveAddr)
+{
+    QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, slaveAddr]() {
+        emit sendReminder(QString("保存模组%1完成!").arg(slaveAddr), W_SAVEMODULESETTING);
+    });
+}
+
+// 处理调光保存的独立函数
+void theTestModuleProtocol::handleSaveModuleSettingDimming(int slaveAddr)
+{
+    QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, slaveAddr]() {
+        emit resetconnectModule(); // 重新连接模组
+        emit FirstDimmingResult(slaveAddr); // 首次调光后再检测模组
+        QLOG_DEBUG() << "初始主动调光保存动作完成!";
+    });
+}
+
+void theTestModuleProtocol::recrModuleprotocolData(const int slaveAddr, const QStringList moduleData)
+{
+    // 参数验证
+   if (moduleData.size() < 15) {
+       QLOG_WARN() << "Module data size insufficient:" << moduleData.size();
+       return;
+   }
+
+   // 设备类型验证
+   static const QMap<int, std::function<bool(int)>> VALIDATORS = {
+          {KS600,  [](int addr) { return addr <= MODULE_1; }},
+          {KS800,  [](int addr) { return addr < MODULE_3; }},
+          {KS1200, [](int addr) { return true; }} // 总是返回true
+    };
+
+   auto validator = VALIDATORS.value(m_equipmentType);
+   if (!validator || !validator(slaveAddr)) {
+       QLOG_WARN() << "Invalid equipment type or slave address:"
+                  << m_equipmentType << slaveAddr;
+       return;
+   }
+
+   // 使用智能指针或vector管理内存，避免手动delete
+   std::vector<int> moduledata(4);
+   try {
+       moduledata[0] = combineHexValues(moduleData.at(8), moduleData.at(7));
+       moduledata[1] = combineHexValues(moduleData.at(10), moduleData.at(9));
+       moduledata[2] = combineHexValues(moduleData.at(12), moduleData.at(11));
+       moduledata[3] = combineHexValues(moduleData.at(14), moduleData.at(13));
+   } catch (const std::exception& e) {
+       QLOG_ERROR() << "Failed to parse module data:" << e.what();
+       return;
+   }
+
+   // 提取命令编号
+   bool ok = false;
+   quint8 cmd_num = moduleData.at(COMMANDNUMBER).toInt(&ok, HEX_SWITCH);
+   if (!ok) {
+       QLOG_WARN() << "Invalid command number:" << moduleData.at(COMMANDNUMBER);
+       return;
+   }
+
+   // 处理第4模组状态
+   quint8 indexModule4thBit = moduleData.at(4).toInt(&ok, HEX_SWITCH);
+   if (!ok) {
+       QLOG_WARN() << "Invalid module 4th bit data";
+       return;
+   }
+
+   QString hex_data = QString("%1").arg(indexModule4thBit, 8, BINARY_SWITCH, QLatin1Char('0'));
+   QString Connectstate_ = QString("%1%2").arg(hex_data.at(5)).arg(hex_data.at(6));
+   quint8 iConnectstate_ = Connectstate_.toInt(nullptr, BINARY_SWITCH);
+
+   modulecaseconnectstate(slaveAddr, iConnectstate_, moduleData, hex_data);
+
+   // 处理不同的命令
+   handleModuleCommand(slaveAddr, cmd_num, moduledata, moduleData);
+
+
+
+
+
+//    switch(m_equipmentType){
+//        case KS600:
+//            if(slaveAddr > MODULE_1)
+//                return;
+//        break;
+
+//        case KS800:
+//            if(slaveAddr >= MODULE_3)
+//                return;
+//        case KS1200: break;
+//    }
+
+//    quint8 cmd_num = QString(moduleData.at(COMMANDNUMBER)).toInt(nullptr,HEX_SWITCH); //命令编号
+
+//    int *moduledata = new int[4]();
+//    moduledata[0] = QString("%1%2").arg( moduleData.at(8)).arg( moduleData.at(7)).toInt(nullptr,HEX_SWITCH);
+//    moduledata[1] = QString("%1%2").arg( moduleData.at(10)).arg( moduleData.at(9)).toInt(nullptr,HEX_SWITCH);
+//    moduledata[2] = QString("%1%2").arg( moduleData.at(12)).arg( moduleData.at(11)).toInt(nullptr,HEX_SWITCH);
+//    moduledata[3] = QString("%1%2").arg( moduleData.at(14)).arg( moduleData.at(13)).toInt(nullptr,HEX_SWITCH);
+
+//    //4TH模组状态
+//    quint8 indexModule4thBit = QString(moduleData.at(4)).toInt(nullptr,HEX_SWITCH);
+//    QString hex_data = QString("%1").arg(indexModule4thBit, 8, BINARY_SWITCH, QLatin1Char('0'));
+//    //模组的连接状态
+//    QString Connectstate_ = QString("%1%2").arg(hex_data.at(5)).arg(hex_data.at(6));
+//    quint8 iConnectstate_ = Connectstate_.toInt(nullptr,BINARY_SWITCH);
+//    modulecaseconnectstate(slaveAddr,iConnectstate_,moduleData,hex_data);
+
+//    //模组的编号
+//    quint8 _indexModule = slaveAddr;
+
+//    switch(cmd_num)
+//    {
+//        case MODULE_1:
+//        case MODULE_2:
+//        case MODULE_3:
+//                    if(m_parameterInterface != nullptr)
+//                        m_parameterInterface->ChannelValueshow(moduleData);
+//                    Test_module_data(slaveAddr, moduleData);
+//        break;
+
+//        case W_MODULE_SPEED:
+//            recvWritedDimmingSpeed(slaveAddr);
+//        break;
+
+//        case R_MODULE_SPEED:
+//            recvReadDimmingSpeed(slaveAddr,moduledata,4);
+//        break;
+
+//        case W_MODULE_LED:
+//                recvWritedDimmingLed(slaveAddr);
+//        break;
+
+//        case R_MODULE_LED:
+//            recvReadDimmingLed(slaveAddr,moduledata,4);
+//        break;
+
+//        case W_SAVEMODULESETTING:
+//        {
+//            QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, slaveAddr]() {
+//                emit sendReminder(QString("保存模组%1完成!").arg(slaveAddr),W_SAVEMODULESETTING);
+//            });
+//            break;
+//        }
+//        case W_MODULE_LED_DIMMING:
+//                recvDimmingLed(_indexModule);
+//        break;
+
+//        case W_SAVEMODULESETTING_DIMMING:
+//        {
+//            QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, _indexModule]() {
+//                emit resetconnectModule();//重新连接模组
+//                emit FirstDimmingResult(_indexModule); //首次调光后再检测模组
+//                QLOG_DEBUG()<<"初始主动调光保存动作完成!"<<endl;
+//            });
+//            break;
+//        }
+
+//        default: break;
+//    }
+//    delete []moduledata;
+//    return;
 }
 
 
@@ -160,14 +315,15 @@ void theTestModuleProtocol::recvDimmingLed(quint8 indexmodule)
 
 
 
-void theTestModuleProtocol::recvReadDimmingSpeed(quint8 ModuleIndex,int arr[], int size)
+void theTestModuleProtocol::recvReadDimmingSpeed(quint8 ModuleIndex,const int arr[], int size)
 {
     int moduleChndata[4] ={0,0,0,0};
     for(int i = 0; i < size ; ++i)
     {
         moduleChndata[i] = arr[i];
     }
-    emit readModuleSpeed(ModuleIndex,moduleChndata[0],moduleChndata[1],moduleChndata[2],moduleChndata[3]);
+    emit readModuleSpeed(ModuleIndex,moduleChndata[0],moduleChndata[1],
+                        moduleChndata[2],moduleChndata[3]);
 }
 
 
@@ -178,14 +334,15 @@ void theTestModuleProtocol::recvWritedDimmingSpeed(quint8 ModuleIndex)
 }
 
 
-void theTestModuleProtocol::recvReadDimmingLed(quint8 ModuleIndex, int arr[], int size)
+void theTestModuleProtocol::recvReadDimmingLed(quint8 ModuleIndex, const int arr[], int size)
 {
     int moduleChndata[4] ={0,0,0,0};
     for(int i = 0; i < size ; ++i)
     {
         moduleChndata[i] = arr[i];
     }
-    emit readModuleLed(ModuleIndex,moduleChndata[0],moduleChndata[1],moduleChndata[2],moduleChndata[3]);
+    emit readModuleLed(ModuleIndex,moduleChndata[0],moduleChndata[1],
+                        moduleChndata[2],moduleChndata[3]);
 }
 
 void theTestModuleProtocol::recvWritedDimmingLed(quint8 ModuleIndex)
@@ -199,9 +356,9 @@ void theTestModuleProtocol::recvWritedDimmingLed(quint8 ModuleIndex)
 
 
 
-void theTestModuleProtocol::_modulecaseconnectstate(int slaveaddr,quint8 bit_, QStringList ordrerr,QString disbit_)
+void theTestModuleProtocol::modulecaseconnectstate(int slaveaddr,quint8 bit, QStringList ordrerr,QString disbit)
 {
-    if(bit_ == MODULE_FAILED)
+    if(bit == MODULE_FAILED)
     {
         switch(slaveaddr)
         {
@@ -219,8 +376,8 @@ void theTestModuleProtocol::_modulecaseconnectstate(int slaveaddr,quint8 bit_, Q
         }
 		QString data_ = ordrerr.join(" ");
         QString title_ = QString("模组%1接收异常指令").arg(slaveaddr);
-        QString data_out = QString("模组%1[命令错误从机掉线] 收到数据:%2 异常字节:%3").arg(slaveaddr).arg(data_).arg(disbit_);
-        emit this->errmodule(title_,data_out);
+        QString data_out = QString("模组%1[命令错误从机掉线] 收到数据:%2 异常字节:%3").arg(slaveaddr).arg(data_).arg(disbit);
+        emit errmodule(title_,data_out);
     }
     else
     {

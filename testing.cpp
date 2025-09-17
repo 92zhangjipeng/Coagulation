@@ -419,10 +419,14 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,
                                .arg(sampleNumber)
                                .arg(reagentName);
 
-   // 更新通道显示（安全访问容器）
-   //QLabel* channelLabel = Channelreminder.at(channelIndex - 1);
-   channelLabel->setText(displayText);
-   channelLabel->show();
+   // 确保所有 UI 操作都在主线程
+   QMetaObject::invokeMethod(this, [=]() {
+	   if (channelIndex - 1 >= Channelreminder.size()) return;
+	   QLabel* label = Channelreminder[channelIndex - 1];
+	   if (!label) return;
+	   label->setText(displayText);
+	   label->show();
+   });
 
    // 更新样本-通道映射（使用insert直接覆盖旧值）
    m_TestingSample.insert(sampleName, channelIndex);
@@ -433,80 +437,131 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,
 }
 
 
-
-bool Testing::eventFilter(QObject *watched, QEvent *event)
-{
-    if(watched == ui->widget_Reagents && event->type() == QEvent::Paint)
-    {
+bool Testing::handlePaintEvents(QObject *watched, QEvent *event){
+    if(watched == ui->widget_Reagents){
         plotReagentWellsCoordinates(REAGENT_TOTAL * 2); //参数为孔的数量
         showPaintReagents();                            //响应函数 绘制试剂
+        return true;
     }
-    if(watched == ui->widget_Abandoned_new && event->type() == QEvent::Paint)
-    {
+
+    if(watched == ui->widget_Abandoned_new){
         showCleaningbit();   /*绘制清洗位*/
+        return true;
     }
-    if(watched == ui->widget_Sample_1 && event->type() == QEvent::Paint)
-    {
-        if (!mInituiBloodArea)
-        {
+
+    if(watched == ui->widget_Sample_1){
+        if (!mInituiBloodArea){
             CreatBloodZoneAxisPos();
             mInituiBloodArea = true;
         }
         DrawBloodTopText(); //绘制血样区头部文字
-
         UpdateBloodHoleColors(TUBE_INIT,      m_BloodHoleInitUiAxis);
         UpdateBloodHoleColors(TUBE_CHECKED,   m_Blood_Tray_Checked);
         UpdateBloodHoleColors(TUBE_OUTRESULT, m_Blood_Tray_OutResult);
+        return true;
     }
-    if(watched == ui->widget_TestCup_0 && event->type() == QEvent::Paint)
-    {
-        if (!mInitEmptyArea[EMPTYTRAY_1])
-        {
+
+    if(watched == ui->widget_TestCup_0){
+        if(!mInitEmptyArea[EMPTYTRAY_1]){
             CreatTrayTestTubeUiAxis(EMPTYTRAY_1);
             mInitEmptyArea[EMPTYTRAY_1] = true;
             init_testtube_tray(EMPTYTRAY_1);
         }
         DrawTrayTestTubeUiAxis(ui->widget_TestCup_0,EMPTYTRAY_1,m_BigRadius,m_SmalleRadius);
+        return true;
     }
-    if (watched == ui->widget_TestCup_1 && event->type() == QEvent::Paint)
-    {
-        if (!mInitEmptyArea[EMPTYTRAY_2])
-        {
+
+    if(watched == ui->widget_TestCup_1){
+        if(!mInitEmptyArea[EMPTYTRAY_2]){
             CreatTrayTestTubeUiAxis(EMPTYTRAY_2);
             mInitEmptyArea[EMPTYTRAY_2] = true;
             init_testtube_tray(EMPTYTRAY_2);
         }
         DrawTrayTestTubeUiAxis(ui->widget_TestCup_1, EMPTYTRAY_2,m_BigRadius,m_SmalleRadius);
+        return true;
     }
-    if (watched == ui->widget_TestCup_2 && event->type() == QEvent::Paint)
-    {
-        if (!mInitEmptyArea[EMPTYTRAY_3])
-        {
+
+    if(watched == ui->widget_TestCup_2){
+        if(!mInitEmptyArea[EMPTYTRAY_3]){
             CreatTrayTestTubeUiAxis(EMPTYTRAY_3);
             mInitEmptyArea[EMPTYTRAY_3] = true;
             init_testtube_tray(EMPTYTRAY_3);
         }
         DrawTrayTestTubeUiAxis(ui->widget_TestCup_2, EMPTYTRAY_3,m_BigRadius,m_SmalleRadius);
+        return true;
     }
-    if(watched == ui->widget_TestCup_3 && event->type() == QEvent::Paint)
-    {
-        if (!mInitEmptyArea[EMPTYTRAY_4])
-        {
+
+    if(watched == ui->widget_TestCup_3){
+        if(!mInitEmptyArea[EMPTYTRAY_4]){
             CreatTrayTestTubeUiAxis(EMPTYTRAY_4);
             init_testtube_tray(EMPTYTRAY_4);
             mInitEmptyArea[EMPTYTRAY_4] = true;
         }
         DrawTrayTestTubeUiAxis(ui->widget_TestCup_3, EMPTYTRAY_4,m_BigRadius,m_SmalleRadius);
+        return true;
     }
-    if(watched == ui->DroptheCup && event->type() == QEvent::Paint)
-    {
+
+    if(watched == ui->DroptheCup){
         showDiscardTheCup(); /*弃杯孔*/
+        return true;
     }
-    if(watched == ui->widget_cleanagent && event->type() == QEvent::Paint)
+
+    if(watched == ui->widget_cleanagent)
     {
         showCleanreagent();//清洗剂
+        return true;
     }
-    return QWidget::eventFilter(watched,event);
+
+    return false;
+}
+
+
+bool Testing::handleResizeEvents(QObject *watched, QEvent *event){
+    // 重置初始化状态，确保下次绘制时重新计算坐标
+    if (watched == ui->widget_Sample_1) {
+        mInituiBloodArea = false;
+    }
+
+//    for (int i = 0; i < 4; ++i) {
+//        if (watched == getTrayWidget(i)) {
+//            mInitEmptyArea[i] = false;
+//        }
+//    }
+
+    // 不拦截事件，继续传递
+    return false;
+}
+
+bool Testing::handleMouseEvents(QObject *watched, QEvent *event)
+{
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+    if (mouseEvent->button() == Qt::RightButton) {
+        // 处理右键菜单等
+        return true; // 事件已处理
+    }
+    return false;
+}
+
+bool Testing::eventFilter(QObject *watched, QEvent *event)
+{
+
+    //只处理绘制事件
+    if(event->type() == QEvent::Paint){
+        return handlePaintEvents(watched,event);
+    }
+
+    //处理其它特定事件
+    else if(event->type() == QEvent::Resize){
+        return handleResizeEvents(watched, event);
+    }
+
+    // 处理鼠标事件
+    else if (event->type() == QEvent::MouseButtonPress) {
+        return handleMouseEvents(watched, event);
+    }
+
+    // 其他事件传递给基类
+    return QWidget::eventFilter(watched, event);
 }
 
 void Testing::init_testtube_tray(const int index_tray)
@@ -1182,7 +1237,9 @@ void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHol
                 QLOG_WARN() << "Invalid holeId:" << holeId;
                 continue;
             }
-            const QString& showText = m_BloodHoleNum[holeId];
+            auto itText = m_BloodHoleNum.constFind(holeId);
+            if(itText == m_BloodHoleNum.constEnd()) continue; //跳过无效孔
+            const QString& showText = itText.value();
 
             QPalette palette;
 			painter.setPen(pen);
@@ -1495,7 +1552,7 @@ void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,quint8 IndexTray,quin
         return;
 
 
-    while(TrayTubeFirst != m_Testcups.end())
+    while(TrayTubeFirst != m_Testcups.end() && TrayTubeFirst.key() < EndHoleNum)
     {
         QPalette palette;
         painter.setPen(cglobal::g_LineColor); //圆环外圈的颜色

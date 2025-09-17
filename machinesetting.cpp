@@ -3164,7 +3164,7 @@ void MachineSetting::on_pushButton_Adjustcoordinates_clicked()
 
     if (!m_initAdjustcoordinates) {
         m_initAdjustcoordinates = true;
-        pkjustcoordinate->initstyle();
+        pkjustcoordinate->initstyle(m_typedequipment);
 
         // 使用新式语法连接，检查返回值
         bool conn1 = connect(pkjustcoordinate, &CustomPlot::writdAxisata,

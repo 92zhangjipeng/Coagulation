@@ -46,7 +46,7 @@ signals:
 
 public slots:
 	
-    void recrModuleprotocolData(const int Slave_addr,const QStringList moduleData);
+    void recrModuleprotocolData(const int slaveAddr, const QStringList moduleData);
 private:
     /** 解析收到的模组数据 温度&&数据
      * @brief Test_module_data
@@ -55,25 +55,37 @@ private:
      */
     void Test_module_data(const int slave_address,const QStringList Machinedata);
 
-    void _modulecaseconnectstate(int slaveaddr, quint8 bit_, QStringList ordrerr, QString disbit_); //模组连接状态
+    //模组连接状态
+    void modulecaseconnectstate(int slaveaddr, quint8 bit_, QStringList ordrerr, QString disbit);
 
-    void recvReadDimmingSpeed(quint8 ModuleIndex, int arr[], int size);
+    void recvReadDimmingSpeed(quint8 ModuleIndex, const int arr[], int size);
 
     void recvWritedDimmingSpeed(quint8 ModuleIndex);
 
     void recvWritedDimmingLed(quint8 ModuleIndex);
 
-    void recvReadDimmingLed(quint8 ModuleIndex, int arr[], int size);
+    void recvReadDimmingLed(quint8 ModuleIndex, const int arr[], int size);
 
     void recvDimmingLed(quint8 indexmodule); //收到调光发送保存
 
     void getTemperatureDimming(const double moduleTEMP,const quint8 indexModule); //初始调光需要控温
 
-private:
-    quint8 minstrumentType;
 
+
+    int combineHexValues(const QString& highByte, const QString& lowByte);
+
+    void handleModuleCommand(int slaveAddr, quint8 cmd_num,
+                             const std::vector<int>& moduledata,
+                             const QStringList& moduleData);
+
+    void handleSaveModuleSetting(int slaveAddr);
+    void handleSaveModuleSettingDimming(int slaveAddr);
+
+private:
     QMap<quint8,bool> m_moduleCommTemp;
     int m_remainingModules = 0;  // 新增计数器，跟踪未完成模块数
+
+    quint8 m_equipmentType;
 
     const float mbasictemp = 37.00f;
     bool m_completeTemp;

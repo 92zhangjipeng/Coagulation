@@ -115,7 +115,7 @@ public:
     explicit CustomPlot(QWidget *parent = 0);
     ~CustomPlot();
 
-    void initstyle();
+    void initstyle(const quint8 equipmentType);
 protected:
     //这是一个虚函数，继承自QEvent.只要重写了这个虚函数，当你按下窗口右上角的"×"时，就会调用你所重写的此函数.
     void closeEvent(QCloseEvent*event);
@@ -149,10 +149,10 @@ private slots:
     void AddBtnSave_backValue(int rowIndex, bool NeedChaneOther);
     void on_comboBox_calibrationAarea_activated(int index);
 
-    void  on_toolButton_Backorigin_clicked();
-    void  on_toolButton_Clean_1_clicked();
-    void  on_toolButton_throwTube_clicked();
-    void  on_pushButton_TrayHands_clicked();
+    void on_toolButton_Backorigin_clicked();
+    void on_toolButton_Clean_1_clicked();
+    void on_toolButton_throwTube_clicked();
+    void on_pushButton_TrayHands_clicked();
     void on_spinBox_downValue_valueChanged(int arg1);
     void on_pushButton_TrayHands_2_clicked();
     void on_toolButton_video_clicked();

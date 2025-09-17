@@ -81,10 +81,8 @@ CustomPlot::~CustomPlot()
     delete ui;
 }
 
-void CustomPlot::initstyle()
+void CustomPlot::initstyle(const quint8 equipmentType)
 {
-    quint8 equipmentType = 0;
-    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentType);
     initCommboxView(equipmentType);
 
     m_CheckGroupBox = new  QButtonGroup(this);

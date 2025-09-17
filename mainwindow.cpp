@@ -1009,14 +1009,14 @@ void MainWindow::deleteExitSoftware()
 // 线程安全入口（MainWindow.cpp）
 void MainWindow::ThreadSafeReminder(QString title_, QString outputText) {
     // 1. 线程安全检查
-    if (QThread::currentThread() != this->thread()) {
-        // 跨线程调用：安全转发到主线程
-        QMetaObject::invokeMethod(this, "onReminderRequested",
-            Qt::QueuedConnection,  // 异步队列连接
-            Q_ARG(QString, title_),
-            Q_ARG(QString, outputText));
-        return;
-    }
+//    if (QThread::currentThread() != this->thread()) {
+//        // 跨线程调用：安全转发到主线程
+//        QMetaObject::invokeMethod(this, "onReminderRequested",
+//            Qt::QueuedConnection,  // 异步队列连接
+//            Q_ARG(QString, title_),
+//            Q_ARG(QString, outputText));
+//        return;
+//    }
 
     // 主线程直接调用
     RealReminderImpl(title_, outputText);

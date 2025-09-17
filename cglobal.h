@@ -56,7 +56,7 @@
 #define TEMP_CONVERSION_RATIO     0.0625  //温度转换率
 #define INIT_CLEAN_RATIO          0.6     //灌注血样蹦拉满比例
 
-#define VERSION_RELEASE           "V1.0.0.0"
+#define VERSION_RELEASE           "V1"
 //机器动作的标识
 #define BLOODAREA_ABSORB_BOLLD_MOVE_EMPTYTUBE  0            //从血样区吸血样到空试管加样
 #define EMPTYTUBEAREA_MOVE_CHANNEL             1            //从空试管区夹试管到测试通道位置

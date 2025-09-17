@@ -240,7 +240,8 @@ SOURCES += \
     dilag/customfixtableview.cpp \
     custom_style/customtablemodel.cpp \
     SerialPortException.cpp \
-    dilag/custompppvalue.cpp
+    dilag/custompppvalue.cpp \
+    CalibratCoordinateLoc/coordinatepposit.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -377,7 +378,8 @@ HEADERS += \
     custom_style/animationprocessbar.h \
     SerialPortException.h \
     dilag/custompppvalue.h \
-    aligndelegate.h
+    aligndelegate.h \
+    CalibratCoordinateLoc/coordinatepposit.h
 
 FORMS += \
     mainwindow.ui \
@@ -424,7 +426,8 @@ FORMS += \
     dilag/pedata.ui \
     Machinewidget/bloodpinparaset.ui \
     dilag/customfixtableview.ui \
-    dilag/custompppvalue.ui
+    dilag/custompppvalue.ui \
+    CalibratCoordinateLoc/coordinatepposit.ui
 
 RESOURCES += \
     picture.qrc

@@ -15,7 +15,7 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
     this->setOrganizationName("Decawave");
     this->setOrganizationDomain("decawave.com");
-    this->setApplicationName("全自动血小板聚集仪");
+    this->setApplicationName("全自动血小板聚集分析系统");
 
     pmainWindow = new MainWindow();
     pmainWindow->resize(availableScreenX,availableScreenY);

@@ -34,23 +34,25 @@ public:
     QLabel *label;
     QSpinBox *spinBox;
     QSpacerItem *horizontalSpacer;
-    QLabel *label_ratio;
     QWidget *widget;
     QVBoxLayout *verticalLayout;
     QWidget *widget_2;
     QGridLayout *gridLayout_2;
     QPushButton *pushButton_loadpath;
-    QPushButton *pushButton_prp;
     QPushButton *pushButton_test;
+    QPushButton *pushButton_prp;
+    QLabel *label_ratio;
     QLabel *label_showimage;
 
     void setupUi(QWidget *TestOpcv)
     {
         if (TestOpcv->objectName().isEmpty())
             TestOpcv->setObjectName(QStringLiteral("TestOpcv"));
-        TestOpcv->resize(1020, 670);
+        TestOpcv->resize(559, 791);
         gridLayout = new QGridLayout(TestOpcv);
+        gridLayout->setSpacing(5);
         gridLayout->setObjectName(QStringLiteral("gridLayout"));
+        gridLayout->setContentsMargins(5, 5, 5, 5);
         widget_bar = new QWidget(TestOpcv);
         widget_bar->setObjectName(QStringLiteral("widget_bar"));
         widget_bar->setMinimumSize(QSize(0, 30));
@@ -84,14 +86,6 @@ public:
 
         horizontalLayout_2->addItem(horizontalSpacer);
 
-        label_ratio = new QLabel(widget_bar);
-        label_ratio->setObjectName(QStringLiteral("label_ratio"));
-        label_ratio->setMinimumSize(QSize(120, 0));
-        label_ratio->setFont(font);
-        label_ratio->setFrameShape(QFrame::NoFrame);
-
-        horizontalLayout_2->addWidget(label_ratio);
-
 
         gridLayout->addWidget(widget_bar, 1, 0, 1, 2);
 
@@ -104,7 +98,7 @@ public:
         widget_2 = new QWidget(widget);
         widget_2->setObjectName(QStringLiteral("widget_2"));
         widget_2->setMinimumSize(QSize(0, 90));
-        widget_2->setMaximumSize(QSize(16777215, 90));
+        widget_2->setMaximumSize(QSize(16777215, 200));
         gridLayout_2 = new QGridLayout(widget_2);
         gridLayout_2->setObjectName(QStringLiteral("gridLayout_2"));
         pushButton_loadpath = new QPushButton(widget_2);
@@ -113,17 +107,26 @@ public:
 
         gridLayout_2->addWidget(pushButton_loadpath, 0, 0, 1, 1);
 
-        pushButton_prp = new QPushButton(widget_2);
-        pushButton_prp->setObjectName(QStringLiteral("pushButton_prp"));
-        pushButton_prp->setMinimumSize(QSize(0, 28));
-
-        gridLayout_2->addWidget(pushButton_prp, 0, 2, 1, 1);
-
         pushButton_test = new QPushButton(widget_2);
         pushButton_test->setObjectName(QStringLiteral("pushButton_test"));
         pushButton_test->setMinimumSize(QSize(0, 28));
 
         gridLayout_2->addWidget(pushButton_test, 1, 0, 1, 1);
+
+        pushButton_prp = new QPushButton(widget_2);
+        pushButton_prp->setObjectName(QStringLiteral("pushButton_prp"));
+        pushButton_prp->setMinimumSize(QSize(0, 28));
+
+        gridLayout_2->addWidget(pushButton_prp, 2, 0, 1, 1);
+
+        label_ratio = new QLabel(widget_2);
+        label_ratio->setObjectName(QStringLiteral("label_ratio"));
+        label_ratio->setMinimumSize(QSize(120, 1));
+        label_ratio->setMaximumSize(QSize(16777215, 140));
+        label_ratio->setFont(font);
+        label_ratio->setFrameShape(QFrame::NoFrame);
+
+        gridLayout_2->addWidget(label_ratio, 0, 1, 3, 2);
 
 
         verticalLayout->addWidget(widget_2);
@@ -148,10 +151,10 @@ public:
     {
         TestOpcv->setWindowTitle(QApplication::translate("TestOpcv", "Form", nullptr));
         label->setText(QApplication::translate("TestOpcv", "\346\227\213\350\275\254\350\247\222\345\272\246:", nullptr));
-        label_ratio->setText(QString());
         pushButton_loadpath->setText(QApplication::translate("TestOpcv", "\345\257\274\345\205\245\345\233\276\347\211\207", nullptr));
-        pushButton_prp->setText(QApplication::translate("TestOpcv", "PRP\351\230\210\345\200\274", nullptr));
         pushButton_test->setText(QApplication::translate("TestOpcv", "PushButton", nullptr));
+        pushButton_prp->setText(QApplication::translate("TestOpcv", "PRP\351\230\210\345\200\274", nullptr));
+        label_ratio->setText(QString());
         label_showimage->setText(QString());
     } // retranslateUi
 

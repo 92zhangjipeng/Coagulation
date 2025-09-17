@@ -129,6 +129,11 @@ public slots:
     void EmptyTubeClipMoved(quint8 IndexTube);
 
 private:
+
+    bool handlePaintEvents(QObject *watched, QEvent *event);
+    bool handleResizeEvents(QObject *watched, QEvent *event);
+    bool handleMouseEvents(QObject *watched, QEvent *event);
+
     //取消待测样本
     void clickAnaemiaHoleCancelTestTask(QList<int> waitTestSampleId);
 
