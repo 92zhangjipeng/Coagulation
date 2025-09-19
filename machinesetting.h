@@ -30,7 +30,7 @@
 #include <cmath>
 #include <memory>
 #include "operregistry.h"
-#include "dilag/testopcv.h"
+
 
 #include    "replacethetesttubetray.h" //性能验证
 
@@ -212,7 +212,7 @@ private slots:
     void on_toolButton_export_clicked();
 	void on_pushButton_backsetting_clicked();
     void on_pushButton_SelTextOutPath_clicked();
-    void on_pushButton_opencv_clicked();
+
     void on_pushButton_Adjustcoordinates_clicked();
     void on_pushButtonsplitAirs_clicked();
     void on_pushButtonopenSuck_clicked();
@@ -357,8 +357,7 @@ private:
     QMap<QLabel* , btnLable* >  m_preagpinLableList; //试剂针lable要下针命令
     QMap<QLabel* , btnLable*>   m_pHandsLableList;   //抓手针lable要下针命令
 
-    //测试opencv
-    TestOpcv *m_showOpencvImage = nullptr;
+
 
     //性能验证
     std::unique_ptr<ReplaceTheTestTubeTray> m_Performanceverification;

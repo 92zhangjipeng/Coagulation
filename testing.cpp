@@ -665,7 +665,7 @@ void Testing::showCleaningbit()
 /*初始化任务测高界面*/
 void Testing::initTheTaskInterface()
 {
-    FullyAutomatedPlatelets::pinstanceAddsampletest()->_initcreat();
+    FullyAutomatedPlatelets::pinstanceAddsampletest()->initcreat();
     connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),&Height_Data::Taskconfigcloe,this,[=](){
          m_opendedheight = false; //任务对话框关闭
     });
@@ -717,8 +717,8 @@ void Testing::DrawChannelProgress(quint8 Index ,double proportion)
 
 
 /*********** 测高函数 *********************************************************/
-//测高完成
-void Testing::TiggerTestHighdone(QString ImagePath, double Heigh, bool isreplaceteshigh, QString numid)
+//测高拍照完成
+void Testing::HandleObtainPRPImage(const QString &pathImage)
 {
     // 获取单例窗口实例
     auto* sampleTestWindow = FullyAutomatedPlatelets::pinstanceAddsampletest();
@@ -738,29 +738,34 @@ void Testing::TiggerTestHighdone(QString ImagePath, double Heigh, bool isreplace
     m_opendedheight = !m_opendedheight;  // 直接取反状态
 
     // 显式传递参数（必要时进行类型转换）
-    sampleTestWindow->slotShowTestImageTube(
-        ImagePath,
-        Heigh,//static_cast<int>(std::round(Height)),  // 处理 double 转 int 的精度问题
-        isreplaceteshigh,
-        numid
-    );
+    sampleTestWindow->opencvFindImageLine(pathImage);
 
-//    if(m_opendedheight == false)
-//    {
-//        FullyAutomatedPlatelets::pinstanceAddsampletest()->setWindowFlags(Qt::Widget);
-//        FullyAutomatedPlatelets::pinstanceAddsampletest()->show();
-//        m_opendedheight = true;
-//    }
-//    else
-//    {
-//        m_opendedheight = false;
-//        FullyAutomatedPlatelets::pinstanceAddsampletest()->close();
-//        FullyAutomatedPlatelets::pinstanceAddsampletest()->show();
-//    }
-//    FullyAutomatedPlatelets::pinstanceAddsampletest()->slotShowTestImageTube(ImagePath, Heigh,isreplaceteshigh,numid);
     return;
 }
 
+//从测样本
+void Testing::HandleReopencvImageTubePRP(const QString &reId,const QString &pathImage){
+    // 获取单例窗口实例
+    auto* sampleTestWindow = FullyAutomatedPlatelets::pinstanceAddsampletest();
+
+    if (m_opendedheight) {
+        // 窗口首次打开时的初始化逻辑
+        sampleTestWindow->setWindowFlags(Qt::Widget);
+        sampleTestWindow->show();
+
+    } else {
+        // 关闭窗口时改用 hide() 避免资源释放问题
+        sampleTestWindow->hide();
+        sampleTestWindow->show();
+    }
+
+    // 统一管理窗口状态
+    m_opendedheight = !m_opendedheight;  // 直接取反状态
+
+    // 显式传递参数（必要时进行类型转换）
+    sampleTestWindow->reTestOpencvId(reId,pathImage);
+    return;
+}
 
 
 /*点击打开任务框*/

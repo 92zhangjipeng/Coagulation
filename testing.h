@@ -115,7 +115,8 @@ public slots:
     void slotThrowtesttube();
 
     //测高完成改变标志
-    void TiggerTestHighdone(QString ImagePath , double, bool isreplaceteshigh, QString numid);
+    void HandleObtainPRPImage(const QString &pathImage);
+    void HandleReopencvImageTubePRP(const QString &reId,const QString &pathImage);
 
     //绘制进度条
     void DrawChannelProgress(quint8 index ,double proportion);

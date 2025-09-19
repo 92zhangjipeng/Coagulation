@@ -110,7 +110,7 @@ void theTestModuleProtocol::handleModuleCommand(int slaveAddr, quint8 cmd_num,
             break;
 
         case R_MODULE_SPEED:
-            recvReadDimmingSpeed(slaveAddr, moduledata.data(), moduledata.size());
+            recvReadDimmingSpeed(slaveAddr, moduledata.data(),static_cast<int>( moduledata.size()));
             break;
 
         case W_MODULE_LED:
@@ -118,7 +118,7 @@ void theTestModuleProtocol::handleModuleCommand(int slaveAddr, quint8 cmd_num,
             break;
 
         case R_MODULE_LED:
-            recvReadDimmingLed(slaveAddr, moduledata.data(), moduledata.size());
+            recvReadDimmingLed(slaveAddr, moduledata.data(), static_cast<int>(moduledata.size()));
             break;
 
         case W_SAVEMODULESETTING:

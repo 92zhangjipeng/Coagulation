@@ -1,6 +1,13 @@
 ﻿#ifndef HEIGHT_DATA_H
 #define HEIGHT_DATA_H
 
+// 在包含 OpenCV 头文件之前添加这些宏
+#define NOMINMAX        // 防止 Windows 定义 min 和 max 宏
+#define WIN32_LEAN_AND_MEAN  // 减少 Windows 头文件包含
+#include <windows.h>    // 如果需要 Windows API
+
+
+// 然后包含其他头文件
 #include <QWidget>
 #include <iostream>
 #include <map>
@@ -23,7 +30,8 @@
 
 #include "threadAddSample/mythreadaddsample.h"
 
-#include "dilag/batchaddsample.h" //批量添加
+#include "dilag/batchaddsample.h"
+#include "dilag/testopcv.h"
 
 #define  CHECK_ROW          0
 #define  SAMLPE_NAME        1
@@ -45,23 +53,30 @@ public:
     explicit Height_Data(QWidget *parent = 0);
     ~Height_Data();
 
-     void   _initcreat();
+     void initcreat();
      //补回用掉的血样孔
-     void   Makeuptubenum(quint8);
+     void Makeuptubenum(quint8);
      //初始化下拉血样孔
-     void   initNumAnaemiaHole();
-     //测高完成
-     void   slotShowTestImageTube(QString , double value, const bool &isreplace, const QString &idnum);
+     void initNumAnaemiaHole();
+
+     //准备识别测高照片
+     void opencvFindImageLine(const QString &pathImage);
+     void reTestOpencvId(const QString& reIdsample, const QString &pathImage);
+
      //取消任务返回试管孔号
      void backcancelhole(const quint8 index);
 
 
 private:
-    bool loadAndDisplayImage(const QString& path);
+
     void updateTableItem(const QString& id, double heightValue);
-    void handleSampleAddition(double heightValue);
+    void handleSampleAddition(const double heightValue);
     void showHoleWarning(const QStringList& holes);
     void addNewSample(double value, const QStringList& holes);
+
+    //初始话测试显示界面
+    void initLoadOpencvTestImag();
+    void cleanupThread();
 
 protected:
     void    closeEvent(QCloseEvent *event);
@@ -78,6 +93,8 @@ signals:
                                     quint8 CurrRichHole,
                                     int totalnum,
                                     bool insertWholeBloodMode);
+
+    void sycnOpendcvImage(const QString &pathImage);
 
     //更新界面试管状态
     void updateTestTubeSatus(const QString& sample_name,quint8 anemiahole,const QList<quint8> &marktube,
@@ -98,6 +115,9 @@ public slots:
     //修改PPP孔号
     void   selectPPPholeChange(const QString& index_);
 
+    //测高结果
+    void onImageoutResult(const QString redBloodCellHeigh);
+
 private slots:
     void    tableItemClicked(int row,int col);
     void    sortByColumn(int); //点击表头
@@ -115,18 +135,20 @@ private:
      * @param TestHeight
      * @param Canselecthole
      * @param barcodestr
-     * @param viewImage
      */
     int AddOneTestSample(const bool addSampleMode,
                             double TestHeight,
                             QStringList Canselecthole,
-                            QString barcodestr,
-                            bool viewImage);
+                            QString barcodestr);
 
+    //计算出下一个样本ID
+    QString calculateOutNextSampleId();
 
-    int  _Addtasksmanually(); //手动添加任务
+    //手动添加任务
+    int  Addtasksmanually();
 
-    void _updateotherinserthole(int _rows, QString index_); //更新其它选项富血孔
+    //更新其它选项富血孔
+    void updateotherinserthole(int _rows, QString index_);
 
     //保存
     void savewaitTestSample();
@@ -153,16 +175,17 @@ private:
 
     //设置列数据
     void SetColumnText(int row, int col, QString text);
+
     //设置PRP下针高度
     void setHeightDataBackground(QTableWidgetItem *item, const QString &text);
 
-    bool testhightValueNotZero(QList<int> checklist);
+
 
     //item 是否为空
     bool validateTableItems(QTableWidget* taskWidget, const QList<int>& selectedRows);
 
     void DeleteAllItems(QTableWidget * table);
-    void initshowimg();
+
 
     bool SameSampleandtube(QList<int> TaskList, QTableWidget *TaskWidget);
     //反选
@@ -170,8 +193,9 @@ private:
     void selectAllItem(const bool bselAll);               //全选/全不选中
 
     bool NeedTubeEnouthTesting(const int hadtube, int &needtube, QList<int> selItems);
+
     //＋血样孔是否足够
-    bool _enoughAddSampleHole(QStringList &canselholeList_);
+    bool enoughAddSampleHole(QStringList &canselholeList_);
 
     bool shouldIgnoreClick(int col) const;
     void saveOriginalValue(int row, int col);
@@ -235,6 +259,13 @@ private:
     mythreadaddsample* m_threadaddsample = nullptr;
 
     QPointer<batchAddSample> m_batchaddTestnumSample;
+
+
+    //识别PRP
+    TestOpcv *m_testFindPrpHeigh = nullptr;
+    QThread *m_workerThread = nullptr;
+    QString m_repTestOpencvId;
+    bool m_isreplaceopencv= false;
 };
 
 #endif // HEIGHT_DATA_H

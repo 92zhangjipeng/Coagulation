@@ -84,7 +84,10 @@ private:
 
 
 signals:
-   void FinishTestHigh(QString Path,double, bool , QString);
+   void obtainPRPImage(const QString &pathImage);
+
+   void reOpencvImageTubePRP(const QString &reId,const QString &pathImage);
+
    void Testheightfinish(const bool );
    void FindFailed(QString,QString);
 

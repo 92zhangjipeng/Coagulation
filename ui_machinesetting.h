@@ -280,7 +280,6 @@ public:
     QSpacerItem *horizontalSpacer_22;
     QPushButton *pushButtonBloodPinParasave;
     QSpacerItem *horizontalSpacer_23;
-    QPushButton *pushButton_opencv;
     QWidget *tab_reagpin;
     QGridLayout *gridLayout_6;
     QGroupBox *groupBox_RetagentBox;
@@ -3101,11 +3100,6 @@ public:
 
         gridLayout_5->addWidget(widgetbloodsave, 7, 0, 1, 7);
 
-        pushButton_opencv = new QPushButton(tab_configbloodpin);
-        pushButton_opencv->setObjectName(QStringLiteral("pushButton_opencv"));
-
-        gridLayout_5->addWidget(pushButton_opencv, 6, 5, 1, 1);
-
         tabWidget_config->addTab(tab_configbloodpin, QString());
         tab_reagpin = new QWidget();
         tab_reagpin->setObjectName(QStringLiteral("tab_reagpin"));
@@ -4460,10 +4454,10 @@ public:
 
         retranslateUi(MachineSetting);
 
-        tabWidgetSetconfigure->setCurrentIndex(2);
+        tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(3);
+        tabWidget_config->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);
@@ -4594,7 +4588,6 @@ public:
         spinBox_CleanLinqueFailedHigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         spinBox_CleanLinqueFailedHigh->setPrefix(QString());
         pushButtonBloodPinParasave->setText(QApplication::translate("MachineSetting", "\344\277\235\345\255\230", nullptr));
-        pushButton_opencv->setText(QApplication::translate("MachineSetting", "opencv", nullptr));
         tabWidget_config->setTabText(tabWidget_config->indexOf(tab_configbloodpin), QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\351\205\215\347\275\256\345\217\202\346\225\260", nullptr));
         groupBox_RetagentBox->setTitle(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\350\257\225\345\211\202\345\217\202\346\225\260", nullptr));
         label_11->setText(QApplication::translate("MachineSetting", "\345\220\270\350\257\225\345\211\202\347\263\273\346\225\260", nullptr));

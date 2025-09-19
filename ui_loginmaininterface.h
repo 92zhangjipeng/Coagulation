@@ -24,7 +24,7 @@
 #include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QWidget>
+#include <QtWidgets/QWidget>  
 #include "custom_style/animationprocessbar.h"
 
 QT_BEGIN_NAMESPACE
@@ -453,7 +453,7 @@ public:
         toolButton_min->setText(QString());
         toolButton_max->setText(QString());
         toolButton_close->setText(QString());
-        label_sysname->setText(QApplication::translate("loginmaininterface", "\345\205\250\350\207\252\345\212\250\350\241\200\345\260\217\346\235\277\350\201\232\351\233\206\344\273\252\345\210\206\346\236\220\347\263\273\347\273\237", nullptr));
+        label_sysname->setText(QApplication::translate("loginmaininterface", "\345\205\250\350\207\252\345\212\250\350\241\200\345\260\217\346\235\277\350\201\232\351\233\206\345\210\206\346\236\220\347\263\273\347\273\237", nullptr));
         label_version_number->setText(QApplication::translate("loginmaininterface", "\347\211\210\346\234\254\344\277\241\346\201\257:", nullptr));
         label->setText(QApplication::translate("loginmaininterface", "\347\224\250\346\210\267\345\220\215:", nullptr));
         label_2->setText(QApplication::translate("loginmaininterface", "\345\257\206\347\240\201:", nullptr));

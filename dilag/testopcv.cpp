@@ -1,4 +1,9 @@
-﻿#include "testopcv.h"
+﻿// 在文件最开头添加宏定义
+#define ACCESS_MASK ACCESS_MASK
+
+#pragma execution_character_set("utf-8")
+
+#include "testopcv.h"
 #include "ui_testopcv.h"
 #include <QFileDialog>
 #include <QGraphicsScene>
@@ -33,16 +38,11 @@ TestOpcv::TestOpcv(QWidget *parent) :
     referenceToBottomDistance(0.0)
 {
     ui->setupUi(this);
-    this->setWindowTitle(tr("校准测高参数"));
     initsignal();
 
-    // 样式设置
-    QFile stylespinBox(":/Picture/SetPng/wholeSpinBox.qss");
-    if(stylespinBox.open(QIODevice::ReadOnly)) {
-        QString setspinBoxQss = QLatin1String(stylespinBox.readAll());
-        ui->spinBox->setStyleSheet(setspinBoxQss);
-        stylespinBox.close();
-    }
+    ui->widget_bar->hide();
+
+	initshowimg();
 
     QString settButtonQss;
     QFile styleFile(":/Picture/SetPng/wholePushbutton.qss");
@@ -53,7 +53,6 @@ TestOpcv::TestOpcv(QWidget *parent) :
 
     QHash<QPushButton*, QString> pushButtonList = {
         {ui->pushButton_loadpath, tr("导入图片")},
-        {ui->pushButton_prp, tr("测试找试管")},
         {ui->pushButton_test, tr("测试识别")}
     };
 
@@ -68,21 +67,59 @@ TestOpcv::~TestOpcv()
     delete ui;
 }
 
+
+void TestOpcv::initshowimg()
+{
+    QFont font;
+    font.setFamily("楷体");//字体
+    font.setPixelSize(14);
+    font.setBold(true);
+    ui->label_ratio->setText("检测就绪:");
+
+	QPalette sample_palette;
+	sample_palette.setColor(QPalette::Window, Qt::white);
+	sample_palette.setColor(QPalette::WindowText, QColor(28, 134, 238));
+    ui->widgetShowImag->setAutoFillBackground(true);
+    ui->widgetShowImag->setPalette(sample_palette);
+
+	QPalette pe;
+	pe.setColor(QPalette::WindowText, Qt::red);
+	ui->label_showimage->setPalette(pe);
+
+	font.setPixelSize(25);
+	ui->label_showimage->setFont(font);
+	ui->label_showimage->setWordWrap(true);
+	ui->label_showimage->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+	QString text = "暂无图片";
+	ui->label_showimage->setText(text.split("", QString::SkipEmptyParts).join("\n"));
+
+}
+
+
 /** 显示图片**/
 void displayImage(cv::Mat cvImage,QLabel *pshow)
 {
     pshow->clear();
     if (cvImage.empty()) return;
-
     // 将 BGR 转换为 RGB
     cvtColor(cvImage, cvImage, cv::COLOR_BGR2RGB);
-
     // 将 cv::Mat 转换为 QImage
-    QImage qImage(cvImage.data, cvImage.cols, cvImage.rows,static_cast<int>(cvImage.step), QImage::Format_RGB888);
+    QImage qImage(cvImage.data, cvImage.cols, cvImage.rows,
+				static_cast<int>(cvImage.step), QImage::Format_RGB888);
 
     // 将 QImage 转换为 QPixmap 并显示在 QLabel 中
     QPixmap pixmap = QPixmap::fromImage(qImage);
-    pshow->setPixmap(pixmap.scaled(pshow->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    if (pixmap.isNull()) return ;
+    //pshow->setPixmap(pixmap.scaled(pshow->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    QSize targetSize = pshow->size();
+    QPixmap scaledPix = pixmap.scaled(targetSize,
+                                        Qt::KeepAspectRatio,
+                                        Qt::SmoothTransformation);
+    pshow->setScaledContents(true);
+    pshow->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+    pshow->setPixmap(scaledPix);
+    pshow->update();
+    return;
 }
 
 
@@ -94,7 +131,6 @@ void TestOpcv::initsignal()
             QString OpenFile = QFileDialog::getOpenFileName(this, tr("请选取图片文件"), "",
                                     "Image Files(*.jpg *.png *.bmp *.pgm *.pbm);;All(*.*)");
             if(!OpenFile.isEmpty()) {
-                ui->spinBox->setValue(0);
                 std::string cstrPath = OpenFile.toLocal8Bit().constData();
                 Mat img = imread(cstrPath);
                 if (img.empty()) {
@@ -114,14 +150,6 @@ void TestOpcv::initsignal()
             }
     });
 
-    connect(ui->pushButton_prp, &QPushButton::clicked, this, [=]() {
-        if (!imageOrinin.empty()) {
-            findTubeopencv(imageOrinin);
-        } else {
-            QMessageBox::warning(this, "提示", "请先导入图片");
-        }
-    });
-
     connect(ui->pushButton_test, &QPushButton::clicked, this, [=]() {
         if (!imageOrinin.empty()) {
             trayfindImg();
@@ -131,48 +159,13 @@ void TestOpcv::initsignal()
     });
 }
 
-void TestOpcv::on_spinBox_valueChanged(int arg1)
-{
-    wheeltoImage(arg1);
-}
 
-
-bool TestOpcv::matImagewheel(cv::Mat cutimage, int degree ,cv::Mat &OutMat)
-{
-    if (cutimage.empty()) {
-        QMessageBox::warning(this, "导入异常", "图片为空或路径包含中文!");
-        return false;
-    }
-
-    Point2f center(cutimage.cols / 2.0f, cutimage.rows / 2.0f);
-    Mat rot = getRotationMatrix2D(center, degree, 1.0);
-
-    // 计算旋转后的图像边界
-    double angle = degree * CV_PI / 180.0;
-    double sin_val = fabs(sin(angle));
-    double cos_val = fabs(cos(angle));
-
-    int newWidth = int(cutimage.rows * sin_val + cutimage.cols * cos_val);
-    int newHeight = int(cutimage.rows * cos_val + cutimage.cols * sin_val);
-
-    // 调整旋转矩阵
-    rot.at<double>(0, 2) += (newWidth - cutimage.cols) / 2.0;
-    rot.at<double>(1, 2) += (newHeight - cutimage.rows) / 2.0;
-
-    warpAffine(cutimage, OutMat, rot, Size(newWidth, newHeight));
-    return true;
-}
 
 void TestOpcv::showImage(Mat destImage){
    displayImage(destImage, ui->label_showimage);
 }
 
-void TestOpcv::wheeltoImage(int wheel)
-{
-   Mat outImage;
-   matImagewheel(ReferenceImage,wheel,outImage);//旋转
-   showImage(outImage);// label 显示图像
-}
+
 
 Rect TestOpcv::findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upperBound)
 {
@@ -301,8 +294,6 @@ void TestOpcv::trayfindImg()
     int grooveWidth = 180;
     Mat grooveRegion = extractGrooveRegion(image, referenceMask, grooveWidth);
 
-    imshow("111",grooveRegion);
-
 
     if (grooveRegion.empty()) {
         QMessageBox::warning(this, "错误", "无法提取凹槽区域");
@@ -335,10 +326,8 @@ void TestOpcv::trayfindImg()
     // 处理凹槽区域并找到试管
     Mat resultImage = findTubeByMultiFeatures(grooveRegion);
 
-    imshow("222",resultImage);
     // 显示中间结果用于调试
     displayImage(resultImage, ui->label_showimage);
-
 
     findTubeopencv(resultImage);
 
@@ -465,26 +454,26 @@ void TestOpcv::markResultsOnOriginalImage(Mat& originalImage, const Point& inter
              Scalar(255, 0, 0), thickness);
 
      // 红细胞高度信息
-     string heightText = "RBC Height: " + to_string(rbcHeight) + " px";
-     putText(originalImage, heightText, Point(10, 30), fontFace, 0.6,
-             Scalar(255, 255, 255), thickness);
+//     string heightText = "RBC Height: " + to_string(rbcHeight) + " px";
+//     putText(originalImage, heightText, Point(10, 30), fontFace, 0.6,
+//             Scalar(255, 255, 255), thickness);
 
-    string heightTextMm = "RBC Height: " + toString(redBloodCellHeightMm, 1) + " mm";
-    putText(originalImage, heightTextMm, Point(10, 60), fontFace, 0.6,
-                 Scalar(255, 255, 255), thickness);
+//    string heightTextMm = "RBC Height: " + toString(redBloodCellHeightMm, 1) + " mm";
+//    putText(originalImage, heightTextMm, Point(10, 60), fontFace, 0.6,
+//                 Scalar(255, 255, 255), thickness);
 
      // 下针深度信息
-     string needleText = "Max Needle Drop: " + toString(maxNeedleDropHeight, 1) + " mm";
-     putText(originalImage, needleText, Point(10, 90), fontFace, 0.6,
-             Scalar(255, 255, 0), thickness);
+//     string needleText = "Max Needle Drop: " + toString(maxNeedleDropHeight, 1) + " mm";
+//     putText(originalImage, needleText, Point(10, 90), fontFace, 0.6,
+//             Scalar(255, 255, 0), thickness);
 
      // 参照物信息
-     if (referenceRect.width > 0) {
-         string refText = "Reference: " + to_string(referenceRect.width) +
-                          "x" + to_string(referenceRect.height) + " px";
-         putText(originalImage, refText, Point(10, 120), fontFace, 0.5,
-                 Scalar(0, 255, 0), 1);
-     }
+//     if (referenceRect.width > 0) {
+//         string refText = "Reference: " + to_string(referenceRect.width) +
+//                          "x" + to_string(referenceRect.height) + " px";
+//         putText(originalImage, refText, Point(10, 120), fontFace, 0.5,
+//                 Scalar(0, 255, 0), 1);
+//     }
 }
 
 void TestOpcv::displayResults()
@@ -504,18 +493,20 @@ void TestOpcv::displayResults()
     // 更新界面信息
     QString infoText = QString("检测完成:\n"
                               "分界面Y坐标: %1 像素\n"
-                              "红细胞高度: %2 像素 (%3 mm)\n"
+                              "红细胞高度(+底部): %2 像素 (%3 mm)\n"
                               "参照物尺寸: %4x%5 像素\n"
                               "下针最大下降高度: %6 mm\n"
                               "参照物到原点距离: %7 mm")
                          .arg(detectedInterface.y)
                          .arg(redBloodCellHeight)
-                         .arg(redBloodCellHeightMm, 0, 'f', 1)
+                         .arg(redBloodCellHeightMm + 5.00, 0, 'f', 2)
                          .arg(referenceObjectRect.width)
                          .arg(referenceObjectRect.height)
                          .arg(maxNeedleDropHeight, 0, 'f', 1)
                          .arg(REFERENCE_TO_NEEDLEBOTTOM, 0, 'f', 1);
 
+    QString redBloodCellHeightMmstr = QString("%1").arg(redBloodCellHeightMm + 5.00, 0, 'f', 2);
+    emit imageoutResult(redBloodCellHeightMmstr);
     ui->label_ratio->setText(infoText);
     ui->label_ratio->setStyleSheet("QLabel { background-color: white; color: black; padding: 5px; }");
 }
@@ -618,41 +609,6 @@ bool TestOpcv::isBottomOverexposed(const Mat& tubeImage, int bottomRegionHeight)
     return isOverexposed;
 }
 
-// 查找多个峰值
-vector<int> TestOpcv::findMultiplePeaks(const vector<double>& gradients, int minDistance) {
-    vector<int> peaks;
-    vector<pair<int, double>> peakCandidates;
-
-    // 寻找所有局部峰值
-    for (int i = 1; i < gradients.size() - 1; i++) {
-        if (gradients[i] > gradients[i-1] && gradients[i] > gradients[i+1] && gradients[i] > 5) {
-            peakCandidates.push_back({i, gradients[i]});
-        }
-    }
-
-    // 按梯度值排序
-    sort(peakCandidates.begin(), peakCandidates.end(),
-         [](const pair<int, double>& a, const pair<int, double>& b) {
-             return a.second > b.second;
-         });
-
-    // 选择不相近的峰值
-    for (const auto& candidate : peakCandidates) {
-        bool tooClose = false;
-        for (int existingPeak : peaks) {
-            if (abs(candidate.first - existingPeak) < minDistance) {
-                tooClose = true;
-                break;
-            }
-        }
-        if (!tooClose) {
-            peaks.push_back(candidate.first);
-        }
-        if (peaks.size() >= 3) break; // 最多取3个峰值
-    }
-
-    return peaks;
-}
 
 // 计算区域对比度
 double TestOpcv::calculateRegionContrast(const Mat& image, int yPosition) {
@@ -989,49 +945,8 @@ string TestOpcv::toString(double value, int precision) {
     return stream.str();
 }
 
-// 备用策略：在非过曝区域寻找最强梯度
-int TestOpcv::findFallbackInterface(const Mat& tubeImage, int bottomStartY) {
-    vector<double> gradients = calculateVerticalGradient(tubeImage);
 
-    // 只考虑非底部区域
-    int maxGradientPos = 0;
-    double maxGradient = 0;
 
-    for (int i = 0; i < bottomStartY && i < gradients.size(); i++) {
-        if (gradients[i] > maxGradient) {
-            maxGradient = gradients[i];
-            maxGradientPos = i;
-        }
-    }
-
-    // 如果找到有效梯度，返回位置
-    if (maxGradient > 10) {
-        return maxGradientPos;
-    }
-
-    // 否则返回中间偏上位置
-    return tubeImage.rows * 0.3;
-}
-// 寻找备选分界面（在当前选择的上方寻找）
-int TestOpcv::findAlternativeInterface(const Mat& tubeImage, int currentPeak) {
-    vector<double> gradients = calculateVerticalGradient(tubeImage);
-
-    // 在当前峰值的上方区域（至少向上50像素）寻找次强梯度
-    int searchStart = max(0, currentPeak - 100);
-    int searchEnd = max(0, currentPeak - 20);
-
-    int bestAltPeak = currentPeak;
-    double bestAltGradient = 0;
-
-    for (int i = searchStart; i < searchEnd; i++) {
-        if (i < gradients.size() && gradients[i] > bestAltGradient) {
-            bestAltGradient = gradients[i];
-            bestAltPeak = i;
-        }
-    }
-
-    return bestAltPeak;
-}
 
 // 计算红细胞区域高度
 int TestOpcv::calculateRedBloodCellHeight(const Mat& tubeImage, int interfaceY) {
@@ -1378,27 +1293,7 @@ bool TestOpcv::isHemolyzed(const Mat& tubeImage, int interfaceY) {
     return isHemolyzed;
 }
 
-//增强暗色红细胞检测
-vector<double> TestOpcv::calculateDarkRegionFeatures(const Mat& tubeImage) {
-    vector<double> darkScores(tubeImage.rows);
-    Mat gray;
-    cvtColor(tubeImage, gray, COLOR_BGR2GRAY);
 
-    for (int y = 0; y < tubeImage.rows; y++) {
-        double darkness = 0;
-        int count = 0;
-
-        for (int x = tubeImage.cols * 0.3; x < tubeImage.cols * 0.7; x++) {
-            // 暗色区域得分更高
-            darkness += (255 - gray.at<uchar>(y, x)) / 255.0;
-            count++;
-        }
-
-        darkScores[y] = (count > 0) ? darkness / count : 0;
-    }
-
-    return darkScores;
-}
 
 
 // 在现有代码基础上增加暗色环境专用特征
@@ -1580,4 +1475,37 @@ bool TestOpcv::isLikelyAirInterface(const Mat& tubeImage, int candidateY) {
 
     // 阈值判断：总分超过6分认为是试管材质界面
     return tubeInterfaceScore > 6.0;
+}
+
+
+
+
+void TestOpcv::handleSycnOpendcvImage(const QString &imagePath){
+    ui->label_ratio->setText("检测就绪:");
+    initshowimg();
+    QFile file(imagePath);
+    if(!file.open(QIODevice::ReadOnly)){
+        QMessageBox::warning(this, "错误", "无法加载图像文件");
+        return;
+    }
+
+    QByteArray imageData = file.readAll();
+    Mat img = imdecode(Mat(1, imageData.size(), CV_8UC1, imageData.data()), IMREAD_COLOR);
+    if (img.empty()) {
+        QMessageBox::warning(this, "错误", "无法解码图像文件");
+        return;
+    }
+
+    imageOrinin = img.clone();
+    displayImage(img, ui->label_showimage);
+
+    // 重置检测结果
+    redBloodCellHeight = 0;
+    detectedInterface = Point(-1, -1);
+    referenceObjectRect = Rect(0,0,0,0);
+    redBloodCellHeightMm = 0.0;
+    maxNeedleDropHeight = 0.0;
+    referenceToBottomDistance = 0.0;
+
+    trayfindImg();
 }

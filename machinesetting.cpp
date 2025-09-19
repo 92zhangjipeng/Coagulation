@@ -68,9 +68,6 @@ MachineSetting::~MachineSetting()
     delete mResultMode;
     mResultMode = nullptr;
 
-    if(m_showOpencvImage)
-       delete m_showOpencvImage;
-    m_showOpencvImage = nullptr;
 
 	m_Performanceverification.reset();
 
@@ -213,7 +210,7 @@ void MachineSetting::_initpara()
 
 void MachineSetting::initSheet()
 {
-    ui->pushButton_opencv->hide();
+
     QFile styleFile(":/Picture/SetPng/wholePushbutton.qss");
     if(styleFile.open(QIODevice::ReadOnly)) {
           m_settButtonQss = QLatin1String(styleFile.readAll());
@@ -228,7 +225,6 @@ void MachineSetting::initSheet()
          {ui->pushButton_maintenance,tr("登录维护(F4)")},
          {ui->pushButtonBloodPinParasave,tr("写入血样针参数")},
          {ui->pushButton_saved,tr("保存试剂针参数")},
-         {ui->pushButton_opencv,tr("测高测试调整")},
          {ui->pushButtonopenSuck,tr("打开负压")},
          {ui->pushButtonsplitAirs,tr("关闭负压")},
          {ui->pushButton_Adjustcoordinates,tr("校准坐标")},
@@ -3083,17 +3079,6 @@ void MachineSetting::handleButtonAction(int moduleIndex, int column)
         executeAction();
     }
 }
-
-
-
-//opencv 测试识别参数阈值调整
-void MachineSetting::on_pushButton_opencv_clicked()
-{
-    if(!m_showOpencvImage)
-        m_showOpencvImage = new TestOpcv();
-    m_showOpencvImage->show();
-}
-
 
 
 //载入性能验证验证

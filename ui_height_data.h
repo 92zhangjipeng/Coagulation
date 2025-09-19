@@ -16,7 +16,6 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
-#include <QtWidgets/QLabel>
 #include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QTableWidget>
 #include <QtWidgets/QToolButton>
@@ -47,7 +46,6 @@ public:
     QSpacerItem *horizontalSpacer_3;
     QWidget *widget_ShowErrImage;
     QHBoxLayout *horizontalLayout_2;
-    QLabel *Imageshow;
 
     void setupUi(QWidget *Height_Data)
     {
@@ -203,22 +201,6 @@ public:
         horizontalLayout_2->setSpacing(5);
         horizontalLayout_2->setObjectName(QStringLiteral("horizontalLayout_2"));
         horizontalLayout_2->setContentsMargins(5, 5, 5, 5);
-        Imageshow = new QLabel(widget_ShowErrImage);
-        Imageshow->setObjectName(QStringLiteral("Imageshow"));
-        Imageshow->setMinimumSize(QSize(340, 590));
-        QFont font2;
-        font2.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
-        font2.setPointSize(22);
-        Imageshow->setFont(font2);
-        Imageshow->setStyleSheet(QLatin1String("border: 1px solid rgba(220,220,220,1);\n"
-"background-color: rgb(188,187,183); \n"
-"border-style: solid;  \n"
-"border-radius:0px;  \n"
-"padding:0 0px; "));
-        Imageshow->setAlignment(Qt::AlignCenter);
-
-        horizontalLayout_2->addWidget(Imageshow);
-
 
         horizontalLayout_3->addWidget(widget_ShowErrImage);
 
@@ -241,7 +223,6 @@ public:
         toolButtonbatchAddTask->setText(QApplication::translate("Height_Data", "...", nullptr));
         toolButton_ok->setText(QApplication::translate("Height_Data", "\344\277\235\345\255\230", nullptr));
         toolButton_Cancel->setText(QApplication::translate("Height_Data", "\345\217\226\346\266\210", nullptr));
-        Imageshow->setText(QString());
     } // retranslateUi
 
 };

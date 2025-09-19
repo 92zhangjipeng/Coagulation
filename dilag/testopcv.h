@@ -1,8 +1,24 @@
 ﻿#ifndef TESTOPCV_H
 #define TESTOPCV_H
 
-#include <QWidget>
+
+#pragma once
+
+// Windows 宏冲突处理
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#undef ACCESS_MASK
+#endif
+
+// 先包含OpenCV头文件
 #include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+
+
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -10,9 +26,12 @@
 #include <iomanip>
 #include <sstream>
 
+
+#include <QWidget>
+
+
 using namespace cv;
 using namespace std;
-
 
 namespace Ui {
 class TestOpcv;
@@ -28,15 +47,16 @@ public:
 
     int getRedBloodCellHeight() const { return redBloodCellHeight; }
 
-private slots:
-    void on_spinBox_valueChanged(int arg1);
+
 
 private:
    void initsignal();
-   void wheeltoImage(int wheel);
+
    void showImage(Mat destImage);
-   bool matImagewheel(cv::Mat cutimage, int degree, cv::Mat &OutMat);
+
    void trayfindImg();
+
+   void initshowimg();
 
    // 图像处理相关方法
    Mat findReferenceObject(Mat& image, Scalar lowerBound, Scalar upperBound);
@@ -48,10 +68,10 @@ private:
    vector<double> calculateVerticalGradient(const Mat& image);
    vector<double> smoothGradient(const vector<double>& gradients, int windowSize = 3);
    bool isBottomOverexposed(const Mat& tubeImage, int bottomRegionHeight = 50);
-   vector<int> findMultiplePeaks(const vector<double>& gradients, int minDistance = 20);
+
    double calculateRegionContrast(const Mat& image, int yPosition);
-   int findFallbackInterface(const Mat& tubeImage, int bottomStartY);
-   int findAlternativeInterface(const Mat& tubeImage, int currentPeak);
+
+
    string toString(double value, int precision);
    int calculateRedBloodCellHeight(const Mat& tubeImage, int interfaceY);
    int findValidBottom(const Mat& tubeImage, int interfaceY);
@@ -72,17 +92,22 @@ private:
    //添加溶血检测和处理
    bool isHemolyzed(const Mat& tubeImage, int interfaceY);
 
-   //增强暗色红细胞检测
-   vector<double> calculateDarkRegionFeatures(const Mat& tubeImage);
-
    // 在现有代码基础上增加暗色环境专用特征
    vector<double> calculateDarkEnvironmentFeatures(const Mat& tubeImage);
 
    // 专门检测分界面附近的微弱颜色变化
    vector<double>calculateInterfaceColorFeatures(const Mat& tubeImage);
 
-    bool isLikelyAirInterface(const Mat& tubeImage, int candidateY);
+   bool isLikelyAirInterface(const Mat& tubeImage, int candidateY);
 
+
+
+signals:
+
+   void imageoutResult(const QString redBloodCellHeigh);
+
+public:
+   void handleSycnOpendcvImage(const QString &imagePath);
 
 private:
     Ui::TestOpcv *ui;

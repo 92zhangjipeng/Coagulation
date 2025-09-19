@@ -13,13 +13,10 @@
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
-#include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QSpacerItem>
-#include <QtWidgets/QSpinBox>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -28,31 +25,61 @@ QT_BEGIN_NAMESPACE
 class Ui_TestOpcv
 {
 public:
-    QGridLayout *gridLayout;
+    QVBoxLayout *verticalLayoutOpencv;
+    QLabel *label_ratio;
+    QWidget *widgetShowImag;
+    QVBoxLayout *verticalLayout;
+    QLabel *label_showimage;
     QWidget *widget_bar;
     QHBoxLayout *horizontalLayout_2;
-    QLabel *label;
-    QSpinBox *spinBox;
-    QSpacerItem *horizontalSpacer;
-    QWidget *widget;
-    QVBoxLayout *verticalLayout;
-    QWidget *widget_2;
-    QGridLayout *gridLayout_2;
     QPushButton *pushButton_loadpath;
     QPushButton *pushButton_test;
-    QPushButton *pushButton_prp;
-    QLabel *label_ratio;
-    QLabel *label_showimage;
 
     void setupUi(QWidget *TestOpcv)
     {
         if (TestOpcv->objectName().isEmpty())
             TestOpcv->setObjectName(QStringLiteral("TestOpcv"));
-        TestOpcv->resize(559, 791);
-        gridLayout = new QGridLayout(TestOpcv);
-        gridLayout->setSpacing(5);
-        gridLayout->setObjectName(QStringLiteral("gridLayout"));
-        gridLayout->setContentsMargins(5, 5, 5, 5);
+        TestOpcv->resize(493, 791);
+        verticalLayoutOpencv = new QVBoxLayout(TestOpcv);
+        verticalLayoutOpencv->setSpacing(5);
+        verticalLayoutOpencv->setObjectName(QStringLiteral("verticalLayoutOpencv"));
+        verticalLayoutOpencv->setContentsMargins(5, 5, 5, 5);
+        label_ratio = new QLabel(TestOpcv);
+        label_ratio->setObjectName(QStringLiteral("label_ratio"));
+        label_ratio->setMinimumSize(QSize(120, 1));
+        label_ratio->setMaximumSize(QSize(16777215, 140));
+        QFont font;
+        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font.setPointSize(12);
+        label_ratio->setFont(font);
+        label_ratio->setFrameShape(QFrame::NoFrame);
+        label_ratio->setAlignment(Qt::AlignHCenter|Qt::AlignTop);
+
+        verticalLayoutOpencv->addWidget(label_ratio);
+
+        widgetShowImag = new QWidget(TestOpcv);
+        widgetShowImag->setObjectName(QStringLiteral("widgetShowImag"));
+        widgetShowImag->setStyleSheet(QLatin1String("QWidget#widgetShowImag{  \n"
+"    border: 1px solid rgba(220,220,220,1);\n"
+"	background-color: rgb(188,187,183);\n"
+"    border-style: solid;  \n"
+"    border-radius:0px;  \n"
+"    padding:0 0px;  	\n"
+"}"));
+        verticalLayout = new QVBoxLayout(widgetShowImag);
+        verticalLayout->setSpacing(5);
+        verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
+        verticalLayout->setContentsMargins(5, 5, 5, 5);
+        label_showimage = new QLabel(widgetShowImag);
+        label_showimage->setObjectName(QStringLiteral("label_showimage"));
+        label_showimage->setFrameShape(QFrame::Box);
+        label_showimage->setAlignment(Qt::AlignCenter);
+
+        verticalLayout->addWidget(label_showimage);
+
+
+        verticalLayoutOpencv->addWidget(widgetShowImag);
+
         widget_bar = new QWidget(TestOpcv);
         widget_bar->setObjectName(QStringLiteral("widget_bar"));
         widget_bar->setMinimumSize(QSize(0, 30));
@@ -61,85 +88,20 @@ public:
         horizontalLayout_2->setSpacing(5);
         horizontalLayout_2->setObjectName(QStringLiteral("horizontalLayout_2"));
         horizontalLayout_2->setContentsMargins(5, 0, 5, 0);
-        label = new QLabel(widget_bar);
-        label->setObjectName(QStringLiteral("label"));
-        label->setMinimumSize(QSize(0, 25));
-        QFont font;
-        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font.setPointSize(12);
-        label->setFont(font);
-
-        horizontalLayout_2->addWidget(label);
-
-        spinBox = new QSpinBox(widget_bar);
-        spinBox->setObjectName(QStringLiteral("spinBox"));
-        spinBox->setMinimumSize(QSize(140, 25));
-        spinBox->setFont(font);
-        spinBox->setAlignment(Qt::AlignCenter);
-        spinBox->setMinimum(-360);
-        spinBox->setMaximum(360);
-        spinBox->setSingleStep(90);
-
-        horizontalLayout_2->addWidget(spinBox);
-
-        horizontalSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        horizontalLayout_2->addItem(horizontalSpacer);
-
-
-        gridLayout->addWidget(widget_bar, 1, 0, 1, 2);
-
-        widget = new QWidget(TestOpcv);
-        widget->setObjectName(QStringLiteral("widget"));
-        verticalLayout = new QVBoxLayout(widget);
-        verticalLayout->setSpacing(5);
-        verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
-        verticalLayout->setContentsMargins(5, 5, 5, 5);
-        widget_2 = new QWidget(widget);
-        widget_2->setObjectName(QStringLiteral("widget_2"));
-        widget_2->setMinimumSize(QSize(0, 90));
-        widget_2->setMaximumSize(QSize(16777215, 200));
-        gridLayout_2 = new QGridLayout(widget_2);
-        gridLayout_2->setObjectName(QStringLiteral("gridLayout_2"));
-        pushButton_loadpath = new QPushButton(widget_2);
+        pushButton_loadpath = new QPushButton(widget_bar);
         pushButton_loadpath->setObjectName(QStringLiteral("pushButton_loadpath"));
         pushButton_loadpath->setMinimumSize(QSize(0, 28));
 
-        gridLayout_2->addWidget(pushButton_loadpath, 0, 0, 1, 1);
+        horizontalLayout_2->addWidget(pushButton_loadpath);
 
-        pushButton_test = new QPushButton(widget_2);
+        pushButton_test = new QPushButton(widget_bar);
         pushButton_test->setObjectName(QStringLiteral("pushButton_test"));
         pushButton_test->setMinimumSize(QSize(0, 28));
 
-        gridLayout_2->addWidget(pushButton_test, 1, 0, 1, 1);
-
-        pushButton_prp = new QPushButton(widget_2);
-        pushButton_prp->setObjectName(QStringLiteral("pushButton_prp"));
-        pushButton_prp->setMinimumSize(QSize(0, 28));
-
-        gridLayout_2->addWidget(pushButton_prp, 2, 0, 1, 1);
-
-        label_ratio = new QLabel(widget_2);
-        label_ratio->setObjectName(QStringLiteral("label_ratio"));
-        label_ratio->setMinimumSize(QSize(120, 1));
-        label_ratio->setMaximumSize(QSize(16777215, 140));
-        label_ratio->setFont(font);
-        label_ratio->setFrameShape(QFrame::NoFrame);
-
-        gridLayout_2->addWidget(label_ratio, 0, 1, 3, 2);
+        horizontalLayout_2->addWidget(pushButton_test);
 
 
-        verticalLayout->addWidget(widget_2);
-
-        label_showimage = new QLabel(widget);
-        label_showimage->setObjectName(QStringLiteral("label_showimage"));
-        label_showimage->setFrameShape(QFrame::Box);
-        label_showimage->setAlignment(Qt::AlignCenter);
-
-        verticalLayout->addWidget(label_showimage);
-
-
-        gridLayout->addWidget(widget, 0, 0, 1, 2);
+        verticalLayoutOpencv->addWidget(widget_bar);
 
 
         retranslateUi(TestOpcv);
@@ -150,12 +112,10 @@ public:
     void retranslateUi(QWidget *TestOpcv)
     {
         TestOpcv->setWindowTitle(QApplication::translate("TestOpcv", "Form", nullptr));
-        label->setText(QApplication::translate("TestOpcv", "\346\227\213\350\275\254\350\247\222\345\272\246:", nullptr));
-        pushButton_loadpath->setText(QApplication::translate("TestOpcv", "\345\257\274\345\205\245\345\233\276\347\211\207", nullptr));
-        pushButton_test->setText(QApplication::translate("TestOpcv", "PushButton", nullptr));
-        pushButton_prp->setText(QApplication::translate("TestOpcv", "PRP\351\230\210\345\200\274", nullptr));
         label_ratio->setText(QString());
         label_showimage->setText(QString());
+        pushButton_loadpath->setText(QApplication::translate("TestOpcv", "\345\257\274\345\205\245\345\233\276\347\211\207", nullptr));
+        pushButton_test->setText(QApplication::translate("TestOpcv", "PushButton", nullptr));
     } // retranslateUi
 
 };

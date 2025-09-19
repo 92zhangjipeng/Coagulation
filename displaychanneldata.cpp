@@ -384,11 +384,16 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
 
     //取PPP固值  
     quint16 channelPPPValue = customPPPValue::getChannelPPPValues(channelIdx);
-    baselinePoor = channelPPPValue;
+    if(channelPPPValue != 0)
+        baselinePoor = channelPPPValue;
 
-    const float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
+    float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
                                                        static_cast<float>(baselineRich),
                                                        static_cast<float>(baselinePoor));
+    if(totalDataPoints == 0){
+        resultValue = 0; //从0起跳
+    }
+
     //获取测试数据的个数
     if(totalDataPoints < NUMBEROFTESTDATA)
     {
