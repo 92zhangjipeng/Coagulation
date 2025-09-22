@@ -1,7 +1,6 @@
 ﻿#ifndef TESTOPCV_H
 #define TESTOPCV_H
 
-
 #pragma once
 
 // Windows 宏冲突处理
@@ -18,20 +17,81 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
-
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <numeric>
 #include <iomanip>
 #include <sstream>
-
+#include <cmath>
 
 #include <QWidget>
 
-
 using namespace cv;
 using namespace std;
+
+
+// 二值化参数结构体
+struct BinaryParameters {
+    // 红色参数
+    int redHMin1 = 0;
+    int redHMax1 = 10;
+    int redHMin2 = 160;
+    int redHMax2 = 180;
+    int redSMin = 70;
+    int redVMin = 50;
+
+    // 暗红色参数
+    int darkRedHMin1 = 0;
+    int darkRedHMax1 = 10;
+    int darkRedHMin2 = 160;
+    int darkRedHMax2 = 180;
+    int darkRedSMin = 50;
+    int darkRedVMin = 30;
+    int darkRedSMax = 180;
+    int darkRedVMax = 150;
+
+    // 黑色参数
+    int blackHMin = 0;
+    int blackHMax = 180;
+    int blackSMax = 255;
+    int blackVMax = 50;
+
+    // 形态学操作参数
+    int morphSize = 5;
+    int morphType = cv::MORPH_ELLIPSE; // 0:矩形, 1:十字, 2:椭圆
+};
+
+
+// 外接矩形结果结构体
+struct BoundingRectResult {
+    double redArea = 0.0;
+    double darkRedArea = 0.0;
+    double blackArea = 0.0;
+
+    double redHeight = 0.0;
+    double darkRedHeight = 0.0;
+    double blackHeight = 0.0;
+
+    cv::Rect redRect;
+    cv::Rect darkRedRect;
+    cv::Rect blackRect;
+
+    bool redFound = false;
+    bool darkRedFound = false;
+    bool blackFound = false;
+};
+
+
+// 最大矩形信息结构体
+struct MaxRectInfo {
+    std::string colorType;  // 颜色类型："Red", "DarkRed", "Black", "None"
+    double area;           // 最大面积
+    double height;         // 矩形高度
+    double top;            // 矩形顶部Y坐标
+    cv::Rect rect;         // 完整的矩形信息
+    bool found;            // 是否找到有效矩形
+};
 
 namespace Ui {
 class TestOpcv;
@@ -45,65 +105,84 @@ public:
     explicit TestOpcv(QWidget *parent = 0);
     ~TestOpcv();
 
-    int getRedBloodCellHeight() const { return redBloodCellHeight; }
-
-
-
 private:
    void initsignal();
-
    void showImage(Mat destImage);
 
-   void trayfindImg();
-
-   void initshowimg();
+   // 颜色评分方法
+   void     trayfindImg();
+   void     initshowimg();
 
    // 图像处理相关方法
-   Mat findReferenceObject(Mat& image, Scalar lowerBound, Scalar upperBound);
-   double calculatePixelToCmRatio(Mat& referenceMask, double realHeightCm);
-   Mat extractGrooveRegion(Mat& image, Mat& referenceMask, int grooveWidth);
-   void findTubeopencv(Mat imageOrinin);
-   Point findPlasmaRBCInterface(const Mat& tubeImage);
-   void drawInterfaceResult(Mat& image, int interfaceY, int rbcHeight);
-   vector<double> calculateVerticalGradient(const Mat& image);
-   vector<double> smoothGradient(const vector<double>& gradients, int windowSize = 3);
-   bool isBottomOverexposed(const Mat& tubeImage, int bottomRegionHeight = 50);
-
-   double calculateRegionContrast(const Mat& image, int yPosition);
+   Mat      findReferenceObject(Mat& image, Scalar lowerBound, Scalar upperBound);
+   double   calculatePixelToCmRatio(Mat& referenceMask, double realHeightCm);
+   Mat      extractGrooveRegion(Mat& image, Mat& referenceMask, int grooveWidth);
 
 
-   string toString(double value, int precision);
-   int calculateRedBloodCellHeight(const Mat& tubeImage, int interfaceY);
-   int findValidBottom(const Mat& tubeImage, int interfaceY);
-   Mat findTubeByMultiFeatures(Mat& inputImage);
+   Mat      findTubeByMultiFeatures(Mat& inputImage);
 
-   // 新增方法：在原图中标记结果
-   void markResultsOnOriginalImage(Mat& originalImage, const Point& interfacePoint, int rbcHeight, const Rect& referenceRect);
-   void displayResults();
-   Rect findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upperBound);
+   // 在原图中标记结果
+   void     markResultsOnOriginalImage(Mat& originalImage, const Point& interfacePoint, int rbcHeight, const Rect& referenceRect);
+   void     displayResults();
+   Rect     findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upperBound);
 
-   // 新增方法：计算实际高度和下针深度
-   void calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels, double pixelToMmRatio);
-   double calculateReferenceToBottomDistance(const Rect& referenceRect);
+   // 计算实际高度和下针深度
+   void     calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels, double pixelToMmRatio);
+   double   calculateReferenceToBottomDistance(const Rect& referenceRect);
 
 
-   // 在 calculateVerticalGradient 方法后添加颜色特征检测
-   vector<double> calculateColorFeatures(const Mat& tubeImage);
-   //添加溶血检测和处理
-   bool isHemolyzed(const Mat& tubeImage, int interfaceY);
+   /**
+    * @brief 带参数的试管图像颜色二值化处理
+    * @param inputImage 输入的试管图像
+    * @param redBinary 输出的红色二值化结果
+    * @param darkRedBinary 输出的暗红色二值化结果
+    * @param blackBinary 输出的黑色二值化结果
+    * @param params 二值化参数配置
+    */
+   void tubeBinaryProcessingWithParams(const cv::Mat& inputImage,
+                                     cv::Mat& redBinary,
+                                     cv::Mat& darkRedBinary,
+                                     cv::Mat& blackBinary,
+                                     const BinaryParameters& params = BinaryParameters());
 
-   // 在现有代码基础上增加暗色环境专用特征
-   vector<double> calculateDarkEnvironmentFeatures(const Mat& tubeImage);
 
-   // 专门检测分界面附近的微弱颜色变化
-   vector<double>calculateInterfaceColorFeatures(const Mat& tubeImage);
+   /**
+    * @brief 计算二值化图像的最大外接矩形面积和高度
+    * @param redBinary 红色二值化图像
+    * @param darkRedBinary 暗红色二值化图像
+    * @param blackBinary 黑色二值化图像
+    * @param minArea 最小面积阈值，小于此面积的轮廓将被忽略
+    * @return BoundingRectResult 包含面积和高度信息的结果结构体
+    */
+   BoundingRectResult calculateMaxBoundingRect(const cv::Mat& redBinary,
+                                             const cv::Mat& darkRedBinary,
+                                             const cv::Mat& blackBinary,
+                                             double minArea = 100.0);
 
-   bool isLikelyAirInterface(const Mat& tubeImage, int candidateY);
+   /**
+    * @brief 在图像上绘制外接矩形并显示结果
+    * @param originalImage 原始图像
+    * @param result 外接矩形结果
+    * @param redBinary 红色二值化图像（用于显示）
+    * @param darkRedBinary 暗红色二值化图像（用于显示）
+    * @param blackBinary 黑色二值化图像（用于显示）
+    */
+   void drawAndDisplayResults(const cv::Mat& originalImage,
+                             const BoundingRectResult& result,
+                             const cv::Mat& redBinary,
+                             const cv::Mat& darkRedBinary,
+                             const cv::Mat& blackBinary);
 
+
+   /**
+    * @brief 从BoundingRectResult中获取最大矩形面积的信息
+    * @param result BoundingRectResult结构体
+    * @return MaxRectInfo 包含最大矩形的详细信息
+    */
+   MaxRectInfo getMaxRectangleInfo(const BoundingRectResult& result);
 
 
 signals:
-
    void imageoutResult(const QString redBloodCellHeigh);
 
 public:
@@ -112,23 +191,18 @@ public:
 private:
     Ui::TestOpcv *ui;
 
-
     Mat imageOrinin;
-    Mat processedImage; // 处理后的图像
-    int redBloodCellHeight; // 红细胞区域高度
-    Point detectedInterface; // 检测到的分界面位置
-    double pixelToMmRatio; // 像素到毫米的比例
-    Rect referenceObjectRect; // 参照物矩形框
+    Mat processedImage;
+    int redBloodCellHeight;
+    Point detectedInterface;
+    double pixelToMmRatio;
+    Rect referenceObjectRect;
 
-    // 新增参数
-    double redBloodCellHeightMm; // 红细胞区域高度（毫米）
-    double maxNeedleDropHeight; // 下针最大下降高度（毫米）
-    double referenceToBottomDistance; // 参照物顶部到原点的距离（毫米）
-    const double REFERENCE_TO_NEEDLEBOTTOM = 49.9; // 参照物顶部到针底部原点的距离（毫米）
+    double redBloodCellHeightMm;
+    double maxNeedleDropHeight;
+    double referenceToBottomDistance;
 
+    std::string maxInfoColor;
 };
 
 #endif // TESTOPCV_H
-
-
-

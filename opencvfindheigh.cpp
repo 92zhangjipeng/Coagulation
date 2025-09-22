@@ -274,7 +274,7 @@ bool opencvfindHeigh::IdentifyRBCHeight(cv::Mat img,double ratioimg,double &Bloo
     cv::Mat kernel_red = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(15,15));
     cv::morphologyEx(combined_mask, combined_mask, cv::MORPH_CLOSE, kernel_red);
 
-    // 垂直投影分析
+    //  合并掩膜 垂直投影分析  动态阈值计算  模式自适应  边界检测
     cv::Mat ver_proj;
     cv::reduce(combined_mask, ver_proj, 1, cv::REDUCE_SUM, CV_32F);
 

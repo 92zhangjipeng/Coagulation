@@ -251,13 +251,14 @@ void displayChanneldata::ChannelDataLinedup(int index ,int ModuleData)
 void displayChanneldata::filteringStyle()
 {
     /*输出模组测试结果*/
-    if(!cglobal::gserialConnecStatus)
+    if(!cglobal::gserialConnecStatus){
         return;
+    }
 
-    // 预分配内存，减少循环中可能的动态分配开销
+    const int filterMode = INI_File().getFilteringMode();
     QVector<int> filteredValues;
     filteredValues.reserve(m_configChannelCount);
-	const int filterMode = INI_File().getFilteringMode();
+
 
     //避免重复获取队列大小，提前缓存队列引用
     for (int i = 0; i < m_configChannelCount; ++i) {
@@ -387,12 +388,9 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
     if(channelPPPValue != 0)
         baselinePoor = channelPPPValue;
 
-    float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
+    const float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
                                                        static_cast<float>(baselineRich),
                                                        static_cast<float>(baselinePoor));
-    if(totalDataPoints == 0){
-        resultValue = 0; //从0起跳
-    }
 
     //获取测试数据的个数
     if(totalDataPoints < NUMBEROFTESTDATA)
