@@ -463,8 +463,8 @@ void opencvfindHeigh::handleTriggerTestHeight()
         capture.open(m_openCameraPosition, cv::CAP_DSHOW);
         if (capture.isOpened()) {
             // 设置摄像头参数（可选）
-            capture.set(cv::CAP_PROP_FRAME_WIDTH, Image_Width);
-            capture.set(cv::CAP_PROP_FRAME_HEIGHT, Image_Height);
+            capture.set(cv::CAP_PROP_FRAME_WIDTH, imageWidth);
+            capture.set(cv::CAP_PROP_FRAME_HEIGHT, imageHeight);
             capture.set(cv::CAP_PROP_FPS, 30); // 设置帧率
             capture.set(cv::CAP_PROP_AUTOFOCUS, 0); // 关闭自动对焦（如果需要）
 
@@ -477,14 +477,14 @@ void opencvfindHeigh::handleTriggerTestHeight()
                         << actualWidth << "x" << actualHeight
                         << "FPS:" << actualFps;
 
-            if (qAbs(actualWidth - Image_Width) > 1 || qAbs(actualHeight - Image_Height) > 1) {
+            if (qAbs(actualWidth - imageWidth) > 1 || qAbs(actualHeight - imageHeight) > 1) {
                 QLOG_WARN() << "分辨率设置不匹配，期望:"
-                            << Image_Width << "x" << Image_Height
+                            << imageWidth << "x" << imageHeight
                             << "实际:" << actualWidth << "x" << actualHeight;
 
             // 尝试重新设置分辨率
-            capture.set(cv::CAP_PROP_FRAME_WIDTH, Image_Width);
-            capture.set(cv::CAP_PROP_FRAME_HEIGHT, Image_Height);
+            capture.set(cv::CAP_PROP_FRAME_WIDTH, imageWidth);
+            capture.set(cv::CAP_PROP_FRAME_HEIGHT, imageHeight);
         }
         isOpened = true;
     } else {

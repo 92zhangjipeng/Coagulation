@@ -39,7 +39,8 @@ public:
     {
         if (TestOpcv->objectName().isEmpty())
             TestOpcv->setObjectName(QStringLiteral("TestOpcv"));
-        TestOpcv->resize(493, 791);
+        TestOpcv->resize(478, 818);
+        TestOpcv->setMaximumSize(QSize(480, 16777215));
         verticalLayoutOpencv = new QVBoxLayout(TestOpcv);
         verticalLayoutOpencv->setSpacing(0);
         verticalLayoutOpencv->setObjectName(QStringLiteral("verticalLayoutOpencv"));
@@ -47,7 +48,7 @@ public:
         label_ratio = new QLabel(TestOpcv);
         label_ratio->setObjectName(QStringLiteral("label_ratio"));
         label_ratio->setMinimumSize(QSize(120, 1));
-        label_ratio->setMaximumSize(QSize(16777215, 150));
+        label_ratio->setMaximumSize(QSize(16777215, 160));
         QFont font;
         font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
         font.setPointSize(12);
@@ -59,6 +60,7 @@ public:
 
         widgetShowImag = new QWidget(TestOpcv);
         widgetShowImag->setObjectName(QStringLiteral("widgetShowImag"));
+        widgetShowImag->setMaximumSize(QSize(480, 640));
         widgetShowImag->setStyleSheet(QLatin1String("QWidget#widgetShowImag{  \n"
 "    border: 1px solid rgba(220,220,220,1);\n"
 "	background-color: rgb(188,187,183);\n"
@@ -83,7 +85,7 @@ public:
         widget_bar = new QWidget(TestOpcv);
         widget_bar->setObjectName(QStringLiteral("widget_bar"));
         widget_bar->setMinimumSize(QSize(0, 30));
-        widget_bar->setMaximumSize(QSize(16777215, 30));
+        widget_bar->setMaximumSize(QSize(480, 30));
         horizontalLayout_2 = new QHBoxLayout(widget_bar);
         horizontalLayout_2->setSpacing(5);
         horizontalLayout_2->setObjectName(QStringLiteral("horizontalLayout_2"));

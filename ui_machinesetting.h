@@ -4457,7 +4457,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(0);
+        tabWidget_config->setCurrentIndex(3);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);

@@ -47,9 +47,6 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
     m_selbloodholetemp.clear();
 
 
-    initLoadOpencvTestImag();
-
-
     //测高模式
     mtestmodebox = new QButtonGroup;
     mtestmodebox->setExclusive(true); //设置是否互斥
@@ -57,13 +54,13 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
     mtestmodebox->addButton(ui->checkBox_plasma,1);
     bool wholeblood = INI_File().GetWholeBloodModel();
     (wholeblood == true)? ui->checkBox_wholeblood->setChecked(true): ui->checkBox_plasma->setChecked(true);
-    connect(mtestmodebox,SIGNAL(buttonClicked(int)),this,SLOT(_clickBloodmode(int)));
+    connect(mtestmodebox,SIGNAL(buttonClicked(int)),this,SLOT(clickBloodmode(int)));
 
     mCreatTime.clear();
 
     InitTablewidget();
 
-
+    initLoadOpencvTestImag();
 
     ui->Sample_Data_tablewidget->setContextMenuPolicy(Qt::CustomContextMenu);
 
@@ -144,14 +141,19 @@ bool Height_Data::eventFilter(QObject *obj, QEvent *event)
     return false;
 }
 
-void  Height_Data::_clickBloodmode(int clickid_)
+void  Height_Data::clickBloodmode(int clickid)
 {
-    bool wholeBloodmodel = false;
-    QCheckBox *btn = qobject_cast<QCheckBox*> (mtestmodebox->button(clickid_));
+    auto &ini = INI_File();
+    QWidget* pshowImage = ui->widget_ShowErrImage;
+    QCheckBox *btn = qobject_cast<QCheckBox*> (mtestmodebox->button(clickid));
     btn->setChecked(true);
-    (clickid_ == 0)? wholeBloodmodel = true : wholeBloodmodel = false;
-    INI_File().SetWholeBloodModel(wholeBloodmodel);
-    return;
+    if(clickid == 0){
+        ini.SetWholeBloodModel(true);
+        pshowImage->show();
+    } else{
+         ini.SetWholeBloodModel(false);
+         pshowImage->hide();
+    }
 }
 
 void  Height_Data::initcreat()
@@ -1694,6 +1696,8 @@ void Height_Data::initLoadOpencvTestImag(){
 
     // 启动线程
     m_workerThread->start();
+    const bool prpMode = INI_File().GetWholeBloodModel();
+    (prpMode)? ui->widget_ShowErrImage->show() : ui->widget_ShowErrImage->hide();
 }
 
 void Height_Data::cleanupThread()

@@ -60,6 +60,14 @@ TestOpcv::~TestOpcv()
     delete ui;
 }
 
+void debugImshow(std::string name,Mat & image){
+    cv::namedWindow(name, cv::WINDOW_NORMAL);
+    // 设置窗口大小（宽度、高度）
+    cv::resizeWindow(name, 120, 640);
+    // 显示图像
+    cv::imshow(name, image);
+}
+
 void TestOpcv::initshowimg()
 {
     QFont font;
@@ -252,7 +260,7 @@ Mat TestOpcv::extractGrooveRegion(Mat& image, Mat& referenceMask, int grooveWidt
         });
 
     Rect refRect = cv::boundingRect(*largestContour);
-    int grooveX = refRect.x + refRect.width + 45;
+    int grooveX = refRect.x + refRect.width + 40;
     int grooveY = 0;
     int grooveHeight = image.rows;
 
@@ -299,7 +307,7 @@ void TestOpcv::markResultsOnOriginalImage(Mat& originalImage, const Point& inter
              Scalar(255, 0, 0), thickness);
 }
 
-void TestOpcv::displayResults()
+void TestOpcv::displayResults(const double& khemolysisIndex)
 {
     if (processedImage.empty() || detectedInterface.y < 0) {
        QMessageBox::warning(this, "错误", "未找到有效结果");
@@ -315,25 +323,27 @@ void TestOpcv::displayResults()
    QString infoText = QString(
            "<div style='color: black;'>"
            "检测完成:<br>"
-           "红细胞topY坐标: %1 像素<br>"
-           "红细胞高度(+底部): %2 像素 (%3 mm)<br>"
-           "图例比: %4 像素/毫米<br>"
-           "血样针下降触碰到红细胞高度: %5 mm<br>"
-           "血样针物理原点高度距离: %6 mm"
+           "溶血指数: %1 像素<br>"
+           "红细胞topY坐标: %2 像素<br>"
+           "红细胞高度: %3 像素 (%4 mm)<br>"
+           "图例比: %5 像素/毫米<br>"
+           "血样针下降触碰到红细胞高度: %6 mm<br>"
+           "血样针物理原点高度距离: %7 mm"
            "</div>")
+           .arg(khemolysisIndex)
            .arg(detectedInterface.y)
            .arg(redBloodCellHeight)
-           .arg(redBloodCellHeightMm + 5.00, 0, 'f', 2)
+           .arg(redBloodCellHeightMm, 0, 'f', 2)
            .arg(pixelToMmRatio)
            .arg(maxNeedleDropHeight, 0, 'f', 1)
            .arg(INI_File().GetFixedHigh(), 0, 'f', 1);
 
    // 如果识别到的颜色类型是黑色，添加红色警告文字
    if (maxInfoColor == "Black") {
-       infoText += QString("<div style='color: red; font-weight: bold; margin-top: 5px;'>请检查PRP是否溶血</div>");
+       infoText += QString("<div style='color: red; font-weight: bold; margin-top: 5px;'>请检查血细胞有压积层</div>");
    }
 
-   QString redBloodCellHeightMmstr = QString("%1").arg(redBloodCellHeightMm + 5.00, 0, 'f', 2);
+   QString redBloodCellHeightMmstr = QString("%1").arg(redBloodCellHeightMm, 0, 'f', 2);
    emit imageoutResult(redBloodCellHeightMmstr);
 
    // 启用富文本显示
@@ -372,11 +382,11 @@ void TestOpcv::displayResults()
 
 
 // 计算轮廓的U型多特征融合的精确定位
-Mat TestOpcv::findTubeByMultiFeatures(Mat& inputImage) {
+Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
     Mat result;
     inputImage.copyTo(result);
 
-    // 1. 环境检测和预处理
+    //环境检测和预处理
     Mat grayEnv;
     cvtColor(inputImage, grayEnv, COLOR_BGR2GRAY);
     Scalar meanBrightness = mean(grayEnv);
@@ -391,8 +401,12 @@ Mat TestOpcv::findTubeByMultiFeatures(Mat& inputImage) {
         enhanced = inputImage.clone();
     }
 
+    debugImshow("0",enhanced);
+
     Mat gray;
     cvtColor(enhanced, gray, COLOR_BGR2GRAY);
+
+    debugImshow("1",gray);
 
     // 2. 专门检测白色凹槽区域并排除
     Mat whiteMask;
@@ -401,6 +415,8 @@ Mat TestOpcv::findTubeByMultiFeatures(Mat& inputImage) {
     Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
     morphologyEx(whiteMask, whiteMask, MORPH_CLOSE, kernel);
     morphologyEx(whiteMask, whiteMask, MORPH_OPEN, kernel);
+
+    debugImshow("2",whiteMask);
 
     // 3. 分析白色区域的位置特征
     vector<vector<Point>> whiteContours;
@@ -442,6 +458,8 @@ Mat TestOpcv::findTubeByMultiFeatures(Mat& inputImage) {
         }
     }
 
+   debugImshow("3",result);
+
     // 如果没有检测到边缘，使用默认宽度
     if (leftEdge >= rightEdge) {
         leftEdge =  static_cast<int>(inputImage.cols * 0.1);
@@ -456,6 +474,8 @@ Mat TestOpcv::findTubeByMultiFeatures(Mat& inputImage) {
     blur(gray, background, Size(31, 31));
     Mat difference;
     absdiff(gray, background, difference);
+
+    debugImshow("4",difference);
 
     // 在白色凹槽区域将特征值设为零
     if (whiteBottomY != -1) {
@@ -831,11 +851,54 @@ BoundingRectResult TestOpcv::calculateMaxBoundingRect(const cv::Mat& redBinary,
                 });
 
             double area = cv::contourArea(maxBlackContour);
-            if (area >= minArea) {
+            cv::Rect bbox = cv::boundingRect(maxBlackContour);
+
+            // 检查是否应该舍弃该轮廓
+            bool shouldDiscard = false;
+
+            // 检查是否在图像底部（假设底部定义为图像高度的95%以下）
+            double bottomThreshold = blackBinary.rows * 0.95;
+            if (bbox.y + bbox.height > bottomThreshold) {
+                shouldDiscard = true;
+            }
+
+            // 检查宽度是否大于高度
+           if (bbox.width > bbox.height) {
+               shouldDiscard = true;
+           }
+
+
+            if (area >= minArea && !shouldDiscard) {
                 result.blackRect = cv::boundingRect(maxBlackContour);
                 result.blackArea = area;
                 result.blackHeight = result.blackRect.height;
                 result.blackFound = true;
+            } else {
+                // 如果需要，可以在这里添加逻辑来寻找下一个符合条件的轮廓
+                // 例如，遍历所有轮廓，找到第一个满足条件的
+                for (const auto& contour : blackContours) {
+                    area = cv::contourArea(contour);
+                    if (area < minArea) continue;
+
+                    bbox = cv::boundingRect(contour);
+
+                    // 检查是否应该舍弃
+                    shouldDiscard = false;
+                    if (bbox.y + bbox.height > bottomThreshold) {
+                        shouldDiscard = true;
+                    }
+                    if (bbox.width > bbox.height) {
+                        shouldDiscard = true;
+                    }
+
+                    if (!shouldDiscard) {
+                        result.blackRect = bbox;
+                        result.blackArea = area;
+                        result.blackHeight = result.blackRect.height;
+                        result.blackFound = true;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -1004,8 +1067,7 @@ void TestOpcv::trayfindImg()
         return;
     }
 
-    // 处理凹槽区域并找到试管
-    Mat resultImage = findTubeByMultiFeatures(grooveRegion);
+
 
     // 创建自定义参数
     BinaryParameters params;
@@ -1015,33 +1077,119 @@ void TestOpcv::trayfindImg()
     params.blackVMax = 40;      // 降低黑色最大亮度
     params.morphSize = 3;       // 使用较小的形态学核
 
-     /** 在试管内找分界层**/
-    cv::Mat redBinary, darkRedBinary, blackBinary;
-    tubeBinaryProcessingWithParams(resultImage, redBinary, darkRedBinary, blackBinary, params);
+
+    //在凹槽带试管区域识别出试管的宽度
+    cv::Mat redBinarytmp, darkRedBinarytmp, blackBinarytmp;
+    tubeBinaryProcessingWithParams(grooveRegion, redBinarytmp, darkRedBinarytmp, blackBinarytmp, params);
 
     // 计算外接矩形
-    BoundingRectResult result = calculateMaxBoundingRect(redBinary, darkRedBinary, blackBinary, 50.0);
+    BoundingRectResult resulttmp = calculateMaxBoundingRect(redBinarytmp, darkRedBinarytmp, blackBinarytmp, 100.0);
 
-    // 绘制并显示结果
-    //drawAndDisplayResults(resultImage, result, redBinary, darkRedBinary, blackBinary);
-    // 显示结果
-    //cv::imshow("Original", resultImage);
-    //cv::imshow("Red Binary", redBinary);
-    //cv::imshow("Dark Red Binary", darkRedBinary);
-    //cv::imshow("Black Binary", blackBinary);
+    MaxRectInfo maxInfotmp = getMaxRectangleInfo(resulttmp);
 
-    // 获取最大矩形信息
-    MaxRectInfo maxInfo = getMaxRectangleInfo(result);
-
+    Mat testTubeMat = IdentifyWidthOfTheTestTube(grooveRegion,
+                                                 static_cast<double>(maxInfotmp.rect.x)   ,
+                                                 static_cast<double>(maxInfotmp.rect.width));
     // 计算下针参数
-    detectedInterface = Point(0, maxInfo.top);
-    redBloodCellHeight = maxInfo.height;
-    maxInfoColor = maxInfo.colorType;
+    detectedInterface = Point(0, maxInfotmp.top);
+    redBloodCellHeight = maxInfotmp.height;
+    maxInfoColor = maxInfotmp.colorType;
     calculateNeedleDropParameters(detectedInterface.y,redBloodCellHeight, pixelToMmRatio);
 
     // 显示最终结果
-    processedImage = resultImage.clone();
-    displayResults();
+    processedImage = testTubeMat.clone();
+
+    //检查PRP 也就是血浆状态离心后的血浆正常情况下应该是
+    //淡黄色、清澈透明的。如果出现泛红（呈淡红色、粉红色或洗肉水样），这确实是一个异常现象，需要引起注意。
+    //医学检验上被称为 “溶血”
+    InspectionResult resultPrp = inspectPRP(testTubeMat,static_cast<double>(maxInfotmp.top));
+
+    displayResults(resultPrp.hemolysisIndex);
+
     return;
+
+    // 处理凹槽区域并找到试管
+//    Mat resultImage = testTubeMat; //findTubeByMultiFeatures(grooveRegion);
 }
 
+Mat TestOpcv::IdentifyWidthOfTheTestTube(Mat & grooveTube,const double &left,const double& widthpx){
+    // 截取试管区域（保持原始高度）
+     Rect tubeROI(left, 0, widthpx, grooveTube.rows);
+     Mat testTubeMat = grooveTube(tubeROI).clone();
+     return testTubeMat;
+}
+
+
+
+InspectionResult TestOpcv::inspectPRP(const Mat &testTubeImage, double topRegionRatio)
+{
+    InspectionResult result;
+
+    // 提取顶部区域（从topRegionRatio位置向上50PX）
+    int height = testTubeImage.rows;
+    int width = testTubeImage.cols;
+
+    // 计算顶分层处 处朝上试管口40px
+    int startY = max(0,static_cast<int>(topRegionRatio - 100));
+    int regionHeight =  startY + 70;
+    // 确保区域高度有效
+    if (regionHeight >= height) {
+        result.result = "InvalidRegion";
+        result.confidence = 0.0;
+        return result;
+    }
+
+    Rect topRegion(0, startY , width, 70); //留了30
+    Mat topRegionMat = testTubeImage(topRegion);
+
+    // 转换到HSV颜色空间
+    Mat hsvImg;
+    cvtColor(topRegionMat, hsvImg, COLOR_BGR2HSV);
+
+    // 高斯模糊去噪
+    Mat blurredImg;
+    GaussianBlur(hsvImg, blurredImg, Size(5, 5), 0);
+
+    // 创建红色掩膜
+    Mat maskRed1, maskRed2, redMask;
+    inRange(blurredImg,
+            Scalar(m_lowerRed1.lowH, m_lowerRed1.lowS, m_lowerRed1.lowV),
+            Scalar(m_lowerRed1.highH, m_lowerRed1.highS, m_lowerRed1.highV),
+            maskRed1);
+
+    inRange(blurredImg,
+            Scalar(m_lowerRed2.lowH, m_lowerRed2.lowS, m_lowerRed2.lowV),
+            Scalar(m_lowerRed2.highH, m_lowerRed2.highS, m_lowerRed2.highV),
+            maskRed2);
+
+    bitwise_or(maskRed1, maskRed2, redMask);
+
+    // 计算红色像素比例
+    int totalPixels = static_cast<int>( redMask.total());
+    int redPixels = countNonZero(redMask);
+    double redRatio = static_cast<double>(redPixels) / totalPixels;
+
+    // 计算平均HSV值
+    Scalar meanHSV = mean(blurredImg);
+    double avgH = meanHSV[0];
+    double avgS = meanHSV[1];
+    double avgV = meanHSV[2];
+
+    // 保存HSV值到QMap
+    result.topRegionHSV["h"] = avgH;
+    result.topRegionHSV["s"] = avgS;
+    result.topRegionHSV["v"] = avgV;
+
+    // 决策逻辑
+    if (redRatio > m_hemolysisThreshold) {
+        result.result = "Hemolyzed";
+        result.confidence = qMin(redRatio * 5, 1.0);
+    } else {
+        result.result = "Normal";
+        result.confidence = 1.0 - redRatio;
+    }
+
+    result.hemolysisIndex = redRatio;
+
+    return result;
+}

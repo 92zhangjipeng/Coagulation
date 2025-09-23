@@ -103,8 +103,8 @@ private:
    int  m_openCameraPosition;
 
 
-   const int Image_Width =  480;
-   const int Image_Height = 640;
+   const int imageWidth =  480;
+   const int imageHeight = 640;
 };
 
 #endif // OPENCVFINDHEIGH_H

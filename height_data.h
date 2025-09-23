@@ -123,7 +123,7 @@ private slots:
     void    sortByColumn(int); //点击表头
     void    on_toolButton_Cancel_clicked();
     bool    TheSameBloodHole(); //添加样本时有相同贫血孔号？
-    void    _clickBloodmode(int);
+    void    clickBloodmode(int clickid);
     void    on_Sample_Data_tablewidget_customContextMenuRequested(const QPoint &);
     void    AF_DATA_REQUEST(QVariant sampleiddata);
 

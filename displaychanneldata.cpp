@@ -16,22 +16,22 @@
 QMutex m_mutex;
 
 displayChanneldata::displayChanneldata(QObject *parent) : QObject(parent)
-    ,m_AllModulAccept(false)
+    ,m_allModulesAccepted(false)
     ,m_configChannelCount(0)
+    ,m_experimenttestData(false)
     ,m_prevPRPn(0.0f)
 {
-    moveToThread(&m_thread);
+    moveToThread(&m_workerThread);
     sentSamples.clear();
 
-    connect(&m_thread,&QThread::started,
-            this,&displayChanneldata::_startthread);
+    connect(&m_workerThread,&QThread::started,this,&displayChanneldata::startthread);
 }
 
 displayChanneldata::~displayChanneldata()
 {
-    if(m_thread.isRunning()){
-        m_thread.quit();
-        m_thread.wait();
+    if(m_workerThread.isRunning()){
+        m_workerThread.quit();
+        m_workerThread.wait();
     }
     if(m_timerThread){
         m_timerThread->stopThread();
@@ -39,14 +39,14 @@ displayChanneldata::~displayChanneldata()
     QLOG_TRACE()<<"析构解析模组数据线程Id:"<<QThread::currentThreadId();
 }
 
-void displayChanneldata::_start()
+void displayChanneldata::startModuleData()
 {
-    if(!m_thread.isRunning()){
-        m_thread.start();
+    if(!m_workerThread.isRunning()){
+        m_workerThread.start();
     }
 }
 
-void displayChanneldata::_startthread()
+void displayChanneldata::startthread()
 {
     QLOG_TRACE()<<"模组数据采集线程Id:"<<QThread::currentThreadId();
 
@@ -86,8 +86,7 @@ void displayChanneldata::_startthread()
 
 
 // 新增数据处理函数
-void displayChanneldata::processChannelData(int moduleIndex,
-                                            const std::array<int, FOUR_CHANNELS_PERMODULE>& data,
+void displayChanneldata::processChannelData(int moduleIndex,const std::array<int, FOUR_CHANNELS_PERMODULE>& data,
                                             const  QStringList &receiveOriginalData)
 {
     const int baseChannel = (moduleIndex - MODULE_1) * FOUR_CHANNELS_PERMODULE;
@@ -103,8 +102,8 @@ void displayChanneldata::processChannelData(int moduleIndex,
     }
 
     // 初始化逻辑优化
-    if (!m_AllModulAccept) {
-        initializeOneTimeChannelUpdate(m_AllModulAccept);
+    if (!m_allModulesAccepted) {
+        initializeOneTimeChannelUpdate(m_allModulesAccepted);
     }
 }
 
@@ -189,18 +188,16 @@ void displayChanneldata::initializeOneTimeChannelUpdate(bool& allChannelsReceive
         }
     }
 
-
     // 定时器线程安全初始化
     static QBasicMutex timerMutex;
     QMutexLocker locker(&timerMutex);
 
     if (!m_timerThread) {
         try {
-            m_timerThread.reset(new QTimerThread(1));
 
+            m_timerThread.reset(new QTimerThread(1));
             // 获取原始指针用于Qt信号连接
             QTimerThread* timerRawPtr = m_timerThread.get();
-
             timerRawPtr->createItem();
             timerRawPtr->startMultThread();
 
@@ -251,14 +248,13 @@ void displayChanneldata::ChannelDataLinedup(int index ,int ModuleData)
 void displayChanneldata::filteringStyle()
 {
     /*输出模组测试结果*/
-    if(!cglobal::gserialConnecStatus){
+    if(!cglobal::gserialConnecStatus)
         return;
-    }
 
-    const int filterMode = INI_File().getFilteringMode();
+    // 预分配内存，减少循环中可能的动态分配开销
     QVector<int> filteredValues;
     filteredValues.reserve(m_configChannelCount);
-
+	const int filterMode = INI_File().getFilteringMode();
 
     //避免重复获取队列大小，提前缓存队列引用
     for (int i = 0; i < m_configChannelCount; ++i) {
@@ -282,7 +278,7 @@ void displayChanneldata::filteringStyle()
         int result = 0;
         switch (filterMode) {
             case FILTER_NO:             result =  RecvData.last();                   break;
-            case FILTER_AVERAGE_VALUE:  result =  Medianaveragefiltering(RecvData);  break;
+            case FILTER_AVERAGE_VALUE:  result =  Medianaveragefiltering(RecvData,i);  break;
             case FILTER_MIDVALUE:       result =  optimizedMedianFiltering(RecvData);break;
             case MEDIAN_EWMA_DYNAMIC:   result =  MedianEWMADynamicAdaptiveFilter(RecvData); break;
             default:
@@ -407,6 +403,7 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
     }
     else if(totalDataPoints == NUMBEROFTESTDATA)
     {
+        m_experimenttestData = false; //原始数据测试
         //试剂测试标志 true
         bool ishadTestErr = sentSamples.contains(sampleNum);
         StructInstance::getInstance()->setupOneReagentsIsComplete(sampleNum,reagentIndex,ishadTestErr);
@@ -608,6 +605,7 @@ void displayChanneldata::slotgetAnemiaValue()
 {
     int sampleid = 0;
     quint8 testChnindex = 0;
+    m_experimenttestData = true; //实验测试数据
     sampleid = StructInstance::getInstance()->ClipEndGetAnemiaValeChn(testChnindex,
                                                 FOCUS_CLIP_ANEMIA_TO_CHN,"准备读取贫血值");
     const int testingChannel = testChnindex + 1;
@@ -668,19 +666,39 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,const quint8 ind
 }
 
 
-//中位值平均滤波法
-int displayChanneldata::Medianaveragefiltering(QVector<int> RecvData)
+//中位值平均滤波（又称防脉冲干扰平均滤波） 移除极值后求平均
+int displayChanneldata::Medianaveragefiltering(QVector<int> recvData,const int channel)
 {
-    if (RecvData.size() <= 2) {
-        return std::accumulate(RecvData.begin(), RecvData.end(), 0) / std::max(1, RecvData.size());
+    const int size = recvData.size();
+
+    if (size <= 2) {
+        return std::accumulate(recvData.begin(), recvData.end(), 0) / std::max(1, size);
+    }
+    int result = 0;
+    // 使用 std::nth_element 高效找到最大值和最小值
+    QVector<int> tempData = recvData;
+    auto first = tempData.begin();
+    auto last = tempData.end();
+
+    // 找到最小值（放在第一个位置）
+    std::nth_element(first, first, last);
+    // 找到最大值（放在最后一个位置）
+    std::nth_element(first, last - 1, last);
+
+    // 移除首尾（最小值和最大值）
+    tempData.removeFirst();
+    tempData.removeLast();
+
+    const double sum = std::accumulate(tempData.begin(), tempData.end(), 0.0);
+    result = static_cast<int>(sum / tempData.size());
+
+    // 检查是否启用实验模式 从开始读取PPP开始
+    if (INI_File().getexperimentalMode() && m_experimenttestData) {
+        QString fileName = QString("%1%2.csv").arg("Medianaveragefilter").arg(channel);
+        saveFilterDataToCSV(recvData, result, fileName, QCoreApplication::applicationDirPath());
     }
 
-    int maxValue = *std::max_element(RecvData.begin(), RecvData.end());
-    int minValue = *std::min_element(RecvData.begin(), RecvData.end());
-    RecvData.removeOne(maxValue);
-    RecvData.removeOne(minValue);
-    const double sum = std::accumulate(RecvData.begin(), RecvData.end(), 0.0);
-    return static_cast<int>(sum / RecvData.size());
+    return result;
 }
 
 
@@ -818,3 +836,43 @@ int displayChanneldata::MedianEWMADynamicAdaptiveFilter(const QVector<int>& intV
     return static_cast<int>(std::round(outResult));
 }
 
+
+
+void displayChanneldata::saveFilterDataToCSV(const QVector<int>& data, int result,
+                                              const QString& filename,const QString& path )
+{
+    static QMap<QString, bool> firstTimeMap; // 为每个文件维护首次运行状态
+
+    QString filePath = path + "/" + filename;
+    bool isFirstTime = !firstTimeMap.contains(filePath) || firstTimeMap[filePath];
+
+    QFile file(filePath);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&file);
+
+        // 写入表头（第一次运行时）
+        if (isFirstTime) {
+            out << "Timestamp,";
+            for (int i = 0; i < data.size(); ++i) {
+                out << "RawData_" << i;
+                if (i < data.size() - 1) out << ",";
+            }
+            out << ",FilteredResult\n";
+            firstTimeMap[filePath] = false;
+        }
+
+        // 写入时间戳
+        out << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << ",";
+
+        // 写入所有原始数据
+        for (int i = 0; i < data.size(); ++i) {
+            out << data[i];
+            if (i < data.size() - 1) out << ",";
+        }
+
+        // 写入滤波结果
+        out << "," << result << "\n";
+
+        file.close();
+    }
+}

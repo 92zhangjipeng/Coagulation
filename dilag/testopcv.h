@@ -25,6 +25,8 @@
 #include <sstream>
 #include <cmath>
 
+#include <QMap>
+#include <QVariantMap>
 #include <QWidget>
 
 using namespace cv;
@@ -93,6 +95,31 @@ struct MaxRectInfo {
     bool found;            // 是否找到有效矩形
 };
 
+
+// 检测结果结构体
+struct InspectionResult {
+    QString result;          // "Normal", "Hemolyzed", "Error"
+    double confidence;       // 置信度 0-1
+    double hemolysisIndex;   // 溶血指数
+    QMap<QString, double> topRegionHSV; // 顶部区域HSV值
+
+    // 转换为QVariantMap便于使用
+    QVariantMap toVariantMap() const {
+        QVariantMap map;
+        map["result"] = result;
+        map["confidence"] = confidence;
+        map["hemolysis_index"] = hemolysisIndex;
+
+        QVariantMap hsvMap;
+        hsvMap["h"] = topRegionHSV.value("h", 0.0);
+        hsvMap["s"] = topRegionHSV.value("s", 0.0);
+        hsvMap["v"] = topRegionHSV.value("v", 0.0);
+        map["top_region_hsv"] = hsvMap;
+
+        return map;
+    }
+};
+
 namespace Ui {
 class TestOpcv;
 }
@@ -119,11 +146,17 @@ private:
    Mat      extractGrooveRegion(Mat& image, Mat& referenceMask, int grooveWidth);
 
 
+
+
+
+
+
+
    Mat      findTubeByMultiFeatures(Mat& inputImage);
 
    // 在原图中标记结果
    void     markResultsOnOriginalImage(Mat& originalImage, const Point& interfacePoint, int rbcHeight, const Rect& referenceRect);
-   void     displayResults();
+   void     displayResults(const double &khemolysisIndex);
    Rect     findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upperBound);
 
    // 计算实际高度和下针深度
@@ -181,6 +214,10 @@ private:
     */
    MaxRectInfo getMaxRectangleInfo(const BoundingRectResult& result);
 
+   Mat IdentifyWidthOfTheTestTube(Mat & grooveTube, const double &left, const double& widthpx);
+
+   InspectionResult inspectPRP(const Mat &testTubeImage, double topRegionRatio);
+
 
 signals:
    void imageoutResult(const QString redBloodCellHeigh);
@@ -203,6 +240,19 @@ private:
     double referenceToBottomDistance;
 
     std::string maxInfoColor;
+
+
+    // HSV颜色范围定义
+    struct ColorRange {
+        int lowH, highH;
+        int lowS, highS;
+        int lowV, highV;
+    };
+
+    ColorRange m_lowerRed1{0, 15, 20, 255, 50, 255};
+    ColorRange m_lowerRed2{165, 180, 20, 255, 50, 255};
+    double m_hemolysisThreshold{0.01}; // 溶血阈值2%
+
 };
 
 #endif // TESTOPCV_H

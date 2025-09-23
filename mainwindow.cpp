@@ -2896,7 +2896,7 @@ void MainWindow::slotbootInitCleanFinished()
 
     creatbeginreadmodule();//开始读取模组线程数据
 
-    mshowModuledata.data()->_start();//开启接收模组数据线程
+    mshowModuledata.data()->startModuleData();//开启接收模组数据线程
 
     QLOG_DEBUG()<<"清洗初始化完成[开始读取 主板命令- 模组- 接收模组数据]"<<endl;
 
