@@ -18,6 +18,7 @@
 #include  <QPair>
 #include  <QScreen>         // 包含QScreen头文件
 #include  <QGuiApplication> // 包含QGuiApplication头文件
+#include <suoweiFileManager/filemanager.h>
 
 
 
@@ -602,17 +603,17 @@ void MainWindow::initmainboradthread()
                      mainBoardData,&mainControlBoardProtocol::recvmainControlBoardProtocol,
                      Qt::QueuedConnection);
 
-    QObject::connect(mainBoardData,&mainControlBoardProtocol::_normaloper,
+    QObject::connect(mainBoardData,&mainControlBoardProtocol::normaloper,
                      this,[this](quint8 index){
         handleNormalOperation(index);
     });
 
     //废液、外部清洗液弹出提示后在信息栏提醒信号连接
-    QObject::connect(mainBoardData, &mainControlBoardProtocol::_reminderErrorInfo,
+    QObject::connect(mainBoardData, &mainControlBoardProtocol::reminderErrorInfo,
                      this, &MainWindow::handleErrorNotification);
     // 验证信号签名是否匹配
     static_assert(
-        QtPrivate::FunctionPointer<decltype(&mainControlBoardProtocol::_reminderErrorInfo)
+        QtPrivate::FunctionPointer<decltype(&mainControlBoardProtocol::reminderErrorInfo)
                 >::ArgumentCount == 2,
         "Signal signature mismatch!"
     );
@@ -1837,9 +1838,35 @@ void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagen
         }
     });
 
-    QLOG_TRACE() << "刷卡有效期" << datetime;
+    saveWritingconsumablebatchnumber(indexReagent,datetime);
     mReminder->show();
 }
+
+
+
+//保存写入耗材批号信息
+void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,quint16 batchDateNum){
+    QString databatch = QString::number(batchDateNum);
+
+    FileManager fileManager;
+    const QString filefolder = "ConsumableBatchNumber";
+    const QString consumableName = GenericFunctions::BiteMapingConsumablesName(indexConsu) +".txt";//耗材类型
+
+    // 创建配置文件夹和文件
+    if (fileManager.createDataFile(filefolder, consumableName, "")) {
+        QLOG_DEBUG() << "文件创建成功"<<consumableName;
+        // 追加数据
+        if(fileManager.appendToFile(filefolder, consumableName, databatch)){
+            QLOG_DEBUG() << "批号数据写入成功:" << databatch;
+        } else{
+            QLOG_DEBUG() << "批号数据写入失败:" << databatch;
+        }
+    }else {
+        QLOG_ERROR() << "文件创建失败:" << consumableName;
+    }
+}
+
+
 
 //提示文字，刷卡试剂、刷卡值
 void MainWindow::handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle)
@@ -3322,7 +3349,6 @@ void MainWindow::handleoutErrInfo(const QString titles,const QString errStr){
 
 
 
-
 /**   更新主界面状态栏模组温度
  * @brief MainWindow::recvModuleTemperature
  * @param IndexMode
@@ -3375,6 +3401,11 @@ void MainWindow::updateTemperatureDisplay(quint8 moduleIndex, const QString& dis
     //QLOG_DEBUG() << "模块" << moduleIndex << "温度更新:" << tempValue << "°C";
 }
 
+
+
+
+
+
 void MainWindow::setTemperatureColorSafe(QLabel* label, double temperature)
 {
     // 可以根据温度值动态调整字号
@@ -3399,6 +3430,7 @@ void MainWindow::setTemperatureColorSafe(QLabel* label, double temperature)
    }
 }
 
+
 QString MainWindow::getTemperatureColor(double temperature)
 {
     if (temperature < 35.0) return "blue";
@@ -3416,6 +3448,11 @@ int MainWindow::getFontSizeForTemperature(double temperature)
     }
     return 16; // 正常温度，标准大字
 }
+
+
+
+
+
 
 /**  触发测高信号
  * @brief MainWindow::recvTriggerAltimetrySignal
@@ -3444,6 +3481,8 @@ void MainWindow::recvTriggerAltimetrySignal()
    triggerHeightMeasurement();
 
 }
+
+
 bool MainWindow::isWholeBloodMode()
 {
     bool isWholeBlood = INI_File().GetWholeBloodModel();
@@ -3452,6 +3491,8 @@ bool MainWindow::isWholeBloodMode()
     }
     return isWholeBlood;
 }
+
+
 void MainWindow::handleNonWholeBloodMode()
 {
     QString message = tr("血浆模式不支持测高");
@@ -3462,6 +3503,8 @@ void MainWindow::handleNonWholeBloodMode()
 
     QLOG_WARN() << message;
 }
+
+
 bool MainWindow::checkCameraAvailability()
 {
     QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
@@ -3478,6 +3521,8 @@ bool MainWindow::checkCameraAvailability()
     QLOG_DEBUG() << "检测到" << cameras.size() << "个摄像设备";
     return true;
 }
+
+
 bool MainWindow::checkAltimeterStatus()
 {
     if (!mAltimetertrigger) {
@@ -3497,6 +3542,7 @@ bool MainWindow::checkAltimeterStatus()
 
     return true;
 }
+
 bool MainWindow::initializeAltimeter()
 {
     // 测高模块初始化逻辑
@@ -3516,6 +3562,8 @@ bool MainWindow::initializeAltimeter()
         return false;
     }
 }
+
+
 void MainWindow::triggerHeightMeasurement()
 {
     try {
@@ -3554,3 +3602,7 @@ void MainWindow::onStartTestClicked()
     // 开始测试
     begingTesting();
 }
+
+
+
+

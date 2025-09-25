@@ -58,8 +58,8 @@ void INI_File::setexperimentalMode(const bool& experimenta)
 {
     QString keywrite = QString("%1/%2").arg(Instrument_parameters).arg("ExperimentalMode");
     m_psetting->setValue(keywrite,experimenta);
-
 }
+
 bool INI_File::getexperimentalMode(){
     QString keywrite = QString("%1/%2").arg(Instrument_parameters).arg("ExperimentalMode");
     return  m_psetting->value(keywrite).toBool();

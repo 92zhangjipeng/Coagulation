@@ -27,6 +27,7 @@ class Ui_customPPPValue
 public:
     QVBoxLayout *verticalLayout;
     QTableWidget *tableWidget;
+    QTableWidget *tableWidgetoutresult;
     QWidget *widgetfucn;
     QHBoxLayout *horizontalLayout;
     QPushButton *pushButtonsycn;
@@ -40,8 +41,15 @@ public:
         verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
         tableWidget = new QTableWidget(customPPPValue);
         tableWidget->setObjectName(QStringLiteral("tableWidget"));
+        tableWidget->setMinimumSize(QSize(0, 300));
 
         verticalLayout->addWidget(tableWidget);
+
+        tableWidgetoutresult = new QTableWidget(customPPPValue);
+        tableWidgetoutresult->setObjectName(QStringLiteral("tableWidgetoutresult"));
+        tableWidgetoutresult->setMaximumSize(QSize(16777215, 180));
+
+        verticalLayout->addWidget(tableWidgetoutresult);
 
         widgetfucn = new QWidget(customPPPValue);
         widgetfucn->setObjectName(QStringLiteral("widgetfucn"));

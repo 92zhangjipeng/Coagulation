@@ -180,11 +180,11 @@ void  mainControlBoardProtocol::triggeredOutCleanInfo(const bool s2Cleanstatus)
     else if(outsidecleannlinque == true)
     {
         m_boutsideCleanLinqueNull = false;
-        emit _normaloper(static_cast<quint8>(equipmentTipInfo::LinqueCleanShortage));
+        emit normaloper(static_cast<quint8>(equipmentTipInfo::LinqueCleanShortage));
     }
     else if(outsidecleannlinque == false && m_boutsideCleanLinqueNull == true){
         quint8 indexS2 = static_cast<quint8>(equipmentTipInfo::LinqueCleanShortage);
-        emit _reminderErrorInfo(indexS2,"外部清洗液报警,请处理!");
+        emit reminderErrorInfo(indexS2,"外部清洗液报警,请处理!");
     }
     return;
 }
@@ -228,11 +228,13 @@ void mainControlBoardProtocol::DetectCardStatusofScratchingBoardConsumables(quin
     };
     if(statusSucess.contains(readCardState)){
 
-        outTips = QString("%1%2: 充值量:%3? 批号:%4")
+        outTips = QString("%1%2: 充值数量:%3 批号:%4")
                 .arg(kindsuppiles)
                 .arg(readCardState == 2 ? "刷卡成功" : "刷卡充值成功")
                 .arg(mainControlBoardData_suppileTotal)
                 .arg(suppileDate);
+        QLOG_DEBUG()<<"刷卡充提示;"<<outTips;
+
         int indexState = statusSucess.find(readCardState).key();
         if(indexState == CONSUMABLES_READ_SUCESSFULLY && !mreadCardEvent){
             mreadCardEvent = true; //刷卡
@@ -279,12 +281,12 @@ void mainControlBoardProtocol::Waste_detection(const int WastLinqueHex)
         QLOG_DEBUG()<<tr("废液满bit=")<<ibitStae;
     }
     else if(bnormal == false && m_btheWasteTankIsFull == true){
-        emit _reminderErrorInfo((quint8)equipmentTipInfo::LinqueScrapFull,"废液灌报警,请处理!");
+        emit reminderErrorInfo((quint8)equipmentTipInfo::LinqueScrapFull,"废液灌报警,请处理!");
     }
     else if(bnormal == true)
     {
         m_btheWasteTankIsFull = false;
-        emit _normaloper((quint8)equipmentTipInfo::LinqueScrapFull);
+        emit normaloper((quint8)equipmentTipInfo::LinqueScrapFull);
     }
     return;
 }
@@ -303,7 +305,7 @@ void  mainControlBoardProtocol::triggeredTary_1_info(const bool isTriggered)
 
     // 状态2: 托盘异常且之前状态已异常
     if (isTrayFault) {
-        emit _reminderErrorInfo(static_cast<quint8>(equipmentTipInfo::TestTubeTrayI),
+        emit reminderErrorInfo(static_cast<quint8>(equipmentTipInfo::TestTubeTrayI),
                         tr("试管盘1位置异常未放置,请重新放置！"));
         return;
     }
@@ -326,7 +328,7 @@ void  mainControlBoardProtocol::triggeredTary_2_info(const bool ctrigger)
         m_bEmptyCupTrayIINormal = false;
     }
     else if(bnormal_tray_2 == false && m_bEmptyCupTrayIINormal == true){
-        emit _reminderErrorInfo((quint8)equipmentTipInfo::TestTubeTrayII,"试管盘 2 脱离位置,请处理!");
+        emit reminderErrorInfo((quint8)equipmentTipInfo::TestTubeTrayII,"试管盘 2 脱离位置,请处理!");
     }
 }
 
@@ -344,7 +346,7 @@ void  mainControlBoardProtocol::triggeredTary_3_info(const bool ctrigger)
          m_bEmptyCupTrayIIINormal = false;
      }
      else if(bnormal_tray_3 == false && m_bEmptyCupTrayIIINormal == true){
-         emit _reminderErrorInfo((quint8)equipmentTipInfo::TestTubeTrayIII,"试管盘 3 脱离位置,请处理!");
+         emit reminderErrorInfo((quint8)equipmentTipInfo::TestTubeTrayIII,"试管盘 3 脱离位置,请处理!");
      }
 
 }
@@ -363,7 +365,7 @@ void  mainControlBoardProtocol::triggeredTary_4_info(const bool ctrigger)
          m_bEmptyCupTrayIVNormal = false;
      }
      else if(bnormal_tray_4 == false && m_bEmptyCupTrayIVNormal== true){
-         emit this->_reminderErrorInfo((quint8)equipmentTipInfo::TestTubeTrayIIII,"试管盘 4 脱离位置,请处理!");
+         emit reminderErrorInfo((quint8)equipmentTipInfo::TestTubeTrayIIII,"试管盘 4 脱离位置,请处理!");
      }
 }
 
@@ -418,9 +420,9 @@ void mainControlBoardProtocol::recvmainControlBoardProtocol(const QStringList ma
 
 
     hexstr = mainControlBoardData[IndexByte_14] + mainControlBoardData[IndexByte_13];
-    quint16 suppileDate = hexstr.toInt(&ok,HEX_SWITCH);
+    quint16 suppileDate = hexstr.toInt(&ok,HEX_SWITCH); //耗材有效期
 
-    //检测抓板耗材刷卡状态
+    //检测主板耗材刷卡状态
     DetectCardStatusofScratchingBoardConsumables(mainControlBoardData_suppileBit,
                                                  mainControlBoardData_suppileTotal,suppileDate);
 

@@ -241,7 +241,9 @@ SOURCES += \
     custom_style/customtablemodel.cpp \
     SerialPortException.cpp \
     dilag/custompppvalue.cpp \
-    CalibratCoordinateLoc/coordinatepposit.cpp
+    CalibratCoordinateLoc/coordinatepposit.cpp \
+    suoweiAggregationRateCalculator/aggregationratecalculator.cpp \
+    suoweiFileManager/filemanager.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -379,7 +381,9 @@ HEADERS += \
     SerialPortException.h \
     dilag/custompppvalue.h \
     aligndelegate.h \
-    CalibratCoordinateLoc/coordinatepposit.h
+    CalibratCoordinateLoc/coordinatepposit.h \
+    suoweiAggregationRateCalculator/aggregationratecalculator.h \
+    suoweiFileManager/filemanager.h
 
 FORMS += \
     mainwindow.ui \

@@ -14,6 +14,7 @@
 #include "dilag/tipcustomwidget.h"
 #include <custom_style/custombutton.h>
 #include <QMutexLocker>
+#include "genericfunctions.h"
 
 
 typedef struct {
@@ -85,7 +86,7 @@ signals:
     //void    _writemainboardloss(const QByteArray ,quint8); //试管耗材..减少写入主板
 
 public slots :
-    void  table_itemRressed(QTableWidgetItem *ptablepressed);//显示试剂批号
+    void  tableItemRressed(QTableWidgetItem *ptablepressed);//显示试剂批号
 
     //修改耗材的整体警报限
     void  tableitemNotify(QTableWidgetItem *changedItem);
@@ -134,7 +135,11 @@ private:
 
     QString mapoutreagent(quint8 index_reag, double lastratio); //输出映射耗材名&&剩余%
 
-    void _outputtips(int pressedcol,QPoint itempos_);
+    void outputtips(int pressedcol, QPoint itempos);
+
+    //读取批号信息
+    QString readBatchnumber(const quint8& index);
+    void adjustTipPosition(const QPoint& itempos);
 
     bool  RemindersuppliesEnouth(const int Typesupplies); //提示耗材不足
 

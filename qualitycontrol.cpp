@@ -17,6 +17,7 @@
 #include <QtConcurrent>
 #include <QStandardItemModel>
 #include <operclass/fullyautomatedplatelets.h>
+#include <suoweiFileManager/filemanager.h>
 #include "custom_style/custombutton.h"
 
 const QMap<quint8, QString> QualityControl::COLUMN_CONFIG_MAP = {
@@ -427,7 +428,7 @@ void QualityControl::loc_reagnet_type_display_val(quint8 index_reag)
     double displayRatio = double(double(reagent_amount*100)/MAX_RATIO_SWITCT);
     setReagentPara( index_reag ,false,displayRatio);
     emit SycnMainUiLosserSuppile(index_reag,displayRatio);
-    QLOG_DEBUG()<<mapoutreagent(index_reag,displayRatio)<<"Line="<<__LINE__<<"函数"<<__FUNCTION__;
+    QLOG_DEBUG()<<mapoutreagent(index_reag,displayRatio);
     ui->Group_Reagentarea->repaint();
     return;
 }
@@ -756,65 +757,6 @@ void QualityControl::updateCleaningFluidStatus(ConsumablesOper* consumables, dou
         INDEX_CLEANLINQUE_CONSUMABLE, totalnum, updateratio, true);
     emit sendDirectives(buffer, "缓存消耗清洗液");
 }
-
-////消耗内部清洗液 kind_deplete 0-2 0=洗试剂针 1=洗血样针 2=洗双针
-//void QualityControl::consumeCleaningFluid(const quint8 kind_deplete)
-//{
-//    auto &ini = INI_File();
-//    ConsumablesOper* consumables = ConsumablesOper::GetpInstance();
-//    int washbloodPinVol = ini.GetAbsorbWashingfluidX2();//洗血样针洗的清洗剂量
-//    int washReagPinVol =  ini.GetAbsorbWashingfluidX1();//洗试剂针吸清洗液的量
-//    if (washReagPinVol < 0 || washbloodPinVol < 0) {
-//        QLOG_ERROR() << "Invalid INI parameters";
-//        return;
-//    }
-
-//    quint16 consumingCleaningSolutionS1 = 0;
-//    switch(kind_deplete)
-//    {
-//        case 0: consumingCleaningSolutionS1 = washReagPinVol;break;
-//        case 1: consumingCleaningSolutionS1 = washbloodPinVol;break;
-//        case 2: consumingCleaningSolutionS1 = washbloodPinVol + washReagPinVol;break;
-//        default: consumingCleaningSolutionS1 = washbloodPinVol + washReagPinVol;break;
-//    }
-//    //计算消耗清洗液 输出剩余比 显示
-//    double  LastRatio = 0.00f;
-//    quint16 updateratio = 0;
-//    QUIUtils::CalculateTheConsumptionOfCleaningFluid(consumingCleaningSolutionS1,LastRatio,updateratio);
-
-//    double lastRatioPercent = LastRatio * 100.0;
-//    if (lastRatioPercent <= 0){
-//        QLOG_WARN() << "S1内清洗液到警报限,暂停更换清洗液";
-//        emit consumablesLackPauses(INDEX_CLEANLINQUE_CONSUMABLE);
-//        return;
-//    }
-
-//    //更新本地清洗液比例
-//    QUIUtils::sycnBottleRatioPara(INDEX_CLEANLINQUE_CONSUMABLE,updateratio);
-//    setReagentPara(INDEX_CLEANLINQUE_CONSUMABLE,false,lastRatioPercent);//清洗剂剩余量(%)
-//    emit SycnMainUiLosserSuppile(INDEX_CLEANLINQUE_CONSUMABLE,lastRatioPercent);
-//    consumables->updateReplaceLocRatio(WRITE_OPERAT,INDEX_CLEANLINQUE_CONSUMABLE,updateratio);
-
-//    //缓存消耗清洗液
-//    quint8 totalnum;
-//    QByteArray buffer;
-//    consumables->syacnReagentTotalBottle(READ_OPERRAT,INDEX_CLEANLINQUE_CONSUMABLE,totalnum);
-//    QUIUtils::writeSuppliesBottleControlOrder(buffer,INDEX_CLEANLINQUE_CONSUMABLE,INDEX_CLEANLINQUE_CONSUMABLE,
-//                                              totalnum,updateratio,true);
-//    emit  sendDirectives(buffer,"缓存消耗清洗液");
-//    buffer.clear();
-
-//    // 检查阈值并触发警报
-//    quint8 limitRatio = 0;
-//    consumables->updateReagentLimit(READ_OPERRAT, INDEX_CLEANLINQUE_CONSUMABLE, limitRatio);
-
-//    if (lastRatioPercent <= limitRatio) {
-//        QLOG_WARN() << "S1内清洗液到警报限,暂停更换清洗液";
-//        emit consumablesLackPauses(INDEX_CLEANLINQUE_CONSUMABLE);
-//        //FullyAutomatedPlatelets::mainWindow()->testingSuppileLoss(INDEX_CLEANLINQUE_CONSUMABLE);
-//    }
-//    return;
-//}
 
 void QualityControl::consumeReagent(const quint8 reag_kind, const quint8 index_)
 {
@@ -1259,7 +1201,7 @@ void QualityControl::Capacity_display_init(QTableWidget *_ptablewidget)
     //显示报警线
     ShowConsumablesLimitArm();
 
-    connect(_ptablewidget, SIGNAL(itemPressed(QTableWidgetItem*)),SLOT(table_itemRressed(QTableWidgetItem*)));
+    connect(_ptablewidget, SIGNAL(itemPressed(QTableWidgetItem*)),SLOT(tableItemRressed(QTableWidgetItem*)));
     connect(_ptablewidget,SIGNAL(itemChanged(QTableWidgetItem*)),SLOT(tableitemNotify(QTableWidgetItem*)));
     return;
 }
@@ -1319,90 +1261,190 @@ void QualityControl::tableitemNotify(QTableWidgetItem* changedItem) {
     return;
 }
 
-void QualityControl::table_itemRressed(QTableWidgetItem *ptablepressed)
+void QualityControl::tableItemRressed(QTableWidgetItem *ptablepressed)
 {
-    QRect rect_ = ui->tableWidget_Reagent_status->visualItemRect(ptablepressed);
-    QPoint globalpos = ui->tableWidget_Reagent_status->mapToGlobal(rect_.topLeft());
-    QPoint itempos_(globalpos.x() + 1, globalpos.y() + 1);
     int pressedcol_ = ptablepressed->column(); //列号
     int pressedrow_ = ptablepressed->row();    //行号
+
     if(pressedrow_ == TableRow::preunit_){
-        _outputtips(pressedcol_,itempos_);
+        // 直接使用当前鼠标位置
+        QCursor cursor;
+        QPoint mouseGlobalPos = cursor.pos();
+
+        // 获取表格的全局位置
+        QPoint tableGlobalPos = ui->tableWidget_Reagent_status->mapToGlobal(QPoint(0, 0));
+
+        // 验证鼠标是否在点击的单元格内
+        QRect cellRect = ui->tableWidget_Reagent_status->visualItemRect(ptablepressed);
+        QPoint cellGlobalTopLeft = ui->tableWidget_Reagent_status->viewport()->mapToGlobal(cellRect.topLeft());
+        QRect cellGlobalRect(cellGlobalTopLeft, cellRect.size());
+
+        if (cellGlobalRect.contains(mouseGlobalPos)) {
+            // 鼠标在单元格内，使用鼠标位置
+            QPoint tipPos(mouseGlobalPos.x(), mouseGlobalPos.y() - 10); // 稍微向上偏移
+
+            QLOG_DEBUG() << "鼠标定位 - 鼠标位置:" << mouseGlobalPos
+                         << "单元格全局矩形:" << cellGlobalRect
+                         << "提示位置:" << tipPos;
+
+            outputtips(pressedcol_, tipPos);
+        } else {
+            // 使用单元格中心点作为备选
+            QPoint center = cellGlobalRect.center();
+            QLOG_DEBUG() << "使用中心点 - 单元格中心:" << center;
+            outputtips(pressedcol_, center);
+        }
     }
-    return;
 }
 
 void QualityControl::FilltheConsumablesTable(QTableWidget *ConsumablesTable,int rows,int cols,QString itemdata,bool enable)
 {
-    QTableWidgetItem *item_ = new QTableWidgetItem(itemdata);
-    item_->setTextColor(QColor(0 ,0, 0));
+    QTableWidgetItem *pitem = new QTableWidgetItem(itemdata);
+    pitem->setTextColor(QColor(0 ,0, 0));
 	if (rows == (int)TableRow::LimitArm)
 	{
 		switch (cols)
 		{
-            case TableIndex::S2_:   item_->setText("/");  break;
-            case TableIndex::TESTCUPS_:   item_->setText("/"); break;
+            case TableIndex::S2_:
+                pitem->setText("/");
+            break;
+            case TableIndex::TESTCUPS_:
+                pitem->setText("/");
+            break;
             default:break;
 		}
 	}
-    ConsumablesTable->setItem(rows,cols,item_);
+    ConsumablesTable->setItem(rows,cols,pitem);
     if(!enable)
-        item_->setFlags(Qt::ItemIsEnabled);//设置改item不可修改;
+        pitem->setFlags(Qt::ItemIsEnabled);//设置改item不可修改;
     ConsumablesTable->item(rows,cols)->setFont(QFont( "楷体", 14, QFont::Black ));
-    ConsumablesTable->item(rows,cols)->setTextAlignment(Qt::AlignVCenter|Qt::AlignHCenter);
+    ConsumablesTable->item(rows,cols)->setTextAlignment(Qt::AlignCenter);
     return;
 }
 
 void QualityControl::FilltheConsumablesTable(QTableWidget *ConsumablesTable,int rows,
                                               int cols,QString itemdata,QColor textColor,bool enable)
 {
-    QTableWidgetItem *item_ = new QTableWidgetItem(itemdata);
-    item_->setTextColor(textColor);
-    ConsumablesTable->setItem(rows,cols,item_);
+    QTableWidgetItem *pitem = new QTableWidgetItem(itemdata);
+    pitem->setTextColor(textColor);
+    ConsumablesTable->setItem(rows,cols,pitem);
     if(!enable)
-        item_->setFlags(Qt::ItemIsEnabled);//设置改item不可修改;
+        pitem->setFlags(Qt::ItemIsEnabled);//设置改item不可修改;
     
     ConsumablesTable->item(rows,cols)->setFont(QFont( "楷体", 14, QFont::Black ));
-    ConsumablesTable->item(rows,cols)->setTextAlignment(Qt::AlignVCenter|Qt::AlignHCenter);
+    ConsumablesTable->item(rows,cols)->setTextAlignment(Qt::AlignCenter);
     return;
 }
 
 
+QString QualityControl::readBatchnumber(const quint8& index){
 
-void QualityControl::_outputtips(int pressedcol, QPoint itempos_)
+    // 使用静态映射表避免每次调用都重新创建
+    static const QMap<quint8, quint8> indexMapping = {
+        {TableIndex::AA_, INDEX_AA_CONSUMABLE},
+        {TableIndex::ADP_, INDEX_ADP_CONSUMABLE},
+        {TableIndex::EPI_, INDEX_EPI_CONSUMABLE},
+        {TableIndex::COL_, INDEX_COL_CONSUMABLE},
+        {TableIndex::RIS_, INDEX_RIS_CONSUMABLE},
+        {TableIndex::S1_, INDEX_CLEANLINQUE_CONSUMABLE},
+        {TableIndex::S2_, OUTSIDE_CLEANLINQUE_S2},
+        {TableIndex::TESTCUPS_, INDEX_TESTTUBE_CONSUMABLE}
+    };
+
+    // 检查索引是否存在映射中
+    auto it = indexMapping.constFind(index);
+    if (it == indexMapping.constEnd()) {
+        QLOG_WARN() << "未找到对应的耗材索引:" << index;
+        return "";
+    }
+
+    quint8 indexCont = it.value();
+    const QString consumableName = GenericFunctions::BiteMapingConsumablesName(indexCont) + ".txt";
+    const QString filefolder = "ConsumableBatchNumber";
+
+    // 使用静态FileManager避免重复创建（如果线程安全）
+    static FileManager fileManager;
+
+    // 提前进行文件存在性检查
+    if (!fileManager.exists(filefolder, consumableName)) {
+        QLOG_WARN() << "批号文件不存在:" << consumableName;
+        return "";
+    }
+
+    // 读取并处理文件内容
+    QString batchNumber = fileManager.readFromFile(filefolder, consumableName).trimmed();
+
+    QLOG_DEBUG() << "读取耗材批号 - 类型:" << consumableName << "批号:" << batchNumber;
+
+    return batchNumber;
+}
+
+void QualityControl::outputtips(int pressedcol, QPoint itempos)
 {
-    switch(pressedcol) {
-        case TableIndex::AA_:
-            m_tipswidget->setContent(tr("AA批号\n暂无批号信息"),QColor(Qt::white));
-        break;
-        case TableIndex::ADP_:
-            m_tipswidget->setContent(tr("ADP批号\n暂无批号信息"),QColor(Qt::white));
-        break;
-		case TableIndex::EPI_:
-            m_tipswidget->setContent(tr("EPI批号\n暂无批号信息"), QColor(Qt::white));
-		break;
-		case TableIndex::COL_:
-            m_tipswidget->setContent(tr("COL批号\n暂无批号信息"), QColor(Qt::white));
-        break;
-		case TableIndex::RIS_:
-            m_tipswidget->setContent(tr("RIS批号\n暂无批号信息"), QColor(Qt::white));
-        break;
-        case TableIndex::S1_:
-            m_tipswidget->setContent(tr("S1清洗液批号\n暂无批号信息"), QColor(Qt::white));
-        break;
-        case TableIndex::S2_:
-            m_tipswidget->setContent(tr("S2清洗液批号\n暂无批号信息"), QColor(Qt::white));
-        break;
-        default: break;
-    }
-    if(pressedcol < TableIndex::TESTCUPS_ && pressedcol > TableIndex::PROJECT_){
-        m_tipswidget->move(itempos_);
-        update();
-		m_tipswidget->show();
-        QTimer::singleShot(5000,this,SLOT(slot_Timerout()));
-    }
-    return;
+    // 定义耗材信息映射表
+   static const QMap<int, QPair<QString, QColor>> consumableMap = {
+       {TableIndex::AA_,       {"AA批号",       QColor(220, 20, 60)}},     // 深红色
+       {TableIndex::ADP_,      {"ADP批号",      QColor(30, 144, 255)}},    // 道奇蓝
+       {TableIndex::EPI_,      {"EPI批号",      QColor(46, 139, 87)}},     // 海洋绿
+       {TableIndex::COL_,      {"COL批号",      QColor(148, 0, 211)}},     // 深紫色
+       {TableIndex::RIS_,      {"RIS批号",      QColor(255, 140, 0)}},     // 深橙色
+       {TableIndex::S1_,       {"S1清洗液批号", QColor(70, 130, 180)}},    // 钢蓝色
+       {TableIndex::S2_,       {"S2清洗液批号", QColor(178, 34, 34)}},     // 砖红色
+       {TableIndex::TESTCUPS_, {"试杯批号",     QColor(160, 0, 160)}}      // 紫红色
+   };
+
+   // 检查是否为有效的耗材列
+   if (!consumableMap.contains(pressedcol)) {
+       return;
+   }
+
+   // 读取批号信息
+   QString outBatchstr = readBatchnumber(pressedcol);
+   QColor textColor = Qt::white;
+
+   // 获取耗材信息和背景色
+   auto consumableInfo = consumableMap.value(pressedcol);
+   QString title = consumableInfo.first;
+   QColor backgroundColor = consumableInfo.second;
+
+   // 设置提示内容
+   m_tipswidget->setContent(title + "\n" + outBatchstr, textColor, backgroundColor);
+
+   // 计算并调整显示位置
+   adjustTipPosition(itempos);
+
+   // 显示提示框
+   m_tipswidget->show();
+   QTimer::singleShot(5000, this, SLOT(slot_Timerout()));
 }
+
+// 提取位置调整为独立函数
+void QualityControl::adjustTipPosition(const QPoint& itempos)
+{
+    m_tipswidget->adjustSize();
+    QSize tipSize = m_tipswidget->size();
+
+    // 计算中心对齐的位置
+    QPoint adjustedPos(itempos.x() - tipSize.width() / 2,
+                      itempos.y() - tipSize.height() / 2);
+
+    // 获取屏幕边界
+    QScreen *screen = QGuiApplication::primaryScreen();
+    QRect screenGeometry = screen->availableGeometry();
+
+    // 边界检查
+    adjustedPos.setX(qMax(screenGeometry.left() + 10,
+                         qMin(adjustedPos.x(),
+                             screenGeometry.right() - tipSize.width() - 10)));
+
+    adjustedPos.setY(qMax(screenGeometry.top() + 10,
+                         qMin(adjustedPos.y(),
+                             screenGeometry.bottom() - tipSize.height() - 10)));
+
+    m_tipswidget->move(adjustedPos);
+}
+
+
 void QualityControl::slot_Timerout()
 {
    m_tipswidget->close();

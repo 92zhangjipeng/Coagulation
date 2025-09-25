@@ -38,7 +38,7 @@ public:
     // 设置三角方向(左上右下)，位置系数(宽度 * 系数)
     void setDirect(DIRECT direct = DIRECT::DIRECT_TOP, double size = 0.75);
     void setContentFont(QFont font = {});
-    void setContent(const QString &content, QColor color = {});
+    void setContent(const QString &content, QColor textColor = {}, QColor backgroundColor ={});
     void setLeftTopMargin(int leftMargin = LEFT_MARGIN, int topMargin = TOP_MARGIN);
 
 protected:

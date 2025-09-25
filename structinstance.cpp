@@ -2521,7 +2521,7 @@ void  StructInstance::fetchTestDataTotal(QString samplename,quint8 index_reag,in
 
 
 
-void StructInstance::updte_saveChnTestData(const quint8 &IndexChannel,const quint8 &index_reag,
+void StructInstance::updteSaveChnTestData(const quint8 &IndexChannel,const quint8 &index_reag,
                                            const int &testValue,const float &testcalculatingData){
 
     const quint8 relChannel = IndexChannel - 1; //从0开始

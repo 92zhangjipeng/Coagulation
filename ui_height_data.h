@@ -34,6 +34,7 @@ public:
     QWidget *widget;
     QHBoxLayout *horizontalLayout;
     QWidget *widget_TestHeighModel;
+    QVBoxLayout *verticalLayout_2;
     QCheckBox *checkBox_wholeblood;
     QCheckBox *checkBox_plasma;
     QSpacerItem *horizontalSpacer_5;
@@ -59,11 +60,11 @@ public:
         horizontalLayout_3->setContentsMargins(5, 5, 5, 5);
         widget_Task = new QWidget(Height_Data);
         widget_Task->setObjectName(QStringLiteral("widget_Task"));
-        widget_Task->setMinimumSize(QSize(1100, 0));
+        widget_Task->setMinimumSize(QSize(800, 0));
         verticalLayout = new QVBoxLayout(widget_Task);
-        verticalLayout->setSpacing(5);
+        verticalLayout->setSpacing(0);
         verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
-        verticalLayout->setContentsMargins(5, 5, 5, 5);
+        verticalLayout->setContentsMargins(0, 0, 0, 0);
         Sample_Data_tablewidget = new QTableWidget(widget_Task);
         Sample_Data_tablewidget->setObjectName(QStringLiteral("Sample_Data_tablewidget"));
         Sample_Data_tablewidget->setMinimumSize(QSize(1050, 0));
@@ -76,7 +77,7 @@ public:
 
         widget = new QWidget(widget_Task);
         widget->setObjectName(QStringLiteral("widget"));
-        widget->setMinimumSize(QSize(0, 100));
+        widget->setMinimumSize(QSize(0, 60));
         widget->setFont(font);
         widget->setStyleSheet(QLatin1String("QWidget#widget{  \n"
 "    border: 1px solid rgb(200,200,200);  \n"
@@ -97,18 +98,26 @@ public:
 "    border-radius:1px;  \n"
 "    padding:0 0px;  	\n"
 "}"));
+        verticalLayout_2 = new QVBoxLayout(widget_TestHeighModel);
+        verticalLayout_2->setSpacing(5);
+        verticalLayout_2->setObjectName(QStringLiteral("verticalLayout_2"));
+        verticalLayout_2->setContentsMargins(5, 0, 5, 0);
         checkBox_wholeblood = new QCheckBox(widget_TestHeighModel);
         checkBox_wholeblood->setObjectName(QStringLiteral("checkBox_wholeblood"));
-        checkBox_wholeblood->setGeometry(QRect(10, 10, 121, 30));
         checkBox_wholeblood->setMinimumSize(QSize(0, 30));
         checkBox_wholeblood->setStyleSheet(QStringLiteral(""));
         checkBox_wholeblood->setAutoExclusive(true);
+
+        verticalLayout_2->addWidget(checkBox_wholeblood);
+
         checkBox_plasma = new QCheckBox(widget_TestHeighModel);
         checkBox_plasma->setObjectName(QStringLiteral("checkBox_plasma"));
-        checkBox_plasma->setGeometry(QRect(10, 50, 121, 30));
         checkBox_plasma->setMinimumSize(QSize(0, 30));
         checkBox_plasma->setStyleSheet(QStringLiteral(""));
         checkBox_plasma->setAutoExclusive(true);
+
+        verticalLayout_2->addWidget(checkBox_plasma);
+
 
         horizontalLayout->addWidget(widget_TestHeighModel);
 

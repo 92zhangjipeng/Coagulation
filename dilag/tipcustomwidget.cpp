@@ -45,13 +45,29 @@ void tipcustomwidget::setContentFont(QFont font)
     ui->label->setFont(font);
 }
 
-void tipcustomwidget::setContent(const QString &content, QColor color)
+void tipcustomwidget::setContent(const QString &content, QColor textColor, QColor backgroundColor)
 {
     ui->label->setText(content);
-    ui->label->setStyleSheet(QString("color: rgb(%1, %2, %3)")
-                             .arg(color.red())
-                             .arg(color.green())
-                             .arg(color.blue()));
+    // 设置样式表，包含背景色和文字颜色
+    QString styleSheet = QString(
+        "QLabel {"
+        "    color: rgb(%1, %2, %3);"
+        "    background-color: rgb(%4, %5, %6);"
+        "    padding: 8px 12px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "}"
+        ).arg(textColor.red())
+         .arg(textColor.green())
+         .arg(textColor.blue())
+         .arg(backgroundColor.red())
+         .arg(backgroundColor.green())
+         .arg(backgroundColor.blue());
+
+    ui->label->setStyleSheet(styleSheet);
+
+    // 确保背景可见
+    ui->label->setAutoFillBackground(true);
 }
 
 void tipcustomwidget::setLeftTopMargin(int leftMargin, int topMargin)

@@ -76,9 +76,9 @@ signals:
     //刷卡异常提示
     void  Abnormalcardswipingprompt(const QString);
 
-
-    void  _reminderErrorInfo(quint8 ,const QString& errinfo); //提示异常
-    void  _normaloper(quint8); //耗材正常操作
+    //提示异常
+    void  reminderErrorInfo(quint8 ,const QString& errinfo);
+    void  normaloper(quint8); //耗材正常操作
 public slots:
     void recvmainControlBoardProtocol(const QStringList mainControlBoardData);
     void RecvUsedBuzzerMark(const bool BuzzerStae);

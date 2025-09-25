@@ -463,6 +463,10 @@ private:
 
     //更换试剂确认
     bool reagentReplacementComplete(const int& indexReagent);
+
+    //保存写入批号
+    void saveWritingconsumablebatchnumber(const quint8 indexConsu,quint16 batchDateNum);
+
 private:
     void updateConnectionUI(bool connected);
     QPixmap m_connectedIcon;

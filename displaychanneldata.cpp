@@ -11,6 +11,7 @@
 #include <iostream>
 #include <creatcurve_data/customcurveadp.h>
 #include <operclass/fullyautomatedplatelets.h>
+#include <suoweiAggregationRateCalculator/aggregationratecalculator.h>
 
 
 QMutex m_mutex;
@@ -43,6 +44,7 @@ void displayChanneldata::startModuleData()
 {
     if(!m_workerThread.isRunning()){
         m_workerThread.start();
+        setCalibrationParameters();
     }
 }
 
@@ -62,15 +64,10 @@ void displayChanneldata::startthread()
 
     // 确定通道数量
     const quint8 channelCount = kDeviceChannelMap.value(equipmentType, 12);
-    QLOG_DEBUG() << "当前设备类型：" << equipmentType
-                 << "，通道数量：" << channelCount<<endl;
+    QLOG_DEBUG() << "当前设备类型:"<<equipmentType<<"通道数量:"<< channelCount<<endl;
 
     // 初始化测试通道标志（安全方式）
-    constexpr size_t kMaxChannels = MACHINE_SETTING_CHANNEL;
-    std::fill_n(mOpneChnTest, kMaxChannels, false);
-    //memset(mOpneChnTest, false, sizeof(mOpneChnTest));
-
-
+    std::fill_n(mOpenChnTest, kMaxChannels, false);
 
     // 预分配空间提升性能
     m_ChnRealtimeData.reserve(kMaxChannels);
@@ -288,136 +285,252 @@ void displayChanneldata::filteringStyle()
         }
         ReplaceModuleValue(i, result);
     }
-    OutputModulTestResult();
+
+    outPutModuleTestData();
 }
 
 
 
-/*输出测试的结果*/
-void displayChanneldata::OutputModulTestResult()
+void displayChanneldata::outPutModuleTestData()
 {
-    constexpr auto kMaxChannels = static_cast<int>(MACHINE_SETTING_CHANNEL);
+    constexpr auto kMaxChannels = MACHINE_SETTING_CHANNEL;
 
     for(int channelIdx = 0; channelIdx < kMaxChannels; ++channelIdx) {
+        // 提前退出条件集中处理
+        if(!mOpenChnTest[channelIdx]) continue;
 
-        if(!mOpneChnTest[channelIdx]) continue;
-
-        const quint8 channelNumber = channelIdx + 1;
-        if(channelNumber > kMaxChannels) {
-            QLOG_WARN() << "Invalid channel number:" << channelNumber;
-            continue;
-        }
-
-        // 单次查找操作替代contains+find
-        const auto dataIt = m_ChnRealtimeData.constFind(channelNumber);
-        if(dataIt == m_ChnRealtimeData.constEnd()) {
-            QLOG_WARN() << "No data for channel" << channelNumber;
-            continue;
-        }
-
-        // 明确初始化参数语义
-        struct TestParams {
-            int anaemiaValue = 0;
-            int bloodValue = 0;
-            quint8 reagentIndex = 0;
-            int testSample = 0;
-        } params;
-
-        // 提取数据操作
-        const QString sampleName = StructInstance::getInstance()->testingOutInitPPPandPRP(
-                                                                                        channelIdx,
-                                                                                        params.anaemiaValue,
-                                                                                        params.bloodValue,
-                                                                                        params.reagentIndex,
-                                                                                        params.testSample
-                                                                                    );
-        // 过滤无效测试类型
-        if(params.reagentIndex == ANEMIA) continue;
-
-        //判断样本prp prp 是否异常 0
-        sampleAbnormality(params.bloodValue,
-                          params.anaemiaValue,
-                          dataIt.value(),
-                          sampleName,channelIdx);
-
-        // 执行核心计算
-        Calculation_formula(sampleName,
-                            params.reagentIndex,
-                            dataIt.value(),
-                            params.anaemiaValue,
-                            params.bloodValue,
-                            channelNumber);
-
+        processChannelData(channelIdx);
     }
-    return;
+
+}
+
+
+// 提取子函数，降低复杂度
+void displayChanneldata::processChannelData(int channelIdx){
+    const quint8 channelNumber = channelIdx + 1;
+
+    // 通道号验证（可优化为编译期检查）
+    if(channelNumber > kMaxChannels) {
+        QLOG_WARN() << "无效通道号:" << channelNumber;
+        return;
+    }
+
+    const auto dataIt = m_ChnRealtimeData.constFind(channelNumber);
+    if(dataIt == m_ChnRealtimeData.constEnd()) {
+        QLOG_WARN() << "通道没有数据" << channelNumber;
+        return;
+    }
+
+    // 明确初始化参数语义
+    struct TestParams {
+        int anaemiaValue = 0;
+        int bloodValue = 0;
+        quint8 reagentIndex = 0;
+        int testSample = 0;
+    } params;
+
+    const QString sampleName = StructInstance::getInstance()->testingOutInitPPPandPRP(
+            channelIdx, params.anaemiaValue, params.bloodValue,
+            params.reagentIndex, params.testSample);
+
+    if(params.reagentIndex == ANEMIA) return;
+
+    // 样本异常检测 样本prp prp 是否异常 0
+	sampleAbnormality(params.bloodValue, params.anaemiaValue,
+					dataIt.value(), sampleName, channelIdx);
+        
+
+    // 执行核心计算
+    calculationFormula(sampleName, params.reagentIndex, dataIt.value(),
+                          params.anaemiaValue, params.bloodValue, channelNumber);
+}
+
+
+void displayChanneldata::handleTestCompletion(const QString& sampleNum,
+                                            quint8 reagentIndex,
+                                            int channelIdx)
+{
+    m_experimenttestData = false;
+
+    const bool hasTestError = sentSamples.contains(sampleNum);
+    StructInstance::getInstance()->setupOneReagentsIsComplete(sampleNum, reagentIndex, hasTestError);
+
+    if(hasTestError) {
+       sentSamples.remove(sampleNum);
+    }
+
+    if(channelIdx <= 0){
+        QLOG_WARN()<<"通道号小于等于 0 有越界风险";
+    } else{
+        mOpenChnTest[channelIdx - 1] = false;
+    }
+
+
+    emit finishtestProgress(channelIdx - 1, reagentIndex);//处理测试数据
+    emit testComplete(sampleNum, channelIdx - 1, reagentIndex);//有通道完成测试
+     //耗材消耗统计
+    FullyAutomatedPlatelets::pinstancesqlData()->testendAddStasReagent(sampleNum, reagentIndex);
+
+    clearAlgorithmCache();
+}
+
+
+void displayChanneldata::processTestData(const QString& sampleNum,
+                                       quint8 reagentIndex,
+                                       int currentRichValue,
+                                       int baselinePoor,
+                                       int baselineRich,
+                                       int channelIdx,
+                                       int totalDataPoints)
+{
+    if(totalDataPoints < NUMBEROFTESTDATA){
+
+        const bool isLogMode = getAbsorbanceAlgorithm();  // 这里使用缓存
+
+        // PPP值处理提取为独立函数
+        baselinePoor = getBaselinePoorValue(channelIdx, baselinePoor);
+
+        const float resultValue = calculateAggregationRate(isLogMode,
+                static_cast<float>(currentRichValue),
+                static_cast<float>(baselineRich),
+                static_cast<float>(baselinePoor));
+
+        // 数据保存和显示
+        StructInstance::getInstance()->updteSaveChnTestData(channelIdx, reagentIndex,
+                                                               currentRichValue, resultValue);
+
+        //提示测试通道在测样本信息
+        FullyAutomatedPlatelets::pinstanceTesting()->showTestChannelInfo(channelIdx, sampleNum, reagentIndex);
+
+        emit DisplayTestingValue(sampleNum, reagentIndex, channelIdx, resultValue,
+                                currentRichValue, baselineRich, baselinePoor);
+    }
 }
 
 
 
-
-
-/**公式部分
- * @brief displayChanneldata::Calculation_formula
- * @param sampleNum  样本id
- * @param reagentIndex 试剂编号
- * @param currentRichValue 实时PRP
- * @param baselinePoor   初始PPP
- * @param baselineRich   初始PRP
- * @param channelIdx   测试通道从1开始
- */
-void displayChanneldata::Calculation_formula(const QString& sampleNum,
-                                                quint8 reagentIndex,
-                                                int currentRichValue,
-                                                int baselinePoor, int baselineRich,
-                                                int channelIdx){
+void displayChanneldata::calculationFormula(const QString& sampleNum,
+                                            quint8 reagentIndex,
+                                            int currentRichValue,
+                                            int baselinePoor,
+                                            int baselineRich,
+                                            int channelIdx){
 
     int totalDataPoints = 0;
-
-    // 获取测试数据总数（改为引用传参）
+    // 获取测试数据总数
     StructInstance::getInstance()->fetchTestDataTotal(sampleNum, reagentIndex, totalDataPoints);
 
-    // 3. 根据算法模式计算
-    const bool isLogMode = INI_File().rConfigPara("AbsorbanceAlgorithm").toBool();
-
-    //取PPP固值  
-    quint16 channelPPPValue = customPPPValue::getChannelPPPValues(channelIdx);
-    if(channelPPPValue != 0)
-        baselinePoor = channelPPPValue;
-
-    const float resultValue = calculateAggregationRate(isLogMode,static_cast<float>(currentRichValue),
-                                                       static_cast<float>(baselineRich),
-                                                       static_cast<float>(baselinePoor));
-
-    //获取测试数据的个数
-    if(totalDataPoints < NUMBEROFTESTDATA)
-    {
-        StructInstance::getInstance()->updte_saveChnTestData(channelIdx,reagentIndex,
-                                                             currentRichValue, resultValue);
-        //提示测试通道在测样本信息
-        FullyAutomatedPlatelets::pinstanceTesting()->showTestChannelInfo(channelIdx,sampleNum,reagentIndex);
-
-        emit DisplayTestingValue(sampleNum,reagentIndex,channelIdx,resultValue,
-                                    currentRichValue,
-                                    baselineRich,
-                                    baselinePoor);
+    if(totalDataPoints == NUMBEROFTESTDATA){
+        handleTestCompletion(sampleNum, reagentIndex, channelIdx);
+        return;
     }
-    else if(totalDataPoints == NUMBEROFTESTDATA)
-    {
-        m_experimenttestData = false; //原始数据测试
-        //试剂测试标志 true
-        bool ishadTestErr = sentSamples.contains(sampleNum);
-        StructInstance::getInstance()->setupOneReagentsIsComplete(sampleNum,reagentIndex,ishadTestErr);
-        (ishadTestErr)? sentSamples.remove(sampleNum): sentSamples.size();
 
-        mOpneChnTest[channelIdx - 1] = false; //通道测试数据==300 设标志为true
-        //处理测试数据
-        emit finishtestProgress(channelIdx - 1,reagentIndex);
-        //有通道完成测试
-        emit testComplete(sampleNum,channelIdx - 1,reagentIndex);
-        //耗材消耗统计
-        FullyAutomatedPlatelets::pinstancesqlData()->testendAddStasReagent(sampleNum,reagentIndex);
-    }
+    // 主逻辑处理
+    processTestData(sampleNum, reagentIndex, currentRichValue,
+                    baselinePoor, baselineRich, channelIdx, totalDataPoints);
 }
+
+int displayChanneldata::getBaselinePoorValue(int channelIdx, int currentBaseline)
+{
+    const quint16 channelPPPValue = customPPPValue::getChannelPPPValues(channelIdx);
+    return (channelPPPValue != 0) ? channelPPPValue : currentBaseline;
+
+}
+
+
+
+void displayChanneldata::setCalibrationParameters() {
+
+    static INI_File config;
+
+    this->mk1 = config.rConfigPara(MAXK1).toDouble();
+    this->mk2min = config.rConfigPara(MINK2).toDouble();
+    this->mk2max = config.rConfigPara(MAXK2).toDouble();
+    this->mk3min = config.rConfigPara(MINK3).toDouble();
+    this->mk3max = config.rConfigPara(MAXK3).toDouble();
+    this->mk4 = config.rConfigPara(MINK4).toDouble();
+    this->mcalibrationFactor1 = config.rConfigPara(RATIOK1).toDouble();
+    this->mcalibrationFactor3 = config.rConfigPara(RATIOK3).toDouble();
+    this->mcalibrationFactor4 = config.rConfigPara(RATIOK4 ).toDouble();
+}
+
+double displayChanneldata::calculateTestAggregationRate(double prpn,double ppp, double prp0)
+{
+    if (prp0 == 0) {
+        QLOG_WARN()<<"PRP0为0，避免除零错误";
+        return 0.0;
+    }
+
+    double k = ppp / prp0;
+    double prpRatio = prpn / prp0;
+
+    if (prpRatio <= 0) {
+        QLOG_WARN() << "PRP比率非正数，无法计算对数" << prpRatio;
+        return 0.0; //对数不能计算非正数，返回一个特殊值或0
+    }
+
+    double denominator = 1.0; // 分母 log10(...)
+    bool conditionMatched = false;
+
+    if (k < mk1 && k > 0) { // k1 应为可配置参数
+        denominator = std::log10(mcalibrationFactor1);
+        conditionMatched = true;
+    }
+    else  if(k >= mk2min && k < mk2max) {
+        if(prpn > ppp){
+            float randVal = getRandomFactor(0.95f,1.00f);
+            prpn = ppp * randVal;
+            prpRatio = prpn / prp0; // 重新计算
+            // 重新检查合法性
+            if (prpRatio <= 0) {
+                return 0.0;
+            }
+        }
+        denominator = std::log10(k);
+        conditionMatched = true;
+
+    } else if(k >= mk3min && k< mk3max){
+        double adjustedK  = (ppp * mcalibrationFactor3)/prp0;
+        if (adjustedK <= 0) {
+            return 0.0; // 防止对数计算错误
+        }
+        denominator = std::log10(adjustedK );
+        conditionMatched = true;
+    }
+    else if(k <= mk4){
+        float adjustedK = (ppp * mcalibrationFactor4)/prp0;
+        if (adjustedK <= 0) {
+            return 0.0; // 防止对数计算错误
+        }
+        denominator = std::log10(adjustedK );
+        conditionMatched = true;
+    }
+
+    // 如果没有匹配任何条件，使用默认公式：log10(PRPn/PRP0)/log10(PPP/PRP0)
+    if (!conditionMatched) {
+        // 直接使用 k 作为分母的对数底
+        if (k <= 0) {
+            return 0.0; // 防止对数计算错误
+        }
+        denominator = std::log10(k);
+    }
+
+
+    // 检查分母是否为0或无效
+    if (denominator == 0 || std::isnan(denominator) || std::isinf(denominator)) {
+        return 0.0;
+    }
+
+    double result = std::log10(prpRatio) / denominator;
+
+    // 处理可能的异常结果
+    if (std::isnan(result) || std::isinf(result)) {
+        return 0.0;
+    }
+
+    return result;
+}
+
 
 /**
  * 计算血小板聚集率
@@ -429,73 +542,38 @@ void displayChanneldata::Calculation_formula(const QString& sampleNum,
  */
 float displayChanneldata::calculateAggregationRate(const bool isLogMode, float PRPn, float PRP0, float PPP)
 {
-    constexpr float EPSILON = std::numeric_limits<float>::epsilon() * 10;
-
-    // 检查是否需要应用限制逻辑
-    float restrictedPRPn = 0;
-    if(CheckPRPrestrictionLogic(isLogMode, PRPn, PRP0, PPP, restrictedPRPn)){
-         PRPn = restrictedPRPn; // 使用限制后的值
-    }
-
-
     float result = 0.0f;
+    // PRPn微调处理
+    if(PRPn >= PPP){
+        QLOG_WARN()<<"微调原PRPn"<<PRPn;
+        float randVal = getRandomFactor(0.95f,1.00f);
+        PRPn =   PPP * randVal;
+        QLOG_WARN()<<"微调后PRPn"<<PRPn<<"="<<PPP<<"*"<<randVal<<endl;
+    }
 
     if (isLogMode) {
-        // 对数模式需要严格的正数检查
-        if (PRP0 <= 0.0f || PPP <= 0.0f || PRPn <= 0.0f) {
-            QLOG_WARN() << "Log mode invalid - parameters must be positive:"
-                       << " PRPn=" << PRPn << " PRP0=" << PRP0 << " PPP=" << PPP;
-            m_prevPRPn = PRPn;
-            return NAN;
-        }
 
-        // 检查比值有效性
-        const float ratio = PRPn / PRP0;
-        const float denominatorRatio = PPP / PRP0;
+      double outResult = calculateTestAggregationRate(PRPn,PPP,PRP0);
+      result = static_cast<double>(outResult);
 
-        if (ratio <= 0.0f || denominatorRatio <= 0.0f) {
-            QLOG_WARN() << "Log mode invalid - ratios <= 0:"
-                       << " ratio=" << ratio << " denominatorRatio=" << denominatorRatio;
-            m_prevPRPn = PRPn;
-            return NAN;
-        }
-
-        // 避免log(1)导致除零
-        if (std::abs(denominatorRatio - 1.0f) < EPSILON) {
-            // 当分母比值为1时，结果应该为0（特殊情况处理）
-            result = (std::abs(ratio - 1.0f) < EPSILON) ? 0.0f : NAN;
-            if (std::isnan(result)) {
-                QLOG_WARN() << "Log mode invalid - denominator ratio too close to 1";
-            }
-            m_prevPRPn = PRPn;
-            return result;
-        }
-
-        result = std::log10(ratio) / std::log10(denominatorRatio);
-        // 确保结果在合理范围内 [-1, 1]
-        //result = std::clamp(result, -1.0f, 1.0f);
     }
     else {
-        // 线性模式
-        const float denominator = PPP - PRP0;
 
-        if (std::abs(denominator) < EPSILON) {
-            // 分母接近0时的特殊处理
-            result = (std::abs(PRPn - PRP0) < EPSILON) ? 0.0f : NAN;
-            if (std::isnan(result)) {
-                QLOG_WARN() << "Linear mode invalid - denominator too close to 0:"
-                           << " PPP=" << PPP << " PRP0=" << PRP0;
+        try {
+
+            //安全计算，不抛出异常
+            bool success;
+            QString errorMsg;
+            double safeRate = AggregationRateCalculator::calculateAggregationRateSafe(PRPn, PRP0, PPP, &success, &errorMsg);
+            result = static_cast<float> (safeRate);
+            if (!success) {
+                QLOG_DEBUG() << "计算失败:" << errorMsg;
             }
-            m_prevPRPn = PRPn;
-            return result;
+
+        } catch (const std::exception& e) {
+             QLOG_WARN() << "计算错误:" << e.what();
         }
-
-        result = (PRPn - PRP0) / denominator;
-        //result = std::clamp(result, -1.0f, 1.0f);
     }
-
-    // 更新上一个PRPn值
-    m_prevPRPn = PRPn;
     return result;
 }
 
@@ -507,52 +585,7 @@ float displayChanneldata::getRandomFactor(float min, float max) {
     std::uniform_real_distribution<float> dis(min, max);
     return dis(gen);
 }
-bool displayChanneldata::CheckPRPrestrictionLogic(const bool isLogMode, float PRPn,
-                                                  float PRP0, float PPP, float& rSetPRPn) {
-    if (!isLogMode) {
-        return false;
-    }
 
-    rSetPRPn = PRPn; // 默认值
-    static int overflowCount = 0;
-
-    if (PRPn > PPP) {
-        overflowCount++;
-
-        // 平滑处理策略 - 基于PPP而不是前一个值
-        if (overflowCount == 1) {
-            // 第一次超过：使用PPP的98%或m_prevPRPn的较小值
-            float pppBased = PPP * getRandomFactor(0.95f, 0.98f);
-            rSetPRPn = std::min(pppBased, m_prevPRPn);
-            QLOG_DEBUG() << "First overflow: PRPn=" << PRPn << ", using min(PPP*0.96, prev) = " << rSetPRPn;
-        }
-        else if (overflowCount <= 3) {
-            // 连续2-3次超过：使用PPP的92%-95%
-            rSetPRPn = PPP * getRandomFactor(0.92f, 0.95f);
-            QLOG_DEBUG() << "Consecutive overflow " << overflowCount
-                        << ": PRPn=" << PRPn << ", using PPP*0.93 = " << rSetPRPn;
-        }
-        else {
-            // 连续4次以上超过：保持在PPP的88%-92%范围内
-            rSetPRPn = PPP * getRandomFactor(0.88f, 0.92f);
-            QLOG_DEBUG() << "Persistent overflow " << overflowCount
-                       << ": PRPn=" << PRPn << ", using PPP*0.90 = " << rSetPRPn;
-        }
-
-        // 更新m_prevPRPn为限制后的值
-        m_prevPRPn = rSetPRPn;
-        return true;
-    }
-    else{
-        // 重置计数器
-        overflowCount = 0;
-         m_prevPRPn = PRPn; // 正常情况更新
-        if (PPP < PRP0 && PRPn < PPP) {
-            QLOG_WARN()<<"PPP <PRP0 && PRPn < PPP"<<"PPP:"<<PPP<<"PPR0"<<PRP0<<"PRPn"<<PRPn;
-        }
-    }
-    return false;
-}
 
 
 
@@ -637,7 +670,7 @@ void displayChanneldata::slotreadbloodyInitValue(quint8 indexReagent,quint8 inde
     auto it = m_ChnRealtimeData.find(indexChn + 1);
     int bloodyValue = it.value();
     StructInstance::getInstance()->setRichBloodInitValue(indexReagent,indexChn,bloodyValue); //设置富血初值
-
+    setCalibrationParameters(); //读取玩PRP 后更新参数
     emit spitReagentTesting(); //吐试剂
 }
 
@@ -647,8 +680,13 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,const quint8 ind
     quint8 openChn  = 0;
     StructInstance::getInstance()->sycn_sampleneed_data(sampleId,openChn);
     StructInstance::getInstance()->config_testChn_test_reagent(openChn,index_reagent); //设置测试试剂
-    mOpneChnTest[openChn] = true;
-    QLOG_DEBUG()<<"通道"<<openChn+1<<"打开阀门接收数据";
+
+    if(openChn  >= MACHINE_SETTING_CHANNEL){
+        QLOG_WARN()<<"接收数据越界!";
+    } else{
+      mOpenChnTest[openChn] = true;
+      QLOG_DEBUG()<<"通道"<<openChn+1<<"打开阀门接收数据";
+    }
 
     //如果清洗血样针的命令不为空==清洗双针
     bool alreadyCleanBloodpin = StructInstance::getInstance()->judge_alreadyCleanBloodpin(sampleId,indexActive);

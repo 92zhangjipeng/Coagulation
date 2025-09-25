@@ -19,6 +19,8 @@
 #include "dilag/custompppvalue.h"
 
 
+
+
 class displayChanneldata : public QObject
 {
     Q_OBJECT
@@ -30,6 +32,8 @@ public:
     void startModuleData();
     void UpdateChannelValue(const int Channel ,const int ChannelData);
     int  GetChannelValue(quint8);  //获取通道值
+
+    void setCalibrationParameters();
 
 signals:
     /*更新显示设置界面的通道数据*/
@@ -87,27 +91,73 @@ private:
                             const QString& filename = "filter_data.csv",
                             const QString& path = QCoreApplication::applicationDirPath());
 
-    void OutputModulTestResult();/*输出在测试的结果*/
+
+
+
+    /** 输出在测试的通道值
+    * @brief OutputModulTestResult
+    */
+    void outPutModuleTestData();
+    // 提取子函数，降低复杂度
+    void processChannelData(int channelIdx);
+
+
     bool sampleAbnormality(const int& initprp, const int anaemiaValue, const int&curprp,
                                const QString& sampleid, const quint8 &channelIdx);
 
-    /**
-     * @brief Calculation_formula
+    /**公式部分
+     * @brief displayChanneldata::calculationFormula
+     * @param sampleNum                     样本id
+     * @param reagentIndex                  试剂编号
+     * @param currentRichValue              实时PRP
+     * @param baselinePoor                  初始PPP
+     * @param baselineRich                  初始PRP
+     * @param channelIdx                    测试通道从1开始
+     */
+    void calculationFormula(const QString& sampleNum,
+                                quint8 reagentIndex,
+                                int currentRichValue,
+                                int baselinePoor,
+                                int baselineRich,
+                                int channelIdx);
+
+
+    /** 测试完成
+     * @brief handleTestCompletion
+     * @param sampleNum     样本ID
+     * @param reagentIndex  试剂号
+     * @param channelIdx    通道号
+     */
+    void handleTestCompletion(const QString& sampleNum,
+                              quint8 reagentIndex,
+                              int channelIdx);
+
+    /** 正在测试
+     * @brief processTestData
      * @param sampleNum
      * @param reagentIndex
      * @param currentRichValue
      * @param baselinePoor
      * @param baselineRich
      * @param channelIdx
+     * @param totalDataPoints
      */
-    void Calculation_formula(const QString& sampleNum, quint8 reagentIndex,
-                                int currentRichValue,
-                                int baselinePoor, int baselineRich,
-                                int channelIdx);
+    void processTestData(const QString& sampleNum,
+                           quint8 reagentIndex,
+                           int currentRichValue,
+                           int baselinePoor,
+                           int baselineRich,
+                           int channelIdx,
+                           int totalDataPoints);
+    int getBaselinePoorValue(int channelIdx, int currentBaseline);
+
+
+
+    double calculateTestAggregationRate(double prpn, double prpMax, double prp0);
+
     float calculateAggregationRate(const bool isLogMode,float PRPn, float PRP0, float PPP);
+
     float getRandomFactor(float min, float max);
-    bool  CheckPRPrestrictionLogic(const bool isLogMode, float PRPn,
-                                                      float PRP0, float PPP, float& rSetPRPn);
 
 
     void savedrandData(const QString samplenum,const quint8 indexReagent);
@@ -116,6 +166,26 @@ private:
     void processChannelData(int moduleIndex,
                                const std::array<int, FOUR_CHANNELS_PERMODULE>& data,
                                const  QStringList &receiveOriginalData);
+
+
+
+//缓存算法
+private:
+    // 配置参数缓存
+    mutable bool m_absorbanceAlgorithmCache = false;
+    // 缓存获取算法模式
+    bool getAbsorbanceAlgorithm() const {
+        if(!m_absorbanceAlgorithmCache) {
+            m_absorbanceAlgorithmCache  = INI_File().rConfigPara("AbsorbanceAlgorithm").toBool();
+        }
+        return m_absorbanceAlgorithmCache;
+    }
+
+    // 清除缓存（当配置可能改变时调用）
+    void clearAlgorithmCache() {
+        m_absorbanceAlgorithmCache = false;
+        QLOG_DEBUG() << "对数模式缓存清除";
+    }
 
 private:
 
@@ -128,7 +198,6 @@ private:
     //std::array<QQueue<int>, MACHINE_SETTING_CHANNEL> m_queueChannel;
 
     std::unique_ptr<QTimerThread> m_timerThread; // 修改为智能指针
-    bool mOpneChnTest[MACHINE_SETTING_CHANNEL];
     static constexpr int dataLengthGroup = 9; //每秒钟采集处理的数据个数
 
     QSet<QString> sentSamples; // 用于存储已发送信号的样本ID
@@ -136,8 +205,26 @@ private:
     float m_prevPRPn;
 
     QThread m_workerThread;
-
     bool  m_experimenttestData;
+
+    static constexpr size_t kMaxChannels = MACHINE_SETTING_CHANNEL;
+    //std::array<bool ,kMaxChannels> mOpenChnTest;
+    bool mOpenChnTest[MACHINE_SETTING_CHANNEL];
+
+
+    double mk1 = 2.3;
+
+    double mk2min = 2.3;
+    double mk2max = 4;
+
+    double mk3min = 4.0;
+    double mk3max = 6.5;
+
+    double mk4 = 6.5;
+
+    double mcalibrationFactor1 = 2.3;
+    double mcalibrationFactor3 = 0.6;
+    double mcalibrationFactor4 = 0.5;
 
 };
 

@@ -23,6 +23,18 @@
 #define GRIPPERSUCKTIME      "TimelapseSucking"
 
 
+//测试K值
+#define MAXK1    "maxk1"
+#define MINK2    "mink2"
+#define MAXK2    "maxk2"
+#define MINK3    "mink3"
+#define MAXK3    "maxk3"
+#define MINK4    "mink4"
+#define RATIOK1   "ratiok1"
+#define RATIOK3   "ratiok3"
+#define RATIOK4   "ratiok4"
+
+
 class INI_File
 {
 public:

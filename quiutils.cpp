@@ -2899,8 +2899,33 @@ int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
 
     //吸取的富血样本量: 样本个数 * 单个量 * 720+360
     const int totalSuckVolumeRRP  = targetCount  * suckmiter * suckSpitPRPRatio + firstSuckAir + addSuckReaugent;
-    QLOG_DEBUG()<<QString("PRP吸取的步数:(%1)[试剂个数==%2]").arg(totalSuckVolumeRRP).arg(targetCount );
-    out_directives.push_back(pActive->BigBenActive(true,totalSuckVolumeRRP,directiveNum ,DIS_WASHES_PUMPS,0));
+    QLOG_DEBUG()<<QString("吸PRP总步数:(%1) 份数:%2").arg(totalSuckVolumeRRP).arg(targetCount );
+
+    // 计算每次吸取量（整除）
+    const int baseStep = totalSuckVolumeRRP / targetCount;
+    const int remainder = totalSuckVolumeRRP % targetCount; // 余数处理
+    QLOG_DEBUG() << "基础步数:" << baseStep << "余数:" << remainder;
+
+    // 分层多次吸取  防止虹吸
+    int suckedVolume = 0;
+    int cumulativeStep = 0; // 累计步数
+
+    for(int currentCycle = 1; currentCycle <= targetCount; ++currentCycle) {
+        // 最后一次吸取时加上余数
+        int currentStep = baseStep;
+        if (currentCycle == targetCount) {
+            currentStep += remainder;
+        }
+
+        cumulativeStep += currentStep; // 累计到当前总步数
+
+        QLOG_DEBUG() << QString("第%1/%2次吸取，步数:%3，累计步数:%4")
+                                .arg(currentCycle).arg(targetCount).arg(currentStep).arg(cumulativeStep);
+        out_directives.push_back(pActive->BigBenActive(true, cumulativeStep, directiveNum, DIS_WASHES_PUMPS, 0));
+        suckedVolume += currentStep;
+    }
+    QLOG_DEBUG() << "分层吸取完成,总步数:"<< suckedVolume<<endl;
+
     out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,directiveNum ,false)); //血样针复位
 
     //吐富血

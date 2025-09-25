@@ -26,6 +26,7 @@ public:
     static QMap<quint8, quint16> getChannelPPPValues();
     static quint16 getChannelPPPValues(quint8 channel);
 
+
 private slots:
     void onSaveButtonClicked();
 
@@ -38,11 +39,29 @@ private:
     void createDefaultCSVFile();
     QString getCSVFilePath();
 
+
+    void insertOneItem(QTableWidget *ptableWidget, QString text, int row, int col, bool isedited, QFont font);
+    void applyTableStyling(QTableWidget* table) ;
+    void initTableStructures() ;
+    void initHeaders();
+    void initTableStyles();
+    void initResultTableContent();
+    void initChannelTableContent();
+    void applyFinalStyling();
+
+
+    void initParaini();
+    QString getItemText(QTableWidget* table, int row, int column);
+    void saveParaini();
 private:
     Ui::customPPPValue *ui;
 
+    QFont m_cellFont;
+    QFont m_headerFont;
+
     // 使用静态成员变量作为全局容器
     static QMap<quint8, quint16> m_channelPPPValues;
+
 
 };
 

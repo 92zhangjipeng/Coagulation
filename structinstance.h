@@ -246,9 +246,11 @@ public:
 
     void fetchTestDataTotal(QString samplename, quint8 index_reag, int &totalNum); //获取测试个数
 
-    void updte_saveChnTestData(const quint8 &IndexChannel,
-                                 const  quint8 &index_reag,
-                                 const int &testValue, const float &testcalculatingData);//++测试数据
+    //++测试数据
+    void updteSaveChnTestData(const quint8 &IndexChannel,
+                            const  quint8 &index_reag,
+                            const int &testValue,
+                            const float &testcalculatingData);
 
     void delalltaskinfo(const bool exitapp);
 
