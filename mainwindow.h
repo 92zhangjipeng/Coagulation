@@ -124,7 +124,7 @@ public:
     * @param Location  true=位置模式
     */
     void backOriginTestFinished();
-    void ThreadSafeReminder(QString title_, QString outputText);
+    void ThreadSafeReminder(QString titleStr, QString outputText);
 
     void reminderFunctionWidget(QString title,QString outputtext_, QList<QString> btntext);//功能提示框
     void progressBarconfig(int data_, int max_);
@@ -306,7 +306,8 @@ public slots:
     void slotExecute_exception_prompt(const quint8 Index,const QString,const quint8 IndexError);
 
     //刷卡提示
-    void handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,quint16 datetime);
+    void handlecardSwipeSuccessful(const QString tips, quint8 indexReagent,
+                                 quint8 totalnum, const QString datetime);
 
     void handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle);
 
@@ -432,7 +433,9 @@ private:
 	void logThreadStatus();
 
 private:
-    void _setupMainInterface();
+    void cleanupReminder();
+
+    void setupMainInterface();
     void setupTabWidget();
     void setupFunctionButtons(); //主界面初始显示
     void switchMainTab(MainInterfaceSubscripted index);
@@ -465,7 +468,7 @@ private:
     bool reagentReplacementComplete(const int& indexReagent);
 
     //保存写入批号
-    void saveWritingconsumablebatchnumber(const quint8 indexConsu,quint16 batchDateNum);
+    void saveWritingconsumablebatchnumber(const quint8 indexConsu,const QString& batchDateNum);
 
 private:
     void updateConnectionUI(bool connected);

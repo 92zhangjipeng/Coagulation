@@ -199,7 +199,7 @@ void  mainControlBoardProtocol::triggeredOutCleanInfo(const bool s2Cleanstatus)
  */
 void mainControlBoardProtocol::DetectCardStatusofScratchingBoardConsumables(quint8 mainControlBoardData_suppileBit,
                                                                                 quint8  mainControlBoardData_suppileTotal,
-                                                                                quint16 suppileDate)
+                                                                                const QString &suppileDate)
 {
 
     // 参数校验
@@ -418,13 +418,23 @@ void mainControlBoardProtocol::recvmainControlBoardProtocol(const QStringList ma
     hexstr = mainControlBoardData[IndexByte_8 + 1];
     quint8 mainControlBoardData_suppileTotal = hexstr.toInt(&ok,HEX_SWITCH);
 
+    //耗材有效期
+    //hexstr = mainControlBoardData[IndexByte_14] + mainControlBoardData[IndexByte_13];
+    //QLOG_DEBUG()<<"批号日期"<<hexstr;
+    //quint16 suppileDate = hexstr.toInt(&ok,HEX_SWITCH);
 
-    hexstr = mainControlBoardData[IndexByte_14] + mainControlBoardData[IndexByte_13];
-    quint16 suppileDate = hexstr.toInt(&ok,HEX_SWITCH); //耗材有效期
+	quint8 highByte = mainControlBoardData[IndexByte_14].toUShort(&ok, HEX_SWITCH);
+	quint8 lowByte = mainControlBoardData[IndexByte_13].toUShort(&ok, HEX_SWITCH);
+	quint16 suppileDate = (highByte << 8) | lowByte;
+	QString datePara = QString::number(suppileDate, 16);
+	QLOG_DEBUG() << "批号日期：" << datePara;
+ 
+
 
     //检测主板耗材刷卡状态
     DetectCardStatusofScratchingBoardConsumables(mainControlBoardData_suppileBit,
-                                                 mainControlBoardData_suppileTotal,suppileDate);
+                                                 mainControlBoardData_suppileTotal,
+                                                 datePara);
 
 
     Waste_detection(mainControlBoardData_5th); //废液状态

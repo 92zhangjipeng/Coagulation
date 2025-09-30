@@ -38,6 +38,14 @@ public:
     QSpacerItem *horizontalSpacer_3;
     QPushButton *pushButtonNext;
     QTableWidget *tableWidget;
+    QWidget *widgetShowInfo;
+    QHBoxLayout *horizontalLayout_4;
+    QSpacerItem *horizontalSpacer_4;
+    QCustomPlot *widgetCurveShow;
+    QSpacerItem *horizontalSpacer_5;
+    QLabel *labelbrief;
+    QWidget *widgetbottom;
+    QHBoxLayout *horizontalLayout;
     QWidget *widgetViewtitle;
     QHBoxLayout *horizontalLayout_3;
     QLabel *labelAAColor;
@@ -50,9 +58,6 @@ public:
     QLabel *labelcolcurve;
     QLabel *labelrisColor;
     QLabel *labelriscurve;
-    QCustomPlot *widgetCurveShow;
-    QWidget *widgetbottom;
-    QHBoxLayout *horizontalLayout;
     QSpacerItem *horizontalSpacer;
     QCheckBox *checkBoxSmooth;
 
@@ -60,7 +65,8 @@ public:
     {
         if (CustomFixTableView->objectName().isEmpty())
             CustomFixTableView->setObjectName(QStringLiteral("CustomFixTableView"));
-        CustomFixTableView->resize(788, 1020);
+        CustomFixTableView->resize(1141, 680);
+        CustomFixTableView->setMinimumSize(QSize(400, 0));
         verticalLayout = new QVBoxLayout(CustomFixTableView);
         verticalLayout->setSpacing(5);
         verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
@@ -149,27 +155,62 @@ public:
 
         tableWidget = new QTableWidget(CustomFixTableView);
         tableWidget->setObjectName(QStringLiteral("tableWidget"));
-        tableWidget->setMinimumSize(QSize(0, 590));
-        tableWidget->setStyleSheet(QLatin1String("QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}\"\n"
-"                             \"QTableWidget::item:selected{background-color:rgb(135, 206, 250)}\"\n"
-"                              \"QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); \"\n"
-"                              \"border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(188, 187, 186);\"\n"
-"                              \"font: bold 1pt;padding:12px 0 0 10px}\"\n"
-"                               \"QHeaderView::section,QTableCornerButton:section{ \\\n"
-"                               padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); \\\n"
-"                               border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; \\\n"
-"                               background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }\"\n"
-"                               \""
-                        "QTableWidget{background-color:white;border:none;}\"\n"
-"                               \"QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\\\n"
-"                               stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}\"\n"
-"                               \"QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\\\n"
-"                               stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}\n"
-"                               "));
+        tableWidget->setMinimumSize(QSize(0, 260));
+        tableWidget->setStyleSheet(QStringLiteral(""));
 
         verticalLayout->addWidget(tableWidget);
 
-        widgetViewtitle = new QWidget(CustomFixTableView);
+        widgetShowInfo = new QWidget(CustomFixTableView);
+        widgetShowInfo->setObjectName(QStringLiteral("widgetShowInfo"));
+        widgetShowInfo->setMinimumSize(QSize(0, 300));
+        widgetShowInfo->setStyleSheet(QLatin1String("background-color: #1e3a5f;\n"
+"border: 2px solid #2d5278;\n"
+"border-radius: 8px;\n"
+"color: #ffffff;\n"
+"font-family: \"Segoe UI\", \"Microsoft YaHei\";\n"
+""));
+        horizontalLayout_4 = new QHBoxLayout(widgetShowInfo);
+        horizontalLayout_4->setSpacing(20);
+        horizontalLayout_4->setObjectName(QStringLiteral("horizontalLayout_4"));
+        horizontalLayout_4->setContentsMargins(50, 5, 50, 5);
+        horizontalSpacer_4 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        horizontalLayout_4->addItem(horizontalSpacer_4);
+
+        widgetCurveShow = new QCustomPlot(widgetShowInfo);
+        widgetCurveShow->setObjectName(QStringLiteral("widgetCurveShow"));
+        widgetCurveShow->setMinimumSize(QSize(700, 260));
+        widgetCurveShow->setMaximumSize(QSize(16777215, 11111));
+
+        horizontalLayout_4->addWidget(widgetCurveShow);
+
+        horizontalSpacer_5 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        horizontalLayout_4->addItem(horizontalSpacer_5);
+
+        labelbrief = new QLabel(widgetShowInfo);
+        labelbrief->setObjectName(QStringLiteral("labelbrief"));
+        labelbrief->setMinimumSize(QSize(200, 0));
+        labelbrief->setMaximumSize(QSize(210, 16777215));
+        QFont font1;
+        font1.setFamily(QStringLiteral("Segoe UI,Microsoft YaHei"));
+        labelbrief->setFont(font1);
+        labelbrief->setAlignment(Qt::AlignCenter);
+
+        horizontalLayout_4->addWidget(labelbrief);
+
+
+        verticalLayout->addWidget(widgetShowInfo);
+
+        widgetbottom = new QWidget(CustomFixTableView);
+        widgetbottom->setObjectName(QStringLiteral("widgetbottom"));
+        widgetbottom->setMinimumSize(QSize(0, 25));
+        widgetbottom->setMaximumSize(QSize(16777215, 25));
+        horizontalLayout = new QHBoxLayout(widgetbottom);
+        horizontalLayout->setSpacing(0);
+        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
+        horizontalLayout->setContentsMargins(5, 0, 5, 0);
+        widgetViewtitle = new QWidget(widgetbottom);
         widgetViewtitle->setObjectName(QStringLiteral("widgetViewtitle"));
         widgetViewtitle->setMinimumSize(QSize(0, 15));
         horizontalLayout_3 = new QHBoxLayout(widgetViewtitle);
@@ -186,10 +227,10 @@ public:
 
         labelAAcurve = new QLabel(widgetViewtitle);
         labelAAcurve->setObjectName(QStringLiteral("labelAAcurve"));
-        QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font1.setPointSize(12);
-        labelAAcurve->setFont(font1);
+        QFont font2;
+        font2.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font2.setPointSize(12);
+        labelAAcurve->setFont(font2);
 
         horizontalLayout_3->addWidget(labelAAcurve);
 
@@ -203,7 +244,7 @@ public:
 
         labelADpcurve = new QLabel(widgetViewtitle);
         labelADpcurve->setObjectName(QStringLiteral("labelADpcurve"));
-        labelADpcurve->setFont(font1);
+        labelADpcurve->setFont(font2);
 
         horizontalLayout_3->addWidget(labelADpcurve);
 
@@ -217,7 +258,7 @@ public:
 
         labelEPIcurve = new QLabel(widgetViewtitle);
         labelEPIcurve->setObjectName(QStringLiteral("labelEPIcurve"));
-        labelEPIcurve->setFont(font1);
+        labelEPIcurve->setFont(font2);
 
         horizontalLayout_3->addWidget(labelEPIcurve);
 
@@ -231,7 +272,7 @@ public:
 
         labelcolcurve = new QLabel(widgetViewtitle);
         labelcolcurve->setObjectName(QStringLiteral("labelcolcurve"));
-        labelcolcurve->setFont(font1);
+        labelcolcurve->setFont(font2);
 
         horizontalLayout_3->addWidget(labelcolcurve);
 
@@ -245,28 +286,13 @@ public:
 
         labelriscurve = new QLabel(widgetViewtitle);
         labelriscurve->setObjectName(QStringLiteral("labelriscurve"));
-        labelriscurve->setFont(font1);
+        labelriscurve->setFont(font2);
 
         horizontalLayout_3->addWidget(labelriscurve);
 
 
-        verticalLayout->addWidget(widgetViewtitle);
+        horizontalLayout->addWidget(widgetViewtitle);
 
-        widgetCurveShow = new QCustomPlot(CustomFixTableView);
-        widgetCurveShow->setObjectName(QStringLiteral("widgetCurveShow"));
-        widgetCurveShow->setMinimumSize(QSize(0, 260));
-        widgetCurveShow->setMaximumSize(QSize(16777215, 11111));
-
-        verticalLayout->addWidget(widgetCurveShow);
-
-        widgetbottom = new QWidget(CustomFixTableView);
-        widgetbottom->setObjectName(QStringLiteral("widgetbottom"));
-        widgetbottom->setMinimumSize(QSize(0, 25));
-        widgetbottom->setMaximumSize(QSize(16777215, 25));
-        horizontalLayout = new QHBoxLayout(widgetbottom);
-        horizontalLayout->setSpacing(0);
-        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
-        horizontalLayout->setContentsMargins(0, 0, 0, 0);
         horizontalSpacer = new QSpacerItem(710, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
 
         horizontalLayout->addItem(horizontalSpacer);
@@ -275,7 +301,7 @@ public:
         checkBoxSmooth->setObjectName(QStringLiteral("checkBoxSmooth"));
         checkBoxSmooth->setMinimumSize(QSize(0, 25));
         checkBoxSmooth->setMaximumSize(QSize(16777215, 25));
-        checkBoxSmooth->setFont(font1);
+        checkBoxSmooth->setFont(font2);
 
         horizontalLayout->addWidget(checkBoxSmooth);
 
@@ -294,6 +320,7 @@ public:
         pushButtonBack->setText(QString());
         labelname->setText(QApplication::translate("CustomFixTableView", "TextLabel", nullptr));
         pushButtonNext->setText(QString());
+        labelbrief->setText(QApplication::translate("CustomFixTableView", "\345\276\205\345\210\206\346\236\220", nullptr));
         labelAAColor->setText(QString());
         labelAAcurve->setText(QApplication::translate("CustomFixTableView", "AA", nullptr));
         labelADPColor->setText(QString());

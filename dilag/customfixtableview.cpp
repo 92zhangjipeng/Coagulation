@@ -17,6 +17,16 @@ CustomFixTableView::CustomFixTableView(QWidget *parent) :
     m_showEPICpgraph(nullptr),
     m_showCOLCpgraph(nullptr),
     m_showRISCpgraph(nullptr),
+    m_maxAggregationTracer(nullptr),
+    m_maxAggregationLabel(nullptr),
+    m_aucCurve(nullptr),
+    m_slopeLine(nullptr),
+    m_slopeLabel(nullptr),
+    m_slopeStartTracer(nullptr),
+    m_slopeEndTracer(nullptr),
+    m_lagTimeTracer(nullptr),
+    m_lagTimeLine(nullptr),
+    m_lagTimeLabel(nullptr),
     ui(new Ui::CustomFixTableView)
 {
     ui->setupUi(this);
@@ -24,28 +34,27 @@ CustomFixTableView::CustomFixTableView(QWidget *parent) :
     setWindowFlags(windowFlags() | Qt::Dialog | Qt::WindowStaysOnTopHint);
 
 
-    // 1. 初始化动画对象
+    //初始化动画对象
     m_showAnim = new QPropertyAnimation(this, "geometry");
     m_hideAnim = new QPropertyAnimation(this, "geometry");
 
-    // 2. 设置动画曲线 (平滑加速减速)
+    //设置动画曲线 (平滑加速减速)
     m_showAnim->setEasingCurve(QEasingCurve::OutBack);    // 弹跳效果增强视觉反馈
     m_hideAnim->setEasingCurve(QEasingCurve::InBack);
 
-    // 3. 设置动画时长
+    //设置动画时长
     m_showAnim->setDuration(500);  // 500ms
     m_hideAnim->setDuration(400);  // 稍快隐藏
 
-    // 4. 绑定隐藏动画结束信号
+    //绑定隐藏动画结束信号
     connect(m_hideAnim, &QPropertyAnimation::finished, this, &CustomFixTableView::onHideFinished);
 	
     //业务
     m_SampleidList.clear();
+
     initCreateCurveWidget(ui->widgetCurveShow);
     initShowResultWidget(ui->tableWidget);
     GlobalData::QCheckboxSheet(ui->checkBoxSmooth,tr("校平曲线"));
-
-
 }
 
 CustomFixTableView::~CustomFixTableView()
@@ -61,25 +70,24 @@ void CustomFixTableView::showWithAnimation() {
     QRect screenRect = m_currentScreen->availableGeometry();
 
     // 计算位置
-    const int width = 790;  // 窗口宽度
-    const int height = 930; // 窗口高度
+    const int width = 1450;  // 窗口宽度
+    const int height = 550; // 窗口高度
     const int x = screenRect.x() + (screenRect.width() - width) / 2;
 
 
-    // 初始位置：屏幕底部外
+    //初始位置：屏幕底部外
     QRect startRect(x, screenRect.bottom(), width, height);
     // 目标位置：屏幕中央
     QRect endRect(x, screenRect.top() + (screenRect.height() - height) / 2, width, height);
 
-    // 设置动画参数
+    //设置动画参数
     m_showAnim->setStartValue(startRect);
     m_showAnim->setEndValue(endRect);
 
-
-    // 显示窗口并启动动画
+    //显示窗口并启动动画
     show();
-    raise();  // 确保置顶
-    activateWindow();  // 获取焦点
+    raise();
+    activateWindow();
     m_showAnim->start();
 }
 
@@ -152,12 +160,6 @@ void CustomFixTableView::initCreateCurveWidget(QCustomPlot *customPlot){
     customPlot->setAntialiasedElements(QCP::aeAll);
     //customPlot->setNotAntialiasedElements(QCP::aeNone);
 
-    // 设置整体背景
-    //customPlot->setBackground(QBrush(QColor(248, 250, 252)));
-
-    // 1. 创建现代化标题
-    //initModernPlotTitle(customPlot);
-
     // 2. 基本交互设置
     setupSmoothInteractions(customPlot);
 
@@ -181,17 +183,6 @@ void CustomFixTableView::initCreateCurveWidget(QCustomPlot *customPlot){
 }
 
 
-
-void CustomFixTableView::initModernPlotTitle(QCustomPlot* customPlot)
-{
-    QCPTextElement* plotTitle = new QCPTextElement(customPlot);
-    plotTitle->setText("📊 数据曲线");
-    plotTitle->setTextColor(Qt::black);
-    plotTitle->setFont(QFont("宋体", 14, QFont::Bold));
-
-    customPlot->plotLayout()->insertRow(0);
-    customPlot->plotLayout()->addElement(0, 0, plotTitle);
-}
 
 void CustomFixTableView::setupSmoothInteractions(QCustomPlot* customPlot)
 {
@@ -359,16 +350,24 @@ void CustomFixTableView::initCreatCPGraph(QCustomPlot* pshowcurvedata)
 // 1. 将曲线列表定义为类成员（避免每次重建）
 void CustomFixTableView::CreatResultCruve()
 {
-    for (QCPGraph* graph : calibrationGraphs()) { // 成员函数返回曲线列表
+    // 清除辅助标记
+    clearAuxiliaryItems();
+
+    for (QCPGraph* graph : calibrationGraphs()) {
         clearGraphData(graph);
     }
     ui->widgetCurveShow->replot(QCustomPlot::rpQueuedReplot);
 }
 void CustomFixTableView::clrarResultTable(QTableWidget *pTable)
 {
-    //清空结果列
-    for (int Rows = 0; Rows < pTable->rowCount();  ++Rows) {
-        insertColumnText(ui->tableWidget, Rows,static_cast<int>(TableItemnum::ReagentTimeResult),"");
+    // 清空结果列（从60S积聚率到AUC）
+    for (int row = 0; row < pTable->rowCount(); ++row) {
+        for (int col = static_cast<int>(TableItemnum::Aggregation60s);
+             col <= static_cast<int>(TableItemnum::AUC); ++col) {
+            insertColumnText(pTable, row, col, "");
+        }
+        // 同时清空对比结果列
+        insertColumnText(pTable, row, static_cast<int>(TableItemnum::OutResult), "");
     }
 }
 
@@ -449,13 +448,66 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
         return;
     }
 
+    // 清除之前的辅助标记
+    clearAuxiliaryItems();
+
     //设置曲线数据
     if (auto graph = reagentGraphMap.value(testEndReagent, nullptr)) {
         if(!smooth)
             graph->setData(timePoints, reagentCurvedata);
         else
             graph->setData(timePoints, GlobalData::smoothData(reagentCurvedata, 5));
+
+        // 标记最大聚集率、计算AUC和斜率
+        auto maxAggregationResult = markMaxAggregation(reagentCurvedata, graph);
+        double maxAggregation = maxAggregationResult.first;
+        double timeToMax = maxAggregationResult.second; // 获取TMA时间
+        double auc = calculateAndDrawAUC(reagentCurvedata, graph);
+        double slope = calculateAndDrawSlope(reagentCurvedata, graph);
+        double lagTime = calculateLagTime(reagentCurvedata); // 计算延迟时间
+
+        // 在图表上标记延迟时间
+        markLagTimeOnGraph(lagTime, graph);
+
+        // 直接使用我们计算的值显示在labelbrief中
+        showCustomAnalyzerResult(maxAggregation, slope, auc,timeToMax,lagTime );
+
+		// 更新表格中的详细参数
+		updateTableWithCalculatedParams(testEndReagent, slope, timeToMax, lagTime, auc);
     }
+
+    // 更新表格结果
+    updatetabletestedResult(testEndReagent);
+
+}
+
+
+void CustomFixTableView::showCustomAnalyzerResult(double maxAggregation, double slope, double auc,
+                                                  double timeToMax, double lagTime){
+    QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    QString brief = QString(
+               "<div style='font-family: Consolas, monospace; background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; border-radius: 3px;'>"
+               "<table style='width: 100%; border-collapse: collapse;'>"
+               "<tr><td colspan='2' style='text-align: center; font-weight: bold; padding-bottom: 8px;'>🩸 血小板聚集分析</td></tr>"
+               "<tr><td style='width: 40%; padding: 2px;'>📊 最大聚集率:</td><td style='padding: 2px;'>%1%</td></tr>"
+               "<tr><td style='padding: 2px;'>🚀 最陡斜率:</td><td style='padding: 2px;'>%2 %/min</td></tr>"  // 修改单位
+               "<tr><td style='padding: 2px;'>📐 AUC面积:</td><td style='padding: 2px;'>%3 %·min</td></tr>"
+               "<tr><td style='padding: 2px;'>⏱️ TMA时间:</td><td style='padding: 2px;'>%4 min</td></tr>"
+               "<tr><td style='padding: 2px;'>⏳ 延迟时间:</td><td style='padding: 2px;'>%5 min</td></tr>"
+               "<tr><td colspan='2' style='padding-top: 8px; border-top: 1px solid #dee2e6;'>分析时间: %6</td></tr>"
+               "</table>"
+               "</div>"
+           ).arg(
+               QString::number(maxAggregation, 'f', 1),
+               QString::number(slope, 'f', 3),  // 现在slope是 %/min
+               QString::number(auc, 'f', 1),
+               QString::number(timeToMax, 'f', 2),
+               QString::number(lagTime, 'f', 2),
+               currentTime
+           );
+
+    ui->labelbrief->setText(brief);
+    ui->labelbrief->setTextFormat(Qt::RichText);
 }
 
 
@@ -537,7 +589,12 @@ void CustomFixTableView::updateParaState(QTableWidget *tablewiget,const int row,
 void  CustomFixTableView::initShowResultWidget(QTableWidget * Table)
 {
     Table->setContextMenuPolicy (Qt::CustomContextMenu);
-    QStringList header{tr("测试项目"),tr("状态"),tr("结果分析"),tr("结果数据"),tr("对比结果"),tr("参考值")};
+    QStringList header{
+        tr("测试项目"), tr("状态"), tr("60S积聚率"), tr("180S积聚率"),
+        tr("300S积聚率"), tr("Max积聚率"), tr("斜率(Slope/%/min)"),
+        tr("AMT时间(TMA/min)"), tr("延迟时间(Time/min)"),
+        tr("AUC面积(%*min)"), tr("对比结果"), tr("参考值")
+    };
     Table->setColumnCount(header.size());
     Table->setHorizontalHeaderLabels(header);
 
@@ -547,53 +604,97 @@ void  CustomFixTableView::initShowResultWidget(QTableWidget * Table)
     font.setBold(true);
 
     Table->horizontalHeader()->setFont(font);
-    Table->horizontalHeader()->setStretchLastSection(true); //设置充满表宽度
-    Table->verticalHeader()->setVisible(false); //隐藏行表头(行号)
-    Table->verticalHeader()->setDefaultSectionSize(30); //设置行高
-    Table->setSelectionMode(QAbstractItemView::ExtendedSelection);  //可多选（Ctrl、Shift、  Ctrl+A都可以）
-    Table->setSelectionBehavior(QAbstractItemView::SelectRows);  //设置选择行为时每次选择一行
-    Table->setEditTriggers(QAbstractItemView::NoEditTriggers); //设置不可编辑
-    Table->horizontalHeader()->setFixedHeight(35); //设置表头的高度
-    Table->horizontalHeader()->setStretchLastSection(true); //使行列头自适应宽度，所有列平均分来填充空白部分
-    Table->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents); // 将根据整个列或行的内容自动调整区段的大小
-    Table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);    //x先自适应宽度
+    Table->horizontalHeader()->setStretchLastSection(true); // 最后一列填充
+    Table->verticalHeader()->setVisible(false);
+
+    Table->verticalHeader()->setDefaultSectionSize(50);
+	Table->verticalHeader()->setMinimumSectionSize(40); // 设置最小行高
+
+    Table->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    Table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    Table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    Table->horizontalHeader()->setFixedHeight(40);
+    Table->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     Table->setIconSize(QSize(32, 32));
 
-    Table->horizontalHeader()->setSectionResizeMode(0,QHeaderView::Fixed);
-    Table->setColumnWidth(0, 80);
-    Table->horizontalHeader()->setSectionResizeMode(1,QHeaderView::Fixed);
-    Table->setColumnWidth(1, 100);
-    Table->horizontalHeader()->setSectionResizeMode(2,QHeaderView::Stretch);
+    // 设置列宽 - 根据文字内容设置合适的宽度
+    Table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    Table->setColumnWidth(0, 80);   // 测试项目
 
-    Table->setColumnWidth(3, 200);
-    Table->setColumnWidth(4, 120);
+    Table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    Table->setColumnWidth(1, 110);   // 状态
 
-    Table->horizontalHeader()->setStyleSheet("QHeaderView::section{background-color:rgb(188, 187, 186); "
-                                             "font:14pt '楷体'; color: black;};");
+    Table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    Table->setColumnWidth(2, 100);   // 60S积聚率
 
-    QStringList projectitems{tr("AA"),tr("ADP"),tr("EPI"),tr("COL"),tr("RIS")};
-    QStringList reagentTimeName{tr("聚集率[60s]"),tr("聚集率[180s]"),tr("聚集率[300s]"),tr("聚集率[Max]")};
-    int itemHeigh = projectitems.size() * 4;
-    Table->setRowCount(itemHeigh);
+    Table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    Table->setColumnWidth(3, 100);   // 180S积聚率
 
-    for(int r = 0 ; r < 20 ; ++r)
-        insertColumnText(Table, r, static_cast<int>(TableItemnum::ReagentTime),
-                          GlobalData::customCurveColor(r/4 + 1),reagentTimeName.at(r%4));
+    Table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+    Table->setColumnWidth(4, 100);   // 300S积聚率
 
-    int indexRows = 0;
-    for (auto Projectname : projectitems) {
-        Table->setSpan(indexRows * 4,  static_cast<int>(TableItemnum::ReagentName), 4, 1);
-        insertColumnText(Table, indexRows * 4,static_cast<int>(TableItemnum::ReagentName),
-                         GlobalData::customCurveColor(indexRows + 1),Projectname);
-        indexRows++;
+    Table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
+    Table->setColumnWidth(5, 100);   // Max积聚率
+
+    Table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
+    Table->setColumnWidth(6, 180);   // 聚集斜率
+
+    Table->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
+    Table->setColumnWidth(7, 160);  // AMT时间(TMA/min)
+
+    Table->horizontalHeader()->setSectionResizeMode(8, QHeaderView::Fixed);
+    Table->setColumnWidth(8, 160);  // 延迟时间(Time/min)
+
+    Table->horizontalHeader()->setSectionResizeMode(9, QHeaderView::Fixed);
+    Table->setColumnWidth(9, 150);  // AUC面积AUC(%*min)
+
+    Table->horizontalHeader()->setSectionResizeMode(10, QHeaderView::Fixed);
+    Table->setColumnWidth(10, 100); // 对比结果
+
+    // 最后一列（参考值）填充剩余空间
+    Table->horizontalHeader()->setSectionResizeMode(11, QHeaderView::Stretch);
+
+    Table->setStyleSheet(TableWidgetCss +
+		"QTableWidget::item {"
+		"   padding: 5px;"  // 增加单元格内边距
+		"}");
+
+    Table->horizontalHeader()->setStyleSheet("QHeaderView::section {"
+                                             "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                                             "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+                                             "   color: white;"
+                                             "   padding: 8px 2px;"
+                                             "   border: 1px solid #3a3a3a;"
+                                             "   font-weight: bold;"
+                                             "   font-size: 12pt;"
+                                             "}"
+                                             "QHeaderView::section:first {"
+                                             "   border-left: 1px solid #3a3a3a;"
+                                             "}"
+                                             "QHeaderView::section:last {"
+                                             "   border-right: 1px solid #3a3a3a;"
+                                             "}");
+
+    QStringList projectitems{tr("AA"), tr("ADP"), tr("EPI"), tr("COL"), tr("RIS")};
+    Table->setRowCount(projectitems.size());
+
+    // 设置每行的项目名称和背景色
+    for (int row = 0; row < projectitems.size(); ++row) {
+        insertColumnText(Table, row, static_cast<int>(TableItemnum::ReagentName),
+                         GlobalData::customCurveColor(row + 1), projectitems.at(row));
+
+        // 初始化其他列为空
+        for (int col = 1; col < Table->columnCount(); ++col) {
+            insertColumnText(Table, row, col, "");
+        }
     }
+
     connect(Table, SIGNAL(cellClicked(int, int)), this, SLOT(viewOneReagentCurve(int, int)));
     return;
 }
 
 
-void CustomFixTableView::spanTableWidget(const int &fromrows ,
-                                         const int& indexCols,
+void CustomFixTableView::spanTableWidget(const int &fromrows ,const int& indexCols,
                                          QString pathicon,QString outResult){
     ui->tableWidget->setSpan(fromrows,  indexCols, 4,  1);
     updateParaState(ui->tableWidget, fromrows,indexCols,QColor(250,250,250),pathicon,outResult);
@@ -601,190 +702,198 @@ void CustomFixTableView::spanTableWidget(const int &fromrows ,
 
 
 void CustomFixTableView::viewOneReagentCurve(int rows, int cols){
-    if(rows < 0)  return;
+    if(rows < 0 || rows >= ui->tableWidget->rowCount()) return;
 
-    //先清除测试数据曲线再画
+    // 先清除测试数据曲线再画
     CreatResultCruve();
 
-    // 定义试剂类型映射表 (C++11起支持统一初始化)
+    // 定义试剂类型映射表
     static const std::array<quint8, 5> REAGENT_MAP = {
-        AA_REAGENT,   // 0-3
-        ADP_REAGENT,  // 4-7
-        EPI_REAGENT,  // 8-11
-        COL_REAGENT,  // 12-15
-        RIS_REAGENT   // 16-19
+        AA_REAGENT,   // 0
+        ADP_REAGENT,  // 1
+        EPI_REAGENT,  // 2
+        COL_REAGENT,  // 3
+        RIS_REAGENT   // 4
     };
 
-    // 边界检查与索引计算
-    const int index = (rows >= 0 && rows < 20) ? (rows / 4) : -1;
-    if(index == -1) {
-        QLOG_WARN() << "Invalid rows value:" << rows;
-        return;  // 或抛出异常
-    }
-    const quint8 indexReag = REAGENT_MAP[index];
-    showCurveTestEnd(indexReag,false);
+    const quint8 indexReag = REAGENT_MAP[rows];
+    showCurveTestEnd(indexReag, false);
     ui->widgetCurveShow->replot(QCustomPlot::rpQueuedReplot);
     return;
 }
 
 void CustomFixTableView::updatetabletestedResult(const quint8& indexReag)
 {
-    //定义试剂类型与索引映射
-    static const QMap<quint8, std::pair<int, QString PatientInformationStu::*>> REAGENT_MAP = {
-        {AA_REAGENT,  {0,  &PatientInformationStu::AAResult}},
-        {ADP_REAGENT, {4,  &PatientInformationStu::ADPResult}},
-        {EPI_REAGENT, {8,  &PatientInformationStu::EPIResult}},
-        {COL_REAGENT, {12, &PatientInformationStu::COLResult}},
-        {RIS_REAGENT, {16, &PatientInformationStu::RISResult}}
-    };
+	// 定义试剂类型与行索引映射
+	static const QMap<quint8, int> REAGENT_ROW_MAP = {
+		{ AA_REAGENT,  0 },
+		{ ADP_REAGENT, 1 },
+		{ EPI_REAGENT, 2 },
+		{ COL_REAGENT, 3 },
+		{ RIS_REAGENT, 4 }
+	};
 
+	// 定义试剂类型与结果成员映射
+	static const QMap<quint8, QString PatientInformationStu::*> REAGENT_MEMBER_MAP = {
+		{ AA_REAGENT,  &PatientInformationStu::AAResult },
+		{ ADP_REAGENT, &PatientInformationStu::ADPResult },
+		{ EPI_REAGENT, &PatientInformationStu::EPIResult },
+		{ COL_REAGENT, &PatientInformationStu::COLResult },
+		{ RIS_REAGENT, &PatientInformationStu::RISResult }
+	};
 
+	// 获取测试结果
+	PatientInformationStu painterInfovec;
+	FullyAutomatedPlatelets::pinstancesqlData()->getTestResultTabledata(m_viewIDstr, painterInfovec);
 
-    //获取测试结果
-    PatientInformationStu painterInfovec;
-    FullyAutomatedPlatelets::pinstancesqlData()->getTestResultTabledata(m_viewIDstr, painterInfovec);
+	auto rowIt = REAGENT_ROW_MAP.find(indexReag);
+	auto memberIt = REAGENT_MEMBER_MAP.find(indexReag);
+	if (rowIt == REAGENT_ROW_MAP.end() || memberIt == REAGENT_MEMBER_MAP.end()) return;
 
-    auto it = REAGENT_MAP.find(indexReag);
-    if (it == REAGENT_MAP.end()) return; // 无效试剂类型
+	int row = rowIt.value();
+	QString PatientInformationStu::* memberPtr = memberIt.value();
 
-    QString testResultVal = painterInfovec.*(it->second);
-    QStringList resultList = testResultVal.simplified().split(",");
-    bool testfinish = (resultList.size() == 4); // 简化状态判断
+	// 使用成员指针访问数据
+	QString testResultVal = painterInfovec.*memberPtr;
+	QStringList resultList = testResultVal.simplified().split(",");
+	bool testfinish = (resultList.size() == 4);
 
-    int startIdx = it->first;
-    const int reagentStateCol = static_cast<int>(TableItemnum::ReagentState);
+	const int reagentStateCol = static_cast<int>(TableItemnum::ReagentState);
 
-    if (testfinish) {
-        // 批量填充结果列
-        for (int i = 0; i < 4; ++i) {
-            insertColumnText(ui->tableWidget, startIdx + i,
-                             static_cast<int>(TableItemnum::ReagentTimeResult),
-                             resultList.at(i));
-        }
-        setReagentStatus(startIdx, reagentStateCol, Status::Completed);
-    } else if (testResultVal.isEmpty()) {
-        setReagentStatus(startIdx, reagentStateCol, Status::NotTested);
-    } else if (testResultVal == "null") {
-        setReagentStatus(startIdx, reagentStateCol, Status::Pending);
-    }
-    ui->tableWidget->viewport()->update();
+	if (testfinish) {
+		// 填充四个时间点的聚集率
+		insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::Aggregation60s), resultList.at(0));
+		insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::Aggregation180s), resultList.at(1));
+		insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::Aggregation300s), resultList.at(2));
+		insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::AggregationMax), resultList.at(3));
+
+		setReagentStatus(row, reagentStateCol, Status::Completed);
+	}
+	else if (testResultVal.isEmpty()) {
+		setReagentStatus(row, reagentStateCol, Status::NotTested);
+	}
+	else if (testResultVal == "null") {
+		setReagentStatus(row, reagentStateCol, Status::Pending);
+	}
+	ui->tableWidget->viewport()->update();
 }
 
 
 void CustomFixTableView::setReagentStatus(int row, int col, Status status) {
-    QPair<QString, QString> resources;
+    QString iconPath, statusText;
     switch(status) {
         case Status::Completed:
-            resources = {":/Picture/SetPng/status_Normal.png", tr("完成")};
+            iconPath = ":/Picture/SetPng/status_Normal.png";
+            statusText = tr("完成");
             break;
         case Status::NotTested:
-            resources = {":/Picture/SetPng/status_Error.png", tr("未测试")};
+            iconPath = ":/Picture/SetPng/status_Error.png";
+            statusText = tr("未测试");
             break;
         case Status::Pending:
-            resources = {":/Picture/SetPng/status_Action.png", tr("等待测试")};
+            iconPath = ":/Picture/SetPng/status_Action.png";
+            statusText = tr("等待测试");
             break;
     }
-    spanTableWidget(row, col, resources.first, resources.second);
+
+    // 更新状态单元格
+    updateParaState(ui->tableWidget, row, col, QColor(250,250,250), iconPath, statusText);
 }
 
 
 bool CustomFixTableView::updateSetSexReferValue()
 {
     const QString sexMan = "男";
-    bool  isfindSex = (m_sampleSex.isEmpty()|| m_sampleSex.isNull())? false: true;
-    bool isSex = (m_sampleSex == sexMan)? true: false;
+    bool isfindSex = !(m_sampleSex.isEmpty() || m_sampleSex.isNull());
+    bool isSex = (m_sampleSex == sexMan);
 
 
-    QStringList keyRefence{tr("AA聚集率-1"),tr("AA聚集率-2"),tr("AA聚集率-3"),tr("AA聚集率-Max"),
-                          tr("ADP聚集率-1"),tr("ADP聚集率-2"),tr("ADP聚集率-3"),tr("ADP聚集率-Max"),
-                          tr("EPI聚集率-1"),tr("EPI聚集率-2"),tr("EPI聚集率-3"),tr("EPI聚集率-Max"),
-                          tr("COL聚集率-1"),tr("COL聚集率-2"),tr("COL聚集率-3"),tr("COL聚集率-Max"),
-                          tr("RIS聚集率-1"),tr("RIS聚集率-2"),tr("RIS聚集率-3"),tr("RIS聚集率-Max")};
+    QStringList keyRefence{
+        tr("AA聚集率-Max"),  // 只使用Max值作为参考
+        tr("ADP聚集率-Max"),
+        tr("EPI聚集率-Max"),
+        tr("COL聚集率-Max"),
+        tr("RIS聚集率-Max")
+    };
 
-
-    int rows = 0;
-    for(QList<QString>::iterator it = keyRefence.begin(); it != keyRefence.end(); it++)
-    {
-        if(!isfindSex){
-           insertColumnText(ui->tableWidget, rows,
-                            static_cast<int>(TableItemnum::ReferenceValue),"未配置性别");
-        }
-        else{
-            QString mandata,womandata;
-            FullyAutomatedPlatelets::pinstancesqlData()->_obtainPersondata_((*it),mandata,womandata);
-            if(isSex){
-               insertColumnText(ui->tableWidget, rows , static_cast<int>(TableItemnum::ReferenceValue), mandata);
-            }else{
-               insertColumnText(ui->tableWidget, rows , static_cast<int>(TableItemnum::ReferenceValue), womandata);
+    for (int row = 0; row < keyRefence.size(); ++row) {
+        if (!isfindSex) {
+            insertColumnText(ui->tableWidget, row,
+                            static_cast<int>(TableItemnum::ReferenceValue), "未配置性别");
+        } else {
+            QString mandata, womandata;
+            FullyAutomatedPlatelets::pinstancesqlData()->_obtainPersondata_(
+                keyRefence.at(row), mandata, womandata);
+            if (isSex) {
+                insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::ReferenceValue), mandata);
+            } else {
+                insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::ReferenceValue), womandata);
             }
         }
-        rows++;
-     }
-     return isfindSex;
+    }
+    return isfindSex;
 }
 
 void CustomFixTableView::Analyzeresultingvalues(const bool &alreadysetSex)
 {
-
     QTableWidget *presultTable = ui->tableWidget;
     int totalRows = presultTable->rowCount();
-    const int colsResult = static_cast<int>(TableItemnum::ReagentTimeResult);
     const int colsCompare = static_cast<int>(TableItemnum::OutResult);
-    const int colreferne =  static_cast<int>(TableItemnum::ReferenceValue);
+    const int colreferne = static_cast<int>(TableItemnum::ReferenceValue);
+
     if(!alreadysetSex){
-         for (int r = 0; r < totalRows; ++r){
-             insertColumnText(presultTable,r,colsCompare, "/");
-         }
-         return;
+        for (int r = 0; r < totalRows; ++r){
+            insertColumnText(presultTable, r, colsCompare, "/");
+        }
+        return;
     }
 
-    for (int r = 0; r < totalRows; ++r) {  // 修复循环变量名 (r vs n)
-        // 1. 结果值处理
-        QTableWidgetItem* resultItem = presultTable->item(r, colsResult);
+    for (int r = 0; r < totalRows; ++r) {
+        // 使用Max聚集率进行比较（第5列）
+        QTableWidgetItem* resultItem = presultTable->item(r, static_cast<int>(TableItemnum::AggregationMax));
         if (!resultItem || resultItem->text().isEmpty()) {
             insertColumnText(presultTable, r, colsCompare, "/");
             continue;
         }
 
-        // 2. 数值解析优化
+        // 数值解析优化
         bool convertOk = false;
         QString datastr = resultItem->text();
         QUIUtils::parseDataratio(datastr);
         const double resultval = datastr.toDouble(&convertOk);
-        if (!convertOk) {  // 解析失败处理
+        if (!convertOk) {
             insertColumnText(presultTable, r, colsCompare, "?");
             continue;
         }
 
-        // 3. 参考值处理
+        // 参考值处理
         QTableWidgetItem* refItem = presultTable->item(r, colreferne);
         if (!refItem || refItem->text() == "未配置性别") continue;
 
         const QString refData = refItem->text();
-        // 4. 范围解析优化
         const QStringList parts = refData.split('(');
-        if (parts.size() != 2) {  // 简化嵌套判断
+        if (parts.size() != 2) {
             QLOG_DEBUG() << "参考值格式错误 (括号缺失)";
             continue;
         }
         const QStringList range = parts[0].split('-');
-        if (range.size() != 2) {  // 统一错误处理
+        if (range.size() != 2) {
             QLOG_DEBUG() << "参考值范围格式错误";
             continue;
         }
 
-        // 5. 数值比较
+        // 数值比较
         bool lowOk, highOk;
         const double lowBound = range[0].toDouble(&lowOk);
         const double highBound = range[1].toDouble(&highOk);
-        if (!lowOk || !highOk) {  // 边界值转换校验
+        if (!lowOk || !highOk) {
             QLOG_DEBUG() << "参考值非数值类型";
             continue;
         }
 
-        // 6. 结果判定 (优化逻辑分支)
+        // 结果判定
         if (resultval < lowBound) {
-            insertColumnText(presultTable, r, colsCompare, "↓偏低");  // 修正列为colsCompare
+            insertColumnText(presultTable, r, colsCompare, "↓偏低");
         } else if (resultval > highBound) {
             insertColumnText(presultTable, r, colsCompare, "↑偏高");
         } else {
@@ -813,9 +922,66 @@ void CustomFixTableView::on_pushButtonBack_clicked()
     }
 }
 
+
+
+
+// 最简单的使用示例
+void simplePrintExample()
+{
+    HospitalReportPrinter printer;
+
+    // 1. 设置患者基本信息
+    PatientBasicInfo patientInfo;
+    patientInfo.patientId = "20240001";
+    patientInfo.name = "张三";
+    patientInfo.gender = "男";
+    patientInfo.age = 45;
+    patientInfo.department = "心血管内科";
+    patientInfo.bedNumber = "305";
+    patientInfo.testTime = QDateTime::currentDateTime();
+    patientInfo.diagnosis = "冠心病，待排心肌梗死";
+
+    printer.setPatientInfo(patientInfo);
+
+    // 2. 设置检测结果
+    QVector<TestResult> testResults;
+    testResults.append({"ADP诱导聚集率", 65.5, "%", "50-80%"});
+    testResults.append({"胶原诱导聚集率", 72.3, "%", "60-85%"});
+    testResults.append({"肾上腺素诱导", 58.7, "%", "45-75%"});
+    testResults.append({"花生四烯酸诱导", 81.2, "%", "70-90%"});
+    testResults.append({"最大聚集率", 75.8, "%", "60-85%"});
+
+    printer.setTestResults(testResults);
+
+    // 3. 设置曲线图（如果有的话）
+    QVector<CurveData> curves;
+    CurveData curve1;
+    //curve1.curveImage = QPixmap(":/Picture/media_playback_start.png"); // 您的曲线图
+    curve1.curveTitle = "ADP诱导聚集曲线";
+    curve1.analysis = "聚集功能正常，延迟时间2.5分钟，最大聚集率65.5%";
+    curves.append(curve1);
+
+    CurveData curve2;
+    curve2.curveImage = QPixmap(":/Picture/calibration.png");
+    curve2.curveTitle = "胶原诱导聚集曲线";
+    curve2.analysis = "聚集功能良好，延迟时间1.8分钟，最大聚集率72.3%";
+    curves.append(curve2);
+
+    printer.setCurveData(curves);
+
+    // 4. 打印报告
+    if (printer.printReport("血小板聚集功能检测报告")) {
+        qDebug() << "打印成功！";
+    } else {
+        qDebug() << "打印失败！";
+    }
+}
+
+
 //下一项
 void CustomFixTableView::on_pushButtonNext_clicked()
 {
+    //simplePrintExample();
     int rows =  m_viewIDNum + 1;
     QString  todayLast = GlobalData::ObatinCreatSampleTime();
     QString srtId = GlobalData::groupDateAndID(todayLast,rows);
@@ -838,3 +1004,461 @@ void CustomFixTableView::viewOneSelf(const QString &idstr,const int &idinter){
 
     showResult(false);
 }
+
+
+
+
+QPair<double, double> CustomFixTableView::markMaxAggregation(const QVector<double>& data, QCPGraph* graph)
+{
+    if (!graph || data.isEmpty()) return qMakePair(0.0, 0.0);
+
+    // 找到最大聚集率及其对应的时间点
+    double maxAggregation = -std::numeric_limits<double>::max();
+    int maxIndex = -1;
+
+    for (int i = 0; i < data.size(); ++i) {
+        if (data[i] > maxAggregation && !std::isnan(data[i])) {
+            maxAggregation = data[i];
+            maxIndex = i;
+        }
+    }
+
+    if (maxIndex == -1) return qMakePair(0.0, 0.0);
+
+    // 计算TMA时间（秒转换为分钟）
+    double timeToMax = maxIndex / 60.0;
+
+    // 创建标记点
+    m_maxAggregationTracer = new QCPItemTracer(ui->widgetCurveShow);
+    m_maxAggregationTracer->setGraph(graph);
+    m_maxAggregationTracer->setGraphKey(maxIndex);
+    m_maxAggregationTracer->setInterpolating(false);
+    m_maxAggregationTracer->setStyle(QCPItemTracer::tsCircle);
+    m_maxAggregationTracer->setPen(QPen(Qt::red, 2));
+    m_maxAggregationTracer->setBrush(QBrush(Qt::red));
+    m_maxAggregationTracer->setSize(8);
+    return qMakePair(maxAggregation, timeToMax);
+}
+
+double CustomFixTableView::calculateAndDrawAUC(const QVector<double>& data, QCPGraph* graph)
+{
+    if (!graph || data.isEmpty()) return 0.0;
+
+    // 计算梯形面积 (AUC) - 单位 %·s
+    double auc_per_second = 0.0;
+    QVector<double> xData, yData;
+
+    for (int i = 1; i < data.size(); ++i) {
+        if (!std::isnan(data[i]) && !std::isnan(data[i-1])) {
+            // 梯形面积公式: (上底 + 下底) * 高 / 2
+            double trapezoidArea = (data[i] + data[i-1]) * 1.0 / 2.0; // 时间间隔为1秒
+            auc_per_second += trapezoidArea;
+
+            // 收集用于填充的数据点
+            xData << (i-1) << i;
+            yData << data[i-1] << data[i];
+        }
+    }
+
+    // 转换为 %·min
+    double auc_per_minute = auc_per_second / 60.0;
+
+    // 创建AUC填充区域
+    QCPGraph* aucFillGraph = ui->widgetCurveShow->addGraph();
+    aucFillGraph->setData(xData, yData);
+    aucFillGraph->setPen(Qt::NoPen);
+    aucFillGraph->setBrush(QColor(255, 0, 0, 50)); // 半透明红色填充
+
+    m_aucFillGraphs.append(aucFillGraph);
+    return auc_per_minute; // 返回 %·min 的值
+}
+
+void CustomFixTableView::clearAuxiliaryItems()
+{
+    // 清除最大聚集率标记
+    if (m_maxAggregationTracer) {
+        ui->widgetCurveShow->removeItem(m_maxAggregationTracer);
+        m_maxAggregationTracer = nullptr;
+    }
+    if (m_maxAggregationLabel) {
+        ui->widgetCurveShow->removeItem(m_maxAggregationLabel);
+        m_maxAggregationLabel = nullptr;
+    }
+
+
+
+    // 清除AUC填充区域
+    for (QCPGraph* graph : m_aucFillGraphs) {
+        ui->widgetCurveShow->removeGraph(graph);
+    }
+    m_aucFillGraphs.clear();
+
+    // 清除斜率相关标记
+    if (m_slopeLine) {
+        ui->widgetCurveShow->removeItem(m_slopeLine);
+        m_slopeLine = nullptr;
+    }
+    if (m_slopeLabel) {
+        ui->widgetCurveShow->removeItem(m_slopeLabel);
+        m_slopeLabel = nullptr;
+    }
+    if (m_slopeStartTracer) {
+        ui->widgetCurveShow->removeItem(m_slopeStartTracer);
+        m_slopeStartTracer = nullptr;
+    }
+    if (m_slopeEndTracer) {
+        ui->widgetCurveShow->removeItem(m_slopeEndTracer);
+        m_slopeEndTracer = nullptr;
+    }
+    // 清除延迟时间标记
+    if (m_lagTimeTracer) {
+        ui->widgetCurveShow->removeItem(m_lagTimeTracer);
+        m_lagTimeTracer = nullptr;
+    }
+    if (m_lagTimeLine) {
+        ui->widgetCurveShow->removeItem(m_lagTimeLine);
+        m_lagTimeLine = nullptr;
+    }
+    if (m_lagTimeLabel) {
+        ui->widgetCurveShow->removeItem(m_lagTimeLabel);
+        m_lagTimeLabel = nullptr;
+    }
+}
+
+QPair<int, int> CustomFixTableView::findSteepestSegment(const QVector<double>& data, int windowSize)
+{
+    if (data.size() < windowSize + 1) {
+        return qMakePair(0, data.size() - 1);
+    }
+
+    double maxSlope = -std::numeric_limits<double>::max();
+    int bestStart = 0;
+    int bestEnd = windowSize;
+
+    // 滑动窗口寻找最陡峭的线段
+    for (int i = 0; i <= data.size() - windowSize - 1; ++i) {
+        int start = i;
+        int end = i + windowSize;
+
+        // 检查数据有效性
+        bool validSegment = true;
+        for (int j = start; j <= end; ++j) {
+            if (std::isnan(data[j]) || std::isinf(data[j])) {
+                validSegment = false;
+                break;
+            }
+        }
+
+        if (!validSegment) continue;
+
+        double slope = (data[end] - data[start]) / (end - start);
+
+        if (slope > maxSlope) {
+            maxSlope = slope;
+            bestStart = start;
+            bestEnd = end;
+        }
+    }
+
+    return qMakePair(bestStart, bestEnd);
+}
+
+double CustomFixTableView::calculateSlope(const QVector<double>& data, int start, int end)
+{
+    if (start >= end || start < 0 || end >= data.size()) {
+        return 0.0;
+    }
+
+    // 使用线性回归计算更精确的斜率
+    double sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0;
+    int n = end - start + 1;
+
+    for (int i = start; i <= end; ++i) {
+        double x = i - start;  // 相对时间
+        double y = data[i];
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+    }
+
+    double denominator = n * sumX2 - sumX * sumX;
+    if (denominator == 0) return 0.0;
+
+    return (n * sumXY - sumX * sumY) / denominator;
+}
+
+double CustomFixTableView::calculateAndDrawSlope(const QVector<double>& data, QCPGraph* graph)
+{
+    if (!graph || data.size() < 20) return 0;  // 需要足够的数据点
+
+    // 找到最陡峭的线段
+    auto segment = findSteepestSegment(data, 15);  // 15个点的窗口
+    int start = segment.first;
+    int end = segment.second;
+
+    if (start >= end) return 0;
+
+    // 计算斜率（每秒的斜率，单位：%/s）
+    double slopePerSecond = calculateSlope(data, start, end);
+
+    // 转换为每分钟的斜率（单位：%/min）
+    double slopePerMinute = slopePerSecond * 60.0;
+
+    double intercept = data[start] - slopePerSecond * start;  // 计算截距
+
+    // 创建斜率线 (延长显示)
+    int extendedStart = qMax(0, start - 5);
+    int extendedEnd = qMin(data.size() - 1, end + 5);
+
+    double y1 = slopePerSecond * extendedStart + intercept;
+    double y2 = slopePerSecond * extendedEnd + intercept;
+
+    // 确保斜率线在合理范围内
+    y1 = qMax(-20.0, qMin(100.0, y1));
+    y2 = qMax(-20.0, qMin(100.0, y2));
+
+    m_slopeLine = new QCPItemStraightLine(ui->widgetCurveShow);
+    m_slopeLine->point1->setCoords(extendedStart, y1);
+    m_slopeLine->point2->setCoords(extendedEnd, y2);
+    m_slopeLine->setPen(QPen(QColor(0, 150, 0), 2, Qt::DashLine));  // 绿色虚线
+
+    // 创建起点标记
+    m_slopeStartTracer = new QCPItemTracer(ui->widgetCurveShow);
+    m_slopeStartTracer->position->setCoords(start, data[start]);
+    m_slopeStartTracer->setStyle(QCPItemTracer::tsSquare);
+    m_slopeStartTracer->setPen(QPen(Qt::darkGreen, 2));
+    m_slopeStartTracer->setBrush(QBrush(Qt::green));
+    m_slopeStartTracer->setSize(6);
+
+    // 创建终点标记
+    m_slopeEndTracer = new QCPItemTracer(ui->widgetCurveShow);
+    m_slopeEndTracer->position->setCoords(end, data[end]);
+    m_slopeEndTracer->setStyle(QCPItemTracer::tsSquare);
+    m_slopeEndTracer->setPen(QPen(Qt::darkGreen, 2));
+    m_slopeEndTracer->setBrush(QBrush(Qt::green));
+    m_slopeEndTracer->setSize(6);
+
+    // 创建斜率标签 - 显示每分钟的斜率
+    m_slopeLabel = new QCPItemText(ui->widgetCurveShow);
+    m_slopeLabel->position->setType(QCPItemPosition::ptAxisRectRatio);
+    m_slopeLabel->position->setCoords(0.85, 0.15);
+    m_slopeLabel->setText(QString("斜率: %1 %/min\n时间段: %2-%3s")
+                         .arg(slopePerMinute, 0, 'f', 3)
+                         .arg(start)
+                         .arg(end));
+    m_slopeLabel->setFont(QFont("微软雅黑", 9, QFont::Normal));
+    m_slopeLabel->setPen(QPen(Qt::darkGreen));
+    m_slopeLabel->setBrush(QBrush(QColor(255, 255, 255, 200)));
+    m_slopeLabel->setPadding(QMargins(8, 4, 8, 4));
+    m_slopeLabel->setPositionAlignment(Qt::AlignRight | Qt::AlignTop);
+
+    // 在分析结果中也显示斜率信息
+    QLOG_INFO() << "最陡峭斜率:" << slopePerMinute << "%/min"
+                << "(每秒斜率:" << slopePerSecond << "%/s)"
+                << "时间段:" << start << "-" << end << "秒";
+
+    return slopePerMinute;  // 返回每分钟的斜率
+}
+
+
+double CustomFixTableView::calculateLagTime(const QVector<double>& data)
+{
+    if (data.isEmpty()) return 0.0;
+
+    auto &ini = INI_File();
+    bool isWholeBlood = ini.GetWholeBloodModel();
+
+    // 参数配置 - 根据样本类型调整
+    const double baselineThreshold = isWholeBlood ? 3.0 : 2.0;
+    const int minRiseDuration = isWholeBlood ? 5 : 4;
+    const double riseThreshold = isWholeBlood ? 1.0 : 0.5;
+    const int minDataPoints = 10; // 最小有效数据点数
+    const double maxDropReset = isWholeBlood ? 2.0 : 1.0; // 允许的最大下降幅度
+
+    // 数据预处理：检查数据有效性
+    int validCount = 0;
+    for (const auto& value : data) {
+        if (!std::isnan(value)) validCount++;
+    }
+    if (validCount < minDataPoints) return 0.0;
+
+    bool isRising = false;
+    int riseStartIndex = -1;
+    int consecutiveRiseCount = 0;
+    double previousPeak = 0.0;
+
+    for (int i = 1; i < data.size(); ++i) {
+        if (std::isnan(data[i]) || std::isnan(data[i-1])) continue;
+
+        double currentValue = data[i];
+        double previousValue = data[i-1];
+        double difference = currentValue - previousValue;
+
+        // 检查基线阈值条件（仅在未开始上升时检查）
+        if (!isRising && currentValue > baselineThreshold) {
+            return i / 60.0;
+        }
+
+        // 上升检测逻辑
+        if (!isRising) {
+            if (difference > riseThreshold) {
+                // 开始新的上升段
+                isRising = true;
+                riseStartIndex = i - 1;
+                consecutiveRiseCount = 1;
+                previousPeak = currentValue;
+            }
+        } else {
+            // 已经在上升段中
+            if (difference > 0) {
+                // 继续上升
+                consecutiveRiseCount++;
+                previousPeak = currentValue;
+            } else {
+                // 处理下降情况
+                double dropAmount = previousPeak - currentValue;
+
+                // 如果下降幅度不大，不立即重置，允许小幅回调
+                if (dropAmount <= maxDropReset && consecutiveRiseCount > 0) {
+                    consecutiveRiseCount++; // 继续计数，但注意不是上升
+                    // 小幅下降不重置，但重新设置peak
+                    if (currentValue > previousPeak) {
+                        previousPeak = currentValue;
+                    }
+                } else {
+                    // 大幅下降，重置上升检测
+                    isRising = false;
+                    consecutiveRiseCount = 0;
+                    riseStartIndex = -1;
+                }
+            }
+        }
+
+        // 检查是否满足持续上升条件
+        if (consecutiveRiseCount >= minRiseDuration) {
+            // 验证上升幅度是否显著
+            double totalRise = data[i] - data[riseStartIndex];
+            double minTotalRise = isWholeBlood ? 3.0 : 2.0; // 最小总上升幅度
+
+            if (totalRise >= minTotalRise) {
+                return riseStartIndex / 60.0;
+            } else {
+                // 上升幅度不足，继续监测
+                isRising = false;
+                consecutiveRiseCount = 0;
+                riseStartIndex = -1;
+            }
+        }
+
+        // 提前终止条件：如果已经检测到足够长的数据段但仍未找到lag time
+        // 可以避免处理异常数据时的时间浪费
+        if (i > 120) { // 2分钟后的数据
+            double recentMax = *std::max_element(data.begin() + i - 10, data.begin() + i);
+            if (recentMax < baselineThreshold / 2) {
+                // 长时间低值，可能没有聚集发生
+                return 0.0;
+            }
+        }
+    }
+
+    // 最终检查：如果数据末尾有明显上升趋势但未达到持续条件
+    if (riseStartIndex != -1 && consecutiveRiseCount >= minRiseDuration / 2) {
+        double finalRise = data.back() - data[riseStartIndex];
+        if (finalRise > baselineThreshold) {
+            return riseStartIndex / 60.0;
+        }
+    }
+
+    return 0.0;
+}
+
+
+
+void CustomFixTableView::markLagTimeOnGraph(double lagTime, QCPGraph* graph)
+{
+    if (!graph || lagTime <= 0) return;
+
+    // 将分钟转换为数据点索引（秒）
+    double lagTimeSeconds = lagTime * 60;
+
+    // 获取延迟时间点的Y坐标值
+    double lagYValue = 0;
+    bool foundValue = false;
+
+    // 在曲线数据中查找最接近的Y值
+    if (graph->data()->size() > 0) {
+        int closestIndex = 0;
+        double minDiff = std::numeric_limits<double>::max();
+
+        for (int i = 0; i < graph->data()->size(); ++i) {
+            double timeDiff = std::abs(graph->data()->at(i)->key - lagTimeSeconds);
+            if (timeDiff < minDiff) {
+                minDiff = timeDiff;
+                closestIndex = i;
+                lagYValue = graph->data()->at(i)->value;
+                foundValue = true;
+            }
+        }
+    }
+
+    // 创建延迟时间标记点
+    m_lagTimeTracer = new QCPItemTracer(ui->widgetCurveShow);
+    m_lagTimeTracer->position->setCoords(lagTimeSeconds, lagYValue);
+    m_lagTimeTracer->setStyle(QCPItemTracer::tsSquare);
+    m_lagTimeTracer->setPen(QPen(Qt::blue, 3));
+    m_lagTimeTracer->setBrush(QBrush(QColor(0, 150, 255)));
+    m_lagTimeTracer->setSize(8);
+
+    // 创建垂直线标记延迟时间点
+    m_lagTimeLine = new QCPItemStraightLine(ui->widgetCurveShow);
+    m_lagTimeLine->point1->setCoords(lagTimeSeconds, -20);
+    m_lagTimeLine->point2->setCoords(lagTimeSeconds, foundValue ? lagYValue : 100);
+    m_lagTimeLine->setPen(QPen(QColor(0, 100, 200, 150), 2, Qt::DashLine));
+
+    // 创建延迟时间标签
+    m_lagTimeLabel = new QCPItemText(ui->widgetCurveShow);
+    m_lagTimeLabel->position->setType(QCPItemPosition::ptAxisRectRatio);
+    m_lagTimeLabel->position->setCoords(0.85, 0.35); // 放在右上角，在斜率标签下方
+    m_lagTimeLabel->setText(QString("延迟时间\n%1 min").arg(lagTime, 0, 'f', 2));
+    m_lagTimeLabel->setFont(QFont("微软雅黑", 9, QFont::Normal));
+    m_lagTimeLabel->setPen(QPen(Qt::darkBlue));
+    m_lagTimeLabel->setBrush(QBrush(QColor(255, 255, 255, 230)));
+    m_lagTimeLabel->setPadding(QMargins(8, 4, 8, 4));
+    m_lagTimeLabel->setPositionAlignment(Qt::AlignRight | Qt::AlignTop);
+
+    QLOG_INFO() << "延迟时间标记: " << lagTime << "分钟, 位置: " << lagTimeSeconds << "秒";
+}
+
+
+
+
+void CustomFixTableView::updateTableWithCalculatedParams(const quint8& reagent,
+     double slope, double timeToMax, double lagTime, double auc)
+{
+	static const QMap<quint8, int> REAGENT_ROW_MAP = {
+		{ AA_REAGENT,  0 },
+		{ ADP_REAGENT, 1 },
+		{ EPI_REAGENT, 2 },
+		{ COL_REAGENT, 3 },
+		{ RIS_REAGENT, 4 }
+	};
+
+	auto rowIt = REAGENT_ROW_MAP.find(reagent);
+	if (rowIt == REAGENT_ROW_MAP.end()) return;
+
+	int row = rowIt.value();
+
+	// 更新计算参数到表格
+	insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::Slope),
+		QString::number(slope, 'f', 3));
+	insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::TMAtime),
+		QString::number(timeToMax, 'f', 2));
+	insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::LagTime),
+		QString::number(lagTime, 'f', 2));
+	insertColumnText(ui->tableWidget, row, static_cast<int>(TableItemnum::AUC),
+		QString::number(auc, 'f', 1));
+}
+
+
+

@@ -1008,19 +1008,19 @@ void MainWindow::deleteExitSoftware()
 
 
 // 线程安全入口（MainWindow.cpp）
-void MainWindow::ThreadSafeReminder(QString title_, QString outputText) {
+void MainWindow::ThreadSafeReminder(QString titleStr, QString outputText) {
     // 1. 线程安全检查
     if (QThread::currentThread() != this->thread()) {
         // 跨线程调用：安全转发到主线程
         QMetaObject::invokeMethod(this, "onReminderRequested",
             Qt::QueuedConnection,  // 异步队列连接
-            Q_ARG(QString, title_),
+            Q_ARG(QString, titleStr),
             Q_ARG(QString, outputText));
         return;
     }
 
     // 主线程直接调用
-    RealReminderImpl(title_, outputText);
+    RealReminderImpl(titleStr, outputText);
 }
 
 // 安全槽函数（主线程执行）
@@ -1675,7 +1675,7 @@ void MainWindow::InitMainUiLayout()
     connect(ui->toolButton_quality_start, &QToolButton::clicked,
                 this, &MainWindow::onStartTestClicked);
 
-    _setupMainInterface();
+    setupMainInterface();
 
     ui->tabWidget_Main->setCurrentIndex((int)MainInterfaceSubscripted::FunctionBlock_Testing); //默认显示主页
     GlobalData::mainseledview(ui->toolButton_sampleTest_1,true);
@@ -1819,10 +1819,13 @@ void MainWindow::PromptInfo(const quint8 Index, const QString ReminderStr, const
 }
 
 
-void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,quint16 datetime){
+void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,
+                                           quint8 totalnum,const QString datetime){
     if (mReminder) {
         disconnect(mReminder.data(), nullptr, nullptr, nullptr);
+        mReminder.reset();
     }
+
     mReminder.reset(new CustomHighData(tips, CONSUMABLES_READ_SUCESSFULLY,
                                           indexReagent, totalnum, this));
 
@@ -1832,21 +1835,27 @@ void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagen
             Qt::UniqueConnection);
 
     connect(mReminder.data(), &CustomHighData::closeDelWidget, this, [this]() {
-        if (mReminder) {
-            disconnect(mReminder.data(), nullptr, nullptr, nullptr);
-            mReminder.reset();
-        }
+         cleanupReminder();
     });
 
-    saveWritingconsumablebatchnumber(indexReagent,datetime);
+    saveWritingconsumablebatchnumber(indexReagent, datetime);
     mReminder->show();
+}
+void MainWindow::cleanupReminder() {
+    if (mReminder) {
+        // 断开所有连接
+        disconnect(mReminder.data(), nullptr, nullptr, nullptr);
+        // 关闭窗口
+        mReminder->close();
+        // 释放资源
+        mReminder.reset();
+    }
 }
 
 
-
 //保存写入耗材批号信息
-void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,quint16 batchDateNum){
-    QString databatch = QString::number(batchDateNum);
+void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,const QString& batchDateNum){
+
 
     FileManager fileManager;
     const QString filefolder = "ConsumableBatchNumber";
@@ -1856,10 +1865,10 @@ void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,quint1
     if (fileManager.createDataFile(filefolder, consumableName, "")) {
         QLOG_DEBUG() << "文件创建成功"<<consumableName;
         // 追加数据
-        if(fileManager.appendToFile(filefolder, consumableName, databatch)){
-            QLOG_DEBUG() << "批号数据写入成功:" << databatch;
+        if(fileManager.appendToFile(filefolder, consumableName, batchDateNum)){
+            QLOG_DEBUG() << "批号数据写入成功:" << batchDateNum;
         } else{
-            QLOG_DEBUG() << "批号数据写入失败:" << databatch;
+            QLOG_DEBUG() << "批号数据写入失败:" << batchDateNum;
         }
     }else {
         QLOG_ERROR() << "文件创建失败:" << consumableName;
@@ -1871,7 +1880,7 @@ void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,quint1
 //提示文字，刷卡试剂、刷卡值
 void MainWindow::handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle)
 {
-    ThreadSafeReminder("充值成功",tips);
+    QLOG_DEBUG()<<"确认充值成功"<<tips;
     emit rechargesuccessful(addindexReag,addBottle);
     return;
 }
@@ -1933,7 +1942,7 @@ void  MainWindow::paintEvent(QPaintEvent *event)
 }
 
 
-void MainWindow::_setupMainInterface()
+void MainWindow::setupMainInterface()
 {
     // 初始化选项卡
     setupTabWidget();

@@ -63,7 +63,7 @@ signals:
      * @param totalnum     刷卡量
      * @param datetime     有效期
      */
-    void cardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,quint16 datetime);
+    void cardSwipeSuccessful(const QString tips,quint8 indexReagent,quint8 totalnum,const QString datetime);
 
     /** 刷卡写入成功
      * @brief swipeCardSuccessfullyWritten
@@ -95,7 +95,7 @@ private:
    void configreadCardflag(); //修改读卡状态标志
    void DetectCardStatusofScratchingBoardConsumables(quint8 mainControlBoardData_suppileBit,
                                                         quint8 mainControlBoardData_suppileTotal,
-                                                        quint16 suppileDate);
+                                                        const QString & suppileDate);
 
    DeviceStatus parseDeviceStatus(quint8 statusByte);
    //试管盘和S2清洗液

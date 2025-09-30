@@ -293,7 +293,7 @@ void QueryDataThread::ObatinCreatPdfPara(QString idSample)
             insertStructData(pFindedResult,11,pinquered->AddsampleTime);
             insertStructData(pFindedResult,12,pinquered->SampleName);
             insertStructData(pFindedResult,13,pinquered->barcodesample);
-            emit this->outPDFPara(pFindedResult);
+            emit outPDFPara(pFindedResult);
             break;
         }
         iter++;

@@ -396,7 +396,7 @@ void displayChanneldata::processTestData(const QString& sampleNum,
                 static_cast<float>(baselinePoor));
 
         // 数据保存和显示
-        StructInstance::getInstance()->updteSaveChnTestData(channelIdx, reagentIndex,
+        StructInstance::getInstance( )->updteSaveChnTestData(channelIdx, reagentIndex,
                                                                currentRichValue, resultValue);
 
         //提示测试通道在测样本信息

@@ -47,7 +47,7 @@ public slots:
 
 private slots:
     /*初始化列表样式*/
-    void Init_tablewidget_style();
+    void initTableWidgetStyle();
     void on_toolButton_OK_clicked();
     void SelectItem(QTableWidgetItem *);
     void OnPlotClick(QCPAbstractPlottable *plottable, int dataIndex, QMouseEvent *event);
@@ -70,7 +70,7 @@ signals:
 private:
 
     void firstrunthread();
-    void _creatCPGraph(QCustomPlot* pshowcurvedata);
+    void creatCPGraph(QCustomPlot* pshowcurvedata);
     void cleanPlogtandUpdate(); /*清空曲线数据并率刷新*/
     void addInquireCurvedata(QStringList dataList,quint8 indexReag);
     void insertparaTopdffile(InqueryDatastu_t *pdata);

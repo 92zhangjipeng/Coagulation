@@ -25,7 +25,6 @@
 #include <custom_style/freezetablewidget.h>
 #include <operclass/fullyautomatedplatelets.h>
 
-
 Calibrate::Calibrate(QWidget *parent) :
     QWidget(parent),
     m_clickViewSampleId(-1),
@@ -261,6 +260,7 @@ void Calibrate::showContextpup(const QPoint &pos){
 
     if(mpdatawidget.isNull()){
         mpdatawidget.reset(new CustomFixTableView());
+
         connect(this, &Calibrate::hideCurveUi, mpdatawidget.data(),
                 &CustomFixTableView::hideWithAnimation);
     }

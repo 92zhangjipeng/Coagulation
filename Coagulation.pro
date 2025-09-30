@@ -243,7 +243,9 @@ SOURCES += \
     dilag/custompppvalue.cpp \
     CalibratCoordinateLoc/coordinatepposit.cpp \
     suoweiAggregationRateCalculator/aggregationratecalculator.cpp \
-    suoweiFileManager/filemanager.cpp
+    suoweiFileManager/filemanager.cpp \
+    customTitleui/framelesswidgethelper.cpp \
+    suoweiFileManager/hospitalreportprinter.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -383,7 +385,9 @@ HEADERS += \
     aligndelegate.h \
     CalibratCoordinateLoc/coordinatepposit.h \
     suoweiAggregationRateCalculator/aggregationratecalculator.h \
-    suoweiFileManager/filemanager.h
+    suoweiFileManager/filemanager.h \
+    customTitleui/framelesswidgethelper.h \
+    suoweiFileManager/hospitalreportprinter.h
 
 FORMS += \
     mainwindow.ui \

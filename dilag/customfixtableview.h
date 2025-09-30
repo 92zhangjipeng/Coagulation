@@ -7,6 +7,8 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <qcustomplot.h>
+#include <suoweiFileManager/hospitalreportprinter.h>
+
 
 
 namespace Ui {
@@ -59,8 +61,14 @@ private:
     enum class TableItemnum {
         ReagentName,
         ReagentState,
-        ReagentTime,
-        ReagentTimeResult,
+        Aggregation60s,
+        Aggregation180s,
+        Aggregation300s,
+        AggregationMax,
+        Slope,
+        TMAtime,
+        LagTime,
+        AUC,
         OutResult,
         ReferenceValue
     };
@@ -71,11 +79,12 @@ private:
         Pending
     };
 
+    void showCustomAnalyzerResult(double maxAggregation, double slope, double auc,
+                                  double timeToMax, double lagTime);
 
     void initCreatCPGraph(QCustomPlot* pshowcurvedata);
     void initCreateCurveWidget(QCustomPlot *customPlot);
-    //初始化图样
-    void initModernPlotTitle(QCustomPlot* customPlot);
+
     void setupSmoothInteractions(QCustomPlot* customPlot);
     void setupBeautifulAxes(QCustomPlot* customPlot);
     void setupModernAxis(QCPAxis* axis, const QString& label,
@@ -132,6 +141,56 @@ private:
     void Analyzeresultingvalues(const bool &alreadysetSex);
 
     void viewOneSelf(const QString &idstr,const int &idinter);
+
+
+private:
+    // 添加以下成员变量
+    QCPItemTracer *m_maxAggregationTracer;  // 最大聚集率标记点
+    QCPItemText *m_maxAggregationLabel;     // 最大聚集率标签
+    QCPItemCurve *m_aucCurve;               // AUC曲线
+
+    QVector<QCPGraph*> m_aucFillGraphs;     // AUC填充区域
+    QCPItemStraightLine *m_slopeLine;       // 斜率线
+    QCPItemText *m_slopeLabel;              // 斜率标签
+    QCPItemTracer *m_slopeStartTracer;      // 斜率起点标记
+    QCPItemTracer *m_slopeEndTracer;        // 斜率终点标记
+
+    QCPItemTracer *m_lagTimeTracer;        // 延迟时间标记点
+    QCPItemStraightLine *m_lagTimeLine;    // 延迟时间垂直线
+    QCPItemText *m_lagTimeLabel;           // 延迟时间标签
+
+
+    // 添加新方法
+    QPair<double, double> markMaxAggregation(const QVector<double>& data, QCPGraph* graph);
+    double calculateAndDrawAUC(const QVector<double>& data, QCPGraph* graph);
+    double calculateAndDrawSlope(const QVector<double>& data, QCPGraph* graph);
+    void clearAuxiliaryItems();
+
+
+    // 斜率计算辅助方法
+    QPair<int, int> findSteepestSegment(const QVector<double>& data, int windowSize = 10);
+    double calculateSlope(const QVector<double>& data, int start, int end);
+
+    double calculateLagTime(const QVector<double>& data);
+    void markLagTimeOnGraph(double lagTime, QCPGraph* graph);
+
+    void updateTableWithCalculatedParams(const quint8& reagent, double slope, double timeToMax, double lagTime, double auc);
+
+
+    QString TableWidgetCss = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
+                             "QTableWidget::item:selected{background-color:rgb(135, 206, 250)}"
+                              "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
+                              "border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(188, 187, 186);"
+                              "font: bold 1pt;padding:12px 0 0 10px}"
+                               "QHeaderView::section,QTableCornerButton:section{ \
+                               padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); \
+                               border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; \
+                               background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }"
+                               "QTableWidget{background-color:white;border:none;}"
+                               "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
+                               stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
+                               "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
+                               stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
 };
 
 #endif // CUSTOMFIXTABLEVIEW_H

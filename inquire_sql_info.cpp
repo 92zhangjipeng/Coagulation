@@ -58,7 +58,7 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     ui->Inquire_curve_1->replot();
     
     /*列表样式得初始化*/
-    Init_tablewidget_style();
+    initTableWidgetStyle();
 
     //初始化精确查找控件
     QStringList Agenum;
@@ -135,7 +135,7 @@ void Inquire_Sql_Info::resizeEvent(QResizeEvent *event)
 	ui->tableWidget_SQL_Inquire->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);  
 }
 
-void Inquire_Sql_Info::Init_tablewidget_style()
+void Inquire_Sql_Info::initTableWidgetStyle()
 {
     QStringList header{tr("样本号"),tr("添加时间"), tr("条形码") , tr("姓名"), tr("性别 ") , tr("年龄")
                        ,tr("科别") ,tr("床号"),tr("送检医生"),tr("AA聚集率"),tr("ADP聚集率")
@@ -270,7 +270,7 @@ void Inquire_Sql_Info::myMoveEvent(QMouseEvent *event)
     QToolTip::showText(event->globalPos(), str, plot);
 }
 
-void Inquire_Sql_Info::_creatCPGraph(QCustomPlot* pshowcurvedata)
+void Inquire_Sql_Info::creatCPGraph(QCustomPlot* pshowcurvedata)
 {
     QList<QCPGraph*> ReagCurveList;
     m_showAACpgraph = pshowcurvedata->addGraph();
@@ -384,7 +384,7 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
         customPlot->replot(QCustomPlot::rpQueuedReplot);
     });
 
-    _creatCPGraph(customPlot);// 创建图例层
+    creatCPGraph(customPlot);// 创建图例层
 
     return;
 }
@@ -464,7 +464,7 @@ void Inquire_Sql_Info::SelectItem(QTableWidgetItem *item)
         return;
     }
     m_clickId = ptablewidget->item(selrows, 0)->text();
-    emit this->InquierCurveView(m_clickId); //查寻样本曲线点数据
+    emit InquierCurveView(m_clickId); //查寻样本曲线点数据
     return;
 }
 
@@ -879,7 +879,8 @@ void Inquire_Sql_Info::InsertOneRowsData(InqueryDatastu_t *pdata)
     QStringList COL_Result = colData.split(",");
     QStringList RIS_Result = risData.split(",");
 
-    if(AA_Result.size() == 4 && ADP_Result.size() == 4 && EPI_Result.size() == 4 && COL_Result.size()== 4 && RIS_Result.size() == 4)
+    if(AA_Result.size() == 4 && ADP_Result.size() == 4 && EPI_Result.size() == 4
+            && COL_Result.size()== 4 && RIS_Result.size() == 4)
     {
         int rows = row/4;
         int n = 0;
