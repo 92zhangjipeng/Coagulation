@@ -24,7 +24,7 @@
 #include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QWidget>  
+#include <QtWidgets/QWidget>
 #include "custom_style/animationprocessbar.h"
 
 QT_BEGIN_NAMESPACE

@@ -179,6 +179,9 @@ public:
     void   setPRPConvertTheratioColumn(double ratioval);
     double getPRPConvertTheratioColumn(void);
 
+    void   setPEAddSuckRatio(double ratioval);
+    double getPEAddSuckRatio(void);
+
 
     //写入基础参数
     bool wConfigPara(const QString& keyValue, const QVariant& data);

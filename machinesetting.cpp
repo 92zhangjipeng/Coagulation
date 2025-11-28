@@ -167,7 +167,7 @@ void MachineSetting::_initpara()
 
     _initReagPinpara();
 
-    _innitHands(m_typedequipment);
+    innitHands(m_typedequipment);
 
     intsignalsMable();
 
@@ -337,6 +337,7 @@ void MachineSetting::initSheet()
             ui->doubleSpinBox_Moduletemperature_3,
             ui->doubleSpinBox_Ratio_ben,
             ui->doubleSpinBox_PRPratio,
+            ui->doubleSpinBoxAddRatio,
             ui->FixedHighvalue,
             ui->OffsetTestHeightValue,
             ui->doubleSpinBox_AA_Ratio,
@@ -678,7 +679,7 @@ void MachineSetting::InitMachineui()
     //性能检测
     if(!mperform)
         mperform = new QTreeWidgetItem;
-    mperform->setText(0,tr("性能验证"));
+    mperform->setText(0,tr("质控"));
     mperform->setIcon(0,QIcon(":/Picture/icon_title/PE0.png"));
     m_rootList.append(mperform);
 
@@ -1236,8 +1237,8 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
     // 定义配置项映射表
     static const QMap<QString, int> rootMap = {
         {tr("LIS"), MACHINECONFIGURE_LIS},
-        {tr("质控"), MACHINE_QUALITYCONTROL},
-        {tr("性能验证"), MACHINE_PE}
+        {tr("质控old"), MACHINE_QUALITYCONTROL},
+        {tr("质控"), MACHINE_PE}
     };
 
     static const QMap<QString, QMap<int, int>> childMap = {
@@ -1861,7 +1862,7 @@ void MachineSetting::HandsParaWriteBoard()
     QVariantMap configs = {
             {GRIPPERLESSTHANMAX, ui->spinBoxSuckAirsMax->value()},
             {GRIPPERBIGTHANMIM, ui->spinBoxSplitAirsMin->value()},
-            {GRIPPERSUCKTIME, ui->spinBox_suckLatetimer->value()}
+            {GRIPPERSUCKTIME,   ui->spinBox_suckLatetimer->value()}
     };
     INI_File().wBatchConfigPara(configs);
 
@@ -1875,6 +1876,8 @@ void MachineSetting::HandsParaWriteBoard()
     HandsinnerModule[0] = ui->spinBox_handsdownchn_0->value();
     HandsinnerModule[1] = ui->spinBox_handsdownchn_1->value();
     HandsinnerModule[2] = ui->spinBox_handsdownchn_2->value();
+
+
 
     QByteArray buffer;
     QUIUtils::_writeParaNumIIHandsOrder(buffer,throwdownmm,handsinierTray,HandsinnerModule, brebackCatch);
@@ -2072,6 +2075,8 @@ void MachineSetting::on_toolButton_Import_clicked()
 }
 
 
+
+
 //导出 ==将仪器配置文件导出到自定义路径文本
 void MachineSetting::on_toolButton_export_clicked()
 {
@@ -2250,6 +2255,7 @@ void MachineSetting::connectSetting(QWidget* widget, SettingAction action)
     }
 }
 
+#include <tuple>
 void MachineSetting::configBloodpinparaSignals()
 {
     // 统一配置表：控件指针 + INI设置函数 + 日志信息
@@ -2266,6 +2272,10 @@ void MachineSetting::configBloodpinparaSignals()
 		std::make_tuple(ui->doubleSpinBox_PRPratio, [=]{
             INI_File().setPRPConvertTheratioColumn(ui->doubleSpinBox_PRPratio->value());
         }, ""),
+
+        std::make_tuple(ui->doubleSpinBoxAddRatio,[=]{
+            INI_File().setPEAddSuckRatio(ui->doubleSpinBoxAddRatio->value());
+        },"PEaddRatio"),
 
 		std::make_tuple(ui->SecurityValue_box, [=]{
             INI_File().SetSecurityValue(ui->SecurityValue_box->value());
@@ -2346,57 +2356,60 @@ void MachineSetting::_creatstupoint(QLabel* plable,QSpinBox* pgetdownmm,int inde
 
 void MachineSetting::_initBloodpinpara()
 {
+    auto &ini = INI_File();
+
     //血样针下降高度
-    quint8 EmptyTubeDownBloodNeedlehigh = INI_File().GetEmptyTubeDownHigh();
+    quint8 EmptyTubeDownBloodNeedlehigh = ini.GetEmptyTubeDownHigh();
     ui->EmptyHeigh->setValue(EmptyTubeDownBloodNeedlehigh);
     _creatstupoint(ui->label_EmptyTubeHeigh,ui->EmptyHeigh,BLOODPINDOWNHEIGH,m_pbloodLableList);
 
     /*吸吐样转换比例样本系数*/
-    ui->doubleSpinBox_Ratio_ben->setValue(INI_File().GetPPPConversionScale()); //PPP
-    ui->doubleSpinBox_PRPratio->setValue(INI_File().getPRPConvertTheratioColumn());//PRP
+    ui->doubleSpinBox_Ratio_ben->setValue(ini.GetPPPConversionScale()); //PPP
+    ui->doubleSpinBox_PRPratio->setValue(ini.getPRPConvertTheratioColumn());//PRP
+    ui->doubleSpinBoxAddRatio->setValue(ini.getPEAddSuckRatio()); //PE
 
     //空回值
-    quint8 EmptybackValue = INI_File().GetSecurityValue();
+    quint8 EmptybackValue = ini.GetSecurityValue();
     ui->SecurityValue_box->setValue(EmptybackValue);
 
 
     //吸血样本的量PPP/PRP
-    quint8  bloodSampleAspirated = INI_File().GetLearnSamplevolume();
+    quint8  bloodSampleAspirated = ini.GetLearnSamplevolume();
     ui->poorBlood_changliang->setValue(bloodSampleAspirated);
 
-    double Differencemm =  INI_File().GetTestDifference();
+    double Differencemm =  ini.GetTestDifference();
     ui->OffsetTestHeightValue->setValue(Differencemm);
 
     //物理测高固定高度
-    double Physicalheight = INI_File().GetFixedHigh();
+    double Physicalheight = ini.GetFixedHigh();
     ui->FixedHighvalue->setValue(Physicalheight);
 
 
     //清洗  血样针  吸清洗液
-    int CleanBloodNeedleLinque = INI_File().GetAbsorbWashingfluidX2();
+    int CleanBloodNeedleLinque = ini.GetAbsorbWashingfluidX2();
     ui->spinBoxAbsorbX2->setValue(CleanBloodNeedleLinque);
 
 
     //液面探测失败高度 血样针(清洗液)
-    quint8 CleanLinqueDetectionFailed = INI_File().GetFailedCleanLinqueHigh();
+    quint8 CleanLinqueDetectionFailed = ini.GetFailedCleanLinqueHigh();
     ui->spinBox_CleanLinqueFailedHigh->setValue(CleanLinqueDetectionFailed);
     _creatstupoint(ui->label_failedlinque_3,ui->spinBox_CleanLinqueFailedHigh,BLOODPINDOWNHEIGH_CLEANLINQUEFAILED,m_pbloodLableList);
 
 
     //血浆模式下针高度
-    quint8  Plasmapattern = INI_File().GetAbsorbTubeBottom();
+    quint8  Plasmapattern = ini.GetAbsorbTubeBottom();
     ui->Testheighdownheigh->setValue(Plasmapattern);
     _creatstupoint(ui->label_3, ui->Testheighdownheigh, BLOODPINDOWNHEIGH_SERUMMODEL, m_pbloodLableList);
 
 
     //液面探测失败高度==贫血
-    quint8 anemiaDetectionFailed = INI_File().GetFailedLinqueHigh();
+    quint8 anemiaDetectionFailed = ini.GetFailedLinqueHigh();
     ui->spinBox_faliedlinque->setValue(anemiaDetectionFailed);
     _creatstupoint(ui->label_failedlinque,ui->spinBox_faliedlinque,BLOODPINDOWNHEIGH_ANEMIALINQUEFAILED,m_pbloodLableList);
 
 
     //吸贫血前吸空气的量
-    int suckairvalue = INI_File()._getsuckairsuckPRP();
+    int suckairvalue = ini._getsuckairsuckPRP();
     ui->spinBox_suckairs->setValue(suckairvalue);
 
 
@@ -2538,7 +2551,7 @@ void MachineSetting::_configHandsinitChn(quint8 equipmentIndex_)
         k++;
     }
 }
-void MachineSetting::_innitHands(quint8 equipmentIndex_)
+void MachineSetting::innitHands(quint8 equipmentIndex_)
 {
     _configHandsinitChn(equipmentIndex_); //通道
     ui->spinBoxSuckAirsMax->setValue(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());

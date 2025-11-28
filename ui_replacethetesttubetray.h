@@ -335,8 +335,8 @@ public:
     {
         ReplaceTheTestTubeTray->setWindowTitle(QApplication::translate("ReplaceTheTestTubeTray", "\346\233\264\346\215\242\350\257\225\347\256\241\347\233\230", nullptr));
         groupBox_testChannel->setTitle(QApplication::translate("ReplaceTheTestTubeTray", "\346\265\213\350\257\225\351\200\232\351\201\223", nullptr));
-        groupBox_testing->setTitle(QApplication::translate("ReplaceTheTestTubeTray", "\346\200\247\350\203\275\346\243\200\346\265\213", nullptr));
-        toolButton->setText(QApplication::translate("ReplaceTheTestTubeTray", "\345\220\257\345\212\250", nullptr));
+        groupBox_testing->setTitle(QApplication::translate("ReplaceTheTestTubeTray", "\346\243\200\346\265\213\347\273\223\346\236\234", nullptr));
+        toolButton->setText(QApplication::translate("ReplaceTheTestTubeTray", "\345\274\200\345\247\213", nullptr));
         groupBox_inqure->setTitle(QApplication::translate("ReplaceTheTestTubeTray", "\345\256\214\346\210\220\350\256\260\345\275\225", nullptr));
         pushButton_day->setText(QApplication::translate("ReplaceTheTestTubeTray", "PushButton", nullptr));
         pushButton_month->setText(QApplication::translate("ReplaceTheTestTubeTray", "PushButton", nullptr));

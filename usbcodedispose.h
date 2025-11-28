@@ -28,9 +28,9 @@
 #define BYTE_INDEX_CONFIG_SECOND 1
 #define BYTE_INDEX_CONFIG_THIRD  2
 
-#define CLEANING_DOWNHIGN        45    //原点清洗的时候下针高度
-#define ZMOVESPEED              100     //Z探测速度
-#define PUTTUBEMOVE             150     //抓手放杯子距离
+#define CLEANING_DOWNHIGN       45    //原点清洗的时候下针高度
+#define ZMOVESPEED              100    //Z探测速度
+#define PUTTUBEMOVE             150    //抓手放杯子距离
 
 
 #define TRAY_TESTCHANNEL        0

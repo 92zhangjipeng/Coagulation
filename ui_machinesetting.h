@@ -246,40 +246,42 @@ public:
     QTabWidget *tabWidget_config;
     QWidget *tab_configbloodpin;
     QGridLayout *gridLayout_5;
-    QSpacerItem *horizontalSpacer_10;
-    QLabel *label_AbsorbX2;
-    QSpinBox *spinBoxAbsorbX2;
-    QSpinBox *spinBox_WashesTime;
-    QLabel *labelwashesTime;
-    QSpacerItem *horizontalSpacer_21;
-    QSpinBox *SecurityValue_box;
-    QSpinBox *Testheighdownheigh;
-    QSpacerItem *horizontalSpacer_9;
-    QSpinBox *EmptyHeigh;
-    QLabel *label_3;
-    QSpinBox *poorBlood_changliang;
-    QLabel *label_SecurityValue;
-    QDoubleSpinBox *OffsetTestHeightValue;
-    QLabel *label_fixedhigh;
-    QLabel *label_EmptyTubeHeigh;
-    QLabel *label_ratio_ben;
-    QLabel *PRPratiolable;
-    QDoubleSpinBox *doubleSpinBox_PRPratio;
-    QLabel *label_failedlinque;
-    QSpinBox *spinBox_faliedlinque;
-    QLabel *label_suckairs;
-    QSpinBox *spinBox_suckairs;
-    QDoubleSpinBox *doubleSpinBox_Ratio_ben;
-    QDoubleSpinBox *FixedHighvalue;
-    QLabel *OffsetTestHeight;
-    QLabel *Poor_blood_changliang;
     QLabel *label_failedlinque_3;
     QSpinBox *spinBox_CleanLinqueFailedHigh;
+    QLabel *OffsetTestHeight;
+    QDoubleSpinBox *FixedHighvalue;
+    QLabel *Poor_blood_changliang;
     QWidget *widgetbloodsave;
     QHBoxLayout *horizontalLayout_9;
     QSpacerItem *horizontalSpacer_22;
     QPushButton *pushButtonBloodPinParasave;
     QSpacerItem *horizontalSpacer_23;
+    QLabel *label_ratio_ben;
+    QLabel *label_EmptyTubeHeigh;
+    QLabel *PRPratiolable;
+    QLabel *label_failedlinque;
+    QDoubleSpinBox *doubleSpinBox_PRPratio;
+    QSpinBox *spinBox_faliedlinque;
+    QLabel *label_suckairs;
+    QSpinBox *spinBox_suckairs;
+    QDoubleSpinBox *doubleSpinBox_Ratio_ben;
+    QSpinBox *poorBlood_changliang;
+    QLabel *label_SecurityValue;
+    QDoubleSpinBox *OffsetTestHeightValue;
+    QLabel *label_fixedhigh;
+    QSpacerItem *horizontalSpacer_10;
+    QSpinBox *spinBoxAbsorbX2;
+    QLabel *label_AbsorbX2;
+    QSpacerItem *horizontalSpacer_21;
+    QLabel *labelwashesTime;
+    QSpinBox *spinBox_WashesTime;
+    QSpinBox *SecurityValue_box;
+    QSpacerItem *horizontalSpacer_9;
+    QSpinBox *Testheighdownheigh;
+    QSpinBox *EmptyHeigh;
+    QLabel *label_3;
+    QLabel *labelPeRatio;
+    QDoubleSpinBox *doubleSpinBoxAddRatio;
     QWidget *tab_reagpin;
     QGridLayout *gridLayout_6;
     QGroupBox *groupBox_RetagentBox;
@@ -432,6 +434,7 @@ public:
     QLineEdit *lineEdit_maintenance;
     QPushButton *pushButton_maintenance;
     QWidget *tabPE;
+    QSpinBox *spinBox;
 
     void setupUi(QWidget *MachineSetting)
     {
@@ -2812,251 +2815,6 @@ public:
         gridLayout_5->setHorizontalSpacing(5);
         gridLayout_5->setVerticalSpacing(20);
         gridLayout_5->setContentsMargins(5, 20, 5, 40);
-        horizontalSpacer_10 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_5->addItem(horizontalSpacer_10, 2, 3, 1, 1);
-
-        label_AbsorbX2 = new QLabel(tab_configbloodpin);
-        label_AbsorbX2->setObjectName(QStringLiteral("label_AbsorbX2"));
-        label_AbsorbX2->setMaximumSize(QSize(150, 30));
-        label_AbsorbX2->setFont(font6);
-
-        gridLayout_5->addWidget(label_AbsorbX2, 4, 4, 1, 1);
-
-        spinBoxAbsorbX2 = new QSpinBox(tab_configbloodpin);
-        spinBoxAbsorbX2->setObjectName(QStringLiteral("spinBoxAbsorbX2"));
-        spinBoxAbsorbX2->setMinimumSize(QSize(140, 30));
-        spinBoxAbsorbX2->setMaximumSize(QSize(140, 16777215));
-        spinBoxAbsorbX2->setFont(font10);
-        spinBoxAbsorbX2->setStyleSheet(QStringLiteral(""));
-        spinBoxAbsorbX2->setAlignment(Qt::AlignCenter);
-        spinBoxAbsorbX2->setMinimum(1);
-        spinBoxAbsorbX2->setMaximum(1250);
-        spinBoxAbsorbX2->setValue(100);
-
-        gridLayout_5->addWidget(spinBoxAbsorbX2, 4, 5, 1, 1);
-
-        spinBox_WashesTime = new QSpinBox(tab_configbloodpin);
-        spinBox_WashesTime->setObjectName(QStringLiteral("spinBox_WashesTime"));
-        spinBox_WashesTime->setMinimumSize(QSize(100, 30));
-        spinBox_WashesTime->setMaximumSize(QSize(122222, 16777215));
-        spinBox_WashesTime->setFont(font6);
-        spinBox_WashesTime->setAlignment(Qt::AlignCenter);
-        spinBox_WashesTime->setMinimum(500);
-        spinBox_WashesTime->setMaximum(65535);
-        spinBox_WashesTime->setSingleStep(100);
-
-        gridLayout_5->addWidget(spinBox_WashesTime, 5, 5, 1, 1);
-
-        labelwashesTime = new QLabel(tab_configbloodpin);
-        labelwashesTime->setObjectName(QStringLiteral("labelwashesTime"));
-        labelwashesTime->setMinimumSize(QSize(0, 30));
-        labelwashesTime->setMaximumSize(QSize(120, 16777215));
-        labelwashesTime->setFont(font6);
-
-        gridLayout_5->addWidget(labelwashesTime, 5, 4, 1, 1);
-
-        horizontalSpacer_21 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_5->addItem(horizontalSpacer_21, 0, 0, 1, 1);
-
-        SecurityValue_box = new QSpinBox(tab_configbloodpin);
-        SecurityValue_box->setObjectName(QStringLiteral("SecurityValue_box"));
-        SecurityValue_box->setMinimumSize(QSize(140, 30));
-        SecurityValue_box->setMaximumSize(QSize(140, 16777215));
-        SecurityValue_box->setFont(font10);
-        SecurityValue_box->setStyleSheet(QStringLiteral(""));
-        SecurityValue_box->setAlignment(Qt::AlignCenter);
-        SecurityValue_box->setMaximum(255);
-
-        gridLayout_5->addWidget(SecurityValue_box, 3, 2, 1, 1);
-
-        Testheighdownheigh = new QSpinBox(tab_configbloodpin);
-        Testheighdownheigh->setObjectName(QStringLiteral("Testheighdownheigh"));
-        Testheighdownheigh->setMinimumSize(QSize(140, 30));
-        Testheighdownheigh->setMaximumSize(QSize(140, 30));
-        Testheighdownheigh->setFont(font10);
-        Testheighdownheigh->setStyleSheet(QStringLiteral(""));
-        Testheighdownheigh->setAlignment(Qt::AlignCenter);
-        Testheighdownheigh->setMinimum(20);
-        Testheighdownheigh->setMaximum(99);
-
-        gridLayout_5->addWidget(Testheighdownheigh, 1, 5, 1, 1);
-
-        horizontalSpacer_9 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_5->addItem(horizontalSpacer_9, 0, 6, 1, 1);
-
-        EmptyHeigh = new QSpinBox(tab_configbloodpin);
-        EmptyHeigh->setObjectName(QStringLiteral("EmptyHeigh"));
-        EmptyHeigh->setMinimumSize(QSize(140, 30));
-        EmptyHeigh->setMaximumSize(QSize(140, 16777215));
-        EmptyHeigh->setFont(font10);
-        EmptyHeigh->setStyleSheet(QStringLiteral(""));
-        EmptyHeigh->setAlignment(Qt::AlignCenter);
-        EmptyHeigh->setMaximum(255);
-
-        gridLayout_5->addWidget(EmptyHeigh, 0, 2, 1, 1);
-
-        label_3 = new QLabel(tab_configbloodpin);
-        label_3->setObjectName(QStringLiteral("label_3"));
-        label_3->setMinimumSize(QSize(170, 0));
-        label_3->setMaximumSize(QSize(16777215, 30));
-        label_3->setFont(font6);
-
-        gridLayout_5->addWidget(label_3, 1, 4, 1, 1);
-
-        poorBlood_changliang = new QSpinBox(tab_configbloodpin);
-        poorBlood_changliang->setObjectName(QStringLiteral("poorBlood_changliang"));
-        poorBlood_changliang->setMinimumSize(QSize(140, 30));
-        poorBlood_changliang->setMaximumSize(QSize(140, 16777215));
-        poorBlood_changliang->setFont(font10);
-        poorBlood_changliang->setStyleSheet(QStringLiteral(""));
-        poorBlood_changliang->setAlignment(Qt::AlignCenter);
-        poorBlood_changliang->setMinimum(100);
-        poorBlood_changliang->setMaximum(500);
-        poorBlood_changliang->setValue(100);
-
-        gridLayout_5->addWidget(poorBlood_changliang, 4, 2, 1, 1);
-
-        label_SecurityValue = new QLabel(tab_configbloodpin);
-        label_SecurityValue->setObjectName(QStringLiteral("label_SecurityValue"));
-        label_SecurityValue->setMaximumSize(QSize(150, 30));
-        label_SecurityValue->setFont(font6);
-        label_SecurityValue->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
-
-        gridLayout_5->addWidget(label_SecurityValue, 3, 1, 1, 1);
-
-        OffsetTestHeightValue = new QDoubleSpinBox(tab_configbloodpin);
-        OffsetTestHeightValue->setObjectName(QStringLiteral("OffsetTestHeightValue"));
-        OffsetTestHeightValue->setMinimumSize(QSize(140, 30));
-        OffsetTestHeightValue->setMaximumSize(QSize(140, 16777215));
-        OffsetTestHeightValue->setStyleSheet(QStringLiteral(""));
-        OffsetTestHeightValue->setAlignment(Qt::AlignCenter);
-        OffsetTestHeightValue->setDecimals(1);
-        OffsetTestHeightValue->setMaximum(25.5);
-
-        gridLayout_5->addWidget(OffsetTestHeightValue, 6, 2, 1, 1);
-
-        label_fixedhigh = new QLabel(tab_configbloodpin);
-        label_fixedhigh->setObjectName(QStringLiteral("label_fixedhigh"));
-        label_fixedhigh->setMinimumSize(QSize(0, 30));
-        label_fixedhigh->setMaximumSize(QSize(150, 30));
-        label_fixedhigh->setFont(font6);
-
-        gridLayout_5->addWidget(label_fixedhigh, 5, 1, 1, 1);
-
-        label_EmptyTubeHeigh = new QLabel(tab_configbloodpin);
-        label_EmptyTubeHeigh->setObjectName(QStringLiteral("label_EmptyTubeHeigh"));
-        label_EmptyTubeHeigh->setMaximumSize(QSize(150, 30));
-        label_EmptyTubeHeigh->setFont(font6);
-
-        gridLayout_5->addWidget(label_EmptyTubeHeigh, 0, 1, 1, 1);
-
-        label_ratio_ben = new QLabel(tab_configbloodpin);
-        label_ratio_ben->setObjectName(QStringLiteral("label_ratio_ben"));
-        label_ratio_ben->setFont(font6);
-
-        gridLayout_5->addWidget(label_ratio_ben, 1, 1, 1, 1);
-
-        PRPratiolable = new QLabel(tab_configbloodpin);
-        PRPratiolable->setObjectName(QStringLiteral("PRPratiolable"));
-        PRPratiolable->setMinimumSize(QSize(0, 30));
-        PRPratiolable->setMaximumSize(QSize(16777215, 30));
-        PRPratiolable->setFont(font6);
-
-        gridLayout_5->addWidget(PRPratiolable, 2, 1, 1, 1);
-
-        doubleSpinBox_PRPratio = new QDoubleSpinBox(tab_configbloodpin);
-        doubleSpinBox_PRPratio->setObjectName(QStringLiteral("doubleSpinBox_PRPratio"));
-        doubleSpinBox_PRPratio->setMinimumSize(QSize(140, 30));
-        doubleSpinBox_PRPratio->setAlignment(Qt::AlignCenter);
-        doubleSpinBox_PRPratio->setDecimals(2);
-        doubleSpinBox_PRPratio->setMaximum(5);
-        doubleSpinBox_PRPratio->setSingleStep(0.1);
-        doubleSpinBox_PRPratio->setValue(2.55);
-
-        gridLayout_5->addWidget(doubleSpinBox_PRPratio, 2, 2, 1, 1);
-
-        label_failedlinque = new QLabel(tab_configbloodpin);
-        label_failedlinque->setObjectName(QStringLiteral("label_failedlinque"));
-        label_failedlinque->setMinimumSize(QSize(140, 30));
-        label_failedlinque->setMaximumSize(QSize(170, 30));
-        label_failedlinque->setFont(font6);
-
-        gridLayout_5->addWidget(label_failedlinque, 2, 4, 1, 1);
-
-        spinBox_faliedlinque = new QSpinBox(tab_configbloodpin);
-        spinBox_faliedlinque->setObjectName(QStringLiteral("spinBox_faliedlinque"));
-        spinBox_faliedlinque->setMinimumSize(QSize(140, 30));
-        spinBox_faliedlinque->setMaximumSize(QSize(140, 30));
-        spinBox_faliedlinque->setFont(font10);
-        spinBox_faliedlinque->setStyleSheet(QStringLiteral(""));
-        spinBox_faliedlinque->setAlignment(Qt::AlignCenter);
-        spinBox_faliedlinque->setMinimum(1);
-        spinBox_faliedlinque->setMaximum(99);
-
-        gridLayout_5->addWidget(spinBox_faliedlinque, 2, 5, 1, 1);
-
-        label_suckairs = new QLabel(tab_configbloodpin);
-        label_suckairs->setObjectName(QStringLiteral("label_suckairs"));
-        label_suckairs->setMinimumSize(QSize(0, 30));
-        label_suckairs->setMaximumSize(QSize(16777215, 30));
-        label_suckairs->setFont(font6);
-
-        gridLayout_5->addWidget(label_suckairs, 3, 4, 1, 1);
-
-        spinBox_suckairs = new QSpinBox(tab_configbloodpin);
-        spinBox_suckairs->setObjectName(QStringLiteral("spinBox_suckairs"));
-        spinBox_suckairs->setMinimumSize(QSize(140, 30));
-        spinBox_suckairs->setMaximumSize(QSize(140, 16777215));
-        spinBox_suckairs->setStyleSheet(QStringLiteral(""));
-        spinBox_suckairs->setAlignment(Qt::AlignCenter);
-        spinBox_suckairs->setMaximum(7200);
-
-        gridLayout_5->addWidget(spinBox_suckairs, 3, 5, 1, 1);
-
-        doubleSpinBox_Ratio_ben = new QDoubleSpinBox(tab_configbloodpin);
-        doubleSpinBox_Ratio_ben->setObjectName(QStringLiteral("doubleSpinBox_Ratio_ben"));
-        doubleSpinBox_Ratio_ben->setMinimumSize(QSize(140, 30));
-        doubleSpinBox_Ratio_ben->setMaximumSize(QSize(140, 16777215));
-        doubleSpinBox_Ratio_ben->setFont(font10);
-        doubleSpinBox_Ratio_ben->setStyleSheet(QStringLiteral(""));
-        doubleSpinBox_Ratio_ben->setAlignment(Qt::AlignCenter);
-        doubleSpinBox_Ratio_ben->setDecimals(2);
-        doubleSpinBox_Ratio_ben->setMinimum(0);
-        doubleSpinBox_Ratio_ben->setMaximum(5);
-        doubleSpinBox_Ratio_ben->setSingleStep(0.1);
-        doubleSpinBox_Ratio_ben->setValue(2.55);
-
-        gridLayout_5->addWidget(doubleSpinBox_Ratio_ben, 1, 2, 1, 1);
-
-        FixedHighvalue = new QDoubleSpinBox(tab_configbloodpin);
-        FixedHighvalue->setObjectName(QStringLiteral("FixedHighvalue"));
-        FixedHighvalue->setMinimumSize(QSize(140, 30));
-        FixedHighvalue->setMaximumSize(QSize(140, 16777215));
-        FixedHighvalue->setFont(font10);
-        FixedHighvalue->setStyleSheet(QStringLiteral(""));
-        FixedHighvalue->setAlignment(Qt::AlignCenter);
-        FixedHighvalue->setMinimum(40);
-        FixedHighvalue->setValue(49.4);
-
-        gridLayout_5->addWidget(FixedHighvalue, 5, 2, 1, 1);
-
-        OffsetTestHeight = new QLabel(tab_configbloodpin);
-        OffsetTestHeight->setObjectName(QStringLiteral("OffsetTestHeight"));
-        OffsetTestHeight->setFont(font6);
-
-        gridLayout_5->addWidget(OffsetTestHeight, 6, 1, 1, 1);
-
-        Poor_blood_changliang = new QLabel(tab_configbloodpin);
-        Poor_blood_changliang->setObjectName(QStringLiteral("Poor_blood_changliang"));
-        Poor_blood_changliang->setMinimumSize(QSize(0, 30));
-        Poor_blood_changliang->setMaximumSize(QSize(160, 30));
-        Poor_blood_changliang->setFont(font6);
-
-        gridLayout_5->addWidget(Poor_blood_changliang, 4, 1, 1, 1);
-
         label_failedlinque_3 = new QLabel(tab_configbloodpin);
         label_failedlinque_3->setObjectName(QStringLiteral("label_failedlinque_3"));
         label_failedlinque_3->setMinimumSize(QSize(190, 30));
@@ -3076,6 +2834,32 @@ public:
         spinBox_CleanLinqueFailedHigh->setMaximum(99);
 
         gridLayout_5->addWidget(spinBox_CleanLinqueFailedHigh, 0, 5, 1, 1);
+
+        OffsetTestHeight = new QLabel(tab_configbloodpin);
+        OffsetTestHeight->setObjectName(QStringLiteral("OffsetTestHeight"));
+        OffsetTestHeight->setFont(font6);
+
+        gridLayout_5->addWidget(OffsetTestHeight, 7, 1, 1, 1);
+
+        FixedHighvalue = new QDoubleSpinBox(tab_configbloodpin);
+        FixedHighvalue->setObjectName(QStringLiteral("FixedHighvalue"));
+        FixedHighvalue->setMinimumSize(QSize(140, 30));
+        FixedHighvalue->setMaximumSize(QSize(140, 16777215));
+        FixedHighvalue->setFont(font10);
+        FixedHighvalue->setStyleSheet(QStringLiteral(""));
+        FixedHighvalue->setAlignment(Qt::AlignCenter);
+        FixedHighvalue->setMinimum(40);
+        FixedHighvalue->setValue(49.4);
+
+        gridLayout_5->addWidget(FixedHighvalue, 6, 2, 1, 1);
+
+        Poor_blood_changliang = new QLabel(tab_configbloodpin);
+        Poor_blood_changliang->setObjectName(QStringLiteral("Poor_blood_changliang"));
+        Poor_blood_changliang->setMinimumSize(QSize(0, 30));
+        Poor_blood_changliang->setMaximumSize(QSize(160, 30));
+        Poor_blood_changliang->setFont(font6);
+
+        gridLayout_5->addWidget(Poor_blood_changliang, 5, 1, 1, 1);
 
         widgetbloodsave = new QWidget(tab_configbloodpin);
         widgetbloodsave->setObjectName(QStringLiteral("widgetbloodsave"));
@@ -3098,7 +2882,240 @@ public:
         horizontalLayout_9->addItem(horizontalSpacer_23);
 
 
-        gridLayout_5->addWidget(widgetbloodsave, 7, 0, 1, 7);
+        gridLayout_5->addWidget(widgetbloodsave, 8, 0, 1, 7);
+
+        label_ratio_ben = new QLabel(tab_configbloodpin);
+        label_ratio_ben->setObjectName(QStringLiteral("label_ratio_ben"));
+        label_ratio_ben->setFont(font6);
+
+        gridLayout_5->addWidget(label_ratio_ben, 1, 1, 1, 1);
+
+        label_EmptyTubeHeigh = new QLabel(tab_configbloodpin);
+        label_EmptyTubeHeigh->setObjectName(QStringLiteral("label_EmptyTubeHeigh"));
+        label_EmptyTubeHeigh->setMaximumSize(QSize(150, 30));
+        label_EmptyTubeHeigh->setFont(font6);
+
+        gridLayout_5->addWidget(label_EmptyTubeHeigh, 0, 1, 1, 1);
+
+        PRPratiolable = new QLabel(tab_configbloodpin);
+        PRPratiolable->setObjectName(QStringLiteral("PRPratiolable"));
+        PRPratiolable->setMinimumSize(QSize(0, 30));
+        PRPratiolable->setMaximumSize(QSize(16777215, 30));
+        PRPratiolable->setFont(font6);
+
+        gridLayout_5->addWidget(PRPratiolable, 2, 1, 1, 1);
+
+        label_failedlinque = new QLabel(tab_configbloodpin);
+        label_failedlinque->setObjectName(QStringLiteral("label_failedlinque"));
+        label_failedlinque->setMinimumSize(QSize(140, 30));
+        label_failedlinque->setMaximumSize(QSize(170, 30));
+        label_failedlinque->setFont(font6);
+
+        gridLayout_5->addWidget(label_failedlinque, 2, 4, 1, 1);
+
+        doubleSpinBox_PRPratio = new QDoubleSpinBox(tab_configbloodpin);
+        doubleSpinBox_PRPratio->setObjectName(QStringLiteral("doubleSpinBox_PRPratio"));
+        doubleSpinBox_PRPratio->setMinimumSize(QSize(140, 30));
+        doubleSpinBox_PRPratio->setAlignment(Qt::AlignCenter);
+        doubleSpinBox_PRPratio->setDecimals(2);
+        doubleSpinBox_PRPratio->setMaximum(5);
+        doubleSpinBox_PRPratio->setSingleStep(0.1);
+        doubleSpinBox_PRPratio->setValue(2.55);
+
+        gridLayout_5->addWidget(doubleSpinBox_PRPratio, 2, 2, 1, 1);
+
+        spinBox_faliedlinque = new QSpinBox(tab_configbloodpin);
+        spinBox_faliedlinque->setObjectName(QStringLiteral("spinBox_faliedlinque"));
+        spinBox_faliedlinque->setMinimumSize(QSize(140, 30));
+        spinBox_faliedlinque->setMaximumSize(QSize(140, 30));
+        spinBox_faliedlinque->setFont(font10);
+        spinBox_faliedlinque->setStyleSheet(QStringLiteral(""));
+        spinBox_faliedlinque->setAlignment(Qt::AlignCenter);
+        spinBox_faliedlinque->setMinimum(1);
+        spinBox_faliedlinque->setMaximum(99);
+
+        gridLayout_5->addWidget(spinBox_faliedlinque, 2, 5, 1, 1);
+
+        label_suckairs = new QLabel(tab_configbloodpin);
+        label_suckairs->setObjectName(QStringLiteral("label_suckairs"));
+        label_suckairs->setMinimumSize(QSize(0, 30));
+        label_suckairs->setMaximumSize(QSize(16777215, 30));
+        label_suckairs->setFont(font6);
+
+        gridLayout_5->addWidget(label_suckairs, 4, 4, 1, 1);
+
+        spinBox_suckairs = new QSpinBox(tab_configbloodpin);
+        spinBox_suckairs->setObjectName(QStringLiteral("spinBox_suckairs"));
+        spinBox_suckairs->setMinimumSize(QSize(140, 30));
+        spinBox_suckairs->setMaximumSize(QSize(140, 16777215));
+        spinBox_suckairs->setStyleSheet(QStringLiteral(""));
+        spinBox_suckairs->setAlignment(Qt::AlignCenter);
+        spinBox_suckairs->setMaximum(7200);
+
+        gridLayout_5->addWidget(spinBox_suckairs, 4, 5, 1, 1);
+
+        doubleSpinBox_Ratio_ben = new QDoubleSpinBox(tab_configbloodpin);
+        doubleSpinBox_Ratio_ben->setObjectName(QStringLiteral("doubleSpinBox_Ratio_ben"));
+        doubleSpinBox_Ratio_ben->setMinimumSize(QSize(140, 30));
+        doubleSpinBox_Ratio_ben->setMaximumSize(QSize(140, 16777215));
+        doubleSpinBox_Ratio_ben->setFont(font10);
+        doubleSpinBox_Ratio_ben->setStyleSheet(QStringLiteral(""));
+        doubleSpinBox_Ratio_ben->setAlignment(Qt::AlignCenter);
+        doubleSpinBox_Ratio_ben->setDecimals(2);
+        doubleSpinBox_Ratio_ben->setMinimum(0);
+        doubleSpinBox_Ratio_ben->setMaximum(5);
+        doubleSpinBox_Ratio_ben->setSingleStep(0.1);
+        doubleSpinBox_Ratio_ben->setValue(2.55);
+
+        gridLayout_5->addWidget(doubleSpinBox_Ratio_ben, 1, 2, 1, 1);
+
+        poorBlood_changliang = new QSpinBox(tab_configbloodpin);
+        poorBlood_changliang->setObjectName(QStringLiteral("poorBlood_changliang"));
+        poorBlood_changliang->setMinimumSize(QSize(140, 30));
+        poorBlood_changliang->setMaximumSize(QSize(140, 16777215));
+        poorBlood_changliang->setFont(font10);
+        poorBlood_changliang->setStyleSheet(QStringLiteral(""));
+        poorBlood_changliang->setAlignment(Qt::AlignCenter);
+        poorBlood_changliang->setMinimum(100);
+        poorBlood_changliang->setMaximum(500);
+        poorBlood_changliang->setValue(100);
+
+        gridLayout_5->addWidget(poorBlood_changliang, 5, 2, 1, 1);
+
+        label_SecurityValue = new QLabel(tab_configbloodpin);
+        label_SecurityValue->setObjectName(QStringLiteral("label_SecurityValue"));
+        label_SecurityValue->setMaximumSize(QSize(150, 30));
+        label_SecurityValue->setFont(font6);
+        label_SecurityValue->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
+
+        gridLayout_5->addWidget(label_SecurityValue, 4, 1, 1, 1);
+
+        OffsetTestHeightValue = new QDoubleSpinBox(tab_configbloodpin);
+        OffsetTestHeightValue->setObjectName(QStringLiteral("OffsetTestHeightValue"));
+        OffsetTestHeightValue->setMinimumSize(QSize(140, 30));
+        OffsetTestHeightValue->setMaximumSize(QSize(140, 16777215));
+        OffsetTestHeightValue->setStyleSheet(QStringLiteral(""));
+        OffsetTestHeightValue->setAlignment(Qt::AlignCenter);
+        OffsetTestHeightValue->setDecimals(1);
+        OffsetTestHeightValue->setMaximum(25.5);
+
+        gridLayout_5->addWidget(OffsetTestHeightValue, 7, 2, 1, 1);
+
+        label_fixedhigh = new QLabel(tab_configbloodpin);
+        label_fixedhigh->setObjectName(QStringLiteral("label_fixedhigh"));
+        label_fixedhigh->setMinimumSize(QSize(0, 30));
+        label_fixedhigh->setMaximumSize(QSize(150, 30));
+        label_fixedhigh->setFont(font6);
+
+        gridLayout_5->addWidget(label_fixedhigh, 6, 1, 1, 1);
+
+        horizontalSpacer_10 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_5->addItem(horizontalSpacer_10, 2, 3, 1, 1);
+
+        spinBoxAbsorbX2 = new QSpinBox(tab_configbloodpin);
+        spinBoxAbsorbX2->setObjectName(QStringLiteral("spinBoxAbsorbX2"));
+        spinBoxAbsorbX2->setMinimumSize(QSize(140, 30));
+        spinBoxAbsorbX2->setMaximumSize(QSize(140, 16777215));
+        spinBoxAbsorbX2->setFont(font10);
+        spinBoxAbsorbX2->setStyleSheet(QStringLiteral(""));
+        spinBoxAbsorbX2->setAlignment(Qt::AlignCenter);
+        spinBoxAbsorbX2->setMinimum(1);
+        spinBoxAbsorbX2->setMaximum(1250);
+        spinBoxAbsorbX2->setValue(100);
+
+        gridLayout_5->addWidget(spinBoxAbsorbX2, 5, 5, 1, 1);
+
+        label_AbsorbX2 = new QLabel(tab_configbloodpin);
+        label_AbsorbX2->setObjectName(QStringLiteral("label_AbsorbX2"));
+        label_AbsorbX2->setMaximumSize(QSize(150, 30));
+        label_AbsorbX2->setFont(font6);
+
+        gridLayout_5->addWidget(label_AbsorbX2, 5, 4, 1, 1);
+
+        horizontalSpacer_21 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_5->addItem(horizontalSpacer_21, 0, 0, 1, 1);
+
+        labelwashesTime = new QLabel(tab_configbloodpin);
+        labelwashesTime->setObjectName(QStringLiteral("labelwashesTime"));
+        labelwashesTime->setMinimumSize(QSize(0, 30));
+        labelwashesTime->setMaximumSize(QSize(120, 16777215));
+        labelwashesTime->setFont(font6);
+
+        gridLayout_5->addWidget(labelwashesTime, 6, 4, 1, 1);
+
+        spinBox_WashesTime = new QSpinBox(tab_configbloodpin);
+        spinBox_WashesTime->setObjectName(QStringLiteral("spinBox_WashesTime"));
+        spinBox_WashesTime->setMinimumSize(QSize(100, 30));
+        spinBox_WashesTime->setMaximumSize(QSize(122222, 16777215));
+        spinBox_WashesTime->setFont(font6);
+        spinBox_WashesTime->setAlignment(Qt::AlignCenter);
+        spinBox_WashesTime->setMinimum(500);
+        spinBox_WashesTime->setMaximum(65535);
+        spinBox_WashesTime->setSingleStep(100);
+
+        gridLayout_5->addWidget(spinBox_WashesTime, 6, 5, 1, 1);
+
+        SecurityValue_box = new QSpinBox(tab_configbloodpin);
+        SecurityValue_box->setObjectName(QStringLiteral("SecurityValue_box"));
+        SecurityValue_box->setMinimumSize(QSize(140, 30));
+        SecurityValue_box->setMaximumSize(QSize(140, 16777215));
+        SecurityValue_box->setFont(font10);
+        SecurityValue_box->setStyleSheet(QStringLiteral(""));
+        SecurityValue_box->setAlignment(Qt::AlignCenter);
+        SecurityValue_box->setMaximum(255);
+
+        gridLayout_5->addWidget(SecurityValue_box, 4, 2, 1, 1);
+
+        horizontalSpacer_9 = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        gridLayout_5->addItem(horizontalSpacer_9, 0, 6, 1, 1);
+
+        Testheighdownheigh = new QSpinBox(tab_configbloodpin);
+        Testheighdownheigh->setObjectName(QStringLiteral("Testheighdownheigh"));
+        Testheighdownheigh->setMinimumSize(QSize(140, 30));
+        Testheighdownheigh->setMaximumSize(QSize(140, 30));
+        Testheighdownheigh->setFont(font10);
+        Testheighdownheigh->setStyleSheet(QStringLiteral(""));
+        Testheighdownheigh->setAlignment(Qt::AlignCenter);
+        Testheighdownheigh->setMinimum(20);
+        Testheighdownheigh->setMaximum(99);
+
+        gridLayout_5->addWidget(Testheighdownheigh, 1, 5, 1, 1);
+
+        EmptyHeigh = new QSpinBox(tab_configbloodpin);
+        EmptyHeigh->setObjectName(QStringLiteral("EmptyHeigh"));
+        EmptyHeigh->setMinimumSize(QSize(140, 30));
+        EmptyHeigh->setMaximumSize(QSize(140, 16777215));
+        EmptyHeigh->setFont(font10);
+        EmptyHeigh->setStyleSheet(QStringLiteral(""));
+        EmptyHeigh->setAlignment(Qt::AlignCenter);
+        EmptyHeigh->setMaximum(255);
+
+        gridLayout_5->addWidget(EmptyHeigh, 0, 2, 1, 1);
+
+        label_3 = new QLabel(tab_configbloodpin);
+        label_3->setObjectName(QStringLiteral("label_3"));
+        label_3->setMinimumSize(QSize(170, 0));
+        label_3->setMaximumSize(QSize(16777215, 30));
+        label_3->setFont(font6);
+
+        gridLayout_5->addWidget(label_3, 1, 4, 1, 1);
+
+        labelPeRatio = new QLabel(tab_configbloodpin);
+        labelPeRatio->setObjectName(QStringLiteral("labelPeRatio"));
+        labelPeRatio->setMaximumSize(QSize(16777215, 30));
+        labelPeRatio->setFont(font6);
+
+        gridLayout_5->addWidget(labelPeRatio, 3, 1, 1, 1);
+
+        doubleSpinBoxAddRatio = new QDoubleSpinBox(tab_configbloodpin);
+        doubleSpinBoxAddRatio->setObjectName(QStringLiteral("doubleSpinBoxAddRatio"));
+        doubleSpinBoxAddRatio->setMinimumSize(QSize(140, 30));
+        doubleSpinBoxAddRatio->setAlignment(Qt::AlignCenter);
+
+        gridLayout_5->addWidget(doubleSpinBoxAddRatio, 3, 2, 1, 1);
 
         tabWidget_config->addTab(tab_configbloodpin, QString());
         tab_reagpin = new QWidget();
@@ -4424,6 +4441,9 @@ public:
         tabWidgetSetconfigure->addTab(tab_fucn, QString());
         tabPE = new QWidget();
         tabPE->setObjectName(QStringLiteral("tabPE"));
+        spinBox = new QSpinBox(tabPE);
+        spinBox->setObjectName(QStringLiteral("spinBox"));
+        spinBox->setGeometry(QRect(390, 610, 42, 22));
         tabWidgetSetconfigure->addTab(tabPE, QString());
 
         horizontalLayout_configureset->addWidget(tabWidgetSetconfigure);
@@ -4457,7 +4477,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(3);
+        tabWidget_config->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);
@@ -4558,36 +4578,38 @@ public:
         label_setAddr->setText(QApplication::translate("MachineSetting", "\345\234\260\345\235\200:", nullptr));
         tabWidget_3->setTabText(tabWidget_3->indexOf(tab_Nornal), QApplication::translate("MachineSetting", "\346\226\207\346\234\254\345\257\274\345\207\272", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_LIS), QApplication::translate("MachineSetting", "LIS", nullptr));
-        label_AbsorbX2->setText(QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\346\270\205\346\264\227\351\207\217:", nullptr));
+        label_failedlinque_3->setText(QApplication::translate("MachineSetting", "\346\240\267\346\234\254\351\222\210\346\270\205\346\264\227\346\216\242\346\265\213\351\253\230\345\272\246:", nullptr));
+        spinBox_CleanLinqueFailedHigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
+        spinBox_CleanLinqueFailedHigh->setPrefix(QString());
+        OffsetTestHeight->setText(QApplication::translate("MachineSetting", "\346\265\213\351\253\230\345\201\217\347\247\273\351\253\230\345\272\246:", nullptr));
+        FixedHighvalue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
+        Poor_blood_changliang->setText(QApplication::translate("MachineSetting", "PPP/PRP\346\240\267\346\234\254\351\207\217:", nullptr));
+        pushButtonBloodPinParasave->setText(QApplication::translate("MachineSetting", "\344\277\235\345\255\230", nullptr));
+        label_ratio_ben->setText(QApplication::translate("MachineSetting", "PPP\347\263\273\346\225\260:", nullptr));
+        label_EmptyTubeHeigh->setText(QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\344\270\213\351\231\215\351\253\230\345\272\246:", nullptr));
+        PRPratiolable->setText(QApplication::translate("MachineSetting", "PRP\347\263\273\346\225\260:", nullptr));
+        label_failedlinque->setText(QApplication::translate("MachineSetting", "PPP\346\216\242\346\265\213\345\272\225\351\203\250\351\253\230\345\272\246:", nullptr));
+        spinBox_faliedlinque->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
+        spinBox_faliedlinque->setPrefix(QString());
+        label_suckairs->setText(QApplication::translate("MachineSetting", "\345\220\270PRP\345\211\215\345\212\240\347\251\272\346\260\224\351\207\217:", nullptr));
+        poorBlood_changliang->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));
+        poorBlood_changliang->setPrefix(QString());
+        label_SecurityValue->setText(QApplication::translate("MachineSetting", "\347\251\272\345\233\236\345\200\274:", nullptr));
+        OffsetTestHeightValue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
+        label_fixedhigh->setText(QApplication::translate("MachineSetting", "\346\265\213\351\253\230\347\211\251\347\220\206\351\253\230\345\272\246:", nullptr));
         spinBoxAbsorbX2->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));
+        label_AbsorbX2->setText(QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\346\270\205\346\264\227\351\207\217:", nullptr));
+        labelwashesTime->setText(QApplication::translate("MachineSetting", "\346\270\205\346\264\227\346\227\266\351\227\264:", nullptr));
         spinBox_WashesTime->setSuffix(QApplication::translate("MachineSetting", "ms", nullptr));
         spinBox_WashesTime->setPrefix(QString());
-        labelwashesTime->setText(QApplication::translate("MachineSetting", "\346\270\205\346\264\227\346\227\266\351\227\264:", nullptr));
         SecurityValue_box->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));
         SecurityValue_box->setPrefix(QString());
         Testheighdownheigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         Testheighdownheigh->setPrefix(QString());
         EmptyHeigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         label_3->setText(QApplication::translate("MachineSetting", "\350\241\200\346\265\206\346\250\241\345\274\217\344\270\213\351\231\215\351\253\230\345\272\246:", nullptr));
-        poorBlood_changliang->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));
-        poorBlood_changliang->setPrefix(QString());
-        label_SecurityValue->setText(QApplication::translate("MachineSetting", "\347\251\272\345\233\236\345\200\274:", nullptr));
-        OffsetTestHeightValue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        label_fixedhigh->setText(QApplication::translate("MachineSetting", "\346\265\213\351\253\230\347\211\251\347\220\206\351\253\230\345\272\246:", nullptr));
-        label_EmptyTubeHeigh->setText(QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\344\270\213\351\231\215\351\253\230\345\272\246:", nullptr));
-        label_ratio_ben->setText(QApplication::translate("MachineSetting", "PPP\347\263\273\346\225\260:", nullptr));
-        PRPratiolable->setText(QApplication::translate("MachineSetting", "PRP\347\263\273\346\225\260:", nullptr));
-        label_failedlinque->setText(QApplication::translate("MachineSetting", "PPP\346\216\242\346\265\213\345\272\225\351\203\250\351\253\230\345\272\246:", nullptr));
-        spinBox_faliedlinque->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        spinBox_faliedlinque->setPrefix(QString());
-        label_suckairs->setText(QApplication::translate("MachineSetting", "\345\220\270PRP\345\211\215\345\212\240\347\251\272\346\260\224\351\207\217:", nullptr));
-        FixedHighvalue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        OffsetTestHeight->setText(QApplication::translate("MachineSetting", "\346\265\213\351\253\230\345\201\217\347\247\273\351\253\230\345\272\246:", nullptr));
-        Poor_blood_changliang->setText(QApplication::translate("MachineSetting", "PPP/PRP\346\240\267\346\234\254\351\207\217:", nullptr));
-        label_failedlinque_3->setText(QApplication::translate("MachineSetting", "\346\240\267\346\234\254\351\222\210\346\270\205\346\264\227\346\216\242\346\265\213\351\253\230\345\272\246:", nullptr));
-        spinBox_CleanLinqueFailedHigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        spinBox_CleanLinqueFailedHigh->setPrefix(QString());
-        pushButtonBloodPinParasave->setText(QApplication::translate("MachineSetting", "\344\277\235\345\255\230", nullptr));
+        labelPeRatio->setText(QApplication::translate("MachineSetting", "PE\345\242\236\347\233\212\347\263\273\346\225\260\357\274\232", nullptr));
+        doubleSpinBoxAddRatio->setSuffix(QApplication::translate("MachineSetting", "%", nullptr));
         tabWidget_config->setTabText(tabWidget_config->indexOf(tab_configbloodpin), QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\351\205\215\347\275\256\345\217\202\346\225\260", nullptr));
         groupBox_RetagentBox->setTitle(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\350\257\225\345\211\202\345\217\202\346\225\260", nullptr));
         label_11->setText(QApplication::translate("MachineSetting", "\345\220\270\350\257\225\345\211\202\347\263\273\346\225\260", nullptr));

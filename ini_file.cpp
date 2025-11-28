@@ -570,7 +570,7 @@ double INI_File::GetPPPConversionScale()
 }
 
 
-void   INI_File::setPRPConvertTheratioColumn(double ratioval){
+void  INI_File::setPRPConvertTheratioColumn(double ratioval){
     m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("PRPConvertTheratioColumn");
     m_psetting->setValue(m_Section_Key,ratioval);
 }
@@ -580,7 +580,15 @@ double INI_File::getPRPConvertTheratioColumn(void){
     return m_psetting->value(m_Section_Key).toDouble();
 }
 
+void  INI_File::setPEAddSuckRatio(double ratioval){
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("PEAddSuckRatio");
+    m_psetting->setValue(m_Section_Key,ratioval);
+}
 
+double INI_File::getPEAddSuckRatio(void){
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("etPEAddSuckRation");
+    return m_psetting->value(m_Section_Key).toDouble();
+}
 
 
 

@@ -99,7 +99,7 @@ void configureTestTaryPositions(PerformanceData& data, SingletonAxis* axis) {
 
 
 void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &channelList){
-    QLOG_DEBUG()<<"性能验证通道"<<channelList;
+    QLOG_DEBUG()<<"指控通道"<<channelList;
 
     const quint8 waterHole = 0;
     const quint8 basicLinque = 1;
@@ -843,49 +843,96 @@ void Performanceverification::outputResult()
         return;
     }
 
+    // 输出使用的公式
+    QLOG_DEBUG() << "PE计算公式: [log10(测量值 - 标准浊度物) / log10(waterLevel - basicSolutions)] × 100";
+    QLOG_DEBUG() << "具体参数:";
+    QLOG_DEBUG() << "  - waterLevel: " << pdata->waterLevel;
+    QLOG_DEBUG() << "  - basicSolutions: " << pdata->basicSolutions;
+    QLOG_DEBUG() << "  - basicLiquidLevel(高值): " << pdata->basicLiquidLevel;
+    QLOG_DEBUG() << "  - basicLiquidLevelM(中值): " << pdata->basicLiquidLevelM;
+    QLOG_DEBUG() << "  - basicLiquidLevelL(低值): " << pdata->basicLiquidLevelL;
+
+
+
+
     // 定义常量以提高可读性和维护性
     const double epsilon = std::numeric_limits<double>::epsilon();
     const double multiplier = 100.0; // 乘法因子定义为常量
 
-    // 检查分母是否有效：waterLevel 和 waterLevel - basicSolutions 都可能为无效值
+    // 检查基础值有效性
     if (pdata->waterLevel <= epsilon) {
         QLOG_ERROR() << "Invalid waterLevel value: " << pdata->waterLevel;
         return;
     }
 
-    // 计算实际分母：waterLevel - basicSolutions
-    const double diffDenominator = static_cast<double>(pdata->waterLevel - pdata->basicSolutions);
-    if (std::fabs(diffDenominator) <= epsilon) { // 添加额外检查，基于证据1的条件检查原则
-        QString outText = QString("无效分母 (waterLevel - basicSolutions) value:%1").arg(diffDenominator);
-        QLOG_ERROR() <<outText;
-        emit outErrInfo("PE测试失败",outText);
-        return; // 提前返回避免除零
+    if (pdata->basicSolutions <= epsilon) {
+       QLOG_ERROR() << "Invalid basicSolutions value: " << pdata->basicSolutions;
+       return;
+    }
+
+    // 计算分子和分母的基础值
+    const double numeratorBase = static_cast<double>(pdata->waterLevel - pdata->basicSolutions);
+    if (numeratorBase <= epsilon) {
+        QString outText = QString("无效的分子基础值 (waterLevel - basicSolutions): %1").arg(numeratorBase);
+        QLOG_ERROR() << outText;
+        emit outErrInfo("PE测试失败", outText);
+        return;
     }
 
     emit controlChannelRevolve(m_peChannel, false);
 
     std::array<double, 3> outData;
-    const double basicSolutionsDouble = static_cast<double>(pdata->basicSolutions); // 一次性转换，减少重复
+    const double basicSolutionsDouble = static_cast<double>(pdata->basicSolutions);
     const double denominators[] = {
         static_cast<double>(pdata->basicLiquidLevel),
         static_cast<double>(pdata->basicLiquidLevelM),
         static_cast<double>(pdata->basicLiquidLevelL)
     };
 
-    for (int i = 0; i < 3; ++i) {
-        // 使用三元运算符模拟合并函数：如果分子无效，提供默认值（如0.0），避免未定义行为
-        // 证据1建议使用coalesce处理null，这里扩展为处理无效计算[[1]]
-        double numerator = static_cast<double>(denominators[i] - basicSolutionsDouble); //测量值 - 标准浊度物
-        if (std::fabs(numerator) <= epsilon) { // 检查分子是否接近零
-            QLOG_ERROR() <<"检查分子是否接近零,默认值0,避免无效计算:"<<numerator<<"="<<denominators[i]<<"-"<<basicSolutionsDouble;
-            outData[i] = 0.0; // 默认值，避免无效计算
-        } else {
-            outData[i] = (numerator / diffDenominator) * multiplier  + 10.00;
+    const char* levelNames[] = {"高值", "中值", "低值"};
 
+    // 计算分母的log10值（固定值）
+    double denominatorLog = std::log10(numeratorBase);
+    QLOG_DEBUG() << "固定分母计算:";
+    QLOG_DEBUG() << "  waterLevel - basicSolutions: " << pdata->waterLevel << " - " << pdata->basicSolutions << " = " << numeratorBase;
+    QLOG_DEBUG() << "  log10(分母): log10(" << numeratorBase << ") = " << denominatorLog;
+
+    for (int i = 0; i < 3; ++i) {
+        // 计算分子的基础值
+        double moleculeBase = static_cast<double>(denominators[i] - basicSolutionsDouble);
+
+        QLOG_DEBUG() << levelNames[i] << "计算:";
+        QLOG_DEBUG() << "  分子基础值 (" << levelNames[i] << "测量值 - 标准浊度物): "
+                     << denominators[i] << " - " << basicSolutionsDouble << " = " << moleculeBase;
+
+        if (moleculeBase <= epsilon) {
+            QLOG_ERROR() << "  分子基础值必须大于0才能计算log10，当前值: " << moleculeBase;
+            outData[i] = 0.0;
+        } else {
+            // 计算分子的log10值
+            double moleculeLog = std::log10(moleculeBase);
+            QLOG_DEBUG() << "  log10(分子): log10(" << moleculeBase << ") = " << moleculeLog;
+
+            // 计算比值：log10(分子) / log10(分母)
+            if (std::fabs(denominatorLog) <= epsilon) {
+                QLOG_ERROR() << "  分母log10值接近零，避免除零错误: " << denominatorLog;
+                outData[i] = 0.0;
+            } else {
+                double ratio = moleculeLog / denominatorLog;
+                outData[i] = ratio * multiplier;
+
+                QLOG_DEBUG() << "  比值: " << moleculeLog << " / " << denominatorLog << " = " << ratio;
+                QLOG_DEBUG() << "  最终结果(" << levelNames[i] << "): " << ratio << " × " << multiplier << " = " << outData[i];
+            }
         }
     }
 
     FullyAutomatedPlatelets::pinstanceequipmentconfig()->HandleoutputResultData(
             pdata->indexnumPE, pdata->channelIndex, outData);
+
+   // 输出最终结果汇总
+   QLOG_INFO() << "PE测试最终结果(对数比值) - 高值:" << outData[0]
+               << "%, 中值:" << outData[1]
+               << "%, 低值:" << outData[2] << "%";
     return;
 }

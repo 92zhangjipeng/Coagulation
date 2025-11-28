@@ -1177,7 +1177,16 @@ void Testing::DrawBloodTopText()
 
 void Testing::DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap)
 {
+    if (BloodHoleMap.isEmpty()) {
+        return;
+    }
+
+
 	QPainter painter(ui->widget_Sample_1);
+    if (!painter.isActive()) {
+        return;
+    }
+
     painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform
                            | QPainter::Qt4CompatiblePainting);
 	painter.setFont(ConfigureTextstyle(16));
@@ -1205,101 +1214,181 @@ void Testing::DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap)
 
 void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHole)
 {
+    // 1. 前置安全检查
+    if (!ui || !ui->widget_Sample_1) {
+        QLOG_ERROR() << "UI components are not properly initialized!";
+        return;
+    }
+
+    if (!ui->widget_Sample_1->isVisible()) {
+        QLOG_DEBUG() << "widget_Sample_1 is not visible, skipping update.";
+        return;
+    }
+
+    // 2. 检查输入参数的有效性
+    if (&MapBloodHole == nullptr) {
+        QLOG_ERROR() << "MapBloodHole reference is invalid!";
+        return;
+    }
+
+    if (MapBloodHole.isEmpty()) {
+        //QLOG_DEBUG() << "MapBloodHole is empty, nothing to draw.";
+        return;
+    }
+
+
     QMutexLocker locker(&m_dataMutex);
 
-    // 安全检查
-    if (!ui->widget_Sample_1) {
-        QLOG_WARN() << "widget_Sample_1 is null!";
+    // 3. 创建数据的安全副本
+    QMap<quint8, QPoint> safeBloodHoleCopy;
+    QMap<quint8, QString> safeBloodHoleNumCopy;
+
+    try {
+        safeBloodHoleCopy = MapBloodHole;
+        safeBloodHoleNumCopy = m_BloodHoleNum;
+    }
+    catch (const std::exception& e) {
+        QLOG_ERROR() << "Failed to create safe copies:" << e.what();
+        return;
+    }
+    catch (...) {
+        QLOG_ERROR() << "Unknown exception occurred while creating safe copies";
         return;
     }
 
-    // 使用 QPainter 的正确方式 - 确保在 paintEvent 中使用或手动开始绘制
-    if (!ui->widget_Sample_1->isVisible()) {
-        return;
-    }
-
+    // 4. 初始化 QPainter
     QPainter painter(ui->widget_Sample_1);
-    if (!painter.isActive()) {
-        QLOG_WARN() << "Painter is not active!";
+        if (!painter.isActive()) {
+        QLOG_ERROR() << "QPainter failed to initialize on widget_Sample_1";
         return;
     }
+
+    // 5. 配置绘制参数
     painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
     painter.setFont(ConfigureTextstyle(12));
 
     QPen pen;
-    pen.setColor(cglobal::g_LineColor);//圆环外圈的颜色
+    pen.setColor(cglobal::g_LineColor);
     pen.setWidthF(1);
     painter.setPen(pen);
 
-    // 提前设置渲染提示和画笔，避免在循环中重复设置
-    painter.setRenderHint(QPainter::Antialiasing, true);
-
-    // 预先计算文本偏移量，避免在循环中重复计算
+    // 6. 预先计算常量
     const int textOffsetSingle = -2;
     const int textOffsetDouble = -6;
     const int textOffsetTriple = -11;
     const int textVerticalOffset = 5;
-   
-    for (auto iter = MapBloodHole.constBegin(); iter != MapBloodHole.constEnd(); ++iter) {
+
+    // 7. 安全的迭代绘制
+    for (auto iter = safeBloodHoleCopy.constBegin(); iter != safeBloodHoleCopy.constEnd(); ++iter) {
+        try {
+            // 双重检查迭代器有效性
+            if (iter == safeBloodHoleCopy.constEnd()) {
+                break;
+            }
+
             const quint8 holeId = iter.key();
             const QPoint& center = iter.value();
 
-            // 安全检查：确保holeId在有效范围内
-            if (!m_BloodHoleNum.contains(holeId)) {
-                QLOG_WARN() << "Invalid holeId:" << holeId;
+            // 验证坐标有效性
+            if (center.isNull() && center != QPoint(0, 0)) {
+                QLOG_WARN() << "Invalid center point for holeId:" << holeId;
                 continue;
             }
-            auto itText = m_BloodHoleNum.constFind(holeId);
-            if(itText == m_BloodHoleNum.constEnd()) continue; //跳过无效孔
-            const QString& showText = itText.value();
 
-            QPalette palette;
-			painter.setPen(pen);
-            //确定孔的颜色（根据State和奇偶性）
-            switch (State) {
-                case TUBE_INIT:    palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); break;
-                case TUBE_CHECKED: (holeId % 2 != 0 ) ? palette.setColor(QPalette::Background, cglobal::g_RichBloodColor)
-                                                 :palette.setColor(QPalette::Background, cglobal::g_PoorBloodColor);
-                break;
-                case TUBE_OUTRESULT: palette.setColor(QPalette::Background, cglobal::g_OutResult); break;
-                default: break;
-
+            // 查找对应的文本
+            auto itText = safeBloodHoleNumCopy.constFind(holeId);
+            if (itText == safeBloodHoleNumCopy.constEnd()) {
+                QLOG_DEBUG() << "No text found for holeId:" << holeId;
+                continue;
             }
 
+            const QString& showText = itText.value();
 
-			bool isReminderHole = (mReminderTube - 1 == holeId || mReminderTube == holeId);
+            // 8. 确定颜色方案
+			QPalette palette;
+			painter.setPen(pen);
+
+            switch (State) {
+                case TUBE_INIT:
+                    palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); 
+                    break;
+                case TUBE_CHECKED:
+                    (holeId % 2 != 0) ? palette.setColor(QPalette::Background, cglobal::g_RichBloodColor)
+															: palette.setColor(QPalette::Background, cglobal::g_PoorBloodColor);
+                    break;
+                case TUBE_OUTRESULT:
+                     palette.setColor(QPalette::Background, cglobal::g_OutResult);
+                    break;
+                default:
+                    QLOG_WARN() << "Unknown state:" << State << ", using default color";
+					palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); // 默认颜色
+                    break;
+            }
+
+            // 9. 绘制外圈（提醒环）
+            bool isReminderHole = (mReminderTube - 1 == holeId || mReminderTube == holeId);
 			painter.setBrush(isReminderHole
 				? QBrush(cglobal::g_ReminderBloodHoleColor, Qt::SolidPattern)
 				: QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
 			painter.drawEllipse(center, m_BloodBigRadius, m_BloodBigRadius); //画大圆
 
-            // 3. 绘制小圆（内圈）
-            painter.setBrush(QBrush(palette.brush(QPalette::Background)));
-            painter.drawEllipse(center, m_BloodSmallRadius, m_BloodSmallRadius);
 
-            QColor textColor = (holeId % 2 == 0) ? cglobal::g_TextColorRoorblood : cglobal::g_TextColorRichblood;
-            painter.setPen(textColor);
+            // 10. 绘制内圈
+			painter.setBrush(QBrush(palette.brush(QPalette::Background)));
+			painter.drawEllipse(center, m_BloodSmallRadius, m_BloodSmallRadius);
 
-            QPoint textPos = center;
-            textPos.setY(textPos.y() + textVerticalOffset);
+            // 11. 绘制文本
+            if (!showText.isEmpty()) {
+                QColor textColor = (holeId % 2 == 0) ? cglobal::g_TextColorRoorblood : cglobal::g_TextColorRichblood;
+                painter.setPen(textColor);
 
-            if(showText.isEmpty()){
-                // 处理空文本情况
-                continue;
+                QPoint textPos = center;
+                textPos.setY(textPos.y() + textVerticalOffset);
+
+                // 根据文本长度调整水平位置
+                if (showText.size() == 1) {
+                    textPos.setX(textPos.x() + textOffsetSingle);
+                } else if (showText.size() == 2) {
+                    textPos.setX(textPos.x() + textOffsetDouble);
+                } else if (showText.size() >= 3) {
+                    textPos.setX(textPos.x() + textOffsetTriple);
+                }
+
+                painter.drawText(textPos, showText);
             }
-            else if(showText.size() == 1){
-                 textPos.setX(textPos.x() + textOffsetSingle);
-            } else if(showText.size() == 2){
-               textPos.setX(textPos.x() + textOffsetDouble);
-            }else if(showText.size()>= 3){
-                textPos.setX(textPos.x() + textOffsetTriple);
-            }
-            painter.drawText(textPos, showText);
+
+        }
+        catch (const std::exception& e) {
+            QLOG_ERROR() << "Exception while drawing hole:" << e.what();
+            continue; // 继续绘制其他孔
+        }
+        catch (...) {
+            QLOG_ERROR() << "Unknown exception while drawing hole";
+            continue;
+        }
     }
 
-    //绘制血样孔内文字和前提醒数字
-    DrawBloodHoleInnerText(MapBloodHole);
+    // 12. 绘制内部文本
+    try {
+        DrawBloodHoleInnerText(safeBloodHoleCopy);
+    }
+    catch (const std::exception& e) {
+        QLOG_ERROR() << "Exception in DrawBloodHoleInnerText:" << e.what();
+    }
+    catch (...) {
+        QLOG_ERROR() << "Unknown exception in DrawBloodHoleInnerText";
+    }
+
+    //QLOG_DEBUG() << "UpdateBloodHoleColors completed successfully for" << safeBloodHoleCopy.size() << "holes";
 }
+
+
+
+
+
+
+
+
 
 void Testing::mousePressEvent(QMouseEvent *event)
 {

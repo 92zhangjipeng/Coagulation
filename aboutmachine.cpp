@@ -18,7 +18,7 @@ AboutMachine::AboutMachine(QWidget *parent) :
     this->setWindowTitle(tr("关于"));
 
     ui->About_Company->setText(OUR_COMPANY_NAME);
-    m_Version = VERSION_RELEASE;
+    m_Version = VERSIONALLNUM;
     initStyleAbout();
 }
 

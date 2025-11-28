@@ -601,8 +601,7 @@ namespace QUIUtils
     * @param index_equipment       仪器类型
     * @param _throwthecups         灌注+清洗动作+丟杯
     */
-    void initequipmentgrabcups(quint8 index_equipment,
-								QByteArrayList &_throwthecups);
+    void initequipmentgrabcups(quint8 index_equipment,QByteArrayList &_throwthecups);
 
 
     /** 吸试剂-夹杯-放到测试通道

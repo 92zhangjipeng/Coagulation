@@ -133,7 +133,7 @@ private:
 
     void _initReagPinpara();
 
-    void _innitHands(quint8 equipmentIndex_);
+    void innitHands(quint8 equipmentIndex_);
 
     void _hidecontrol(quint8 index, QLabel* plabel, QSpinBox* pspinbox, int _ks600, int _ks800);
 

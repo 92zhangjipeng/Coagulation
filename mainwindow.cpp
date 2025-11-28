@@ -2050,7 +2050,7 @@ void MainWindow::setupUtilityButtons()
     connect(ui->toolButton_about, &QPushButton::clicked, this, [this] {
         auto aboutDialog = FullyAutomatedPlatelets::paboutinstance();
         aboutDialog->sycnMd5Value(QCoreApplication::applicationFilePath());
-        aboutDialog->sycnVersion(VERSION_RELEASE);
+        aboutDialog->sycnVersion(VERSIONALLNUM);
         aboutDialog->sycnEquipment(minstrumentType);
 
         aboutDialog->sycnSerialname(cglobal::gserialPortName);

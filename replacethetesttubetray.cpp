@@ -18,7 +18,7 @@ ReplaceTheTestTubeTray::ReplaceTheTestTubeTray(quint8 indexEquip,QWidget *parent
     ui(new Ui::ReplaceTheTestTubeTray)
 {
     ui->setupUi(this);
-    this->setWindowTitle("性能验证");
+    this->setWindowTitle("指控");
     setWindowFlags(Qt::FramelessWindowHint);
     m_equipmentKind = indexEquip;
 
@@ -27,7 +27,7 @@ ReplaceTheTestTubeTray::ReplaceTheTestTubeTray(quint8 indexEquip,QWidget *parent
     if(styleFileToolBtn.open(QIODevice::ReadOnly)) {
           QString toolBtnQss = QLatin1String(styleFileToolBtn.readAll());
           ui->toolButton->setStyleSheet(toolBtnQss);
-          ui->toolButton->setText("启动性能测试");
+          ui->toolButton->setText("开始");
           styleFileToolBtn.close();
     }
 
@@ -174,7 +174,8 @@ void ReplaceTheTestTubeTray::createHorizontalButtons(const int &numChannel)
     }
 
     // 设置groupBox属性
-    ui->groupBox_testChannel->setTitle(QString("测试通道 1-%1").arg(4*(numChannel+1)));
+    //ui->groupBox_testChannel->setTitle(QString("测试通道 1-%1").arg(4*(numChannel+1)));
+    ui->groupBox_testChannel->setTitle(QString("测试通道"));
     ui->groupBox_testChannel->setLayout(hLayout);
 
     // 添加伸缩因子保持按钮居中
