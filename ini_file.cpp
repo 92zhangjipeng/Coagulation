@@ -586,7 +586,7 @@ void  INI_File::setPEAddSuckRatio(double ratioval){
 }
 
 double INI_File::getPEAddSuckRatio(void){
-    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("etPEAddSuckRation");
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("PEAddSuckRatio");
     return m_psetting->value(m_Section_Key).toDouble();
 }
 

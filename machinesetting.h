@@ -218,6 +218,7 @@ private slots:
     void on_pushButtonopenSuck_clicked();
     void on_pushButtonsavedimming_clicked();
 
+
 public:
 
     void InitTabTwoDate(int tabnum ,QString str);

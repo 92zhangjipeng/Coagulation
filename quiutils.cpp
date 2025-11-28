@@ -2548,8 +2548,8 @@ QByteArrayList QUIUtils::perfusionAction(uint &back_leng,const bool enoughReagen
     QPoint Originaxis(0,0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,Originaxis);
     int  benbackOrigin = 0, benfull = 7200;
-    quint8 bloodPinDown =   12;     //血样针开机清洗高度
-    quint8 reagentPindown = 15;     //试剂针开机清洗高度
+    quint8 bloodPinDown =   40;     //血样针开机清洗高度
+    quint8 reagentPindown = 40;     //试剂针开机清洗高度
     QByteArrayList activeCommandarry;
     allZAxisBackOrigin(activeCommandarry,0); //执行动作前提Z复位
     activeCommandarry.reserve(38);
@@ -3613,12 +3613,12 @@ void QUIUtils::controlPEAddBasicLinque(QByteArrayList &directives,const QPoint &
     auto &ini = INI_File();
     auto *pActive = Testing::m_TaskDll;
     directives.clear();
-    directives.reserve(13 * 4 + 5);
+    directives.reserve(65);
 
     const double pppRatio = ini.GetPPPConversionScale(); //PPP样本系数
     const int    failRetractHeight = ini.GetFailedLinqueHigh();//液面探测失败下降高度
     const int    tubeDownHeight = static_cast<int>(ini.GetEmptyTubeDownHigh()); //试管上向下吐出的高度
-
+	const int    downOriginMM = 40;
 
     //先Z轴复位
     allZAxisBackOrigin(directives,directives.size());
@@ -3646,10 +3646,14 @@ void QUIUtils::controlPEAddBasicLinque(QByteArrayList &directives,const QPoint &
          directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
          directives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED/2));
          directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         directives.push_back(pActive->BigBenActive(false,0,num,DIS_WASHES_PUMPS,0));//吐干净
+         directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
+                                                                    false,downOriginMM,false,GRIPPERNORMAL));
+         directives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));
+         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+
     };
 
-    const double addSuckRatio = ini.getPEAddSuckRatio();
+    const double addSuckRatio = ini.getPEAddSuckRatio()/100.0;
 
     QPoint originLoc(0,0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,originLoc);
@@ -3674,7 +3678,7 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
                                     const QPoint &PEMidValAxis,
                                     const QPoint &PELowValAxis)
 {
-    outDirectives.reserve(60);
+    outDirectives.reserve(65);
 
     auto &ini = INI_File();
     auto *pActive = Testing::m_TaskDll;
@@ -3684,7 +3688,7 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
 
     const double ppp_ratio = ini.GetPPPConversionScale(); //PPP样本系数
     const int failTestDownHeight = ini.GetFailedLinqueHigh();//液面探测失败下降高度
-    const double addSuckRatio = ini.getPEAddSuckRatio();
+    const double addSuckRatio = ini.getPEAddSuckRatio()/100.0;
 
     const struct {
         double baseAmount;
@@ -3704,17 +3708,7 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
     const int suckWaterAddMidVal = calculateWaterVolume(peConfigs[2].baseAmount);
     const int suckWaterAddLowVal = calculateWaterVolume(peConfigs[3].baseAmount);
 
-//    const int suckWaterBasic = 200.00 * ppp_ratio + BIG_BEN_INHALE_ARI + addSuckRatio* 200.00 * ppp_ratio;
-//    const int suckWaterAddHeighVal = 150.00* ppp_ratio + BIG_BEN_INHALE_ARI+ addSuckRatio* 150.00 * ppp_ratio;
-//    const int suckWaterAddMidVal = 100.00* ppp_ratio + BIG_BEN_INHALE_ARI+ addSuckRatio* 100.00 * ppp_ratio;
-//    const int suckWaterAddLowVal = 50.00* ppp_ratio + BIG_BEN_INHALE_ARI+ addSuckRatio* 50.00 * ppp_ratio;
-
-    //QLOG_DEBUG()<<"第1个水量= (200"<<"*"<<ppp_ratio<<"+"<<BIG_BEN_INHALE_ARI<<")="<<200* ppp_ratio + BIG_BEN_INHALE_ARI;
-    //QLOG_DEBUG()<<"第2个水量= (150"<<"*"<<ppp_ratio<<"+"<<BIG_BEN_INHALE_ARI<<")="<<150* ppp_ratio + BIG_BEN_INHALE_ARI;
-    //QLOG_DEBUG()<<"第3个水量= (100"<<"*"<<ppp_ratio<<"+"<<BIG_BEN_INHALE_ARI<<")="<<100* ppp_ratio + BIG_BEN_INHALE_ARI;
-    //QLOG_DEBUG()<<"第4个水量= (50"<<"*"<<ppp_ratio<<"+"<<BIG_BEN_INHALE_ARI<<")="<<50* ppp_ratio + BIG_BEN_INHALE_ARI;
-
-
+	const int  downOriginMM = 40;
     const int  tubeDownHeight = static_cast<int>(ini.GetEmptyTubeDownHigh());
 
     allZAxisBackOrigin(outDirectives,outDirectives.size());//先Z轴复位
@@ -3736,7 +3730,12 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
 	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
 	outDirectives.push_back(pActive->_DLLXYMoveReposition_(num, MACHINEBACK_SPEED / 2));
 	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
+
+    outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
+                                                               false,downOriginMM,false,GRIPPERNORMAL));
 	outDirectives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));
+    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+
 
     auto addLinqueStep = [&](int volume, const QPoint &targetAxis ,const QPoint &originAxis) {
          outDirectives.append(pActive->DLL_XYMoveSpecifiedPosition(suckWaterAxis, 0, 0, num));
@@ -3759,8 +3758,11 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
          outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
          outDirectives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED/2));
          outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         outDirectives.push_back(pActive->BigBenActive(false,0,num,DIS_WASHES_PUMPS,0));//吐干净
 
+         outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
+                                                                    false,downOriginMM,false,GRIPPERNORMAL));
+         outDirectives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));//吐干净
+         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
     };
     addLinqueStep(suckWaterAddHeighVal,  PEHeighValAxis,originLoc);
     addLinqueStep(suckWaterAddMidVal, PEMidValAxis,originLoc);

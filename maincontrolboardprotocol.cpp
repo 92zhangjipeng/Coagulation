@@ -427,7 +427,7 @@ void mainControlBoardProtocol::recvmainControlBoardProtocol(const QStringList ma
 	quint8 lowByte = mainControlBoardData[IndexByte_13].toUShort(&ok, HEX_SWITCH);
 	quint16 suppileDate = (highByte << 8) | lowByte;
 	QString datePara = QString::number(suppileDate, 16);
-	QLOG_DEBUG() << "批号日期：" << datePara;
+    //QLOG_DEBUG() << "批号日期：" << datePara;
  
 
 
