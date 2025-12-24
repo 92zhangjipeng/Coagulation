@@ -122,6 +122,7 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
 
         pdataPE->channelIndex = iter.value() - 1;
         const quint8 gripperDown = ini._gethandsdownheiht(pdataPE->channelIndex);
+        const quint8 throwGripperDown = ini._gethandsdownthrowcpus();
         configureChannelCoordinates(*pdataPE,axis);
 
         // 试管配置
@@ -151,7 +152,7 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
 
         insertTestBasicLinquePEActivedata(*pdataPE,gripperDown);
 
-        insetThrowTestingCup(*pdataPE,throwCoord,gripperDown);
+        insetThrowTestingCup(*pdataPE,throwCoord,gripperDown,throwGripperDown);
 
         insertCleanendPE(*pdataPE);
 
@@ -313,11 +314,12 @@ void Performanceverification::insertTestBasicLinquePEActivedata(PerformanceData 
 }
 
 void Performanceverification::insetThrowTestingCup(PerformanceData &dataPE,
-                                                    const QPoint &throwCoord
-                                                   ,const quint8 gripperDown){
+                                                    const QPoint &throwCoord,
+                                                    const quint8 gripperDown,
+                                                    const quint8 throwGipperHeigh){
     QByteArrayList throwCupsList;
     quint8 ksuck,ksplit;
-    QUIUtils::ThrowChannelCup(gripperDown,
+    QUIUtils::ThrowChannelCup(gripperDown,throwGipperHeigh,
                               dataPE.handsChannelCoord,
                               throwCoord,
                               ksuck,

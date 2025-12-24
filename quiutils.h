@@ -658,7 +658,7 @@ namespace QUIUtils
      * @param throwSplitnum
      * @param throwCupsList
      */
-     void ThrowChannelCup(quint8 downsuck, const QPoint channelAxis,const QPoint throwCupAxis, quint8 &throwSucknum,
+     void ThrowChannelCup(quint8 downsuck,const quint8 throwGipperHeigh,const QPoint channelAxis,const QPoint throwCupAxis, quint8 &throwSucknum,
                             quint8 &throwSplitnum,QByteArrayList &throwCupsList)
     ;
 

@@ -2535,7 +2535,7 @@ void QUIUtils::_equipmentbackoriginloc(QByteArrayList &_backOrigin)
     _backOrigin.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(originLoc,0,0,_num));
 
     //负速度模式复位
-    _backOrigin.push_back(Testing::m_TaskDll->_DLLXYMoveReposition_(_num,MACHINEBACK_SPEED/2));
+    _backOrigin.push_back(Testing::m_TaskDll->_DLLXYMoveReposition_(_num,MACHINEBACK_SPEED));
     _backOrigin.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0,_num));
     _backOrigin.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(originLoc,0,0,_num));
     return;
@@ -2611,18 +2611,18 @@ void QUIUtils::_Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_,int dow
 //清洗双针动作
 void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int reagent_total)
 {
-    QPoint CleanAxis(0,0);
+    QPoint machineOriginAxis(0,0);
     QPoint CleanReagOffBloodPin(0,0);         //血样针到清洗试剂坐标
     QPoint CleanReagOffReagnetPin(0,0);      //试剂针到清洗位置
     const auto *pinstance =  SingletonAxis::GetInstance();
 
-    pinstance->originPos(READ_OPERRAT,CleanAxis);
+    pinstance->originPos(READ_OPERRAT,machineOriginAxis);
     pinstance->cleanZoneAxisPos(READ_OPERRAT,MOTOR_BLOOD_INDEX,CleanReagOffBloodPin);
     pinstance->cleanZoneAxisPos(READ_OPERRAT,MOTOR_REAGNET_INDEX,CleanReagOffReagnetPin);
 
     //先Z轴全部复位开始
     allZAxisBackOrigin(CleanActionarry, CleanActionarry.size());
-    quint8 _num = CleanActionarry.count()%255;
+    quint8 num = CleanActionarry.count()%255;
 
     int failedBloodpin =   INI_File().GetFailedCleanLinqueHigh();          //清洗液探测失败血样针
     int failedreagentpin = INI_File().getFailedCleanLinqueReagNeedle();    //清洗液探测失败试剂针
@@ -2634,18 +2634,20 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
     int CleanReagent_ul = 0;              //吸清洗液X1 试剂针
     int CleanReagentBlood_ul = 0;         //吸清洗液X1 血样针
 
-    quint8 totalcode = 18;
+
+    quint8 totalcode = 19;
     QByteArray *poutdata = new QByteArray[totalcode];
     auto *pActive = Testing::m_TaskDll;
 
     //先复位
-    poutdata[0] = pActive->_DLLXYMoveReposition_(_num,MACHINEBACK_SPEED/2);
+    poutdata[0] = pActive->DLL_XYMoveSpecifiedPosition(machineOriginAxis,0,0,num);
+    poutdata[1] = pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED/2);
 
     //血样针吸清洗液
-    poutdata[1] = pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffBloodPin,0,0,_num); //XY移动到血样针试剂位置
+    poutdata[2] = pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffBloodPin,0,0,num); //XY移动到血样针试剂位置
 
     //血样针下针 液面探测 falilinquehigh = 探测速度
-    poutdata[2] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,failedBloodpin,2,_num,true,
+    poutdata[3] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,failedBloodpin,2,num,true,
                                                       failedBloodpin,false,GRIPPERNORMAL);
 
 
@@ -2660,14 +2662,14 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
                <<0.2*washbloodPinVol<<"+"<<720<<"="<<CleanReagentBlood_ul<<endl;
 
     //洗血样针吸清洗液==吸
-    poutdata[3] = pActive->BigBenActive(true,CleanReagentBlood_ul,_num,DIS_WASHES_PUMPS,0);
-    poutdata[4] = pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,_num,false);//血样针复位
+    poutdata[4] = pActive->BigBenActive(true,CleanReagentBlood_ul,num,DIS_WASHES_PUMPS,0);
+    poutdata[5] = pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false);//血样针复位
 
 
 
-    poutdata[5] = pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffReagnetPin,0,0,_num);//XY移动到试剂针位置
+    poutdata[6] = pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffReagnetPin,0,0,num);//XY移动到试剂针位置
     //试剂针下针 液面探测 falilinquehigh = 探测速度
-    poutdata[6] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,failedreagentpin,0,_num,true,failedreagentpin,
+    poutdata[7] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,failedreagentpin,0,num,true,failedreagentpin,
                                                       false,GRIPPERNORMAL);
 
     //试剂针吸清洗液
@@ -2684,35 +2686,35 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
         CleanReagent_ul = 7000;
     }
 
-    poutdata[7] = pActive->SmallBenActive(true,CleanReagent_ul,DIS_WASHES_PUMPS,_num,0);//试剂针吸清洗液
-    poutdata[8] = pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,_num,false);//试剂针复位
+    poutdata[8] = pActive->SmallBenActive(true,CleanReagent_ul,DIS_WASHES_PUMPS,num,0);//试剂针吸清洗液
+    poutdata[9] = pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false);//试剂针复位
+
+    //XY移动到原点清洗位
+    poutdata[10] = pActive->DLL_XYMoveSpecifiedPosition(machineOriginAxis,0,0,num);
 
 
-    poutdata[9] = pActive->DLL_XYMoveSpecifiedPosition(CleanAxis,0,0,_num);//XY移动到原点清洗位
-
-
-    poutdata[10] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,CLEANING_DOWNHIGN,0,_num,false,
+    poutdata[11] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,CLEANING_DOWNHIGN,0,num,false,
                                                  CLEANING_DOWNHIGN,false,GRIPPERNORMAL);//血样针下针
 
-    poutdata[11] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,CLEANING_DOWNHIGN,0,_num,
+    poutdata[12] = pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,CLEANING_DOWNHIGN,0,num,
                                              false,CLEANING_DOWNHIGN,false,GRIPPERNORMAL);//试剂针下针
 
     //大泵吐到底复位清洗
-    poutdata[12] = pActive->BigBenActive(false,0,_num,WASHES_PUMPS,(int)INI_File().getWashesTime());
+    poutdata[13] = pActive->BigBenActive(false,0,num,WASHES_PUMPS,(int)INI_File().getWashesTime());
 
     //小泵吐到底复位清洗
-    poutdata[13] = pActive->SmallBenActive(false,0,WASHES_PUMPS,_num,(int)INI_File().getWashesTime());
+    poutdata[14] = pActive->SmallBenActive(false,0,WASHES_PUMPS,num,(int)INI_File().getWashesTime());
 
     //双针复位
-    poutdata[14] = pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,_num,false);
-    poutdata[15] = pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,_num,false);
+    poutdata[15] = pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false);
+    poutdata[16] = pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false);
 
 
     //XY负速度模式复位
-    poutdata[16] = pActive->_DLLXYMoveReposition_(_num,MACHINEBACK_SPEED/2);
+    poutdata[17] = pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED);
 
     //定在原点清洗位
-    poutdata[17] = pActive->DLL_XYMoveSpecifiedPosition(CleanAxis,0,0,_num);
+    poutdata[18] = pActive->DLL_XYMoveSpecifiedPosition(machineOriginAxis,0,0,num);
 
     for(int n = 0 ; n < totalcode; n++)
        CleanActionarry.push_back(poutdata[n]);
@@ -2760,7 +2762,7 @@ void QUIUtils::CleanBloodPinActionCommd(int HadPorjects,QByteArrayList &CleanAct
                                                                   false,CLEANING_DOWNHIGN,false,GRIPPERNORMAL));
     CleanActionarry.push_back(pActive->BigBenActive(false,0,num,WASHES_PUMPS,static_cast<quint32>(INI_File().getWashesTime())) );
     CleanActionarry.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false) );
-    CleanActionarry.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED/2) );
+    CleanActionarry.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED) );
     CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanAxis,0,0,num) );
     return;
 }
@@ -2808,7 +2810,7 @@ void QUIUtils::CleanReagentsPinActionCommd(QVector<QByteArray> &CleanActionarry)
 
     pCleanReagentNeedle[7] = Testing::m_TaskDll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,_num,false);
 
-    pCleanReagentNeedle[8] = Testing::m_TaskDll->_DLLXYMoveReposition_(_num,MACHINEBACK_SPEED/2);
+    pCleanReagentNeedle[8] = Testing::m_TaskDll->_DLLXYMoveReposition_(_num,MACHINEBACK_SPEED);
 
     pCleanReagentNeedle[9] = Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(CleanAxis,0,0,_num);
 
@@ -3050,7 +3052,7 @@ void QUIUtils::initequipmentgrabcups(quint8 index_equipment,QByteArrayList &_thr
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,CleanAxis);
     quint8 num_ = _throwthecups.size()%255;
     _throwthecups.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(CleanAxis,0,0, num_));
-    _throwthecups.push_back(Testing::m_TaskDll->_DLLXYMoveReposition_(num_,MACHINEBACK_SPEED/2));
+    _throwthecups.push_back(Testing::m_TaskDll->_DLLXYMoveReposition_(num_,MACHINEBACK_SPEED));
     _throwthecups.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, num_));
     _throwthecups.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(CleanAxis,0,0, num_));
     return;
@@ -3255,7 +3257,7 @@ void QUIUtils::suckCupMoveChannelPut(const QPoint GrriperSuckHoleAxis,
     grippersuckCup2Channel.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
 }
 
-void QUIUtils::ThrowChannelCup(quint8 downsuck, const QPoint channelAxis,
+void QUIUtils::ThrowChannelCup(quint8 downsuck, const quint8 throwGipperHeigh,const QPoint channelAxis,
                                 const QPoint throwCupAxis, quint8 &throwSucknum,
                                 quint8 &throwSplitnum,QByteArrayList &throwCupsList){
     quint8 num = 0;
@@ -3272,8 +3274,8 @@ void QUIUtils::ThrowChannelCup(quint8 downsuck, const QPoint channelAxis,
     throwCupsList.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwCupAxis,0,0,num));
 
     throwSplitnum = num;
-    throwCupsList.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,downsuck,0,num,
-                                                                        false,downsuck,false,GRIPPERNORMAL));
+    throwCupsList.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,throwGipperHeigh,0,num,
+                                                                        false,throwGipperHeigh,false,GRIPPERNORMAL));
     throwCupsList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
 }
 
@@ -3644,7 +3646,7 @@ void QUIUtils::controlPEAddBasicLinque(QByteArrayList &directives,const QPoint &
 
          //移动到原点把剩余液体和试剂吐掉
          directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         directives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED/2));
+         directives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED));
          directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
          directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
                                                                     false,downOriginMM,false,GRIPPERNORMAL));
@@ -3728,7 +3730,7 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
     outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false)); //血样针复位
 
 	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
-	outDirectives.push_back(pActive->_DLLXYMoveReposition_(num, MACHINEBACK_SPEED / 2));
+    outDirectives.push_back(pActive->_DLLXYMoveReposition_(num, MACHINEBACK_SPEED));
 	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
 
     outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
@@ -3756,7 +3758,7 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
 
          //移动到原点把剩余液体和试剂吐掉
          outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         outDirectives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED/2));
+         outDirectives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED));
          outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
 
          outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,

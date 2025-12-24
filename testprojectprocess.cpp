@@ -724,7 +724,7 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
 
 void TestProjectProcess::getFreeTimeTestChn()
 {
-    auto* instance = StructInstance::getInstance(); // 单例实例复用[[6]]
+    auto* instance = StructInstance::getInstance();
     quint8 freeChannel = 0;
     const bool hasFreeChannel = instance->hadFreeTestChn(freeChannel);
 

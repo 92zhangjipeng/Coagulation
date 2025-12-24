@@ -331,6 +331,7 @@ public:
 
 
 
+
     /**
     * @brief DLL_XYMoveSpecifiedPosition  XY 运动到指定位置
     * @param Position  移动坐标

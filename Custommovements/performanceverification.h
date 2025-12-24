@@ -296,7 +296,7 @@ private:
 
     void   insetThrowTestingCup(PerformanceData &dataPE,
                                  const QPoint &throwCoord
-                                ,const quint8 gripperDown);
+                                , const quint8 gripperDown, const quint8 throwGipperHeigh);
 
     void  insertCleanendPE(PerformanceData &dataPE);
 

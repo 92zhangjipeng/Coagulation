@@ -3,3 +3,4 @@ Visual Leak Detector Version 2.5.1 installed.
     Outputting the report to the debugger and to C:\goonNotify\Coagulation\memory_leak_report.txt
 No memory leaks detected.
 Visual Leak Detector is now exiting.
+ 
