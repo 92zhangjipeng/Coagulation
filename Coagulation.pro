@@ -196,7 +196,6 @@ SOURCES += \
     loadequipmentpos.cpp \
     treezetablewidget.cpp \
     commandexceptional.cpp \
-    doqualitycontrol.cpp \
     operregistry.cpp \
     testprojectprocess.cpp \
     structinstance.cpp \
@@ -339,7 +338,6 @@ HEADERS += \
     loadequipmentpos.h \
     treezetablewidget.h \
     commandexceptional.h \
-    doqualitycontrol.h \
     operregistry.h \
     testprojectprocess.h \
     structinstance.h \

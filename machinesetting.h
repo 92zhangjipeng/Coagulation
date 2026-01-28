@@ -23,16 +23,15 @@
 #include <QToolButton>
 #include "ini_file.h"
 #include "cglobal.h"
-#include "channelvaluepanel.h"
-#include "doqualitycontrol.h"
 #include "dilag/custompppvalue.h"
 #include <iostream>
 #include <cmath>
 #include <memory>
 #include "operregistry.h"
 
+#include  "replacethetesttubetray.h" //性能验证
 
-#include    "replacethetesttubetray.h" //性能验证
+#include "channelvaluepanel.h"
 
 #define MACHINECONFIGURE_COMMON         0 //常规设置
 #define MACHINECONFIGURE_HOSPITALINFO   1 //医院用的那些信息
@@ -182,7 +181,6 @@ private slots:
 
     void handleButtonClick(int row,int col); //保存模组
     void handleButtonClicked(QAbstractButton* button);
-
     void onMaintenanceButtonClicked();
 
 
