@@ -65,6 +65,7 @@ private:
     * @return
     */
    bool Extractthecolorblockontheleft(cv::Mat img,double &imgraito);
+   bool ExtractColorBlockKmeans(cv::Mat img, double &ratio);
 
    /** 识别红细胞高度
     * @brief IdentifyRedBloodcellHeight

@@ -25,6 +25,8 @@ displayChanneldata::displayChanneldata(QObject *parent) : QObject(parent)
     moveToThread(&m_workerThread);
     sentSamples.clear();
 
+    m_mapFirstPrPVal.clear(); //保存第一次的PRP值
+
     connect(&m_workerThread,&QThread::started,this,&displayChanneldata::startthread);
 }
 
@@ -375,6 +377,53 @@ void displayChanneldata::handleTestCompletion(const QString& sampleNum,
 }
 
 
+
+int displayChanneldata::outPutPrpReplacVal(const QString& sampleNum,quint8 reagentIndex,
+                                           int currentRichValue,int baselineRich,int totalDataPoints){
+
+    // 用于计算聚合率的基线Rich值（从m_mapFirstPrPVal中获取）
+    int baselineRichForCalc = 0;
+
+    if(totalDataPoints == 0){
+        // 获取或创建样本的初始值结构
+        ReagentPrPInitialValues initialValues;
+
+        // 如果已经存在，获取现有值
+        if (m_mapFirstPrPVal.contains(sampleNum)) {
+            initialValues = m_mapFirstPrPVal[sampleNum];
+        }
+
+        // 设置当前试剂的初始值
+        initialValues.setReagentValue(reagentIndex, currentRichValue);
+
+        // 更新Map
+        m_mapFirstPrPVal[sampleNum] = initialValues;
+
+        // 设置用于计算的基线Rich值（使用新存储的值）
+        baselineRichForCalc = currentRichValue;
+
+        // 调试输出，可以删除
+        QLOG_DEBUG() << "样本号:" << sampleNum  << "试剂:" << reagentIndex << "PRP(1):" << currentRichValue;
+    } else{
+        if (m_mapFirstPrPVal.contains(sampleNum)){
+            int storedInitialValue = m_mapFirstPrPVal[sampleNum].getReagentValue(reagentIndex);
+            if (storedInitialValue != 0) {
+                baselineRichForCalc = storedInitialValue;
+            }else{
+                // 如果没有存储的值，使用传入的baselineRich
+                baselineRichForCalc = baselineRich;
+                QLOG_WARN() << "No stored initial value for sample" << sampleNum
+                                               << "reagent" << reagentIndex << ", using provided value:" << baselineRich;
+                }
+            }else {
+            // 如果样本不存在于Map中，使用传入的baselineRich
+            baselineRichForCalc = baselineRich;
+            QLOG_WARN() << "Sample" << sampleNum << "not found in initial values map, using provided baselineRich:" << baselineRich;
+        }
+    }
+    return baselineRichForCalc;
+}
+
 void displayChanneldata::processTestData(const QString& sampleNum,
                                        quint8 reagentIndex,
                                        int currentRichValue,
@@ -390,9 +439,12 @@ void displayChanneldata::processTestData(const QString& sampleNum,
         // PPP值处理提取为独立函数
         baselinePoor = getBaselinePoorValue(channelIdx, baselinePoor);
 
+        // 用于计算聚合率的基线Rich值（从m_mapFirstPrPVal中获取）
+        int baselineRichForCalc = outPutPrpReplacVal(sampleNum,reagentIndex,currentRichValue,baselineRich,totalDataPoints);
+
         const float resultValue = calculateAggregationRate(isLogMode,
                 static_cast<float>(currentRichValue),
-                static_cast<float>(baselineRich),
+                static_cast<float>(baselineRichForCalc),// 使用从m_mapFirstPrPVal获取的值
                 static_cast<float>(baselinePoor));
 
         // 数据保存和显示
@@ -403,7 +455,7 @@ void displayChanneldata::processTestData(const QString& sampleNum,
         FullyAutomatedPlatelets::pinstanceTesting()->showTestChannelInfo(channelIdx, sampleNum, reagentIndex);
 
         emit DisplayTestingValue(sampleNum, reagentIndex, channelIdx, resultValue,
-                                currentRichValue, baselineRich, baselinePoor);
+                                currentRichValue, baselineRichForCalc, baselinePoor);
     }
 }
 

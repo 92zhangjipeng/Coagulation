@@ -8,7 +8,7 @@
 #include <QCloseEvent>
 #include <qcustomplot.h>
 #include <suoweiFileManager/hospitalreportprinter.h>
-
+#include "datalprocessor.h"
 
 
 namespace Ui {
@@ -43,6 +43,8 @@ private slots:
     void on_pushButtonBack_clicked();
     void on_pushButtonNext_clicked();
 
+    void onCurveMouseMove(QMouseEvent* event);
+
 public slots:
     void viewOneReagentCurve(int rows, int cols);
 private:
@@ -51,6 +53,12 @@ private:
     QPropertyAnimation *m_showAnim;  // 显示动画
     QPropertyAnimation *m_hideAnim;  // 隐藏动画
     QScreen *m_currentScreen;        // 当前屏幕对象
+
+
+    QCPItemStraightLine* m_verticalLine = nullptr;      // 垂直线
+    QCPItemTracer* m_dataPointTracer = nullptr;         // 数据点追踪器
+    QCPItemText* m_dataPointLabel = nullptr;            // 数据标签
+    QVector<double> m_currentCurveData;                 // 当前显示的曲线数据
 
     //业务
     QString m_viewIDstr;
@@ -80,7 +88,9 @@ private:
     };
 
     void showCustomAnalyzerResult(double maxAggregation, double slope, double auc,
-                                  double timeToMax, double lagTime);
+                                  double timeToMax, double lagTime,
+                                  double avg0to60, double avg60to180,
+                                  double avg180to300, double avg0to300);
 
     void initCreatCPGraph(QCustomPlot* pshowcurvedata);
     void initCreateCurveWidget(QCustomPlot *customPlot);

@@ -217,6 +217,125 @@ bool opencvfindHeigh::Extractthecolorblockontheleft(cv::Mat img,double &imgraito
 
 }
 
+//使用颜色聚类（K-means）
+bool opencvfindHeigh::ExtractColorBlockKmeans(cv::Mat img, double &ratio)
+{
+    int width = img.cols;
+        int height = img.rows;
+
+        // 1. 截取左侧1/3区域
+        cv::Rect rect(0, 0, width/3 - 5, height);
+        cv::Mat roi = img(rect);
+        cv::Mat roi_copy = roi.clone();
+
+        // 2. 使用K-means聚类找到主要颜色块
+        cv::Mat data;
+        roi.convertTo(data, CV_32F);
+
+        // 重塑为 (rows*cols, 3) 的矩阵
+        data = data.reshape(1, data.total()); // 通道数变为1，行数为总像素数
+
+        int K = 3; // 尝试3种主要颜色
+        cv::Mat labels, centers;
+        cv::kmeans(data, K, labels,
+                   cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::MAX_ITER, 10, 1.0),
+                   3, cv::KMEANS_PP_CENTERS, centers);
+
+        // 3. 找到面积最大的颜色区域
+        cv::Mat mask = cv::Mat::zeros(roi.size(), CV_8UC1);
+        int max_area = 0;
+        int best_label = -1;
+        cv::Mat best_cluster_mask;
+
+        for (int k = 0; k < K; k++) {
+            // 创建该聚类的掩码
+            cv::Mat cluster_mask = cv::Mat::zeros(roi.rows * roi.cols, 1, CV_8UC1);
+
+            // 标记该聚类的像素
+            for (int i = 0; i < labels.rows; i++) {
+                if (labels.at<int>(i) == k) {
+                    cluster_mask.at<uchar>(i) = 255;
+                }
+            }
+
+            // 重塑为原始图像尺寸
+            cluster_mask = cluster_mask.reshape(0, roi.rows);
+
+            // 形态学操作去除噪点
+            cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
+            cv::morphologyEx(cluster_mask, cluster_mask, cv::MORPH_OPEN, kernel);
+
+            // 查找轮廓
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(cluster_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+            if (!contours.empty()) {
+                // 找到最大轮廓
+                auto max_contour = *std::max_element(contours.begin(), contours.end(),
+                    [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
+                        return cv::contourArea(c1) < cv::contourArea(c2);
+                    });
+
+                int area = cv::contourArea(max_contour);
+                if (area > max_area && area > 100) { // 添加最小面积限制
+                    max_area = area;
+                    best_label = k;
+                    best_cluster_mask = cluster_mask.clone();
+                }
+            }
+        }
+
+        // 4. 处理最佳mask
+        if (best_label != -1 && max_area > 100) {
+            // 形态学处理
+            cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5,5));
+            cv::morphologyEx(best_cluster_mask, best_cluster_mask, cv::MORPH_CLOSE, kernel);
+            cv::morphologyEx(best_cluster_mask, best_cluster_mask, cv::MORPH_OPEN, kernel);
+
+            // 查找轮廓
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(best_cluster_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+            if (!contours.empty()) {
+                // 找到最大轮廓
+                auto max_contour = *std::max_element(contours.begin(), contours.end(),
+                    [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
+                        return cv::contourArea(c1) < cv::contourArea(c2);
+                    });
+
+                // 获取旋转矩形
+                cv::RotatedRect minRect = cv::minAreaRect(max_contour);
+                cv::Size2f rect_size = minRect.size;
+                float rect_height = std::max(rect_size.width, rect_size.height);
+
+                QLOG_DEBUG() << "识别到的矩形高度: " << rect_height << " 像素";
+
+                // 计算比例
+                ratio = (REFERENCE_HEIGHT * 100.00 / rect_height) / 100.00;
+
+                // 绘制结果
+                cv::Point2f vertices[4];
+                minRect.points(vertices);
+
+                // 将坐标转换回原图坐标系
+                for (int j = 0; j < 4; j++) {
+                    vertices[j].x += rect.x; // 加上ROI的x偏移
+                    vertices[j].y += rect.y; // 加上ROI的y偏移
+                    cv::line(img, vertices[j], vertices[(j+1)%4], cv::Scalar(0,255,255), 2);
+                }
+
+                return true;
+            }
+        }
+
+        QLOG_DEBUG() << "未找到合适的颜色块";
+        return false;
+}
+
+
+
+
+
 bool checkExcessiveBlack(const cv::Mat& roi_mask, const cv::Mat& black_pixels_mask, double threshold = 0.5) {
     // 输入校验
     if (roi_mask.empty() || black_pixels_mask.empty() || roi_mask.size() != black_pixels_mask.size()) {
@@ -423,6 +542,7 @@ bool opencvfindHeigh::opencvIdentifyPrp(cv::Mat& inputImage, double& outBottomBl
 
     // Step 1: 提取左侧颜色块
     const bool isColorBlockValid = Extractthecolorblockontheleft(inputImage, imageRatio);
+    //const bool  isColorBlockValid = ExtractColorBlockKmeans(inputImage, imageRatio);
     if (!isColorBlockValid) {
         QLOG_ERROR() << "Failed to extract color reference block.";
         outErr = "提取参照物失败";

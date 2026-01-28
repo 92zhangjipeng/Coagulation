@@ -1352,6 +1352,7 @@ void loadEquipmentPos::StatrLoad()
                 found = true;
                 targetPortName = portInfo.portName();
                 QLOG_INFO() << "找到目标串口:" << targetPortName;
+                m_hasWarned = false; // 找到设备时重置警告标志
                 break;
             }
         }
@@ -1369,9 +1370,13 @@ void loadEquipmentPos::StatrLoad()
             emit closetimercon(false);
         }
     } else {
-        QLOG_WARN() << "未找到摄像头设备读取参数 (VID:"
-                   << QString::number(VID_NUM, 16)
-                   << ", PID:" << QString::number(PID_NUM, 16) << ")";
+        // 只在第一次未找到设备时提示
+        if (!m_hasWarned) {
+            QLOG_WARN() << "未找到摄像头设备读取参数 (VID:"
+                       << QString::number(VID_NUM, 16)
+                       << ", PID:" << QString::number(PID_NUM, 16) << ")";
+            m_hasWarned = true; // 设置已警告标志
+        }
         emit closetimercon(false);
     }
 }
@@ -3202,15 +3207,24 @@ void loadEquipmentPos::loadParaData(bool isexit, QString filePath, QString key, 
 QPoint loadEquipmentPos::initOriginAxis(const quint8 &indexEquipment)
 {
      QPoint originAxis(0,0); //原点坐标
+     int originx = 0,originy = 0;
      switch (indexEquipment) {
          case KS600:
+             originx = 122;
+             originy = 101;
+         break;
          case KS800:
+             originx = 122;
+             originy = 101;
+         break;
          case KS1200:
-             configAxisPoint(originAxis, 50, 24);
-             break;
+            originx = 101;
+            originy = 106;
+         break;
          default:
              break;
      }
+     configAxisPoint(originAxis, originx, originy);
      SingletonAxis::GetInstance()->originPos(WRITE_OPERAT, originAxis);
      return originAxis;
 }
@@ -3219,9 +3233,9 @@ QPoint loadEquipmentPos::initCleanLinqueoffsetBloodPin(const quint8 &indexEquipm
 {
     QPoint cleanZoneoffsetBloodPin(0,0);//清洗液offset血样针
     switch(indexEquipment) {
-        case KS600:  configAxisPoint(cleanZoneoffsetBloodPin,180,634);  break;
-        case KS800:  configAxisPoint(cleanZoneoffsetBloodPin,180,634);  break;
-        case KS1200: configAxisPoint(cleanZoneoffsetBloodPin,180,634);  break;
+        case KS600:  configAxisPoint(cleanZoneoffsetBloodPin,250,634);  break;
+        case KS800:  configAxisPoint(cleanZoneoffsetBloodPin,250,634);  break;
+        case KS1200: configAxisPoint(cleanZoneoffsetBloodPin,230,634);  break;
         default:break;
     }
     SingletonAxis::GetInstance()->cleanZoneAxisPos(WRITE_OPERAT,MOTOR_BLOOD_INDEX,cleanZoneoffsetBloodPin);
@@ -3233,9 +3247,9 @@ QPoint loadEquipmentPos::initCleanLinqueoffsetReagentPin(const quint8 &indexEqui
     QPoint cleanZoneoffsetKttsPin(0,0);//清洗液offset试剂针
     switch(indexEquipment)
     {
-        case KS600:  configAxisPoint(cleanZoneoffsetKttsPin,170,850);  break;
-        case KS800:  configAxisPoint(cleanZoneoffsetKttsPin,170,850);  break;
-        case KS1200: configAxisPoint(cleanZoneoffsetKttsPin,170,850);  break;
+        case KS600:  configAxisPoint(cleanZoneoffsetKttsPin,250,850);  break;
+        case KS800:  configAxisPoint(cleanZoneoffsetKttsPin,250,850);  break;
+        case KS1200: configAxisPoint(cleanZoneoffsetKttsPin,230,850);  break;
         default:break;
     }
     SingletonAxis::GetInstance()->cleanZoneAxisPos(WRITE_OPERAT,MOTOR_REAGNET_INDEX,cleanZoneoffsetKttsPin);
@@ -3247,9 +3261,9 @@ QPoint loadEquipmentPos::initThrowCupsAxis(const quint8 &indexEquipment)
     QPoint throwsTubePos(0,0);
     switch(indexEquipment)
     {
-        case KS600:  configAxisPoint(throwsTubePos,5245,340);  break;
-        case KS800:  configAxisPoint(throwsTubePos,5245,340);  break;
-        case KS1200: configAxisPoint(throwsTubePos,5245,340);  break;
+        case KS600:  configAxisPoint(throwsTubePos,5270,330);  break;
+        case KS800:  configAxisPoint(throwsTubePos,5270,330);  break;
+        case KS1200: configAxisPoint(throwsTubePos,5245,335);  break;
         default:break;
     }
     SingletonAxis::GetInstance()->throwTubeHolePos(WRITE_OPERAT,throwsTubePos);
@@ -3263,9 +3277,9 @@ QPoint loadEquipmentPos::initReagentHoleAxis(const quint8 &indexEquipment)
     QPoint firstReagentZone(0,0);
     switch(indexEquipment)
     {
-        case KS600:  configAxisPoint(firstReagentZone,60,1347);  break;
-        case KS800:  configAxisPoint(firstReagentZone,60,1347);  break;
-        case KS1200: configAxisPoint(firstReagentZone,60,1347);  break;
+        case KS600:  configAxisPoint(firstReagentZone,125,1355);  break;
+        case KS800:  configAxisPoint(firstReagentZone,125,1355);  break;
+        case KS1200: configAxisPoint(firstReagentZone,105,1365);  break;
         default:break;
     }
     QUIUtils::CreatReagArsOtherAxis(firstReagentZone,ReagentZoneOffsetKitsPin);
@@ -3285,8 +3299,14 @@ void loadEquipmentPos::initHandsoffsetChn(const quint8 &indexEquipment)
     QPoint firstHoleAxis(0,0);
     QPoint otherChnAxispos(0,0);
     const int chnnum = (indexEquipment + 1) * 4;
+    switch(indexEquipment)
+    {
+        case KS600:  configAxisPoint(firstHoleAxis,2313,332);  break;
+        case KS800:  configAxisPoint(firstHoleAxis,885,338);  break;
+        case KS1200: configAxisPoint(firstHoleAxis,885,338);  break;
+        default:break;
+    }
 
-    configAxisPoint(firstHoleAxis,879,330);
     for(int n = 0 ; n < chnnum; n++)
     {
         otherChnAxispos.setX(firstHoleAxis.x() + n*350);
@@ -3310,16 +3330,16 @@ void loadEquipmentPos::initReagentPinOffsetChn(const quint8 &indexEquipment)
     chnoffsetReagentPin.clear();
     QPoint firstHoleAxis(0,0);
     QPoint otherChnAxispos(0,0);
-    int chnnum = 0;
+    const int chnnum = (indexEquipment + 1) * 4;
+
     switch(indexEquipment)
     {
-        case KS600: chnnum = 4; break;
-        case KS800: chnnum = 8; break;
-        case KS1200: chnnum = 12; break;
-        default: break;
+        case KS600:  configAxisPoint(firstHoleAxis,2309,100);  break;
+        case KS800:  configAxisPoint(firstHoleAxis,2309,100);  break;
+        case KS1200: configAxisPoint(firstHoleAxis,885,100);  break;
+        default:break;
     }
 
-    configAxisPoint(firstHoleAxis,879,97);
     for(int n = 0 ; n < chnnum; n++)
     {
         otherChnAxispos.setX(firstHoleAxis.x() + n*350);
@@ -3341,18 +3361,19 @@ void loadEquipmentPos::initBloodZoneAxisPos(const quint8 &indexEquipment)
     QMap<quint8,QPoint> BloodZoneAxis;
     BloodZoneAxis.clear();
     QPoint firstBloodZone(0,0);
-    configAxisPoint(firstBloodZone,893,2483);
 
     switch(indexEquipment)
     {
         case KS600:
+            configAxisPoint(firstBloodZone,1600,2500);
             QUIUtils::creatBloodSampleAxis(KS600, firstBloodZone,BloodZoneAxis);
         break;
         case KS800:
-
+            configAxisPoint(firstBloodZone,893,2483);
             QUIUtils::creatBloodSampleAxis(KS800, firstBloodZone,BloodZoneAxis);
         break;
         case KS1200:
+            configAxisPoint(firstBloodZone,880,2500);
             QUIUtils::creatBloodSampleAxis(KS1200, firstBloodZone,BloodZoneAxis);
         break;
         default:break;
@@ -3382,8 +3403,8 @@ void loadEquipmentPos::initTrayTubeOffsetHands(const quint8 &indexEquipment)
     {
         case KS600:
 
-            configAxisPoint(firstAxispos[0],895,1059);
-            configAxisPoint(firstAxispos[1],2097,1057);
+            configAxisPoint(firstAxispos[0],1545,952);
+            configAxisPoint(firstAxispos[1],3152,952);
         break;
         case KS800:
             configAxisPoint(firstAxispos[0],895,1059);
@@ -3391,10 +3412,10 @@ void loadEquipmentPos::initTrayTubeOffsetHands(const quint8 &indexEquipment)
             configAxisPoint(firstAxispos[2],3293,1055);
         break;
         case KS1200:
-            configAxisPoint(firstAxispos[0],895,1059);
-            configAxisPoint(firstAxispos[1],2097,1057);
-            configAxisPoint(firstAxispos[2],3293,1055);
-            configAxisPoint(firstAxispos[3],4493,1053);
+            configAxisPoint(firstAxispos[0],880,958);
+            configAxisPoint(firstAxispos[1],2083,956);
+            configAxisPoint(firstAxispos[2],3284,956);
+            configAxisPoint(firstAxispos[3],4489,954);
         break;
         default:break;
     }
@@ -3435,8 +3456,8 @@ void loadEquipmentPos::initTrayTubeOffsetBloodPin(const quint8 &indexEquipment)
     switch(indexEquipment)
     {
         case KS600:
-            configAxisPoint(firstAxispos[0],895,580);
-            configAxisPoint(firstAxispos[1],2097,580);
+            configAxisPoint(firstAxispos[0],1543,500);
+            configAxisPoint(firstAxispos[1],3150,500);
         break;
         case KS800:
             configAxisPoint(firstAxispos[0],895,580);
@@ -3444,10 +3465,10 @@ void loadEquipmentPos::initTrayTubeOffsetBloodPin(const quint8 &indexEquipment)
             configAxisPoint(firstAxispos[2],3295,570);
         break;
         case KS1200:
-            configAxisPoint(firstAxispos[0],895,580);
-            configAxisPoint(firstAxispos[1],2097,580);
-            configAxisPoint(firstAxispos[2],3295,570);
-            configAxisPoint(firstAxispos[3],4485,570);
+            configAxisPoint(firstAxispos[0],875,494);
+            configAxisPoint(firstAxispos[1],2080,494);
+            configAxisPoint(firstAxispos[2],3285,495);
+            configAxisPoint(firstAxispos[3],4485,488);
         break;
         default:break;
     }

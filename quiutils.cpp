@@ -2354,7 +2354,7 @@ void  QUIUtils::CreatReagArsOtherAxis(QPoint indexFirstPos,QMap<quint8,QPoint> &
 //生成血样区坐标
 void  QUIUtils::creatBloodSampleAxis(int equipType, QPoint firstPos, QMap<quint8,QPoint> &bloodSampleZone)
 {
-    const uint inGroupLSpace = 170; //组内竖直间距
+    const uint  inGroupLSpace = 170; //组内竖直间距
     const uint  inGroupHSpace = 170; //组内横向间距
     uint GroupSpace = 380; //组与组大间距
     uint holenum = 0;
@@ -2364,11 +2364,11 @@ void  QUIUtils::creatBloodSampleAxis(int equipType, QPoint firstPos, QMap<quint8
     {
         case KS600:
             GroupTube =   6;
-            GroupSpace = 525;
+            GroupSpace = 480;
         break;
         case KS800:
             GroupTube =  8;
-            GroupSpace = 565;
+            GroupSpace = 570;
         break;
         case KS1200:
             GroupTube =  12;
@@ -2407,7 +2407,7 @@ void  QUIUtils::creatTeatTubeAxiis(int indexZ, int equipType, QMap<quint8,QPoint
        heandPos[i] = arrStartpos[i];
     }
     //1200 试管盘间距
-    const uint spaceTube = 150; //内部试管横 纵向间距相同
+    const uint spaceTube = 149; //内部试管横 纵向间距相同
     QPoint tmpaxis(0,0);
     int totalTray = 0;
     int m = 0;

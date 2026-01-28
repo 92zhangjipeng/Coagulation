@@ -58,7 +58,7 @@ MachineSetting::MachineSetting(QWidget *parent) :
 
     ui->checkBox_Recapture->hide();
     //ui->groupBox_setfile->hide();
-    ui->pushButton_backsetting->hide();
+    //ui->pushButton_backsetting->hide();
 
     initshowPPPinit();
 }

@@ -241,8 +241,11 @@ public:
     void config_testChn_test_SampleID(const quint8 indexChn,const int sampleID);//设置通道测样本号
 
     bool hadFreeTestChn(quint8 &indexChn_);  //遍历是否有空闲通道
+    bool getNextFreeChnAfterTesting(quint8 &nextFreeChn);//获取当前正在测试的通道的下一个通道号，而不是直接找空闲通道
 
     bool hadTestChnTestFinish(quint8 &indexChn_); //有测试完成通道
+
+
 
     void fetchTestDataTotal(QString samplename, quint8 index_reag, int &totalNum); //获取测试个数
 

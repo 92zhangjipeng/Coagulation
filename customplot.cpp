@@ -190,7 +190,7 @@ void CustomPlot::InitBloodZoneNum(quint8 indexModels)
     mbloodBtnGroupbox = new QButtonGroup;
     switch(indexModels)
     {
-        case KS600: showNum = 7;
+        case KS600: showNum = 6;
         break;
         case KS800: showNum = 9;
         break;
@@ -1088,11 +1088,11 @@ void CustomPlot::writeboard(quint8 intdexZ,quint8 row, QByteArrayList &sendcommd
     }
     else if(intdexZ == MOTOR_HANDS_INDEX)
     {
-        if(row >= 0 && row < 5)
+        if(row >= 0 && row < 3)
         {
              QUIUtils::get0c0dNumberCodeArry(x_arry,AXISPOS_BUFFER,y_arry,AXISPOS_BUFFER);
         }
-        else if(row >= 5 && row < 10)
+        else if(row >= 3 && row <= 7 )
         {
              QUIUtils::get0e0fNumberCodeArry(x_arry,AXISPOS_BUFFER,y_arry,AXISPOS_BUFFER);
         }
@@ -1294,7 +1294,7 @@ void CustomPlot::ClickEmptyTube()
 	int index = button->text().toInt(&ok) - 1;
 	if (!ok || index < 0) return;
 
-	quint8 trayId = (index / 60) + 1;;
+    quint8 trayId = (index / 60) + 1;
 	QPoint targetPoint;
 	int needleIndex = 0;
 	QString statusText;

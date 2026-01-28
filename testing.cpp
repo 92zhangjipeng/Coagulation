@@ -245,16 +245,16 @@ void Testing::initControlShowChannelProgress(quint8 startChannel,
         progressBar->installEventFilter(this);
 
         //配置通道文本
-        bool usedChannel = INI_File().rConfigPara(
-                    QString("TestTheChanne1Opening_%1").arg(currentChannel + 1)).toBool();
-        progressBar->setChnTextindex(usedChannel ? currentChannel + 1 : -1);
+        const QString chnStateKey = QString("TestTheChanne1Opening_%1").arg(currentChannel + 1);
+        bool usedChannel = INI_File().rConfigPara(chnStateKey).toBool();
+        progressBar->setChnTextindex(usedChannel ? currentChannel + 1 : CHN_DISABLE);
 
         // 存储引用（使用原始指针但明确所有权）
         m_channelShowsTheProgress.append(progressBar);
         Channelreminder.append(label);
 
         // 初始化标签
-        if (!alreadyinitchannelui) { // 建议重命名alreadyinitchannelui
+        if (!alreadyinitchannelui) {
             label->setPalette(pa);
             label->hide();
         }
@@ -281,10 +281,9 @@ void Testing::initializeMachineUI(const quint8 equipmentIndex)
     for (auto pwidget : widgetFilterList)
         pwidget->installEventFilter(this);//设置过滤器
 
-    quint8 index = 0;
-    initControlShowChannelProgress(index,ui->widget_Module1,ui->widget_Module1,pa);
-    initControlShowChannelProgress(index,ui->widget_Module2,ui->widget_Module2,pa);
-    initControlShowChannelProgress(index,ui->widget_Module3,ui->widget_Module3,pa);
+    initControlShowChannelProgress(0,ui->widget_Module1,ui->widget_Module1,pa);
+    initControlShowChannelProgress(4,ui->widget_Module2,ui->widget_Module2,pa);
+    initControlShowChannelProgress(8,ui->widget_Module3,ui->widget_Module3,pa);
 
     const std::unordered_map<int, ModuleVisibility> configMap = {
         {KS600,  {true,  false, false}},
@@ -325,23 +324,24 @@ void Testing::updateChannelProgressAndStatus(bool isWaitstate, quint8 channelInd
 
     QLabel* reminderLabel = Channelreminder[channelIndex];
     QString currentText = reminderLabel->text();
-    QString prefix;
 
-    // 正确检查冒号位置
-    int colonIndex = currentText.indexOf(':');
-    if (colonIndex != -1) {
-        prefix = currentText.left(colonIndex + 1); // 包含冒号
-    } else {
-        prefix = currentText;
-    }
+    // 从当前文本中提取样本号
+    QRegularExpression rx("样本:(\\d+).*");
+    QRegularExpressionMatch match = rx.match(currentText);
+    QString sampleNumber = "0";
+
+    if (match.hasMatch()) {
+        sampleNumber = match.captured(1);
+     }
+
 
     // 根据状态设置文本
     QString outText;
     if (isWaitstate) {
-        outText = prefix + tr("[等待]");
+         outText = tr("样本:%1 [等待]").arg(sampleNumber);
     } else {
-        // 恢复原始文本或设置默认状态
-        outText = prefix + status; // 或者根据需求设置其他状态
+        // 正常状态显示：样本:123 [状态]
+        outText = tr("样本:%1 [%2]").arg(sampleNumber).arg(status);
     }
 
     // 只有当文本确实改变时才更新
@@ -381,11 +381,8 @@ void  Testing::recv_NotifyChannleState(const quint8 channelIndexNum,const bool b
     return;
 }
 
-void Testing::showTestChannelInfo(const quint8& channelIndex,
-                                   const QString&	sampleName,
-                                   const quint8&	reagentIndex){
-
-    // 1. 检查父对象状态
+void Testing::showTestChannelInfo(const quint8& channelIndex,const QString& sampleName,
+                                    const quint8&  reagentIndex){
     if (!this) {
         QLOG_FATAL() << "Parent object destroyed!";
         return;
@@ -396,8 +393,11 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,
         return;
     }
 
+    const int idx = static_cast<int>(channelIndex - 1);
+    if (idx >= Channelreminder.size()) return;
+
     //智能指针检查
-   QPointer<QLabel> channelLabel = Channelreminder[channelIndex - 1];
+   QPointer<QLabel> channelLabel = Channelreminder[idx];
    if (channelLabel.isNull()) {  // 自动检测对象是否被销毁
        QLOG_DEBUG() << "Label at index" << channelIndex-1 << "already destroyed";
        return;
@@ -415,25 +415,24 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,
                               : GlobalData::mapIndexReagentnames(reagentIndex);
 
    // 格式化输出文本（预分配内存避免多次拼接）
-   const QString displayText = tr("样本:%1[%2]")
-                               .arg(sampleNumber)
-                               .arg(reagentName);
+   const QString displayText = tr("样本:%1[%2]").arg(sampleNumber).arg(reagentName);
 
-   // 确保所有 UI 操作都在主线程
-   QMetaObject::invokeMethod(this, [=]() {
-	   if (channelIndex - 1 >= Channelreminder.size()) return;
-	   QLabel* label = Channelreminder[channelIndex - 1];
-	   if (!label) return;
-	   label->setText(displayText);
-	   label->show();
-   });
+   QLabel* label = Channelreminder[idx];
+   if (!label) {
+      QLOG_WARN() << "Null label at index:" << idx;
+      return;
+  }
+   if (label->text() != displayText) {
+        label->setText(displayText);
+
+       // 如果标签是隐藏的，才显示它
+       if (!label->isVisible()) {
+           label->show();
+       }
+   }
 
    // 更新样本-通道映射（使用insert直接覆盖旧值）
    m_TestingSample.insert(sampleName, channelIndex);
-
-   // 限制界面刷新频率（避免频繁重绘）
-   QTimer::singleShot(0, this, [this]() { update(); });
-
 }
 
 
@@ -1741,7 +1740,7 @@ void Testing::giveupSampleChannelFlash(const bool &isChannelNormal, const quint8
     m_channelShowsTheProgress[indexChannel]->flashingReminder(isChannelNormal);
     QColor colors;
     (isChannelNormal)?  colors.setRgb(0,0,0): colors.setRgb(255,0,0);
-    QLOG_WARN()<<"通道"<<indexChannel+1<<"测试状态:"<<isChannelNormal;
+    QLOG_WARN()<<"通道"<<indexChannel + 1<<"测试状态:"<<isChannelNormal;
     QPalette palette =  Channelreminder[indexChannel]->palette();
     palette.setColor(QPalette::WindowText, colors);
     Channelreminder[indexChannel]->setPalette(palette);

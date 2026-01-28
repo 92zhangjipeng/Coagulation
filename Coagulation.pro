@@ -247,7 +247,8 @@ SOURCES += \
     suoweiAggregationRateCalculator/aggregationratecalculator.cpp \
     suoweiFileManager/filemanager.cpp \
     customTitleui/framelesswidgethelper.cpp \
-    suoweiFileManager/hospitalreportprinter.cpp
+    suoweiFileManager/hospitalreportprinter.cpp \
+    datalprocessor.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -389,7 +390,8 @@ HEADERS += \
     suoweiAggregationRateCalculator/aggregationratecalculator.h \
     suoweiFileManager/filemanager.h \
     customTitleui/framelesswidgethelper.h \
-    suoweiFileManager/hospitalreportprinter.h
+    suoweiFileManager/hospitalreportprinter.h \
+    datalprocessor.h
 
 FORMS += \
     mainwindow.ui \

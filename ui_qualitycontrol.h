@@ -21,7 +21,7 @@
 #include <QtWidgets/QTableWidget>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
-#include <custom_style/custombutton.h>
+#include <custom_style\custombutton.h>
 
 QT_BEGIN_NAMESPACE
 

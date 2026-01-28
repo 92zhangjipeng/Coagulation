@@ -452,6 +452,7 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
      instance->sycn_sampleneed_data(sampleid,kstopTestChannel);
      emit openChnMotor(kstopTestChannel, false);//关闭通道旋转
 
+  
      if(indexFocus == FOCUS_CLIP_ANEMIA_TO_CHN){
          emit setprogressinitboolwaittext(false,kstopTestChannel,"[异常]");
          //通道设置为空闲,清空样本,界面进度条归0
@@ -726,7 +727,8 @@ void TestProjectProcess::getFreeTimeTestChn()
 {
     auto* instance = StructInstance::getInstance();
     quint8 freeChannel = 0;
-    const bool hasFreeChannel = instance->hadFreeTestChn(freeChannel);
+    //const bool hasFreeChannel = instance->hadFreeTestChn(freeChannel);
+    const bool hasFreeChannel = instance->getNextFreeChnAfterTesting(freeChannel);
 
     if (hasFreeChannel) {
         // 通道操作模块
@@ -1061,7 +1063,9 @@ void TestProjectProcess::handleIdleChannelTasks()
 
 
     quint8 freeChn = 0;
-    if (!StructInstance::getInstance()->hadFreeTestChn(freeChn)) {
+    const bool hasFreeChannel = StructInstance::getInstance()->getNextFreeChnAfterTesting(freeChn);
+    //if (!StructInstance::getInstance()->hadFreeTestChn(freeChn)) {
+    if(!hasFreeChannel){
         StartSampleAdditionWorkflow();
         return;
     }

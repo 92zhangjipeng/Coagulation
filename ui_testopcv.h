@@ -48,7 +48,7 @@ public:
         label_ratio = new QLabel(TestOpcv);
         label_ratio->setObjectName(QStringLiteral("label_ratio"));
         label_ratio->setMinimumSize(QSize(120, 1));
-        label_ratio->setMaximumSize(QSize(16777215, 160));
+        label_ratio->setMaximumSize(QSize(16777215, 200));
         QFont font;
         font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
         font.setPointSize(12);

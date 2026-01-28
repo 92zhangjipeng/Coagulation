@@ -737,7 +737,7 @@ QByteArray GlobalData::GrabTheCupUnderTheGripper(double downHeight,int &indexNum
     return driverarry;
 }
 
-QByteArray GlobalData::ConfigEachChannelSpeed(quint8 indexModule, quint8 indexChn,quint16 setspeed)
+QByteArray GlobalData::ConfigEachChannelSpeed(quint8 indexModule, quint8 indexChn, quint16 setspeed)
 {
     QByteArray driverarry;
     driverarry = QByteArray::fromHex(QString::number(indexModule).toUtf8());
@@ -1031,11 +1031,11 @@ void GlobalData::vectorconversionString(QVector<double> curvepoint,QString &curv
     for(int n = 0; n < size_len; n++)
     {
         double _data = curvepoint.at(n);
-        QString _data_precision = QString::number(_data, 'f', 2);
+        QString _data_precision = QString::number(_data, 'f', 4);
         if(n + 1 != size_len)
             curvepos = curvepos + QString("%1,").arg(_data_precision);
         else
-           curvepos = curvepos + QString("%1").arg(_data_precision);
+            curvepos = curvepos + QString("%1").arg(_data_precision);
     }
     return;
 }

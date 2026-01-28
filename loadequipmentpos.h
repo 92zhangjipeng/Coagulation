@@ -619,9 +619,8 @@ signals:
     void setEquipmentIndex();
 
 private:
-
-
     QSerialPort *minitPort = nullptr;
+    bool m_hasWarned = false; // 添加警告标志
     QString mserialname ;
 
     bool mcreatSetType = false;       //设置仪器类型标志

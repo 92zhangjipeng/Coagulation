@@ -2484,6 +2484,69 @@ bool StructInstance::hadTestChnTestFinish(quint8 &indexChn_)
     return false;
 }
 
+bool StructInstance::getNextFreeChnAfterTesting(quint8 &nextFreeChn){
+    if (m_testChnStructvec_.empty()){
+        return false;
+    }
+
+    //查找当前正在测试的通道
+    auto itTesting = std::find_if(m_testChnStructvec_.cbegin(),m_testChnStructvec_.cend(),
+       [](const TESTCHNSTAUSINFO* pChninfo) {
+           return pChninfo->Chn_Status == CHN_STATUS_TESTING;
+       }
+    );
+
+    //如果找到正在测试的通道，从其下一个位置开始查找空闲通道
+    if (itTesting != m_testChnStructvec_.cend()) {
+        // 从下一个位置开始
+        auto itNext = itTesting + 1;
+
+        // 循环查找空闲通道（从 itNext 到容器末尾）
+        auto itFree = std::find_if(
+            itNext,
+            m_testChnStructvec_.cend(),
+            [](const TESTCHNSTAUSINFO* pChninfo) {
+                return pChninfo->Chn_Status == CHN_STATUS_FREE;
+            }
+        );
+
+        if (itFree != m_testChnStructvec_.cend()) {
+			nextFreeChn = (*itFree)->index_Chn;
+            return true;
+        }
+
+        // 如果后面没找到，则从容器开头到 itTesting 之前查找（环形查找）
+        itFree = std::find_if(
+            m_testChnStructvec_.cbegin(),
+            itTesting,
+            [](const TESTCHNSTAUSINFO* pChninfo) {
+                return pChninfo->Chn_Status == CHN_STATUS_FREE;
+            }
+        );
+
+        if (itFree != itTesting) {
+			nextFreeChn = (*itFree)->index_Chn;
+            return true;
+        }
+    }
+    //如果没有正在测试的通道，或者环形查找也没找到，则找第一个空闲通道
+   auto itFirstFree = std::find_if(
+       m_testChnStructvec_.cbegin(),
+       m_testChnStructvec_.cend(),
+       [](const TESTCHNSTAUSINFO* pChninfo) {
+           return pChninfo->Chn_Status == CHN_STATUS_FREE;
+       }
+   );
+
+   if (itFirstFree != m_testChnStructvec_.cend()) {
+       nextFreeChn = (*itFirstFree)->index_Chn;
+       return true;
+   }
+
+   //没有空闲通道
+   return false;
+}
+
 
 
 

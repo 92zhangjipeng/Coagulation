@@ -2599,8 +2599,8 @@ void MainWindow::equipment_will_test_num(bool &bgoto_testing)
         bgoto_testing = true;
 }
 void MainWindow::testingchnEnough(bool &benoughChn){
-    quint8 _freeChn = 0;
-    benoughChn = StructInstance::getInstance()->hadFreeTestChn(_freeChn);//找空闲通道
+    quint8 freeChn = 0;
+    benoughChn = StructInstance::getInstance()->hadFreeTestChn(freeChn);//找空闲通道
 }
 
 void MainWindow::begingTesting()

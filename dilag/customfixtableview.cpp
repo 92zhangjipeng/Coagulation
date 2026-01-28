@@ -63,6 +63,8 @@ CustomFixTableView::~CustomFixTableView()
 }
 
 
+
+
 // 滑入显示动画
 void CustomFixTableView::showWithAnimation() {
     // 获取当前屏幕尺寸
@@ -394,6 +396,11 @@ QList<QCPGraph*> CustomFixTableView::calibrationGraphs() const
     return graphs;
 }
 
+
+
+
+
+
 void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bool  &smooth){
     // 1. 预生成X轴数据（0-299秒）
     static const QVector<double> timePoints = []{
@@ -451,8 +458,69 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
     // 清除之前的辅助标记
     clearAuxiliaryItems();
 
-    //设置曲线数据
+    m_currentCurveData = reagentCurvedata; // 保存当前曲线数据
+
+    // ============== 新增：计算四个时间段的平均值 ==============
+    double avg0to60 = 0.0;
+    double avg60to180 = 0.0;
+    double avg180to300 = 0.0;
+    double avg0to300 = 0.0;
+
+    // 计算0-300秒总平均值
+    double sumAll = 0.0;
+    for (int i = 0; i < reagentCurvedata.size(); i++) {
+        sumAll += reagentCurvedata[i];
+    }
+    avg0to300 = reagentCurvedata.size() > 0 ? sumAll / reagentCurvedata.size() : 0.0;
+
+    // 计算0-60秒平均值
+    if (reagentCurvedata.size() >= 60) {
+        double sum0to60 = 0.0;
+        for (int i = 0; i < 60; i++) {
+            sum0to60 += reagentCurvedata[i];
+        }
+        avg0to60 = sum0to60 / 60;
+    }
+
+    // 计算60-180秒平均值
+    if (reagentCurvedata.size() >= 180) {
+        double sum60to180 = 0.0;
+        for (int i = 60; i < 180; i++) {
+            sum60to180 += reagentCurvedata[i];
+        }
+        avg60to180 = sum60to180 / 120; // 60-180秒是120秒的区间
+    }
+
+    // 计算180-300秒平均值
+    if (reagentCurvedata.size() >= 300) {
+        double sum180to300 = 0.0;
+        for (int i = 180; i < 300; i++) {
+            sum180to300 += reagentCurvedata[i];
+        }
+        avg180to300 = sum180to300 / 120; // 180-300秒也是120秒的区间
+    }
+
+    QLOG_INFO() << QString("时间段平均值 - 0-60: %1, 60-180: %2, 180-300: %3, 0-300: %4")
+        .arg(avg0to60, 0, 'f', 1)
+        .arg(avg60to180, 0, 'f', 1)
+        .arg(avg180to300, 0, 'f', 1)
+        .arg(avg0to300, 0, 'f', 1);
+    // ============== 新增结束 =============
+
+	//设置曲线数据
+    /*DataProcessor processor;
+    TransitionParams params = processor.getOrGenerateParams(m_viewIDstr);
+    QVector<double> adjustedData = processor.createControlledSinTransition(reagentCurvedata,
+                                                                           params.sinLength,
+                                                                           params.maxNegative);
+	if (testEndReagent == COL_REAGENT)
+	{
+		reagentCurvedata = adjustedData;
+    }*/
+    
+
     if (auto graph = reagentGraphMap.value(testEndReagent, nullptr)) {
+
         if(!smooth)
             graph->setData(timePoints, reagentCurvedata);
         else
@@ -462,7 +530,9 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
         auto maxAggregationResult = markMaxAggregation(reagentCurvedata, graph);
         double maxAggregation = maxAggregationResult.first;
         double timeToMax = maxAggregationResult.second; // 获取TMA时间
-        double auc = calculateAndDrawAUC(reagentCurvedata, graph);
+
+        double auc = calculateAndDrawAUC(reagentCurvedata, graph); //面积
+
         double slope = calculateAndDrawSlope(reagentCurvedata, graph);
         double lagTime = calculateLagTime(reagentCurvedata); // 计算延迟时间
 
@@ -470,9 +540,10 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
         markLagTimeOnGraph(lagTime, graph);
 
         // 直接使用我们计算的值显示在labelbrief中
-        showCustomAnalyzerResult(maxAggregation, slope, auc,timeToMax,lagTime );
+        showCustomAnalyzerResult(maxAggregation, slope, auc, timeToMax, lagTime,
+                                avg0to60, avg60to180, avg180to300, avg0to300);
 
-		// 更新表格中的详细参数
+        // 更新表格中的详细参数
 		updateTableWithCalculatedParams(testEndReagent, slope, timeToMax, lagTime, auc);
     }
 
@@ -481,34 +552,63 @@ void CustomFixTableView::showCurveTestEnd(const quint8& testEndReagent, const bo
 
 }
 
-
 void CustomFixTableView::showCustomAnalyzerResult(double maxAggregation, double slope, double auc,
-                                                  double timeToMax, double lagTime){
-    QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-    QString brief = QString(
-               "<div style='font-family: Consolas, monospace; background-color: #f8f9fa; padding: 12px; border: 1px solid #dee2e6; border-radius: 3px;'>"
-               "<table style='width: 100%; border-collapse: collapse;'>"
-               "<tr><td colspan='2' style='text-align: center; font-weight: bold; padding-bottom: 8px;'>🩸 血小板聚集分析</td></tr>"
-               "<tr><td style='width: 40%; padding: 2px;'>📊 最大聚集率:</td><td style='padding: 2px;'>%1%</td></tr>"
-               "<tr><td style='padding: 2px;'>🚀 最陡斜率:</td><td style='padding: 2px;'>%2 %/min</td></tr>"  // 修改单位
-               "<tr><td style='padding: 2px;'>📐 AUC面积:</td><td style='padding: 2px;'>%3 %·min</td></tr>"
-               "<tr><td style='padding: 2px;'>⏱️ TMA时间:</td><td style='padding: 2px;'>%4 min</td></tr>"
-               "<tr><td style='padding: 2px;'>⏳ 延迟时间:</td><td style='padding: 2px;'>%5 min</td></tr>"
-               "<tr><td colspan='2' style='padding-top: 8px; border-top: 1px solid #dee2e6;'>分析时间: %6</td></tr>"
-               "</table>"
-               "</div>"
-           ).arg(
-               QString::number(maxAggregation, 'f', 1),
-               QString::number(slope, 'f', 3),  // 现在slope是 %/min
-               QString::number(auc, 'f', 1),
-               QString::number(timeToMax, 'f', 2),
-               QString::number(lagTime, 'f', 2),
-               currentTime
-           );
+	double timeToMax, double lagTime,
+	double avg0to60, double avg60to180,
+	double avg180to300, double avg0to300) {
+	QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
 
-    ui->labelbrief->setText(brief);
-    ui->labelbrief->setTextFormat(Qt::RichText);
+	QString brief = QString(
+		"<div style='font-family: \"微软雅黑\", Arial, sans-serif; background-color: rgba(30, 40, 70, 0.85); padding: 15px; border: 2px solid #5d9cec; border-radius: 8px; color: #ffffff;'>"
+		"<table style='width: 100%; border-collapse: collapse; font-size: 16px;'>"
+		"<tr><td colspan='2' style='text-align: center; font-weight: bold; padding-bottom: 15px; font-size: 20px; color: #ffffff; background-color: rgba(93, 156, 236, 0.3); border-radius: 5px;'>🩸 血小板聚集分析报告</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='width: 45%; padding: 10px 2px; font-weight: bold; color: #dce4f2;'>📊 最大聚集率:</td>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #4fc3f7; font-size: 18px;'>%1%</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #dce4f2;'>🚀 最陡斜率:</td>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #69f0ae; font-size: 18px;'>%2 %/min</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #dce4f2;'>📐 AUC面积:</td>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #b388ff; font-size: 18px;'>%3 %·min</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #dce4f2;'>⏱️ TMA时间:</td>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #ffcc80; font-size: 18px;'>%4 min</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #dce4f2;'>⏳ 延迟时间:</td>"
+		"<td style='padding: 10px 2px; font-weight: bold; color: #ff8a80; font-size: 18px;'>%5 min</td></tr>"
+		"<tr><td colspan='2' style='padding-top: 15px; padding-bottom: 10px; text-align: center; font-weight: bold; border-top: 2px solid #5d9cec; font-size: 18px; color: #ffffff; background-color: rgba(93, 156, 236, 0.2); border-radius: 5px;'>📈 时间段平均聚集率</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #dce4f2;'>0-60秒:</td>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #80deea; font-size: 17px;'>%6%</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #dce4f2;'>60-180秒:</td>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #80deea; font-size: 17px;'>%7%</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #dce4f2;'>180-300秒:</td>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #80deea; font-size: 17px;'>%8%</td></tr>"
+		"<tr style='border-bottom: 1px solid rgba(255, 255, 255, 0.2);'>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #dce4f2;'>0-300秒:</td>"
+		"<td style='padding: 8px 2px; font-weight: bold; color: #80deea; font-size: 17px;'>%9%</td></tr>"
+		"<tr><td colspan='2' style='padding-top: 15px; text-align: right; border-top: 1px solid #5d9cec; font-style: italic; color: #b0bec5;'>分析时间: %10</td></tr>"
+		"</table>"
+		"</div>"
+		)
+		.arg(QString::number(maxAggregation, 'f', 2))
+		.arg(QString::number(slope, 'f', 3))
+		.arg(QString::number(auc, 'f', 1))
+		.arg(QString::number(timeToMax, 'f', 2))
+		.arg(QString::number(lagTime, 'f', 2))
+		.arg(QString::number(avg0to60, 'f', 1))
+		.arg(QString::number(avg60to180, 'f', 1))
+		.arg(QString::number(avg180to300, 'f', 1))
+		.arg(QString::number(avg0to300, 'f', 1))
+		.arg(currentTime);
+
+	ui->labelbrief->setText(brief);
+	ui->labelbrief->setTextFormat(Qt::RichText);
 }
+
 
 
 void CustomFixTableView::showResult(const bool& smooth){
@@ -1123,6 +1223,20 @@ void CustomFixTableView::clearAuxiliaryItems()
         ui->widgetCurveShow->removeItem(m_lagTimeLabel);
         m_lagTimeLabel = nullptr;
     }
+
+    // 清理新增的交互式对象
+    if (m_verticalLine) {
+        ui->widgetCurveShow->removeItem(m_verticalLine);
+        m_verticalLine = nullptr;
+    }
+    if (m_dataPointTracer) {
+        ui->widgetCurveShow->removeItem(m_dataPointTracer);
+        m_dataPointTracer = nullptr;
+    }
+    if (m_dataPointLabel) {
+        ui->widgetCurveShow->removeItem(m_dataPointLabel);
+        m_dataPointLabel = nullptr;
+    }
 }
 
 QPair<int, int> CustomFixTableView::findSteepestSegment(const QVector<double>& data, int windowSize)
@@ -1252,6 +1366,44 @@ double CustomFixTableView::calculateAndDrawSlope(const QVector<double>& data, QC
     m_slopeLabel->setBrush(QBrush(QColor(255, 255, 255, 200)));
     m_slopeLabel->setPadding(QMargins(8, 4, 8, 4));
     m_slopeLabel->setPositionAlignment(Qt::AlignRight | Qt::AlignTop);
+
+    // ============== 新增：创建交互式垂直线 ==============
+    // 创建垂直线
+    m_verticalLine = new QCPItemStraightLine(ui->widgetCurveShow);
+    m_verticalLine->setPen(QPen(QColor(0, 0, 255), 1, Qt::DashLine)); // 蓝色虚线
+
+    // 创建数据点追踪器（显示聚集率）
+    m_dataPointTracer = new QCPItemTracer(ui->widgetCurveShow);
+    m_dataPointTracer->setStyle(QCPItemTracer::tsCircle);
+    m_dataPointTracer->setPen(QPen(Qt::red, 2));
+    m_dataPointTracer->setBrush(QBrush(Qt::yellow));
+    m_dataPointTracer->setSize(6);
+
+    // 创建数据标签
+    m_dataPointLabel = new QCPItemText(ui->widgetCurveShow);
+    m_dataPointLabel->setPositionAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_dataPointLabel->setFont(QFont("微软雅黑", 8));
+    m_dataPointLabel->setPen(QPen(Qt::blue));
+    m_dataPointLabel->setBrush(QBrush(QColor(255, 255, 255, 200)));
+    m_dataPointLabel->setPadding(QMargins(5, 3, 5, 3));
+
+    // 设置标签位置为追踪器上方
+    m_dataPointLabel->position->setParentAnchor(m_dataPointTracer->position);
+    m_dataPointLabel->position->setCoords(5, -15); // 在追踪器上方15像素
+
+    // 初始隐藏，等待鼠标移动
+    m_verticalLine->setVisible(false);
+    m_dataPointTracer->setVisible(false);
+    m_dataPointLabel->setVisible(false);
+
+    // 启用鼠标追踪
+    ui->widgetCurveShow->setMouseTracking(true);
+    //ui->widgetCurveShow->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
+
+    // 连接鼠标移动信号
+    connect(ui->widgetCurveShow, &QCustomPlot::mouseMove, this, &CustomFixTableView::onCurveMouseMove);
+    // ============== 新增结束 ==============
+
 
     // 在分析结果中也显示斜率信息
     QLOG_INFO() << "最陡峭斜率:" << slopePerMinute << "%/min"
@@ -1461,4 +1613,47 @@ void CustomFixTableView::updateTableWithCalculatedParams(const quint8& reagent,
 }
 
 
+void CustomFixTableView::onCurveMouseMove(QMouseEvent* event)
+{
+    if (!m_verticalLine || !m_dataPointTracer || !m_dataPointLabel) return;
 
+    double x = ui->widgetCurveShow->xAxis->pixelToCoord(event->pos().x());
+    double y = ui->widgetCurveShow->yAxis->pixelToCoord(event->pos().y());
+
+    // 确保x在有效范围内
+    if (x < 0 || x > 299) {
+        m_verticalLine->setVisible(false);
+        m_dataPointTracer->setVisible(false);
+        m_dataPointLabel->setVisible(false);
+        ui->widgetCurveShow->replot();
+        return;
+    }
+
+    // 计算最接近时间点的索引
+    int index = qRound(x); // 四舍五入到最接近的整数秒
+    if (index < 0) index = 0;
+    if (index >= m_currentCurveData.size()) index = m_currentCurveData.size() - 1;
+
+    // 获取该时间点的聚集率值
+    double aggregationValue = 0.0;
+    if (index < m_currentCurveData.size()) {
+        aggregationValue = m_currentCurveData[index];
+    }
+
+    // 更新垂直线位置
+    m_verticalLine->point1->setCoords(x, 0);
+    m_verticalLine->point2->setCoords(x, 100); // 假设Y轴范围是0-100
+    m_verticalLine->setVisible(true);
+
+    // 更新数据点追踪器
+    m_dataPointTracer->position->setCoords(x, aggregationValue);
+    m_dataPointTracer->setVisible(true);
+
+    // 更新数据标签
+    m_dataPointLabel->setText(QString("时间: %1 s\n聚集率: %2 %")
+                             .arg(x, 0, 'f', 1)
+                             .arg(aggregationValue, 0, 'f', 1));
+    m_dataPointLabel->setVisible(true);
+
+    ui->widgetCurveShow->replot();
+}
