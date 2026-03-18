@@ -104,45 +104,60 @@ signals:
     void Taskconfigcloe();
     void ReminderHole(int); //提示放置的孔
     void myTextChangedSignal(const QString &oldText, const QString &newText);
+
+
 public slots:
 
-    void    Slot_ConfigureData(unsigned int ,int ,QString);
-    void    updateaddprogress(int index_, int _total);
-    void    slotupdatetestui(QList<quint8>marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
-    void    SlotNotifyTestHeight(int,int,QString);
-    void    ReminderPutBloodHole(int RichHolenum); //提醒放置的血样孔
-    void    slotsavebarcode(unsigned int row,quint8 cols,QString noityBarcode);
+    void Slot_ConfigureData(unsigned int ,int ,QString);
+    void updateaddprogress(int index_, int _total);
+    void slotupdatetestui(QList<quint8>marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
+    void SlotNotifyTestHeight(int,int,QString);
+    void ReminderPutBloodHole(int RichHolenum); //提醒放置的血样孔
+    void slotsavebarcode(unsigned int row,quint8 cols,QString noityBarcode);
     //修改PPP孔号
-    void   selectPPPholeChange(const QString& index_);
+    void selectPPPholeChange(const QString& index_);
 
     //测高结果
     void onImageoutResult(const QString redBloodCellHeigh);
 
 private slots:
-    void    tableItemClicked(int row,int col);
-    void    sortByColumn(int); //点击表头
-    void    on_toolButton_Cancel_clicked();
-    bool    TheSameBloodHole(); //添加样本时有相同贫血孔号？
-    void    clickBloodmode(int clickid);
-    void    on_Sample_Data_tablewidget_customContextMenuRequested(const QPoint &);
-    void    AF_DATA_REQUEST(QVariant sampleiddata);
+    void tableItemClicked(int row,int col);
+    void sortByColumn(int); //点击表头
+    void on_toolButton_Cancel_clicked();
+    bool TheSameBloodHole(); //添加样本时有相同贫血孔号？
+    void clickBloodmode(int clickid);
+    void on_Sample_Data_tablewidget_customContextMenuRequested(const QPoint &);
+    void AF_DATA_REQUEST(QVariant sampleiddata);
+
 
 private:
 
-    /** 添加样本单个
-     * @brief AddOneTestSample
-     * @param addSampleMode
-     * @param TestHeight
-     * @param Canselecthole
-     * @param barcodestr
-     */
-    int AddOneTestSample(const bool addSampleMode,
-                            double TestHeight,
-                            QStringList Canselecthole,
-                            QString barcodestr);
+    int addOneTestSample(const bool isWholeBloodMode, double testHeight,
+                          const QStringList &availableHoles,
+                          const QString &barcode);
+
+    bool addCheckBoxToRow(QTableWidget *table, int row);
+    bool addSampleIdToRow(QTableWidget *table, int row,
+                          const QString &sampleId, bool isWholeBloodMode);
+    bool addHeightValueToRow(QTableWidget *table, int row,
+                             double heightValue, bool isInvalid);
+    bool addHoleSelectorToRow(QTableWidget *table, int row,
+                              const QString &sampleId,
+                              const QStringList &availableHoles,
+                              int defaultHole);
+
+    bool addBarcodeToRow(QTableWidget *table, int row, const QString &barcode);
+    void recordSampleData(const QString &sampleId, int holeNumber);
+
+    // 辅助函数
+    double calculateHeightValue(bool isWholeBloodMode, double testHeight) const;
+    int selectDefaultHole(const QStringList &availableHoles) const;
+
+
+
 
     //计算出下一个样本ID
-    QString calculateOutNextSampleId();
+    QString generateSampleId();
 
     //手动添加任务
     int  Addtasksmanually();
@@ -195,7 +210,7 @@ private:
     bool NeedTubeEnouthTesting(const int hadtube, int &needtube, QList<int> selItems);
 
     //＋血样孔是否足够
-    bool enoughAddSampleHole(QStringList &canselholeList_);
+    bool hasAvailableSampleHole(QStringList &availableHoleList);
 
     bool shouldIgnoreClick(int col) const;
     void saveOriginalValue(int row, int col);
@@ -223,7 +238,7 @@ private:
 
     QMap<QString,quint8> m_selbloodholetemp; //保留临时孔号<样本号,PPP孔号>
 
-    QMap<QString,QString> mCreatTime;
+    QMap<QString,QString> m_sampleCreateTime;
 
 	QButtonGroup *mtestmodebox;
 
