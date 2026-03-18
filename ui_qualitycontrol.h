@@ -21,7 +21,7 @@
 #include <QtWidgets/QTableWidget>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
-#include <custom_style\custombutton.h>
+#include <custom_style/custombutton.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -123,6 +123,7 @@ public:
         frame = new QFrame(Tray_testtube);
         frame->setObjectName(QStringLiteral("frame"));
         frame->setGeometry(QRect(30, 20, 271, 481));
+        frame->setMinimumSize(QSize(0, 400));
         frame->setMaximumSize(QSize(9999, 99999));
         frame->setStyleSheet(QLatin1String("border: 0px;\n"
 "background-color:rgba(188,187,183);"));
@@ -201,6 +202,7 @@ public:
         frame_2 = new QFrame(Tray_testtube);
         frame_2->setObjectName(QStringLiteral("frame_2"));
         frame_2->setGeometry(QRect(370, 20, 271, 481));
+        frame_2->setMinimumSize(QSize(0, 400));
         frame_2->setMaximumSize(QSize(9999, 9999));
         frame_2->setStyleSheet(QLatin1String("border: 0px;\n"
 "background-color:rgba(188,187,183);"));

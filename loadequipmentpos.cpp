@@ -3422,7 +3422,7 @@ void loadEquipmentPos::initTrayTubeOffsetHands(const quint8 &indexEquipment)
 
 	//QLOG_DEBUG() << "发散设置抓手试管 头坐标" << firstAxispos[0] << firstAxispos[1] << firstAxispos[2] << firstAxispos[3];
 	quint8 keyhole = 0;
-	const uint spaceTube = 150; //内部试管横 纵向间距相同
+    const uint spaceTube = 150; //内部试管横/纵向间距相同
 	QPoint tsetTubehole(0,0);
 	for (int t = 0; t < traynum; t++)
 	{

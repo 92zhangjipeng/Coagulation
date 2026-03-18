@@ -1212,7 +1212,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         Testing_reagents * preag = (*it_);
         if(preag->inintBloodyValue == 0){
               firstTestReagentNum = preag->index_Reagent; //第一个测试的试剂
-              QLOG_DEBUG()<<QUIUtils::index_reagent_mapping_reagentName("首测试的试剂:",firstTestReagentNum);
+              QLOG_DEBUG()<<QUIUtils::index_reagent_mapping_reagentName(firstTestReagentNum, "首测试的试剂:");
               break;
           }
     }
@@ -1778,7 +1778,7 @@ void StructInstance::send_cleanReagPin(const int sampleid, const quint8 index_re
     senddata.clear();
     const auto *psampleinfo = rfindIdSample(sampleid);
     if(!psampleinfo){
-       QLOG_DEBUG()<<"未找到样本ID"<< sampleid <<QUIUtils::index_reagent_mapping_reagentName("洗试剂针",index_reagent)
+       QLOG_DEBUG()<<"未找到样本ID"<< sampleid <<QUIUtils::index_reagent_mapping_reagentName(index_reagent, "洗试剂针")
                    <<"信息"<<__LINE__<<endl;
        return;
     }
@@ -1787,7 +1787,7 @@ void StructInstance::send_cleanReagPin(const int sampleid, const quint8 index_re
                                       psampleinfo->ptestReagent_active.cend(),
                                       findtest_testreagent(index_reagent));
     if(cleanReagentNeedle ==  psampleinfo->ptestReagent_active.cend() || *cleanReagentNeedle == nullptr){
-        QLOG_DEBUG()<<"样本ID"<< sampleid<<QUIUtils::index_reagent_mapping_reagentName("清洗试剂:",index_reagent)
+        QLOG_DEBUG()<<"样本ID"<< sampleid<<QUIUtils::index_reagent_mapping_reagentName(index_reagent, "清洗试剂:")
                     <<"指令未找到或者为空"<<endl;
         return;
     }
@@ -1809,7 +1809,7 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
     bool finished = false;
 	auto *psampleInfo = wfindIdSample(loseFocusSample);
 	if (!psampleInfo) {
-		QLOG_DEBUG() << "未找到样本ID" << loseFocusSample << QUIUtils::index_reagent_mapping_reagentName("接收洗试剂针", index_reag)
+		QLOG_DEBUG() << "未找到样本ID" << loseFocusSample << QUIUtils::index_reagent_mapping_reagentName(index_reag, "接收洗试剂针")
 			  << "信息" << __LINE__ << endl;
 		return finished;
 	}
@@ -1818,7 +1818,7 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 							psampleInfo->ptestReagent_active.end(),
 							findtest_testreagent(index_reag));
 	if (recvCleanReagent == psampleInfo->ptestReagent_active.end() || (*recvCleanReagent) == nullptr) {
-		QLOG_DEBUG() << "未找到洗试剂针样本ID" << loseFocusSample<<QUIUtils::index_reagent_mapping_reagentName("未找到试剂:", index_reag);
+		QLOG_DEBUG() << "未找到洗试剂针样本ID" << loseFocusSample<<QUIUtils::index_reagent_mapping_reagentName(index_reag, "未找到试剂:");
 		return finished;
 	}
 
@@ -1826,7 +1826,7 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 							 (*recvCleanReagent)->pCleanReagentActive.end(),
 							 recv_index(index_num));
 	if (recvIndex == (*recvCleanReagent)->pCleanReagentActive.end() || *recvIndex == nullptr) {
-		QLOG_DEBUG() << "样本ID" << loseFocusSample << QUIUtils::index_reagent_mapping_reagentName("清洗试剂:", index_reag) 
+		QLOG_DEBUG() << "样本ID" << loseFocusSample << QUIUtils::index_reagent_mapping_reagentName(index_reag, "清洗试剂:")
 			<< "未找到编号" << index_num << endl;
 		return finished;
 	}
@@ -1837,7 +1837,6 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 									find_allactivefinish(false));
 	if (finishCleanAll == (*recvCleanReagent)->pCleanReagentActive.cend()) {
         finished = true;
-		//QLOG_DEBUG() << "样本ID" << loseFocusSample <<QUIUtils::index_reagent_mapping_reagentName("清洗试剂针:", indexreag) << endl;
 	}
 	else {
         finished = false;
@@ -1929,13 +1928,13 @@ bool StructInstance::_boolThrowCupFinished(const int _sampleid,quint8 index_reag
     {
         bFinished = false;
         QString remind_ = QString("样本:%1 未完成%2").arg(_sampleid)
-                .arg(QUIUtils::index_reagent_mapping_reagentName("丟试杯",index_reag));
-        QLOG_DEBUG()<<remind_;
+                .arg(QUIUtils::index_reagent_mapping_reagentName(index_reag, "丟杯"));
+        QLOG_DEBUG()<<remind_<<endl;
     }
     else
     {
         bFinished = true;
-        QLOG_DEBUG()<<"样本"<< _sampleid <<QUIUtils::index_reagent_mapping_reagentName("丟试杯",index_reag)<<endl;
+        QLOG_DEBUG()<<"样本"<< _sampleid <<QUIUtils::index_reagent_mapping_reagentName(index_reag, "丟杯")<<endl;
     }
     return bFinished;
 }
@@ -2104,7 +2103,7 @@ bool StructInstance::judge_hadWaitTestReag(const int testSample,quint8 &waitTest
     }else{
          waitTestRrag = (*waittesTing)->index_Reagent;
          bhand_waittest_reag = true;
-         QString outText = QUIUtils::index_reagent_mapping_reagentName("还有待测试剂:",(*waittesTing)->index_Reagent);
+         QString outText = QUIUtils::index_reagent_mapping_reagentName((*waittesTing)->index_Reagent, "还有待测试剂:");
          QLOG_WARN()<<"样本"<<testSample<<outText<<"状态"<<(*waittesTing)->testfinished<<__LINE__<<endl;
     }
     return bhand_waittest_reag;
@@ -2422,12 +2421,14 @@ void StructInstance::config_testChn_State(const quint8 indexChn,quint8 ChnState)
 
 void StructInstance::config_testChn_test_reagent(const quint8 indexChn,const quint8 indexReag)
 {
-    QVector<TESTCHNSTAUSINFO *>::iterator _it = find_if(m_testChnStructvec_.begin(),m_testChnStructvec_.end(),finder_Chn(indexChn));
+    QVector<TESTCHNSTAUSINFO *>::iterator _it = find_if(m_testChnStructvec_.begin(),
+                                                        m_testChnStructvec_.end(),
+                                                        finder_Chn(indexChn));
     if(_it != m_testChnStructvec_.end())
     {
         TESTCHNSTAUSINFO *pChnInfo = (*_it);
         pChnInfo->Reagent = indexReag;
-        QLOG_DEBUG()<<"设置通道"<<indexChn<<QUIUtils::index_reagent_mapping_reagentName("测试试剂:",indexReag)<<endl;
+        QLOG_DEBUG()<<"设置通道"<<indexChn<<QUIUtils::index_reagent_mapping_reagentName(indexReag, "测试试剂:")<<endl;
     }
     else
     {
@@ -2604,7 +2605,7 @@ void StructInstance::updteSaveChnTestData(const quint8 &IndexChannel,const quint
         switch (index_reag)
         {
             case AA_REAGENT:
-                ptestingRelData->index_ = (*findMatch)->AA_testchndata_.size() + 1;
+                ptestingRelData->index_ = (*findMatch)->AA_testchndata_.size();
 				(*findMatch)->AA_testchndata_.push_back(ptestingRelData);
             break;
             case ADP_REAGENT:  

@@ -87,23 +87,33 @@ private:
                               int textbottomy, int width, int height, int spacesize); //映射试剂名称
 
 
-    void fullintopdfreagresult(QPainter *pPainter, QString resultreagdata, int k, QPoint bottompos, int itemWidth,
-                                int itemHeight);
+    void fullintopdfreagresult(QPainter *pPainter, QString resultreagdata,
+                               int k, QPoint bottompos, int itemWidth,
+                               int itemHeight);
 
-    void intsertwriteunit(QPainter *pPainter,QPoint bottompos,int itemWidth,int itemHeight);
 
-    void intsertReferencevalues(QPainter *pPainter,QPoint bottompos,int itemWidth, int itemHeight,bool mansex);
+    //单位
+    void intsertwriteunit(QPainter *pPainter,QPoint bottompos,
+                          int itemWidth,int itemHeight,const QString keyUnit);
 
-    void insertwriteoffset(QPainter *pPainter,QPoint bottompos,int itemWidth, int itemHeight,QString uporduwn);
+    //参考结果
+    void insertwriteoffset(QPainter *painter, const QPoint &bottomPos, const int itemWidth,
+                           const int itemHeight, const QString &resultValue,
+                           const QVariant &refMinVal, const QVariant &refMaxVal);
+
+
+    //参考值
+    void insertReferenceValues(QPainter *painter, const QPoint &bottomPos,
+                               const int itemWidth, const int itemHeight,
+                               const QVariant &minValue, const QVariant &maxValue);
+
+    void syncReferenceValue(const quint8 reagentIndex, const bool isMale,
+                        QVariant &maxValue, QVariant &minValue, QString &unit);
+
 
     void  CreateFolder(QString folderPath);
-
     void  _NotifyPageSizeKind(Page_Size page_type, QPdfWriter *pWriter);
-
-    void  InsertReagentName(quint8 Index,QStringList &liststr);
-
-    void  InsertReagentTestData(quint8 IndexReagent,QStringList ResultData,QStringList &liststr,const bool Sexman,QString &unitStr);
-
+    //void  InsertReagentName(quint8 Index,QStringList &liststr);
     void  switchreagtestdata(QMap<quint8,QString> _data, QMap<quint8, QStringList> &_outdata_);
 
 

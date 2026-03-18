@@ -14,8 +14,6 @@
 #define ADDEDREAGENT       1		//试剂已添加
 #define ADDEDREAGENTAND_CLEANING  2 //试剂加完并清洗了
 
-#define TOTALDATANUM        300    //數據個數
-
 #define   WASH_ALL_NEDDLE        0
 #define   WASH_BLOOD_NEDDLE      1
 #define   WASH_REAGENT_NEDDLE    2

@@ -23,6 +23,11 @@ typedef  struct
     char ReagEPIresult[120];
     char ReagCOLresult[120];
     char ReagRISresult[120];
+//    char ReferencevaluesAAMax[120];
+//    char ReferencevaluesADPMax[120];
+//    char ReferencevaluesEPIMax[120];
+//    char ReferencevaluesCOLMax[120];
+//    char ReferencevaluesRISMax[120];
 }InqueryDatastu_t;
 Q_DECLARE_METATYPE(InqueryDatastu_t)//注册结构体
 

@@ -9,8 +9,6 @@
 #include <QMap>
 
 
-
-
 namespace Ui {
 class customPPPValue;
 }

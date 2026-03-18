@@ -8,7 +8,7 @@
 #include <QCloseEvent>
 #include <qcustomplot.h>
 #include <suoweiFileManager/hospitalreportprinter.h>
-#include "datalprocessor.h"
+
 
 
 namespace Ui {

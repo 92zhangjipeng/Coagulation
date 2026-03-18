@@ -68,7 +68,12 @@ DEFINES  += QT_MESSAGELOGCONTEXT
 
 LIBS += "C:\qtproject\Coagulation\libusb.a"
 
-
+# MSVC编译器特定设置
+msvc {
+    QMAKE_CXXFLAGS += /utf-8
+    # 或者
+    QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8
+}
 
 #LIBS += -LC:\qtproject\Coagulation\vsdll\ -lTaskDispose#
 #LIBS += -LC:\qtproject\Coagulation\vsdll\ -lFloorPlanofInterface

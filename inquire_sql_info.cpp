@@ -827,7 +827,13 @@ void Inquire_Sql_Info::stats_designate_reagent()
 
 void Inquire_Sql_Info::ViewLoadInquierdata(int numtotal, int n_ing,InqueryDatastu_t *pdata)
 {
+
+
+    //查询数据到结构体
     InsertOneRowsData(pdata);
+
+
+
     m_del.push_back(pdata);
     if(numtotal == 0) return;
     ui->progressBarLoad->show();

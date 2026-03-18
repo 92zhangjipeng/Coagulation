@@ -331,8 +331,8 @@ void GraphPlot::InitChart()
         for (int k = 0; k < REAGENT_TOTAL; k++){
             mTestDataX[f][k].clear();    // 直接清空
             mTestDataY[f][k].clear();
-            mTestDataX[f][k].reserve(TOTALDATANUM);
-            mTestDataY[f][k].reserve(TOTALDATANUM);
+            mTestDataX[f][k].reserve(NUMBEROFTESTDATA);
+            mTestDataY[f][k].reserve(NUMBEROFTESTDATA);
         }
     }
     return;
@@ -414,13 +414,13 @@ void  GraphPlot::recvsycnViewCurvePara(int cutnum , bool bavge)
 void GraphPlot::resetvect(const int& Chn,const int& reagentNum){
     mTestDataX[Chn][reagentNum].clear();
     mTestDataY[Chn][reagentNum].clear();
-    mTestDataX[Chn][reagentNum].reserve(TOTALDATANUM);
-    mTestDataY[Chn][reagentNum].reserve(TOTALDATANUM);
+    mTestDataX[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
+    mTestDataY[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
 
     mCurvePlote_x[Chn][reagentNum].clear();
     mCurvePlote_y[Chn][reagentNum].clear();
-    mCurvePlote_x[Chn][reagentNum].reserve(TOTALDATANUM);
-    mCurvePlote_y[Chn][reagentNum].reserve(TOTALDATANUM);
+    mCurvePlote_x[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
+    mCurvePlote_y[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
 }
 
 /*接收测试数据实时绘制曲线*/
@@ -516,7 +516,7 @@ void GraphPlot::GetTestingValue(const QString &Sample, const quint8 &project, co
 
 double GraphPlot::calculateProgress(int channel, int reagent) const {
     return qBound(0.0,
-           static_cast<double>(mTestDataX[channel][reagent].size())*100/TOTALDATANUM,
+           static_cast<double>(mTestDataX[channel][reagent].size())*100/NUMBEROFTESTDATA,
            100.0);
 }
 

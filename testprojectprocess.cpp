@@ -105,7 +105,7 @@ void TestProjectProcess::SampleReagTestFinish(QString finishid,const quint8 inde
     kFinishChannel.index_Chn = index_Chn;
     kFinishChannel.index_reagent = indexReage;
     m_finishTestData.enqueue(kFinishChannel);
-    QString finishLogs = QUIUtils::index_reagent_mapping_reagentName("试剂", indexReage);
+    QString finishLogs = QUIUtils::index_reagent_mapping_reagentName(indexReage,"试剂");
     QLOG_DEBUG()<<"样本"<<completeSample <<finishLogs<<"在通道"<< index_Chn<<"测试完成入队"<<endl;
 
     //通道测试完成如果有样本在加样就入队
@@ -930,7 +930,7 @@ void TestProjectProcess::recv_spitReagent(quint8 indexActive,const int index_num
         //吐试剂完成==>打开通道开始测试-->清洗针
         quint8 indexreagent,Consumablesindex;
         GlobalData::outputtheAbsorbentIndex(indexActive,indexreagent,Consumablesindex);
-        QLOG_DEBUG()<<"样本"<<m_focus_sample_id<<"吐试剂完成"<<indexreagent<<endl;
+        //吐完试剂后延时再去洗针和读数据
         emit openTestChnTest(m_focus_sample_id,indexActive,indexreagent);
     }
     return;
@@ -1016,7 +1016,7 @@ void TestProjectProcess::processFinishedChannelTask()
 
     // 调试日志输出
     QLOG_DEBUG() << "出队任务通道 " << task.index_Chn
-                          << " | " << QUIUtils::index_reagent_mapping_reagentName("试剂", task.index_reagent);
+                          << " | " << QUIUtils::index_reagent_mapping_reagentName(task.index_reagent, "试剂");
 
     // 获取样本信息
     QString sampleName;

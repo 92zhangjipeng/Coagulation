@@ -25,7 +25,7 @@
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
-#include "custom_style\animationProcessBar.h"
+#include "custom_style/animationprocessbar.h"
 
 QT_BEGIN_NAMESPACE
 

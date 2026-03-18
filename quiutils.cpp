@@ -1213,7 +1213,7 @@ void QUIUtils::reminderfullcoder(quint8 indexaddr_,QString& fullCode_)
 
 
 
-QString QUIUtils::index_reagent_mapping_reagentName(QString outText,const quint8 indexReag)
+QString QUIUtils::index_reagent_mapping_reagentName(const quint8 indexReag, QString outText)
 {
     QString outprint = "";
     switch(indexReag)

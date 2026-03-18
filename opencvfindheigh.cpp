@@ -233,7 +233,7 @@ bool opencvfindHeigh::ExtractColorBlockKmeans(cv::Mat img, double &ratio)
         roi.convertTo(data, CV_32F);
 
         // 重塑为 (rows*cols, 3) 的矩阵
-        data = data.reshape(1, data.total()); // 通道数变为1，行数为总像素数
+        data = data.reshape(1, static_cast<int>(data.total())); // 通道数变为1，行数为总像素数
 
         int K = 3; // 尝试3种主要颜色
         cv::Mat labels, centers;

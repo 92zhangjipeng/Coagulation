@@ -79,48 +79,8 @@ void Printthereport::CreateFolder(QString folderPath)
     }
 }
 
-
-void Printthereport::InsertReagentTestData(quint8 IndexReagent,QStringList ResultData,QStringList &liststr,const bool Sexman,QString &unitStr)
-{
-    QVariant HeighValue,LowValue;
-
-    QList<double> testValuelist;
-    testValuelist.clear();
-    int index =  0 ;
-    QString  offset;
-    //去除%
-    for(QString datatest : ResultData)
-    {
-        QString tmp = datatest;
-        QUIUtils::parseDataratio(tmp);
-        testValuelist.push_back(tmp.toDouble());
-    }
-    index = testValuelist.size();
-    for(double valuetest : testValuelist)
-    {
-        quint8 paraType = (IndexReagent*4) - index;
-        FullyAutomatedPlatelets::pinstancesqlData()->synchronizeStandardValues(paraType,Sexman,HeighValue,LowValue,unitStr);
-        if(valuetest >= HeighValue.toDouble())
-        {
-            offset = "↑" ;
-        }
-        else if(valuetest <= LowValue.toDouble())
-        {
-             offset = "↓" ;
-        }
-        else if(valuetest > LowValue.toDouble() && valuetest < HeighValue.toDouble())
-        {
-           offset = "";
-        }
-        QString outPutResult = QString("%1%%2").arg(valuetest).arg(offset);
-        liststr.push_back(outPutResult);
-        index--;
-    }
-
-}
-
 QPoint Printthereport::switchReagentName(QPainter *pPainter, quint8 indexReag,quint8 n,
-                                        int textbottomy, int width, int height,int spacesize)
+                                          int textbottomy, int width, int height,int spacesize)
 {
     QString reagname = "";
     switch(indexReag)
@@ -140,8 +100,8 @@ QPoint Printthereport::switchReagentName(QPainter *pPainter, quint8 indexReag,qu
     return bottomRightReagNmae;
 }
 
-void Printthereport::fullintopdfreagresult(QPainter *pPainter, QString resultreagdata, int k, QPoint bottompos, int itemWidth,
-                                               int itemHeight)
+void Printthereport::fullintopdfreagresult(QPainter *pPainter, QString resultreagdata, int k,
+                                             QPoint bottompos, int itemWidth, int itemHeight)
 {
     QPoint topleftResultsec;
     QPoint bottomRightresultsec;
@@ -152,34 +112,176 @@ void Printthereport::fullintopdfreagresult(QPainter *pPainter, QString resultrea
     pPainter->drawText(QRect(topleftResultsec,bottomRightresultsec),Qt::AlignVCenter|Qt::AlignLeft,resultreagdata);
     return;
 }
-
-void Printthereport::intsertwriteunit(QPainter *pPainter,QPoint bottompos,int itemWidth,int itemHeight)//单位
+//单位
+void Printthereport::intsertwriteunit(QPainter *pPainter,QPoint bottompos
+                                      ,int itemWidth,int itemHeight,const QString keyUnit)
 {
     QPoint topleftunit(bottompos.x() + 5*itemWidth,bottompos.y() - itemHeight);
     QPoint bottomRightunit(bottompos.x() + 6*itemWidth,bottompos.y());
-    pPainter->drawText(QRect(topleftunit,bottomRightunit),Qt::AlignVCenter|Qt::AlignLeft,"S/%");
+    pPainter->drawText(QRect(topleftunit,bottomRightunit),Qt::AlignVCenter|Qt::AlignLeft,keyUnit);
     return;
 }
 
-void Printthereport::intsertReferencevalues(QPainter *pPainter,QPoint bottompos,int itemWidth, int itemHeight,bool mansex)//参考值
+///////////////////////////////////参考值////////////////////////////////////////////////////
+/// \brief Printthereport::syncReferenceValue
+/// \param reagentIndex 试剂索引
+/// \param isMale 是否为男性
+/// \param maxValue 最大值（输出）
+/// \param minValue 最小值（输出）
+/// \param unit 单位（输出）
+///
+void Printthereport::syncReferenceValue(const quint8 reagentIndex, const bool isMale,
+                                        QVariant &maxValue, QVariant &minValue, QString &unit)
 {
-    QString outReferencevalues;
-    QPoint topleftReferencevalues(bottompos.x() + 6*itemWidth,bottompos.y() - itemHeight);
-    QPoint bottomRightReferencevalues(bottompos.x() + 7*itemWidth,bottompos.y());
-    if(mansex)
-        outReferencevalues = "80-81%";
-    else
-        outReferencevalues = "60-78%";
-    pPainter->drawText(QRect(topleftReferencevalues,bottomRightReferencevalues),Qt::AlignVCenter|Qt::AlignLeft,outReferencevalues);
-    return;
+    // 将试剂索引转换为标准值索引（假设每个试剂对应4个标准值）
+    const int standardValueIndex = reagentIndex * 4 - 1;
+
+    FullyAutomatedPlatelets::pinstancesqlData()->synchronizeStandardValues(
+        standardValueIndex, isMale, maxValue, minValue, unit);
 }
 
-void Printthereport::insertwriteoffset(QPainter *pPainter,QPoint bottompos,int itemWidth, int itemHeight,QString uporduwn)
+/// \brief Printthereport::insertReferenceValues
+/// \param painter 绘图设备
+/// \param bottomPos 底部位置
+/// \param itemWidth 项目宽度
+/// \param itemHeight 项目高度
+/// \param minValue 最小值
+/// \param maxValue 最大值
+///
+void Printthereport::insertReferenceValues(QPainter *painter, const QPoint &bottomPos,
+                                          const int itemWidth, const int itemHeight,
+                                          const QVariant &minValue, const QVariant &maxValue)
 {
-    QPoint topleftoffset(bottompos.x() + 4*itemWidth,bottompos.y() - itemHeight);
-    QPoint bottomRightoffset(bottompos.x() + 5*itemWidth,bottompos.y());
-    pPainter->drawText(QRect(topleftoffset,bottomRightoffset),Qt::AlignVCenter|Qt::AlignLeft,uporduwn);
-    return;
+    // 参数验证
+    if (!painter || itemWidth <= 0 || itemHeight <= 0) {
+        return;
+    }
+
+    // 计算参考值显示区域
+    const int xOffset = 6;  // 参考值列的偏移量（假设在表格的第7列）
+    const QPoint topLeft(
+        bottomPos.x() + xOffset * itemWidth,
+        bottomPos.y() - itemHeight
+    );
+    const QPoint bottomRight(
+        bottomPos.x() + (xOffset + 1) * itemWidth,
+        bottomPos.y()
+    );
+
+    // 格式化参考值字符串
+    QString referenceText;
+    if (minValue.isValid() && maxValue.isValid()) {
+        double minVal = minValue.toDouble();
+        double maxVal = maxValue.toDouble();
+
+        // 根据数值大小决定小数位数
+        int precision = (maxVal - minVal < 0.01) ? 3 : 2;
+        referenceText = QString("%1-%2")
+                           .arg(minVal, 0, 'f', precision)
+                           .arg(maxVal, 0, 'f', precision);
+    } else {
+        referenceText = tr("无效参考值");
+    }
+
+    // 绘制文本
+    painter->drawText(QRect(topLeft, bottomRight),
+                      Qt::AlignVCenter | Qt::AlignLeft,
+                      referenceText);
+}
+//////////////////////////////////////参考值 --end////////////////////////////////////////////////////
+
+void Printthereport::insertwriteoffset(QPainter *painter, const QPoint &bottomPos,
+                                       const int itemWidth, const int itemHeight,
+                                       const QString &resultValue,
+                                       const QVariant &refMinVal, const QVariant &refMaxVal)
+{
+    // 参数验证
+   if (!painter || itemWidth <= 0 || itemHeight <= 0) {
+       qWarning() << "Printthereport::insertResultOffsetIndicator: 无效的参数";
+       return;
+   }
+
+   // 计算偏移指示器显示区域（通常在第5列）
+   const int columnOffset = 4;  // 偏移列索引
+   const QPoint topLeft(
+       bottomPos.x() + columnOffset * itemWidth,
+       bottomPos.y() - itemHeight
+   );
+   const QPoint bottomRight(
+       bottomPos.x() + (columnOffset + 1) * itemWidth,
+       bottomPos.y()
+   );
+
+   // 验证参考值有效性
+   if (!refMinVal.isValid() || !refMaxVal.isValid()) {
+       qWarning() << "Printthereport::insertResultOffsetIndicator: 参考值无效";
+       painter->drawText(QRect(topLeft, bottomRight),
+                        Qt::AlignVCenter | Qt::AlignLeft,
+                        "?");
+       return;
+   }
+
+   // 转换结果值为double类型
+   bool conversionOk = false;
+   const double testValue = resultValue.toDouble(&conversionOk);
+
+   if (!conversionOk) {
+       qWarning() << "Printthereport::insertResultOffsetIndicator: 结果值转换失败:" << resultValue;
+       painter->drawText(QRect(topLeft, bottomRight),
+                        Qt::AlignVCenter | Qt::AlignLeft,
+                        "?");
+       return;
+   }
+
+   // 获取参考范围值
+   bool minOk = false, maxOk = false;
+   const double refMin = refMinVal.toDouble(&minOk);
+   const double refMax = refMaxVal.toDouble(&maxOk);
+
+   if (!minOk || !maxOk) {
+       qWarning() << "Printthereport::insertResultOffsetIndicator: 参考值转换失败";
+       painter->drawText(QRect(topLeft, bottomRight),
+                        Qt::AlignVCenter | Qt::AlignLeft,
+                        "?");
+       return;
+   }
+
+   // 判断结果相对于参考范围的位置并选择对应的指示符号
+   QString indicatorSymbol;
+
+   if (testValue < refMin) {
+       // 低于参考范围
+       indicatorSymbol = "↓";  // 向下箭头
+   }
+   else if (testValue > refMax) {
+       // 高于参考范围
+       indicatorSymbol = "↑";  // 向上箭头
+   }
+   else {
+       // 在参考范围内
+       if (qFuzzyCompare(testValue, refMin) || qFuzzyCompare(testValue, refMax)) {
+           // 处于边界值
+           indicatorSymbol = "↔";  // 左右箭头
+       } else {
+           // 正常范围内
+           indicatorSymbol = "✓";  // 对勾
+       }
+   }
+
+   // 设置字体（可选：根据内容调整大小或样式）
+   QFont originalFont = painter->font();
+   QFont indicatorFont = originalFont;
+   indicatorFont.setPointSize(originalFont.pointSize() + 2);  // 稍微放大指示符号
+   painter->setFont(indicatorFont);
+
+   // 绘制指示符号
+   painter->drawText(QRect(topLeft, bottomRight),
+                    Qt::AlignVCenter | Qt::AlignLeft,
+                    indicatorSymbol);
+
+   // 恢复原始字体
+   painter->setFont(originalFont);
+
 }
 
 
@@ -206,7 +308,8 @@ void Printthereport::slotwritePdf(QString pathload)
 
 void Printthereport::printDocument(QPrinter *printer)
 {
-    QString _hospitalName = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword("hospital_name");
+    const QString hospitalName = "hospital_name";
+    QString titleHospital = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword(hospitalName);
 
     int spacing_ = 30;
 
@@ -221,7 +324,7 @@ void Printthereport::printDocument(QPrinter *printer)
     font_title.setPointSize(16);
     //标题
     int title_heigh = 100;
-    pPainter->drawText(QRect(spacing_,spacing_,nPDFWidth,title_heigh),Qt::AlignCenter,QString("%1血小板聚集测试报告").arg(_hospitalName));
+    pPainter->drawText(QRect(spacing_,spacing_,nPDFWidth,title_heigh),Qt::AlignCenter,QString("%1血小板聚集测试报告").arg(titleHospital));
 
     //打印时间
     font_title.setPointSize(6);
@@ -327,19 +430,31 @@ void Printthereport::printDocument(QPrinter *printer)
     auto it = resultdata.begin();
     while(it != resultdata.end())
     {
-        QPoint bottomy = switchReagentName(pPainter,it.key(),nrows,resultBottom,itemWidth,itemHeight,spacing_); //试剂名称
+        //试剂名称
+        QPoint bottomy = switchReagentName(pPainter,it.key(),nrows,resultBottom,
+                                           itemWidth,itemHeight,spacing_);
+
         QStringList reagresult_ = it.value();
+        QString outPutMax = "";
+        //写入测试结果
         for(int k = 0; k < reagresult_.size(); k++)
         {
             QString resultreagdata = reagresult_.at(k);
-            fullintopdfreagresult(pPainter,resultreagdata,k,bottomy,itemWidth,itemHeight);  //写入测试结果
+            const int index = k+1;
+            if(index == reagresult_.size()){
+				outPutMax = resultreagdata;
+                QUIUtils::parseDataratio(outPutMax);
+            }
+            fullintopdfreagresult(pPainter,resultreagdata,k,bottomy,itemWidth,itemHeight);
         }
 
-        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,"↑"); //偏移
+        QVariant maxVal =0,minVal = 0;
+        QString keyUnit ="";
+        syncReferenceValue(it.key(),mansex,maxVal,minVal,keyUnit);
 
-        intsertwriteunit(pPainter,bottomy,itemWidth,itemHeight); //单位
-
-        intsertReferencevalues(pPainter,bottomy,itemWidth,itemHeight,mansex);//参考值
+        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,outPutMax,minVal,maxVal); //偏移
+        intsertwriteunit(pPainter,bottomy,itemWidth,itemHeight,keyUnit); //单位
+        insertReferenceValues(pPainter,bottomy,itemWidth,itemHeight,minVal,maxVal);//参考值
 
         bottomInfopos = bottomy;
 
@@ -384,8 +499,6 @@ void Printthereport::printDocument(QPrinter *printer)
     pPainter->restore();
     pPainter->end();
     delete pPainter;
-
-
     return;
 }
 
@@ -400,7 +513,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
         return;
     }
 
-    QString _hospitalName = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword("hospital_name");
+    QString titleHospital = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword("hospital_name");
 
     QPdfWriter *pWriter = new QPdfWriter(&pdfFile);
     pWriter->setPageSize(QPagedPaintDevice::A4);
@@ -426,7 +539,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     //标题
     const int kTitleHeight  = 100;
     pPainter->drawText(QRect(kPageMargin,kPageMargin,nPDFWidth,kTitleHeight ),Qt::AlignCenter,
-                       QString("%1血小板聚集测试报告").arg(_hospitalName));
+                       QString("%1血小板聚集测试报告").arg(titleHospital));
 
     //打印时间
     font_title.setPointSize(kSmallFontSize);
@@ -537,17 +650,28 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     {
         QPoint bottomy = switchReagentName(pPainter,it.key(),nrows,resultBottom,itemWidth,itemHeight,kPageMargin); //试剂名称
         QStringList reagresult_ = it.value();
+        QString outPutMax = "";
+        //写入测试结果
         for(int k = 0; k < reagresult_.size(); k++)
         {
             QString resultreagdata = reagresult_.at(k);
-            fullintopdfreagresult(pPainter,resultreagdata,k,bottomy,itemWidth,itemHeight);  //写入测试结果
+            const int index = k+1;
+            if(index == reagresult_.size()){
+                outPutMax = resultreagdata;
+                QUIUtils::parseDataratio(outPutMax);
+            }
+            fullintopdfreagresult(pPainter,resultreagdata,k,bottomy,itemWidth,itemHeight);
         }
 
-        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,"↑"); //偏移
+        QVariant maxVal =0,minVal = 0;
+        QString keyUnit ="";
+        syncReferenceValue(it.key(),mansex,maxVal,minVal,keyUnit);
 
-        intsertwriteunit(pPainter,bottomy,itemWidth,itemHeight); //单位
 
-        intsertReferencevalues(pPainter,bottomy,itemWidth,itemHeight,mansex);//参考值
+        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,outPutMax,minVal,maxVal); //偏移
+
+        intsertwriteunit(pPainter,bottomy,itemWidth,itemHeight,keyUnit); //单位
+        insertReferenceValues(pPainter,bottomy,itemWidth,itemHeight,minVal,maxVal);//参考值
 
         bottomInfopos = bottomy;
 

@@ -2,27 +2,67 @@
 #ifndef DATAPROCESSOR_H
 #define DATAPROCESSOR_H
 
+#include "cglobal.h"
 #include <QVector>
 #include <QObject>
 #include <QString>
 #include <QMap>
 #include <cmath>
-
-// 定义 M_PI
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
 
 
+struct ReagentPrPInitialValues {
+    int reagentAA;
+    int reagentADP;
+    int reagentEPI;
+    int reagentCOL;
+    int reagentRIS;
 
-// 定义参数结构体
-struct TransitionParams {
-    int sinLength;
-    double maxNegative;
-    bool operator==(const TransitionParams& other) const {
-        return sinLength == other.sinLength &&
-               qFuzzyCompare(maxNegative, other.maxNegative);
+    // 构造函数，可以初始化所有值
+    ReagentPrPInitialValues(int r1 = 0, int r2 = 0, int r3 = 0, int r4 = 0, int r5 = 0)
+        : reagentAA(r1), reagentADP(r2), reagentEPI(r3), reagentCOL(r4), reagentRIS(r5) {}
+
+    // 检查是否所有试剂都有值
+    bool hasAllValues() const {
+        return reagentAA != 0 && reagentADP != 0 && reagentEPI != 0 &&
+               reagentCOL != 0 && reagentRIS != 0;
     }
+
+    // 检查是否所有试剂都为零（未初始化）
+    bool isAllZero() const {
+        return reagentAA == 0 && reagentADP == 0 && reagentEPI == 0 &&
+               reagentCOL == 0 && reagentRIS == 0;
+    }
+
+    // 获取指定试剂的值
+    int getReagentValue(int index) const {
+        switch(index) {
+            case AA_REAGENT: return reagentAA;
+            case ADP_REAGENT: return reagentADP;
+            case EPI_REAGENT: return reagentEPI;
+            case COL_REAGENT: return reagentCOL;
+            case RIS_REAGENT: return reagentRIS;
+            default: return 0;
+        }
+    }
+
+    // 设置指定试剂的值
+    void setReagentValue(int index, int value) {
+        switch(index) {
+            case AA_REAGENT: reagentAA = value; break;
+            case ADP_REAGENT: reagentADP = value; break;
+            case EPI_REAGENT: reagentEPI = value; break;
+            case COL_REAGENT: reagentCOL = value; break;
+            case RIS_REAGENT: reagentRIS = value; break;
+        }
+    }
+
+    // 删除指定试剂的值
+   void removeReagentValue(int index) {
+       setReagentValue(index, 0);  // 设置为0表示删除
+   }
 };
 
 class DataProcessor
@@ -30,32 +70,19 @@ class DataProcessor
 public:
     DataProcessor();
 
-    QVector<double> createControlledSinTransition(const QVector<double>& originalData,
-                                                    int sinLength = 150,
-                                                    double maxNegative = -20.0);
+    int recvTestPara(const QString& sampleNum, bool &usedTestPrp,
+                     quint8 reagentIndex, int currentRichValue,
+                     int baselineRich, int totalDataPoints);
 
-    // 根据样本号获取或生成参数
-    TransitionParams getOrGenerateParams(const QString& sampleID);
+    int  setReagentFirstPrpValue(const QString& sampleNum, quint8 reagentIndex, int currentRichValue);
 
-    // 保存参数到文件
-    void saveParamsToFile();
+    int  getReagentFirstPrpValue(const QString& sampleNum, quint8 reagentIndex, int baselineRich);
 
-    // 从文件加载参数
-    void loadParamsFromFile();
+    bool removeReagentPrpValue(const QString& sampleNum, quint8 reagentIndex);
 
-    void creatRandVal(int &randLength,double &randNative);
 private:
-    // 生成随机参数
-    TransitionParams generateRandomParams();
-
-    // 根据样本号生成确定性随机参数（相同的样本号得到相同的参数）
-    TransitionParams generateDeterministicParams(const QString& sampleID);
-
-    // 存储参数映射：样本号 -> 参数
-    QMap<QString, TransitionParams> m_paramsMap;
-
-    // 参数文件名
-    QString m_paramsFileName;
+   mutable QMutex m_mutex;
+   QHash<QString, ReagentPrPInitialValues> m_mapFirstPrPVal;
 
 };
 

@@ -280,16 +280,16 @@ public:
 public:
 
     /* 插入机器配置数据库空试管区状态*/
-    void     InsertEmptyTube(const int Tubenum, const int State, const QString TypeReagent, const int SampleNum);
+    void InsertEmptyTube(const int Tubenum, const int State, const QString TypeReagent, const int SampleNum);
 
     /*更换测试试管盘状态(空闲)*/
-    void    logUpdateError(const QSqlError& error, int trayIndex, int hole) ;
-    void    UpadteTrayState(const quint8 WitchTray);
+    void logUpdateError(const QSqlError& error, int trayIndex, int hole) ;
+    void UpadteTrayState(const quint8 WitchTray);
 
     /*更改单个试管状态*/
-    void     UpdateEmptyTube_State(const int tubeNum, const int state); //更新状态
-    void     UpdateEmptyTube_TypeReagent(const int Tubenum, const QString Type); //更新试剂类型
-    void     UpdateEmptyTube_SampleNum(const int Tubenum, const int SampleNum); //更新样本号
+    void UpdateEmptyTube_State(const int tubeNum, const int state); //更新状态
+    void UpdateEmptyTube_TypeReagent(const int Tubenum, const QString Type); //更新试剂类型
+    void UpdateEmptyTube_SampleNum(const int Tubenum, const int SampleNum); //更新样本号
 
     //查询全部
     void     FindAllEmptyTube(QVariantList &tubeInfo);

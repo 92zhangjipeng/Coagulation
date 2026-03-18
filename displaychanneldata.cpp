@@ -25,8 +25,6 @@ displayChanneldata::displayChanneldata(QObject *parent) : QObject(parent)
     moveToThread(&m_workerThread);
     sentSamples.clear();
 
-    m_mapFirstPrPVal.clear(); //保存第一次的PRP值
-
     connect(&m_workerThread,&QThread::started,this,&displayChanneldata::startthread);
 }
 
@@ -335,22 +333,41 @@ void displayChanneldata::processChannelData(int channelIdx){
             channelIdx, params.anaemiaValue, params.bloodValue,
             params.reagentIndex, params.testSample);
 
-    if(params.reagentIndex == ANEMIA) return;
-
-    // 样本异常检测 样本prp prp 是否异常 0
-	sampleAbnormality(params.bloodValue, params.anaemiaValue,
-					dataIt.value(), sampleName, channelIdx);
-        
+    if(params.reagentIndex == ANEMIA)  return;
 
     // 执行核心计算
     calculationFormula(sampleName, params.reagentIndex, dataIt.value(),
                           params.anaemiaValue, params.bloodValue, channelNumber);
 }
 
-
-void displayChanneldata::handleTestCompletion(const QString& sampleNum,
+void displayChanneldata::calculationFormula(const QString& sampleNum,
                                             quint8 reagentIndex,
-                                            int channelIdx)
+                                            int currentRichValue,
+                                            int baselinePoor,
+                                            int baselineRich,
+                                            int channelIdx){
+
+    int totalDataPoints = 0;
+    // 获取测试数据总数
+    StructInstance::getInstance()->fetchTestDataTotal(sampleNum, reagentIndex, totalDataPoints);
+
+    if(totalDataPoints == NUMBEROFTESTDATA){
+        handleTestCompletion(sampleNum, reagentIndex, channelIdx);
+        return;
+    }
+
+	//每次开始采集数据的时候判断一下值
+	// 样本异常检测 样本prp prp 是否异常 0
+	if (totalDataPoints == 0) {
+		sampleAbnormality(baselineRich, baselinePoor, currentRichValue, sampleNum, channelIdx , reagentIndex);
+	}
+	
+    // 主逻辑处理
+    processTestData(sampleNum, reagentIndex, currentRichValue,
+                    baselinePoor, baselineRich, channelIdx, totalDataPoints);
+}
+
+void displayChanneldata::handleTestCompletion(const QString& sampleNum, quint8 reagentIndex, int channelIdx)
 {
     m_experimenttestData = false;
 
@@ -373,65 +390,20 @@ void displayChanneldata::handleTestCompletion(const QString& sampleNum,
      //耗材消耗统计
     FullyAutomatedPlatelets::pinstancesqlData()->testendAddStasReagent(sampleNum, reagentIndex);
 
+    //删除完成单个试剂的PRP值
+    processor.removeReagentPrpValue(sampleNum,reagentIndex);
+
     clearAlgorithmCache();
 }
 
 
 
-int displayChanneldata::outPutPrpReplacVal(const QString& sampleNum,quint8 reagentIndex,
-                                           int currentRichValue,int baselineRich,int totalDataPoints){
 
-    // 用于计算聚合率的基线Rich值（从m_mapFirstPrPVal中获取）
-    int baselineRichForCalc = 0;
 
-    if(totalDataPoints == 0){
-        // 获取或创建样本的初始值结构
-        ReagentPrPInitialValues initialValues;
-
-        // 如果已经存在，获取现有值
-        if (m_mapFirstPrPVal.contains(sampleNum)) {
-            initialValues = m_mapFirstPrPVal[sampleNum];
-        }
-
-        // 设置当前试剂的初始值
-        initialValues.setReagentValue(reagentIndex, currentRichValue);
-
-        // 更新Map
-        m_mapFirstPrPVal[sampleNum] = initialValues;
-
-        // 设置用于计算的基线Rich值（使用新存储的值）
-        baselineRichForCalc = currentRichValue;
-
-        // 调试输出，可以删除
-        QLOG_DEBUG() << "样本号:" << sampleNum  << "试剂:" << reagentIndex << "PRP(1):" << currentRichValue;
-    } else{
-        if (m_mapFirstPrPVal.contains(sampleNum)){
-            int storedInitialValue = m_mapFirstPrPVal[sampleNum].getReagentValue(reagentIndex);
-            if (storedInitialValue != 0) {
-                baselineRichForCalc = storedInitialValue;
-            }else{
-                // 如果没有存储的值，使用传入的baselineRich
-                baselineRichForCalc = baselineRich;
-                QLOG_WARN() << "No stored initial value for sample" << sampleNum
-                                               << "reagent" << reagentIndex << ", using provided value:" << baselineRich;
-                }
-            }else {
-            // 如果样本不存在于Map中，使用传入的baselineRich
-            baselineRichForCalc = baselineRich;
-            QLOG_WARN() << "Sample" << sampleNum << "not found in initial values map, using provided baselineRich:" << baselineRich;
-        }
-    }
-    return baselineRichForCalc;
-}
-
-void displayChanneldata::processTestData(const QString& sampleNum,
-                                       quint8 reagentIndex,
-                                       int currentRichValue,
-                                       int baselinePoor,
-                                       int baselineRich,
-                                       int channelIdx,
-                                       int totalDataPoints)
+void displayChanneldata::processTestData(const QString& sampleNum, quint8 reagentIndex, int currentRichValue,int baselinePoor,
+                                           int baselineRich,  int channelIdx,  int totalDataPoints)
 {
+
     if(totalDataPoints < NUMBEROFTESTDATA){
 
         const bool isLogMode = getAbsorbanceAlgorithm();  // 这里使用缓存
@@ -439,17 +411,22 @@ void displayChanneldata::processTestData(const QString& sampleNum,
         // PPP值处理提取为独立函数
         baselinePoor = getBaselinePoorValue(channelIdx, baselinePoor);
 
-        // 用于计算聚合率的基线Rich值（从m_mapFirstPrPVal中获取）
-        int baselineRichForCalc = outPutPrpReplacVal(sampleNum,reagentIndex,currentRichValue,baselineRich,totalDataPoints);
+        // 用于计算聚合率的基线Rich值（从m_mapFirstPrPVal中获取)
+        //PRP0取消 使用PRP1用于替换原来PRP0进行计算
+        bool usedTestingPrpVal = false;
+        int baselineRichForCalc = processor.recvTestPara(sampleNum,usedTestingPrpVal,reagentIndex,
+                                    currentRichValue,baselineRich,totalDataPoints);
+        Q_UNUSED(usedTestingPrpVal);
 
-        const float resultValue = calculateAggregationRate(isLogMode,
-                static_cast<float>(currentRichValue),
-                static_cast<float>(baselineRichForCalc),// 使用从m_mapFirstPrPVal获取的值
-                static_cast<float>(baselinePoor));
+		const float resultValue = calculateAggregationRate(isLogMode,
+               static_cast<float>(currentRichValue),
+               static_cast<float>(baselineRichForCalc),// 使用从m_mapFirstPrPVal获取的值
+               static_cast<float>(baselinePoor));
 
-        // 数据保存和显示
+
+        // 数据保存和显示 整体测试个数+1
         StructInstance::getInstance( )->updteSaveChnTestData(channelIdx, reagentIndex,
-                                                               currentRichValue, resultValue);
+                                                             currentRichValue, resultValue);
 
         //提示测试通道在测样本信息
         FullyAutomatedPlatelets::pinstanceTesting()->showTestChannelInfo(channelIdx, sampleNum, reagentIndex);
@@ -461,26 +438,7 @@ void displayChanneldata::processTestData(const QString& sampleNum,
 
 
 
-void displayChanneldata::calculationFormula(const QString& sampleNum,
-                                            quint8 reagentIndex,
-                                            int currentRichValue,
-                                            int baselinePoor,
-                                            int baselineRich,
-                                            int channelIdx){
 
-    int totalDataPoints = 0;
-    // 获取测试数据总数
-    StructInstance::getInstance()->fetchTestDataTotal(sampleNum, reagentIndex, totalDataPoints);
-
-    if(totalDataPoints == NUMBEROFTESTDATA){
-        handleTestCompletion(sampleNum, reagentIndex, channelIdx);
-        return;
-    }
-
-    // 主逻辑处理
-    processTestData(sampleNum, reagentIndex, currentRichValue,
-                    baselinePoor, baselineRich, channelIdx, totalDataPoints);
-}
 
 int displayChanneldata::getBaselinePoorValue(int channelIdx, int currentBaseline)
 {
@@ -733,12 +691,6 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,const quint8 ind
     StructInstance::getInstance()->sycn_sampleneed_data(sampleId,openChn);
     StructInstance::getInstance()->config_testChn_test_reagent(openChn,index_reagent); //设置测试试剂
 
-    if(openChn  >= MACHINE_SETTING_CHANNEL){
-        QLOG_WARN()<<"接收数据越界!";
-    } else{
-      mOpenChnTest[openChn] = true;
-      QLOG_DEBUG()<<"通道"<<openChn+1<<"打开阀门接收数据";
-    }
 
     //如果清洗血样针的命令不为空==清洗双针
     bool alreadyCleanBloodpin = StructInstance::getInstance()->judge_alreadyCleanBloodpin(sampleId,indexActive);
@@ -752,6 +704,18 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,const quint8 ind
         emit  addSampmeTestCleanPin(WASH_REAGENT_NEDDLES,index_reagent);  //清洗试剂针
         QLOG_DEBUG()<<"准备清试剂针"<<index_reagent;
     }
+
+    if(openChn  >= MACHINE_SETTING_CHANNEL){
+        QLOG_WARN()<<"接收数据越界!";
+    } else{
+        // 使用QTimer延时1秒执行
+        QTimer::singleShot(2000, this, [=]() {
+            mOpenChnTest[openChn] = true;
+            QLOG_DEBUG() << "通道" << openChn + 1 << "打开阀门接收数据";
+        });
+    }
+
+
     return;
 }
 
@@ -808,19 +772,27 @@ int displayChanneldata::optimizedMedianFiltering(QVector<int>& data)
     }
 }
 
+bool displayChanneldata::sampleAbnormality(const int& initprp,const int anaemiaValue,const int&curprp,const QString& sampleid,
+                                            const quint8& channelIdx,const quint8 indexReagent){
 
+    // 当 initprp 小于等于 0 时，提示样本量较少但不取消任务
+    if (initprp <= 0 || curprp <= 0) {
+		if (!sentSamples.contains(sampleid)) {
+			QString reagentName = QUIUtils::index_reagent_mapping_reagentName(indexReagent);
+			QString errorMsg = QString("样本ID %1[%2] 通道 %3 可能PRP样本量较少").arg(sampleid).arg(reagentName).arg(channelIdx);
+			QLOG_WARN() << errorMsg;
+			sentSamples.insert(sampleid);
+			emit channelDataError(errorMsg);
+		}
+    }
 
-bool displayChanneldata::sampleAbnormality(const int& initprp,
-                                            const int anaemiaValue,
-                                            const int&curprp,
-                                            const QString& sampleid,
-                                            const quint8& channelIdx){
-    if (initprp == 0 || curprp == 0 && anaemiaValue == 0) {
+    // 当 anaemiaValue 的值为 0 时，取消任务
+    if (anaemiaValue == 0) {
        // 检查该样本的信号是否已发送过
        if (!sentSamples.contains(sampleid)) {
-           emit sampleTestingErr(sampleid,channelIdx); // 发送信号
+           emit sampleTestingErr(sampleid, channelIdx - 1); // 发送信号取消任务
            sentSamples.insert(sampleid);    // 标记该样本的信号已发送
-           return true;
+           return true; // 返回 true 表示取消任务
        }
     }
     return false;

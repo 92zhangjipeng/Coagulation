@@ -110,17 +110,16 @@ void MainWindow::stopAndWaitThreads()
     // 添加线程停止获取主板线程方法
     if (m_ObtainMainBoardData) {
         m_ObtainMainBoardData->stop();
+        delete m_ObtainMainBoardData;
+        m_ObtainMainBoardData = nullptr;
     }
+
     if (m_threadMainBoard.isRunning()) {
         m_threadMainBoard.quit();
         if (!m_threadMainBoard.wait(1000)) {
             QLOG_WARN() << "MainBoard thread termination timeout!";
-            //m_threadMainBoard.terminate();
-            //m_threadMainBoard.wait();
         }
     }
-    m_ObtainMainBoardData = nullptr;
-
 
     if (mThreaddotest.isRunning()) {
         mThreaddotest.quit();
@@ -129,6 +128,7 @@ void MainWindow::stopAndWaitThreads()
             //mThreaddotest.terminate();  // 强制终止（慎用）
         }
     }
+
     m_pdoingTesting.reset();
 
 
@@ -464,6 +464,18 @@ void MainWindow::init_style_all()
     connect(mshowModuledata.data(),&displayChanneldata::sampleTestingErr,
             FullyAutomatedPlatelets::pinstancepatientdata(),
             &Calibrate::recvSampleTestingErr);
+
+    // 连接通道数据错误信号，显示非阻塞提示给用户
+    connect(mshowModuledata.data(), &displayChanneldata::channelDataError,
+            this, [=](const QString &errorMsg) {
+        // 创建非模态对话框
+        QMessageBox *msgBox = new QMessageBox(this);
+        msgBox->setWindowTitle("提示");
+        msgBox->setText(errorMsg);
+        msgBox->setStandardButtons(QMessageBox::Ok);
+        msgBox->setAttribute(Qt::WA_DeleteOnClose); // 关闭时自动删除
+        msgBox->show(); // 非阻塞显示
+    });
 
 
     //机器参数配置

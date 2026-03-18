@@ -284,7 +284,7 @@ namespace QUIUtils
     * @param indexReag 试剂编号映射试剂名
     * @return
     */
-    QString index_reagent_mapping_reagentName(QString outText, const quint8 indexReag);
+    QString index_reagent_mapping_reagentName(const quint8 indexReag, QString outText = "");
 
 
 
