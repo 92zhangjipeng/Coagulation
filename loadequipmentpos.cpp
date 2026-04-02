@@ -3288,27 +3288,25 @@ void loadEquipmentPos::loadParaData(bool isexit, QString filePath, QString key, 
 
 QPoint loadEquipmentPos::initOriginAxis(const quint8 &indexEquipment)
 {
-     QPoint originAxis(0,0); //原点坐标
-     int originx = 0,originy = 0;
-     switch (indexEquipment) {
-         case KS600:
-             originx = 122;
-             originy = 101;
-         break;
-         case KS800:
-             originx = 122;
-             originy = 101;
-         break;
-         case KS1200:
-            originx = 101;
-            originy = 106;
-         break;
-         default:
-             break;
-     }
-     configAxisPoint(originAxis, originx, originy);
-     SingletonAxis::GetInstance()->originPos(WRITE_OPERAT, originAxis);
-     return originAxis;
+    // 使用静态映射表
+    static const std::unordered_map<quint8, std::pair<int, int>> originMap = {
+        {KS600,  {122, 101}},
+        {KS800,  {122, 101}},
+        {KS1200, {101, 106}}
+    };
+
+    // 查找并获取坐标，默认(0,0)
+    auto it = originMap.find(indexEquipment);
+    int originX = 0, originY = 0;
+    if (it != originMap.end()) {
+        originX = it->second.first;
+        originY = it->second.second;
+    }
+
+    QPoint originAxis(originX, originY);
+    configAxisPoint(originAxis, originX, originY);
+    SingletonAxis::GetInstance()->originPos(WRITE_OPERAT, originAxis);
+    return originAxis;
 }
 
 QPoint loadEquipmentPos::initCleanLinqueoffsetBloodPin(const quint8 &indexEquipment)

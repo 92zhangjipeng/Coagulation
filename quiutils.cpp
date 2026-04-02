@@ -2391,51 +2391,52 @@ void  QUIUtils::creatBloodSampleAxis(int equipType, QPoint firstPos, QMap<quint8
 void  QUIUtils::creatTeatTubeAxiis(int indexZ, int equipType, QMap<quint8,QPoint> &TsetTubeAxispos,
                                      QPoint arrStartpos[], int length)
 {
-    QPoint heandPos[4] = {};
-    for (int i = 0 ; i < length; ++i)
-    {
-       heandPos[i] = arrStartpos[i];
+
+    // 参数有效性检查
+    if (length <= 0 || arrStartpos == nullptr) {
+        return;
     }
-    //1200 试管盘间距
-    const uint spaceTube = 149; //内部试管横 纵向间距相同
-    QPoint tmpaxis(0,0);
+
+    // 使用vector避免固定数组大小限制
+    std::vector<QPoint> headPos(arrStartpos, arrStartpos + length);
+
+    // 试管盘间距常量
+    constexpr int SPACE_TUBE = 149;  // 内部试管横纵向间距相同
+    constexpr int ROWS = 10;          // 行数
+    constexpr int COLS = 6;           // 列数
+
+
+    // 根据设备类型确定试管盘数量
     int totalTray = 0;
-    int m = 0;
-    switch(equipType)
-    {
-        case KS600: totalTray = 2; break;
-        case KS800: totalTray = 3; break;
+    switch (equipType) {
+        case KS600:  totalTray = 2; break;
+        case KS800:  totalTray = 3; break;
         case KS1200: totalTray = 4; break;
+        default:     return;          // 无效的设备类型
     }
-    if(indexZ == MOTOR_HANDS_INDEX)
-    {
-        for(int t = 0; t < totalTray; t++)
-        {
-            for(int r = 0; r < 10; r++)
-            {
-                for(int L = 0; L < 6; L++)
-                {
-                    tmpaxis.setX(heandPos[t].x() + L*spaceTube);
-                    tmpaxis.setY(heandPos[t].y() + r*spaceTube);
-                    TsetTubeAxispos.insert(m,tmpaxis);
-                    m++;
-                }
-            }
-        }
-    }
-    else if(indexZ == MOTOR_BLOOD_INDEX)
-    {
-        for(int t = 0; t < totalTray; t++)
-        {
-            for(int r = 0; r < 10; r++)
-            {
-                for(int L = 0; L < 6; L++)
-                {
-                    tmpaxis.setX(heandPos[t].x() + L*spaceTube);
-                    tmpaxis.setY(heandPos[t].y() + r*spaceTube);
-                    TsetTubeAxispos.insert(m,tmpaxis);
-                    m++;
-                }
+
+    // 确保试管盘数量不超过传入的起始坐标数量
+    totalTray = qMin(totalTray, length);
+
+    // 清除原有数据并预留空间
+	TsetTubeAxispos.clear();
+	//TsetTubeAxispos.reserve(totalTray * ROWS * COLS);
+
+    QPoint tmpAxis;
+    int index = 0;
+
+    // 两个分支代码完全相同，可以合并
+    // 如果未来需要区分处理，可以在这里添加标志
+    for (int tray = 0; tray < totalTray; ++tray) {
+        const QPoint& startPos = headPos[tray];
+
+        for (int row = 0; row < ROWS; ++row) {
+            int yPos = startPos.y() + row * SPACE_TUBE;
+
+            for (int col = 0; col < COLS; ++col) {
+                tmpAxis.setX(startPos.x() + col * SPACE_TUBE);
+                tmpAxis.setY(yPos);
+				TsetTubeAxispos.insert(index++, tmpAxis);
             }
         }
     }
