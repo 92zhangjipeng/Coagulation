@@ -31,6 +31,7 @@ typedef struct SAMPLEBLOODZONEAXISPOS {
     QPoint axisPos;
 }SAMPLEBLOODZONEAXISPOS_;//血样区坐标
 
+
 typedef struct EquipmentAXIS
 {
     bool    bsycnFinished; //坐标同步状态
@@ -167,6 +168,8 @@ typedef struct EquipmentAXIS
 
 
 
+
+
 class SingletonAxis
 {
 public:
@@ -228,8 +231,11 @@ private:
 private:
     static SingletonAxis  *g_pSingletonAxis;
     static EquipmentAXIS_ *g_pEquipAxiaspos;
-    //static EquipmentAXIS_*g_pEquipAxiaspos;
+    static std::mutex m_mutex;
 };
+
+
+
 
 
 ///////////////////////耗材信息//////////////////////////////////

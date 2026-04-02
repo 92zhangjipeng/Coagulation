@@ -7,13 +7,13 @@
 #include <unordered_map>
 #include <QDesktopWidget>
 #include <functional>
-#include <unordered_map>
 #include <QFile>
 #include <QTextStream>
 #include <array>
 
 SingletonAxis *SingletonAxis::g_pSingletonAxis = new (std::nothrow) SingletonAxis;
 EquipmentAXIS_ *SingletonAxis::g_pEquipAxiaspos = NULL;
+std::mutex SingletonAxis::m_mutex;
 
 
 //试剂耗材信息
@@ -34,9 +34,13 @@ SingletonAxis *SingletonAxis::GetInstance()
 
 EquipmentAXIS_ *SingletonAxis::GetpStruct()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (g_pEquipAxiaspos == nullptr)
     {
-        g_pEquipAxiaspos = new EquipmentAXIS_;
+        g_pEquipAxiaspos = new (std::nothrow) EquipmentAXIS_;
+        if (!g_pEquipAxiaspos) {
+            QLOG_ERROR() << "Failed to allocate memory for EquipmentAXIS";
+        }
     }
     return g_pEquipAxiaspos;
 }
@@ -45,9 +49,16 @@ EquipmentAXIS_ *SingletonAxis::GetpStruct()
 
 void SingletonAxis::deleteInstance()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     if(g_pSingletonAxis){
         delete g_pSingletonAxis;
         g_pSingletonAxis = NULL;
+    }
+
+    if (g_pEquipAxiaspos) {
+        delete g_pEquipAxiaspos;
+        g_pEquipAxiaspos = NULL;
     }
 }
 
@@ -102,37 +113,43 @@ void SingletonAxis::throwTubeHolePos(bool bWrite, QPoint &pos)
 
 void SingletonAxis::cleanZoneAxisPos(bool bWrite,int indexNedl,QPoint &pos)
 {
-    EquipmentAXIS_* axisData = GetpStruct(); // 改为指针
+    EquipmentAXIS_* axisData = GetpStruct();
+    if (!axisData) {
+        return;
+    }
 
-    // 使用lambda延迟获取指针，避免静态初始化问题
-    static auto getMotorMap = [axisData]() {
-        std::unordered_map<int, QPoint*> map;
-        map[MOTOR_BLOOD_INDEX] = &axisData->cleanZoneoffsetBlodNedl;
-        map[MOTOR_REAGNET_INDEX] = &axisData->cleanZoneoffsetRegNedl;
-        return map;
-    };
+    QPoint* targetPoint = nullptr;
 
-    static const auto motorMap = getMotorMap();
+    switch (indexNedl) {
+    case MOTOR_BLOOD_INDEX:
+        targetPoint = &axisData->cleanZoneoffsetBlodNedl;
+        break;
+    case MOTOR_REAGNET_INDEX:
+        targetPoint = &axisData->cleanZoneoffsetRegNedl;
+        break;
+    default:
+        QLOG_WARN() << "Invalid needle index:" << indexNedl;
+        return;
+    }
 
-    auto it = motorMap.find(indexNedl);
-    if (it != motorMap.end()) {
-        if (bWrite) {
-            *(it->second) = pos;
-        } else {
-            pos = *(it->second);
-        }
+    if (bWrite) {
+        *targetPoint = pos;
+    } else {
+        pos = *targetPoint;
     }
 }
 
 bool SingletonAxis::ismoveXYsuckReagent(const QPoint &locpos){
+    if (!g_pEquipAxiaspos) {
+        return false;
+    }
     auto &container = g_pEquipAxiaspos->reagentZoneAxispos;
     auto findIt = std::find_if(container.cbegin(), container.cend(),
             [&locpos](const REAGENTZONEAXIS_ *item) {
                 Q_ASSERT_X(item != nullptr, "findReagentIndex", "Null item in reagent position container");
-                return item->Axispos == locpos;
+                return item && item->Axispos == locpos;
             });
     if(findIt == container.cend()){
-        //QLOG_ERROR() << "试剂针移动影射试剂索引无效(非试剂区坐标)" ;
         return false;
     }
     return true;
@@ -140,11 +157,16 @@ bool SingletonAxis::ismoveXYsuckReagent(const QPoint &locpos){
 
 quint8 SingletonAxis::outPutLossReagentIndex(const QPoint &locpos)
 {
+    if (!g_pEquipAxiaspos) {
+        QLOG_ERROR() << "Equipment axis data not initialized";
+        return 255;
+    }
+
     auto &container = g_pEquipAxiaspos->reagentZoneAxispos;
     auto findIt = std::find_if(container.cbegin(), container.cend(),
             [&locpos](const REAGENTZONEAXIS_ *item) {
-				Q_ASSERT_X(item != nullptr, "findReagentIndex", "Null item in reagent position container");
-                return item->Axispos == locpos;
+                Q_ASSERT_X(item != nullptr, "findReagentIndex", "Null item in reagent position container");
+                return item && item->Axispos == locpos;
             });
     if(findIt == container.cend()){
         QLOG_ERROR() << "试剂针移动影射试剂索引无效(非试剂区坐标)" ;
@@ -155,32 +177,37 @@ quint8 SingletonAxis::outPutLossReagentIndex(const QPoint &locpos)
 
 void SingletonAxis::reagetZoneAxisPos(bool bWrite, quint8 indexReag, QPoint &pos)
 {
+    if (!g_pEquipAxiaspos) {
+        QLOG_ERROR() << "Equipment axis data not initialized";
+        pos = QPoint(0, 0);
+        return;
+    }
+
     auto &container = g_pEquipAxiaspos->reagentZoneAxispos;
 
     auto findIt = std::find_if(container.begin(), container.end(),
             [indexReag](const REAGENTZONEAXIS_ *item) {
-                return item->index == indexReag;
+                return item && item->index == indexReag;
             });
 
     if (bWrite) {
         if (findIt != container.end()) {
-            // 存在则直接更新
             (*findIt)->Axispos = pos;
-            (*findIt)->reagname.clear(); // 明确清空而非赋空字符串
+            (*findIt)->reagname.clear();
         } else {
-            // 不存在则创建新项（使用智能指针避免内存泄漏）
             auto newItem = std::make_unique<REAGENTZONEAXIS_>();
             newItem->index = indexReag;
             newItem->Axispos = pos;
             newItem->reagname.clear();
-            container.append(newItem.release()); // 假设容器管理原始指针
+            container.append(newItem.release());
         }
     } else {
-        // 读取时直接赋值或保持pos不变
         if (findIt != container.end()) {
             pos = (*findIt)->Axispos;
+        } else {
+            QLOG_WARN() << "Reagent zone not found for index:" << indexReag;
+            pos = QPoint(0, 0);
         }
-        // 未找到时返回错误状态或默认值（根据需求）
     }
 	return;
 }
@@ -188,10 +215,12 @@ void SingletonAxis::reagetZoneAxisPos(bool bWrite, quint8 indexReag, QPoint &pos
 void SingletonAxis::chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,QPoint &pos)
 {
     auto axisData = GetpStruct();
-    if (!axisData) return;
+    if (!axisData) {
+        pos = QPoint(0, 0);
+        return;
+    }
 
     auto& axisPoints = axisData->pchnAxisPoint;
-    // 查找匹配项
     ChnAxis_* foundItem = nullptr;
     for (auto* item : axisPoints) {
         if (item && item->indexChn == numChn && item->offsetNeedle == OffsetNedl) {
@@ -212,6 +241,9 @@ void SingletonAxis::chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,
         }
     } else if (foundItem) {
         pos = foundItem->axisPos;
+    } else {
+        QLOG_WARN() << "Channel zone not found for channel:" << numChn << "offset:" << OffsetNedl;
+        pos = QPoint(0, 0);
     }
 	return;
 }
@@ -219,10 +251,12 @@ void SingletonAxis::chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,
 void SingletonAxis::bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos)
 {
     auto axisData = GetpStruct();
-    if (!axisData) return;
+    if (!axisData) {
+        pos = QPoint(0, 0);
+        return;
+    }
 
     auto& bloodSampleList = axisData->bloodSampleAxisPos;
-    // 查找现有记录
     auto it = std::find_if(bloodSampleList.begin(), bloodSampleList.end(),
         [numhole](SAMPLEBLOODZONEAXISPOS_* item) {
             return item != nullptr && item->index == numhole;
@@ -239,6 +273,9 @@ void SingletonAxis::bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos)
         }
     } else if (it != bloodSampleList.end()) {
         pos = (*it)->axisPos;
+    } else {
+        QLOG_WARN() << "Blood sample zone not found for index:" << numhole;
+        pos = QPoint(0, 0);
     }
 }
 
@@ -276,13 +313,18 @@ quint8 SingletonAxis::witchoneindexTary(const quint8 indextube)
 
 quint8 SingletonAxis::testTaryZoneAxisPos(bool bWrite,quint8 numhole,quint8 indexNeedle,QPoint &pos)
 {
+    auto axisData = GetpStruct();
+    if (!axisData) {
+        pos = QPoint(0, 0);
+        return 0;
+    }
+
     if (bWrite) {
         WriteEmptyTube_Coordinate(numhole, indexNeedle, pos);
         return witchoneindexTary(numhole);
     }
 
-    // 读取操作
-    auto& tubeList = GetpStruct()->testTubeZoneAxisPos;
+    auto& tubeList = axisData->testTubeZoneAxisPos;
     auto it = std::find_if(tubeList.constBegin(), tubeList.constEnd(),
             [=](TRYTHECUPAXIS_* item) {
                 return item && item->offsetNeedle == indexNeedle && item->numTube == numhole;
@@ -292,6 +334,9 @@ quint8 SingletonAxis::testTaryZoneAxisPos(bool bWrite,quint8 numhole,quint8 inde
         pos = (*it)->axisPos;
         return (*it)->indexTray;
     }
+
+    QLOG_WARN() << "Test tube zone not found for tube:" << numhole << "needle:" << indexNeedle;
+    pos = QPoint(0, 0);
     return 0;
 }
 
@@ -370,21 +415,23 @@ void SingletonAxis::oper_ReagentZonePos(bool bNotif_x,quint8 indexReag,quint16 p
 
 void SingletonAxis::oper_TestChnZoneAxispos(bool isXAxis, quint8 numChn, quint8 offsetNedl, quint16 posValue)
 {
+    if (!g_pEquipAxiaspos) {
+        QLOG_ERROR() << "Equipment axis data not initialized";
+        return;
+    }
+
     auto& points = g_pEquipAxiaspos->pchnAxisPoint;
 
-    // 使用STL算法查找匹配项 [[2, 3]]
     auto it = std::find_if(points.begin(), points.end(),
             [numChn, offsetNedl](const ChnAxis_* entry) {
-                return entry->indexChn == numChn && entry->offsetNeedle == offsetNedl;
+                return entry && entry->indexChn == numChn && entry->offsetNeedle == offsetNedl;
             });
 
    if (it != points.end()) {
-            // 更新现有项的坐标
             isXAxis ? (*it)->axisPos.setX(posValue) : (*it)->axisPos.setY(posValue);
     } 
    else 
    {
-        // 创建新对象并初始化 [[5]]
         auto* newEntry = new ChnAxis_{ numChn, offsetNedl, QPoint(isXAxis ? posValue : 0, isXAxis ? 0 : posValue)
         };
         points.push_back(newEntry);
@@ -662,14 +709,23 @@ REAGENTZONEAXIS_* parseReagentLine(const QString& line, int lineNumber)
     }
 
     REAGENTZONEAXIS_* reagent = new REAGENTZONEAXIS_();
-    try {
-        reagent->index = static_cast<quint8>(fields[0].toUInt());
-        reagent->reagname = fields[1].replace("\"\"", "\""); // 处理转义引号
-        reagent->Axispos.setX(fields[2].toInt());
-        reagent->Axispos.setY(fields[3].toInt());
-    } catch (...) {
+    bool ok = false;
+
+    bool indexOk = false;
+    reagent->index = static_cast<quint8>(fields[0].toUInt(&indexOk));
+    if (!indexOk) {
         delete reagent;
-        throw;
+        throw std::runtime_error(QString("Invalid reagent index at line %1").arg(lineNumber).toStdString());
+    }
+
+    reagent->reagname = fields[1].replace("\"\"", "\"");
+
+    bool xOk = false, yOk = false;
+    reagent->Axispos.setX(fields[2].toInt(&xOk));
+    reagent->Axispos.setY(fields[3].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete reagent;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return reagent;
@@ -683,14 +739,21 @@ ChnAxis_* parseChannelLine(const QString& line, int lineNumber)
     }
 
     ChnAxis_* channel = new ChnAxis_();
-    try {
-        channel->indexChn = static_cast<quint8>(fields[0].toUInt());
-        channel->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
-        channel->axisPos.setX(fields[2].toInt());
-        channel->axisPos.setY(fields[3].toInt());
-    } catch (...) {
+    bool indexOk = false, offsetOk = false;
+    channel->indexChn = static_cast<quint8>(fields[0].toUInt(&indexOk));
+    channel->offsetNeedle = static_cast<quint8>(fields[1].toUInt(&offsetOk));
+
+    if (!indexOk || !offsetOk) {
         delete channel;
-        throw;
+        throw std::runtime_error(QString("Invalid channel data at line %1").arg(lineNumber).toStdString());
+    }
+
+    bool xOk = false, yOk = false;
+    channel->axisPos.setX(fields[2].toInt(&xOk));
+    channel->axisPos.setY(fields[3].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete channel;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return channel;
@@ -704,15 +767,23 @@ TRYTHECUPAXIS_* parseTestTubeLine(const QString& line, int lineNumber)
     }
 
     TRYTHECUPAXIS_* tube = new TRYTHECUPAXIS_();
-    try {
-        tube->numTube = static_cast<quint8>(fields[0].toUInt());
-        tube->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
-        tube->indexTray = static_cast<quint8>(fields[2].toUInt());
-        tube->axisPos.setX(fields[3].toInt());
-        tube->axisPos.setY(fields[4].toInt());
-    } catch (...) {
+
+    bool numTubeOk = false, offsetOk = false, trayOk = false;
+    tube->numTube = static_cast<quint8>(fields[0].toUInt(&numTubeOk));
+    tube->offsetNeedle = static_cast<quint8>(fields[1].toUInt(&offsetOk));
+    tube->indexTray = static_cast<quint8>(fields[2].toUInt(&trayOk));
+
+    if (!numTubeOk || !offsetOk || !trayOk) {
         delete tube;
-        throw;
+        throw std::runtime_error(QString("Invalid test tube data at line %1").arg(lineNumber).toStdString());
+    }
+
+    bool xOk = false, yOk = false;
+    tube->axisPos.setX(fields[3].toInt(&xOk));
+    tube->axisPos.setY(fields[4].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete tube;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return tube;
@@ -728,13 +799,20 @@ SAMPLEBLOODZONEAXISPOS_* parseBloodLine(const QString& line, int lineNumber)
     }
 
     SAMPLEBLOODZONEAXISPOS_* blood = new SAMPLEBLOODZONEAXISPOS_();
-    try {
-        blood->index = static_cast<quint8>(fields[0].toUInt());
-        blood->axisPos.setX(fields[1].toInt());
-        blood->axisPos.setY(fields[2].toInt());
-    } catch (...) {
+
+    bool indexOk = false;
+    blood->index = static_cast<quint8>(fields[0].toUInt(&indexOk));
+    if (!indexOk) {
         delete blood;
-        throw;
+        throw std::runtime_error(QString("Invalid blood sample index at line %1").arg(lineNumber).toStdString());
+    }
+
+    bool xOk = false, yOk = false;
+    blood->axisPos.setX(fields[1].toInt(&xOk));
+    blood->axisPos.setY(fields[2].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete blood;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return blood;
@@ -1186,20 +1264,21 @@ void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &R
         return;
     }
 
-    if(g_pVecReagentInfo->isEmpty()) return;
     auto iter = g_pVecReagentInfo->begin();
     while(iter != g_pVecReagentInfo->end()){
         REAGENT_CONSUMABLES_ *psingleReagent = *iter;
-        if(psingleReagent->indexReag == indexReag)
+        if(psingleReagent && psingleReagent->indexReag == indexReag)
         {
             if(bwrite == WRITE_OPERAT)
                 psingleReagent->SingleBottleCapacity = ReagentTol;
             else
                 ReagentTol = psingleReagent->SingleBottleCapacity;
-            break;
+            return;
         }
         iter++;
     }
+
+    QLOG_WARN() << "未找到索引为" << indexReag << "的试剂信息";
     return;
 }
 
@@ -1562,7 +1641,6 @@ void loadEquipmentPos::RecvSuippleNextStepOnlyRatio(const bool bRead,quint8 fini
     return;
 }
 
-
 void loadEquipmentPos::_mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata)
 {
     // 输入数据校验
@@ -1748,6 +1826,10 @@ void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList A
     }
     return;
 }
+
+
+
+
 
 //读设备参数
 void loadEquipmentPos::handleReadDevicePara(const QStringList hexArray)
