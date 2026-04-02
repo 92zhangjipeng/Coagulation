@@ -2205,7 +2205,7 @@ void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
 
           hexstr = hexArry[8] + hexArry[7];
           quint16 q16suckPPPPRPmm = hexstr.toUInt(&ok,HEX_SWITCH);
-          QLOG_DEBUG()<<"读吸样本单位量"<<q16suckPPPPRPmm;
+          QLOG_DEBUG()<<"读吸PPP/RPP样本单位量"<<q16suckPPPPRPmm;
           ini.SetLearnSamplevolume(q16suckPPPPRPmm);
 
 

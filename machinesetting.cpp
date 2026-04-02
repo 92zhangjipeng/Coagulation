@@ -2282,7 +2282,9 @@ void MachineSetting::configBloodpinparaSignals()
         }, "空回值"),
 
 		std::make_tuple(ui->poorBlood_changliang, [=]{
-            INI_File().SetLearnSamplevolume(ui->poorBlood_changliang->value());
+            double volSuckPPP = ui->poorBlood_changliang->value();
+            QLOG_DEBUG()<<"初始化设置吸PPP/PRP样本量"<<volSuckPPP;
+            INI_File().SetLearnSamplevolume(volSuckPPP);
         }, "样本用量"),
 
 		std::make_tuple(ui->FixedHighvalue, [=]{
@@ -2372,9 +2374,9 @@ void MachineSetting::_initBloodpinpara()
     quint8 EmptybackValue = ini.GetSecurityValue();
     ui->SecurityValue_box->setValue(EmptybackValue);
 
-
     //吸血样本的量PPP/PRP
-    quint8  bloodSampleAspirated = ini.GetLearnSamplevolume();
+    double  bloodSampleAspirated = ini.GetLearnSamplevolume();
+    QLOG_DEBUG()<<"初始化吸PPP/PRP样本量"<<bloodSampleAspirated<<endl;
     ui->poorBlood_changliang->setValue(bloodSampleAspirated);
 
     double Differencemm =  ini.GetTestDifference();

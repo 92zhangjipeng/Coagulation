@@ -541,10 +541,16 @@ namespace QUIUtils
                             const QPoint suckPPPLoc,
                             const QPoint splitPPPloc);
 
+
     int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
-                            int Testheigt,
-                            QPoint sourcePosition ,
-                            const QList<QPoint> &targetPositions);
+                            int testHeight,
+                            QPoint sourcePosition,
+                            const QList<QPoint>& targetPositions);
+
+//    int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
+//                            int Testheigt,
+//                            QPoint sourcePosition ,
+//                            const QList<QPoint> &targetPositions);
 
     /**
 
@@ -704,6 +710,8 @@ namespace QUIUtils
                                         const QPoint &PEHeighValAxis,
                                         const QPoint &PEMidValAxis,
                                         const QPoint &PELowValAxis);
+
+
 }
 
 #endif // QUIUTILS_H

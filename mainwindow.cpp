@@ -1758,7 +1758,8 @@ void MainWindow::setupAltimeterConnections()
 
     //重测
     connect(mAltimetertrigger, &opencvfindHeigh::reOpencvImageTubePRP,
-            FullyAutomatedPlatelets::pinstanceTesting(), &Testing::HandleReopencvImageTubePRP,
+            FullyAutomatedPlatelets::pinstanceTesting(),
+            &Testing::HandleReopencvImageTubePRP,
             Qt::QueuedConnection);
 
 

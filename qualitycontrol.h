@@ -153,6 +153,8 @@ private:
 
     void  gridLayoutTubeTray(QVector<QSimpleLed *> tubeVector , QWidget *container, int trayId); //初始化试管布局
 
+    void createVerticalLayout(QFrame* frame, QLabel* label, QWidget* testCupe, QToolButton* button, int frameHeight);
+
     //整个试管盘更换  true: OFF false:ON
     void  updatetrayAllTube(const QVector<QSimpleLed *>& ptubeTrayVec, const bool bused);
 

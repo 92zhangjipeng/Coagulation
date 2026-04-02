@@ -17,7 +17,6 @@
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
-#include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QTableWidget>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
@@ -34,33 +33,21 @@ public:
     QWidget *Tray_testtube;
     QTableWidget *tableWidget_Reagent_status;
     QFrame *frame;
-    QGridLayout *gridLayout_cups1;
     QLabel *Testtube_tray_1;
     QWidget *TestCupe_1;
-    QSpacerItem *horizontalSpacer;
     QToolButton *Chane_tray_1;
-    QSpacerItem *horizontalSpacer_2;
     QFrame *frame_2;
-    QGridLayout *gridLayout_cups2;
     QLabel *Testtube_tray_2;
     QWidget *TestCupe_2;
-    QSpacerItem *horizontalSpacer_3;
     QToolButton *Chane_tray_2;
-    QSpacerItem *horizontalSpacer_4;
     QFrame *frame_3;
-    QGridLayout *gridLayout_cups3;
     QLabel *Testtube_tray_3;
     QWidget *TestCupe_3;
-    QSpacerItem *horizontalSpacer_5;
     QToolButton *Chane_tray_3;
-    QSpacerItem *horizontalSpacer_6;
     QFrame *frame_4;
-    QGridLayout *gridLayout__cups4;
     QLabel *Testtube_tray_4;
     QWidget *TestCupe_4;
-    QSpacerItem *horizontalSpacer_7;
     QToolButton *Chane_tray_4;
-    QSpacerItem *horizontalSpacer_8;
     QWidget *Group_Reagentarea;
     customButton *AAReagentLeft;
     customButton *AAReagentRight;
@@ -129,12 +116,9 @@ public:
 "background-color:rgba(188,187,183);"));
         frame->setFrameShape(QFrame::StyledPanel);
         frame->setFrameShadow(QFrame::Raised);
-        gridLayout_cups1 = new QGridLayout(frame);
-        gridLayout_cups1->setSpacing(5);
-        gridLayout_cups1->setObjectName(QStringLiteral("gridLayout_cups1"));
-        gridLayout_cups1->setContentsMargins(5, 5, 5, 5);
         Testtube_tray_1 = new QLabel(frame);
         Testtube_tray_1->setObjectName(QStringLiteral("Testtube_tray_1"));
+        Testtube_tray_1->setGeometry(QRect(5, 5, 261, 20));
         Testtube_tray_1->setMaximumSize(QSize(16777215, 20));
         QFont font;
         font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
@@ -143,11 +127,9 @@ public:
         Testtube_tray_1->setStyleSheet(QLatin1String("border: 0px;\n"
 "background-color:rgba(188,187,183);"));
         Testtube_tray_1->setAlignment(Qt::AlignCenter);
-
-        gridLayout_cups1->addWidget(Testtube_tray_1, 0, 0, 1, 3);
-
         TestCupe_1 = new QWidget(frame);
         TestCupe_1->setObjectName(QStringLiteral("TestCupe_1"));
+        TestCupe_1->setGeometry(QRect(5, 30, 261, 406));
         TestCupe_1->setMinimumSize(QSize(200, 0));
         TestCupe_1->setMaximumSize(QSize(9999, 16777215));
         TestCupe_1->setStyleSheet(QLatin1String("QWidget#TestCupe_1\n"
@@ -158,15 +140,9 @@ public:
 "    border-radius:10px;  \n"
 "    padding:0 0px;  	\n"
 "}"));
-
-        gridLayout_cups1->addWidget(TestCupe_1, 1, 0, 1, 3);
-
-        horizontalSpacer = new QSpacerItem(45, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_cups1->addItem(horizontalSpacer, 2, 0, 1, 1);
-
         Chane_tray_1 = new QToolButton(frame);
         Chane_tray_1->setObjectName(QStringLiteral("Chane_tray_1"));
+        Chane_tray_1->setGeometry(QRect(58, 441, 155, 35));
         Chane_tray_1->setMinimumSize(QSize(145, 35));
         Chane_tray_1->setMaximumSize(QSize(16777215, 35));
         Chane_tray_1->setStyleSheet(QString::fromUtf8("QToolButton#Chane_tray_1\n"
@@ -192,13 +168,6 @@ public:
 "}"));
         Chane_tray_1->setIconSize(QSize(16, 16));
         Chane_tray_1->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-
-        gridLayout_cups1->addWidget(Chane_tray_1, 2, 1, 1, 1);
-
-        horizontalSpacer_2 = new QSpacerItem(45, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_cups1->addItem(horizontalSpacer_2, 2, 2, 1, 1);
-
         frame_2 = new QFrame(Tray_testtube);
         frame_2->setObjectName(QStringLiteral("frame_2"));
         frame_2->setGeometry(QRect(370, 20, 271, 481));
@@ -208,22 +177,17 @@ public:
 "background-color:rgba(188,187,183);"));
         frame_2->setFrameShape(QFrame::StyledPanel);
         frame_2->setFrameShadow(QFrame::Raised);
-        gridLayout_cups2 = new QGridLayout(frame_2);
-        gridLayout_cups2->setSpacing(5);
-        gridLayout_cups2->setObjectName(QStringLiteral("gridLayout_cups2"));
-        gridLayout_cups2->setContentsMargins(5, 5, 5, 5);
         Testtube_tray_2 = new QLabel(frame_2);
         Testtube_tray_2->setObjectName(QStringLiteral("Testtube_tray_2"));
+        Testtube_tray_2->setGeometry(QRect(5, 5, 208, 20));
         Testtube_tray_2->setMaximumSize(QSize(16777215, 20));
         Testtube_tray_2->setFont(font);
         Testtube_tray_2->setStyleSheet(QLatin1String("border: 0px;\n"
 "background-color:rgba(188,187,183);"));
         Testtube_tray_2->setAlignment(Qt::AlignCenter);
-
-        gridLayout_cups2->addWidget(Testtube_tray_2, 0, 0, 1, 2);
-
         TestCupe_2 = new QWidget(frame_2);
         TestCupe_2->setObjectName(QStringLiteral("TestCupe_2"));
+        TestCupe_2->setGeometry(QRect(5, 30, 261, 406));
         TestCupe_2->setMinimumSize(QSize(200, 0));
         TestCupe_2->setMaximumSize(QSize(9999, 16777215));
         TestCupe_2->setSizeIncrement(QSize(300, 0));
@@ -234,15 +198,9 @@ public:
 "    border-radius:10px;  \n"
 "    padding:0 0px;  	\n"
 "}"));
-
-        gridLayout_cups2->addWidget(TestCupe_2, 1, 0, 1, 3);
-
-        horizontalSpacer_3 = new QSpacerItem(43, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_cups2->addItem(horizontalSpacer_3, 2, 0, 1, 1);
-
         Chane_tray_2 = new QToolButton(frame_2);
         Chane_tray_2->setObjectName(QStringLiteral("Chane_tray_2"));
+        Chane_tray_2->setGeometry(QRect(58, 441, 155, 35));
         Chane_tray_2->setMinimumSize(QSize(145, 35));
         Chane_tray_2->setStyleSheet(QString::fromUtf8("QToolButton#Chane_tray_2\n"
 "{  \n"
@@ -267,13 +225,6 @@ public:
 "   background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
 "}"));
         Chane_tray_2->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-
-        gridLayout_cups2->addWidget(Chane_tray_2, 2, 1, 1, 1);
-
-        horizontalSpacer_4 = new QSpacerItem(43, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_cups2->addItem(horizontalSpacer_4, 2, 2, 1, 1);
-
         frame_3 = new QFrame(Tray_testtube);
         frame_3->setObjectName(QStringLiteral("frame_3"));
         frame_3->setGeometry(QRect(744, 20, 281, 431));
@@ -282,22 +233,17 @@ public:
 "background-color:rgba(188,187,183);"));
         frame_3->setFrameShape(QFrame::StyledPanel);
         frame_3->setFrameShadow(QFrame::Raised);
-        gridLayout_cups3 = new QGridLayout(frame_3);
-        gridLayout_cups3->setSpacing(5);
-        gridLayout_cups3->setObjectName(QStringLiteral("gridLayout_cups3"));
-        gridLayout_cups3->setContentsMargins(5, 5, 5, 5);
         Testtube_tray_3 = new QLabel(frame_3);
         Testtube_tray_3->setObjectName(QStringLiteral("Testtube_tray_3"));
+        Testtube_tray_3->setGeometry(QRect(5, 5, 271, 20));
         Testtube_tray_3->setMaximumSize(QSize(16777215, 20));
         Testtube_tray_3->setFont(font);
         Testtube_tray_3->setStyleSheet(QLatin1String("border: 0px;\n"
 "background-color:rgba(188,187,183);"));
         Testtube_tray_3->setAlignment(Qt::AlignCenter);
-
-        gridLayout_cups3->addWidget(Testtube_tray_3, 0, 0, 1, 3);
-
         TestCupe_3 = new QWidget(frame_3);
         TestCupe_3->setObjectName(QStringLiteral("TestCupe_3"));
+        TestCupe_3->setGeometry(QRect(5, 30, 271, 356));
         TestCupe_3->setMinimumSize(QSize(200, 0));
         TestCupe_3->setMaximumSize(QSize(9999, 16777215));
         TestCupe_3->setSizeIncrement(QSize(300, 0));
@@ -308,15 +254,9 @@ public:
 "    border-radius:10px;  \n"
 "    padding:0 0px;  	\n"
 "}"));
-
-        gridLayout_cups3->addWidget(TestCupe_3, 1, 0, 1, 3);
-
-        horizontalSpacer_5 = new QSpacerItem(50, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_cups3->addItem(horizontalSpacer_5, 2, 0, 1, 1);
-
         Chane_tray_3 = new QToolButton(frame_3);
         Chane_tray_3->setObjectName(QStringLiteral("Chane_tray_3"));
+        Chane_tray_3->setGeometry(QRect(63, 391, 155, 35));
         Chane_tray_3->setMinimumSize(QSize(145, 35));
         Chane_tray_3->setStyleSheet(QString::fromUtf8("QToolButton#Chane_tray_3\n"
 "{  \n"
@@ -341,13 +281,6 @@ public:
 "   background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
 "}"));
         Chane_tray_3->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-
-        gridLayout_cups3->addWidget(Chane_tray_3, 2, 1, 1, 1);
-
-        horizontalSpacer_6 = new QSpacerItem(50, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout_cups3->addItem(horizontalSpacer_6, 2, 2, 1, 1);
-
         frame_4 = new QFrame(Tray_testtube);
         frame_4->setObjectName(QStringLiteral("frame_4"));
         frame_4->setGeometry(QRect(1100, 40, 291, 411));
@@ -356,22 +289,17 @@ public:
 "background-color:rgba(188,187,183);"));
         frame_4->setFrameShape(QFrame::StyledPanel);
         frame_4->setFrameShadow(QFrame::Raised);
-        gridLayout__cups4 = new QGridLayout(frame_4);
-        gridLayout__cups4->setSpacing(5);
-        gridLayout__cups4->setObjectName(QStringLiteral("gridLayout__cups4"));
-        gridLayout__cups4->setContentsMargins(5, 5, 5, 5);
         Testtube_tray_4 = new QLabel(frame_4);
         Testtube_tray_4->setObjectName(QStringLiteral("Testtube_tray_4"));
+        Testtube_tray_4->setGeometry(QRect(5, 5, 281, 20));
         Testtube_tray_4->setMaximumSize(QSize(16777215, 20));
         Testtube_tray_4->setFont(font);
         Testtube_tray_4->setStyleSheet(QLatin1String("border: 0px;\n"
 "background-color:rgba(188,187,183);"));
         Testtube_tray_4->setAlignment(Qt::AlignCenter);
-
-        gridLayout__cups4->addWidget(Testtube_tray_4, 0, 0, 1, 3);
-
         TestCupe_4 = new QWidget(frame_4);
         TestCupe_4->setObjectName(QStringLiteral("TestCupe_4"));
+        TestCupe_4->setGeometry(QRect(5, 30, 281, 336));
         TestCupe_4->setMinimumSize(QSize(200, 0));
         TestCupe_4->setMaximumSize(QSize(9999, 16777215));
         TestCupe_4->setSizeIncrement(QSize(300, 0));
@@ -382,15 +310,9 @@ public:
 "    border-radius:10px;  \n"
 "    padding:0 0px;  	\n"
 "}"));
-
-        gridLayout__cups4->addWidget(TestCupe_4, 1, 0, 1, 3);
-
-        horizontalSpacer_7 = new QSpacerItem(55, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout__cups4->addItem(horizontalSpacer_7, 2, 0, 1, 1);
-
         Chane_tray_4 = new QToolButton(frame_4);
         Chane_tray_4->setObjectName(QStringLiteral("Chane_tray_4"));
+        Chane_tray_4->setGeometry(QRect(68, 371, 155, 35));
         Chane_tray_4->setMinimumSize(QSize(145, 35));
         Chane_tray_4->setStyleSheet(QString::fromUtf8("QToolButton#Chane_tray_4\n"
 "{  \n"
@@ -415,13 +337,6 @@ public:
 "    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
 "}"));
         Chane_tray_4->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-
-        gridLayout__cups4->addWidget(Chane_tray_4, 2, 1, 1, 1);
-
-        horizontalSpacer_8 = new QSpacerItem(55, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        gridLayout__cups4->addItem(horizontalSpacer_8, 2, 2, 1, 1);
-
 
         gridLayout_controlSuppile->addWidget(Tray_testtube, 0, 1, 2, 1);
 

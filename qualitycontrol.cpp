@@ -219,48 +219,76 @@ void QualityControl::resizeEvent(QResizeEvent *event)
 
 
     //右边  --耗材表
-    int TatbleHeigh = (CupTestHeigth - SPACING)/TOTAL_HEIGHT_PARTS *2; //耗材显示表占高 2/7
-    int TaryCupHeigh = (CupTestHeigth - SPACING)/TOTAL_HEIGHT_PARTS *5 - SPACING; //试管显示区占高 5/7
-    ui->tableWidget_Reagent_status->setFixedWidth(CupTestWidth - SPACING);
-    ui->tableWidget_Reagent_status->setGeometry(SPACING,CupTestHeigth -TatbleHeigh- SPACING,
-                                                CupTestWidth - SPACING,TatbleHeigh);
+    // 优化高度计算：试管盘区域在上，表格在下
+    const int TUBE_AREA_RATIO = 7;  // 试管盘区域占70%
+    const int TABLE_AREA_RATIO = 3; // 表格区域占30%
+    const int TOTAL_AREA_RATIO = TUBE_AREA_RATIO + TABLE_AREA_RATIO;
+    
+    // 计算各区域高度 - 增加试管盘高度，确保充分显示
+    int TaryCupHeigh = qMax((CupTestHeigth - SPACING * 3) * TUBE_AREA_RATIO / TOTAL_AREA_RATIO, 450); // 试管盘最小450像素
+    int TatbleHeigh = qMax((CupTestHeigth - SPACING * 3) * TABLE_AREA_RATIO / TOTAL_AREA_RATIO, 60);  // 表格最小60像素
+    
+    // 确保总高度不超过可用空间
+    if (TatbleHeigh + TaryCupHeigh > CupTestHeigth - SPACING * 3) {
+        // 按比例重新分配
+        TaryCupHeigh = (CupTestHeigth - SPACING * 3) * TUBE_AREA_RATIO / TOTAL_AREA_RATIO;
+        TatbleHeigh = (CupTestHeigth - SPACING * 3) * TABLE_AREA_RATIO / TOTAL_AREA_RATIO;
+    }
+    
+    // 设置表格位置（试管盘下方）
+    int tableTop = SPACING + TaryCupHeigh + SPACING;
+    ui->tableWidget_Reagent_status->setFixedWidth(CupTestWidth - SPACING * 2);
+    ui->tableWidget_Reagent_status->setGeometry(SPACING, tableTop,
+                                                CupTestWidth - SPACING * 2, TatbleHeigh);
 
-    int TaryCupWidth = (CupTestWidth - 4*SPACING)/4;
-
-    ui->frame->setFixedHeight(TaryCupHeigh);
-    ui->frame_2->setFixedHeight(TaryCupHeigh);
-    ui->frame_3->setFixedHeight(TaryCupHeigh);
-    ui->frame_4->setFixedHeight(TaryCupHeigh);
+    int TaryCupWidth = (CupTestWidth - 5 * SPACING) / 4; // 增加一个间距用于最右侧
+    int tubeTop = SPACING; // 试管盘在顶部
 
     quint8 equipmentType = 0;
     SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentType);
+    // 设置frame几何位置并创建垂直布局
     switch(equipmentType)
     {
         case KS600:
         {
-            ui->frame->setGeometry(TaryCupWidth/2+ SPACING ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_2->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*2 ,SPACING,TaryCupWidth,TaryCupHeigh);
+            ui->frame->setGeometry(TaryCupWidth/2+ SPACING, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_2->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*2, tubeTop, TaryCupWidth, TaryCupHeigh);
+            // 创建垂直布局
+            createVerticalLayout(ui->frame, ui->Testtube_tray_1, ui->TestCupe_1, ui->Chane_tray_1, TaryCupHeigh);
+            createVerticalLayout(ui->frame_2, ui->Testtube_tray_2, ui->TestCupe_2, ui->Chane_tray_2, TaryCupHeigh);
             break;
         }
         case KS800:
         {
-            ui->frame->setGeometry(TaryCupWidth/2+ SPACING ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_2->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*1 ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_3->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*2 ,SPACING,TaryCupWidth,TaryCupHeigh);
+            ui->frame->setGeometry(TaryCupWidth/2+ SPACING, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_2->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*1, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_3->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*2, tubeTop, TaryCupWidth, TaryCupHeigh);
+            // 创建垂直布局
+            createVerticalLayout(ui->frame, ui->Testtube_tray_1, ui->TestCupe_1, ui->Chane_tray_1, TaryCupHeigh);
+            createVerticalLayout(ui->frame_2, ui->Testtube_tray_2, ui->TestCupe_2, ui->Chane_tray_2, TaryCupHeigh);
+            createVerticalLayout(ui->frame_3, ui->Testtube_tray_3, ui->TestCupe_3, ui->Chane_tray_3, TaryCupHeigh);
             break;
         }
         case KS1200:
         {
-            ui->frame->setGeometry(SPACING ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_2->setGeometry(TaryCupWidth*1+ SPACING*1  ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_3->setGeometry(TaryCupWidth*2+ SPACING*2  ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_4->setGeometry(TaryCupWidth*3+ SPACING*3  ,SPACING,TaryCupWidth,TaryCupHeigh);
+            ui->frame->setGeometry(SPACING, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_2->setGeometry(TaryCupWidth*1+ SPACING*1, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_3->setGeometry(TaryCupWidth*2+ SPACING*2, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_4->setGeometry(TaryCupWidth*3+ SPACING*3, tubeTop, TaryCupWidth, TaryCupHeigh);
+            // 创建垂直布局
+            createVerticalLayout(ui->frame, ui->Testtube_tray_1, ui->TestCupe_1, ui->Chane_tray_1, TaryCupHeigh);
+            createVerticalLayout(ui->frame_2, ui->Testtube_tray_2, ui->TestCupe_2, ui->Chane_tray_2, TaryCupHeigh);
+            createVerticalLayout(ui->frame_3, ui->Testtube_tray_3, ui->TestCupe_3, ui->Chane_tray_3, TaryCupHeigh);
+            createVerticalLayout(ui->frame_4, ui->Testtube_tray_4, ui->TestCupe_4, ui->Chane_tray_4, TaryCupHeigh);
             break;
         }
         default:
-            ui->frame->setGeometry(TaryCupWidth/2+ SPACING ,SPACING,TaryCupWidth,TaryCupHeigh);
-            ui->frame_2->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*2 ,SPACING,TaryCupWidth,TaryCupHeigh);
-        break;
+            ui->frame->setGeometry(TaryCupWidth/2+ SPACING, tubeTop, TaryCupWidth, TaryCupHeigh);
+            ui->frame_2->setGeometry(TaryCupWidth/2+ SPACING + TaryCupWidth*2, tubeTop, TaryCupWidth, TaryCupHeigh);
+            // 创建垂直布局
+            createVerticalLayout(ui->frame, ui->Testtube_tray_1, ui->TestCupe_1, ui->Chane_tray_1, TaryCupHeigh);
+            createVerticalLayout(ui->frame_2, ui->Testtube_tray_2, ui->TestCupe_2, ui->Chane_tray_2, TaryCupHeigh);
+            break;
     }
 
     initshowcapacity(); //初始话试剂量
@@ -521,9 +549,51 @@ void QualityControl::displayConsumablesInteger()
 }
 
 
+void QualityControl::createVerticalLayout(QFrame* frame, QLabel* label, QWidget* testCupe, QToolButton* button, int frameHeight)
+{
+    // 清除frame的现有布局
+    if (frame->layout()) {
+        QLayout* oldLayout = frame->layout();
+        oldLayout->setParent(nullptr);
+        delete oldLayout;
+    }
+    
+    // 创建垂直布局
+    QVBoxLayout* verticalLayout = new QVBoxLayout(frame);
+    verticalLayout->setSpacing(10); // 控件间距
+    verticalLayout->setContentsMargins(10, 10, 10, 10); // 边距
+    
+    // 设置标签：顶部居中
+    label->setFixedHeight(20);
+    label->setAlignment(Qt::AlignCenter);
+    verticalLayout->addWidget(label);
+    
+    // 设置TestCupe容器：占据主要空间
+    const int testCupeHeight = frameHeight - 20 - 35 - 30; // 总高度 - 标签高度 - 按钮高度 - 间距
+    testCupe->setFixedHeight(qMax(testCupeHeight, 200)); // 最小200像素
+    verticalLayout->addWidget(testCupe);
+    
+    // 设置按钮：底部居中
+    button->setFixedHeight(35);
+    
+    // 创建水平布局用于按钮居中
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->addStretch(); // 左侧拉伸
+    buttonLayout->addWidget(button); // 按钮居中
+    buttonLayout->addStretch(); // 右侧拉伸
+    
+    verticalLayout->addLayout(buttonLayout);
+    
+    // 设置布局比例：标签和按钮固定高度，TestCupe占据剩余空间
+    verticalLayout->setStretch(0, 0); // 标签不拉伸
+    verticalLayout->setStretch(1, 1); // TestCupe占据主要空间
+    verticalLayout->setStretch(2, 0); // 按钮不拉伸
+}
+
 void QualityControl::gridLayoutTubeTray(QVector<QSimpleLed*> tubeVector,
-                                        QWidget* container,
-                                        int trayId){
+                                       QWidget* container,
+                                       int trayId)
+{
 
     // 定义布局常量
     constexpr int COLUMNS_PER_ROW = 6;

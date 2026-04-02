@@ -82,13 +82,9 @@ private:
     bool opencvIdentifyPrp(cv::Mat &inputImage, double &outBottomBloodHeight,QString &outErr);
 
 
-
-
 signals:
    void obtainPRPImage(const QString &pathImage);
-
    void reOpencvImageTubePRP(const QString &reId,const QString &pathImage);
-
    void Testheightfinish(const bool );
    void FindFailed(QString,QString);
 
@@ -102,8 +98,6 @@ private:
 
    //打开摄像头索引
    int  m_openCameraPosition;
-
-
    const int imageWidth =  480;
    const int imageHeight = 640;
 };

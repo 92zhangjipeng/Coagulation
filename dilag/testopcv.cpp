@@ -35,6 +35,7 @@ TestOpcv::TestOpcv(QWidget *parent) :
     initsignal();
     initshowimg();
 
+
     ui->widget_bar->hide();
 
     QString settButtonQss;
@@ -171,6 +172,47 @@ Rect TestOpcv::findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upp
     return boundingRect(*largestContour);
 }
 
+Rect TestOpcv::findReferenceObjectRectDualColor(Mat& image, Scalar lowerBound1, Scalar upperBound1, Scalar lowerBound2, Scalar upperBound2)
+{
+    Mat hsv, mask1, mask2, mask;
+    cvtColor(image, hsv, COLOR_BGR2HSV);
+    inRange(hsv, lowerBound1, upperBound1, mask1);
+    inRange(hsv, lowerBound2, upperBound2, mask2);
+    mask = mask1 | mask2;
+
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(mask, mask, MORPH_CLOSE, kernel);
+    morphologyEx(mask, mask, MORPH_OPEN, kernel);
+
+    vector<vector<Point>> contours;
+    findContours(mask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+    if (contours.empty()) {
+        return Rect(0, 0, 0, 0);
+    }
+
+    auto largestContour = max_element(contours.begin(), contours.end(),
+        [](const vector<Point>& a, const vector<Point>& b) {
+            return contourArea(a) < contourArea(b);
+        });
+
+    return boundingRect(*largestContour);
+}
+
+Mat TestOpcv::findReferenceObjectDualColor(Mat& image, Scalar lowerBound1, Scalar upperBound1, Scalar lowerBound2, Scalar upperBound2) {
+    Mat hsv, mask1, mask2, mask;
+    cvtColor(image, hsv, COLOR_BGR2HSV);
+    inRange(hsv, lowerBound1, upperBound1, mask1);
+    inRange(hsv, lowerBound2, upperBound2, mask2);
+    mask = mask1 | mask2;
+
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(mask, mask, MORPH_CLOSE, kernel);
+    morphologyEx(mask, mask, MORPH_OPEN, kernel);
+
+    return mask;
+}
+
 double TestOpcv::calculateReferenceToBottomDistance(const Rect& referenceRect)
 {
     double referenceTopToImageBottom = imageOrinin.rows - referenceRect.y;
@@ -184,16 +226,21 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
         return;
     }
 
+    auto &ini = INI_File();
     redBloodCellHeightMm = rbcHeightPixels / pixelToMmRatio;
-    referenceToBottomDistance = INI_File().GetFixedHigh();
+    referenceToBottomDistance = ini.GetFixedHigh();
 
     double interfaceToReferenceTopPixels = interfaceY - referenceObjectRect.y;
     double interfaceToReferenceTopMm = interfaceToReferenceTopPixels / pixelToMmRatio;
 
-    double safetyMargin = 0.0;
-    double totalDropDistance = referenceToBottomDistance + interfaceToReferenceTopMm;
-    maxNeedleDropHeight = totalDropDistance - safetyMargin;
-    maxNeedleDropHeight = max(0.0, maxNeedleDropHeight);
+    double safetyMargin = ini.GetTestDifference();
+    //double totalDropDistance = referenceToBottomDistance + interfaceToReferenceTopMm;
+    //maxNeedleDropHeight = max(0.0, totalDropDistance - redBloodCellHeightMm - safetyMargin);
+
+    //double totalDropDistance = referenceToBottomDistance/* + REFERENCE_TO_BOTTOM*/;
+    maxNeedleDropHeight = max(0.0, ini.GetFixedHigh() - redBloodCellHeightMm - safetyMargin);
+    maxNeedleDropHeight = round(maxNeedleDropHeight * 100) / 100; //保留2位小数
+
 
     QLOG_DEBUG() << "计算参数:";
     QLOG_DEBUG() << "红细胞高度像素: " << rbcHeightPixels << "px";
@@ -344,37 +391,13 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
    }
 
    QString redBloodCellHeightMmstr = QString("%1").arg(redBloodCellHeightMm, 0, 'f', 2);
-   emit imageoutResult(redBloodCellHeightMmstr);
+   emit imageoutResult(redBloodCellHeightMmstr,maxNeedleDropHeight); // 显示血的距离、和下针的高度
 
    // 启用富文本显示
    ui->label_ratio->setTextFormat(Qt::RichText);
    ui->label_ratio->setText(infoText);
    ui->label_ratio->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -620,34 +643,6 @@ Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
 
     return croppedImage;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1039,17 +1034,22 @@ void TestOpcv::trayfindImg()
         QLOG_DEBUG() << "检测到暗色环境，启用暗色优化模式";
     }
 
-    Scalar lowerBlue = Scalar(100, 50, 50);
-    Scalar upperBlue = Scalar(140, 255, 255);
+	// 第一个颜色范围: hsv(208, 69%, 68%) -> H:104, S:176, V:173//原来的蓝色
+    Scalar lowerColor1 = Scalar(94, 100, 100);
+    Scalar upperColor1 = Scalar(114, 255, 255);
 
-    // 查找参照物矩形框
-    referenceObjectRect = findReferenceObjectRect(image, lowerBlue, upperBlue);
+    // 第二个颜色范围: hsv(187, 64%, 74%) -> H:93, S:163, V:189 (±10范围)
+    Scalar lowerColor2 = Scalar(83, 100, 100);
+    Scalar upperColor2 = Scalar(103, 255, 255);
+
+    // 查找参照物矩形框（同时检测两个颜色）
+    referenceObjectRect = findReferenceObjectRectDualColor(image, lowerColor1, upperColor1, lowerColor2, upperColor2);
     if (referenceObjectRect.width == 0 || referenceObjectRect.height == 0) {
         QMessageBox::warning(this, "提示", "未找到参照物");
         return;
     }
 
-    Mat referenceMask = findReferenceObject(image, lowerBlue, upperBlue);
+    Mat referenceMask = findReferenceObjectDualColor(image, lowerColor1, upperColor1, lowerColor2, upperColor2);
     if (countNonZero(referenceMask) == 0) {
         QMessageBox::warning(this, "提示", "未找到参照物");
         return;

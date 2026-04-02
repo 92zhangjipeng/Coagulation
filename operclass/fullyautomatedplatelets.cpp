@@ -1,4 +1,5 @@
-﻿#pragma execution_character_set("utf-8")
+﻿
+#pragma execution_character_set("utf-8")
 #include "fullyautomatedplatelets.h"
 #include <QDesktopWidget>
 #include "mainwindow.h"
@@ -76,8 +77,8 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 
     //主界面显示耗材余量
-   connect(minstrumentConsumables.data(),SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
-            pmainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
+   //connect(minstrumentConsumables.data(),SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
+           // pmainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
 
    connect(_msuppilereminder,&instrumentAlarmPrompt::outSideCleanDepleteOne,
             minstrumentConsumables.data(),

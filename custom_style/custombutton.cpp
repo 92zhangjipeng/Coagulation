@@ -36,7 +36,7 @@ customButton::customButton(QWidget *parent) :
 
 	bottlecapColor = QColor(0,0,0,100);
 
-	bottleneckColor = QColor(180,180,1800); //瓶颈颜色
+	bottleneckColor = QColor(180,180,180); //瓶颈颜色
 
 	bottleColor = QColor(86, 147, 198, 255);
 

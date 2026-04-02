@@ -542,7 +542,9 @@ bool opencvfindHeigh::opencvIdentifyPrp(cv::Mat& inputImage, double& outBottomBl
 
     // Step 1: 提取左侧颜色块
     const bool isColorBlockValid = Extractthecolorblockontheleft(inputImage, imageRatio);
-    //const bool  isColorBlockValid = ExtractColorBlockKmeans(inputImage, imageRatio);
+    
+	
+	//const bool  isColorBlockValid = ExtractColorBlockKmeans(inputImage, imageRatio);
     if (!isColorBlockValid) {
         QLOG_ERROR() << "Failed to extract color reference block.";
         outErr = "提取参照物失败";
@@ -731,34 +733,6 @@ void opencvfindHeigh::handleTriggerTestHeight()
 
 
 
-//    // 执行核心识别逻辑
-//    double height = 0.0;
-//    QString outErr;
-//    bool success = opencvIdentifyPrp(rotatedFrame, height,outErr);
 
-//    //蜂鸣器响1|3声
-//    emit Testheightfinish(success);
-
-
-//    // 保存结果图像
-//    const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd");
-//    const QString savePath = QString("%1/PRP_%2.jpg").arg(m_imagePath).arg(timestamp);
-//    string outpath = savePath.toLocal8Bit().toStdString();
-
-//    if(!cv::imwrite(outpath, rotatedFrame)) {
-//        QLOG_WARN() << "图像保存失败:" << savePath;
-//        outErr = outErr + "图像保存失败:"+ savePath;
-//    }
-
-//    if(!success)
-//    {
-//        QLOG_ERROR() << outErr;
-//        emit FindFailed(tr("识别异常"), outErr);
-//        return;
-//    }else{
-//        emit FinishTestHigh(savePath, height,m_isreptestheigh,m_replaceid);
-//        m_isreptestheigh = false;
-//        m_replaceid = "";
-//    }
     return;
 }

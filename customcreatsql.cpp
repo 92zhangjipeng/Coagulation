@@ -69,7 +69,7 @@ void CustomCreatSql::initializeSQLTable()
 
 
     SQL_PATH = QDir(QCoreApplication::applicationDirPath()).filePath("SQLFile") + "/"+ "SWData" + ".db";
-    QFile   file(SQL_PATH);
+    QFile file(SQL_PATH);
     if(!file.exists())
     {
         file.open(QIODevice::WriteOnly);
@@ -151,85 +151,143 @@ bool CustomCreatSql::judgment_table_db_exist(const QString db_name,
     return tableExists;
 }
 
-
-
 /*创建机器参数表*/
-bool CustomCreatSql::CreatParameterTable(const int Index,const QString Tablename,QSqlDatabase DB_Address)
+bool CustomCreatSql::CreatParameterTable(const int Index, const QString Tablename, QSqlDatabase DB_Address)
 {
-    bool CreatTableSucceed = false;
-    QSqlQuery sqlQuery(DB_Address);
-    QString CreatStr;
+	bool CreatTableSucceed = false;
+	QSqlQuery sqlQuery(DB_Address);
+	QString CreatStr;
 
-    const bool isTableEmptyTube = isTableExist(Index,Tablename);
-    if(!isTableEmptyTube){
-        if (Tablename == m_MachineTubeState) {
-                CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
-                    "TubeNum INTEGER PRIMARY KEY AUTOINCREMENT, "
-                    "State INT, TypeReagent VARCHAR, SampleNum INT)").arg(Tablename);  // 试管状态表
-        } else if (Tablename == m_TestProjectTable) {
-            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
-                "ReagentGroup INT PRIMARY KEY, TypeReagent VARCHAR)").arg(Tablename);  // 项目数表
-        } else if (m_SuppLiesTable == Tablename) {
-            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
-                "TypeSupplies VARCHAR PRIMARY KEY, SuppliesAllowance INT)").arg(Tablename);  // 耗材表
-        } else if (m_UserTable == Tablename) {
-            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
-                "UserKey VARCHAR PRIMARY KEY, Password VARCHAR, SVIP INT)").arg(Tablename);  // 用户表
-        } else if (m_ReferenceTable == Tablename) {
-            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
-                "ReagendType VARCHAR PRIMARY KEY, TestTime VARCHAR, "
-                "ManleLow INT, ManleHeigh INT, WomanLow INT, WomanHeigh INT, UnitBom VARCHAR)").arg(Tablename);  // 聚集率表
-        } else if (m_HospitalInfoTable == Tablename) {
-            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
-                "TypeSave VARCHAR PRIMARY KEY, TypeInfo VARCHAR, Abridge VARCHAR)").arg(Tablename);  // 医院信息表
-        } else {
-            QLOG_DEBUG() << "未知表名：" << Tablename;
-            return false;
-        }
+	const bool isTableEmptyTube = isTableExist(Index, Tablename);
+	if (!isTableEmptyTube) {
+		if (Tablename == m_MachineTubeState) {
+            CreatStr = QString("CREATE TABLE IF NOT EXISTS \"%1\" (TubeNum INTEGER PRIMARY KEY AUTOINCREMENT, State INT, TypeReagent VARCHAR, SampleNum INT)").arg(Tablename);  // 试管状态表
+		}
+		else if (Tablename == m_TestProjectTable) {
+			CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+				"ReagentGroup INT PRIMARY KEY, TypeReagent VARCHAR)").arg(Tablename);  // 项目数表
+		}
+		else if (m_SuppLiesTable == Tablename) {
+			CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+				"TypeSupplies VARCHAR PRIMARY KEY, SuppliesAllowance INT)").arg(Tablename);  // 耗材表
+		}
+		else if (m_UserTable == Tablename) {
+			CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+				"UserKey VARCHAR PRIMARY KEY, Password VARCHAR, SVIP INT)").arg(Tablename);  // 用户表
+		}
+		else if (m_ReferenceTable == Tablename) {
+			CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+				"ReagendType VARCHAR PRIMARY KEY, TestTime VARCHAR, "
+				"ManleLow INT, ManleHeigh INT, WomanLow INT, WomanHeigh INT, UnitBom VARCHAR)").arg(Tablename);  // 聚集率表
+		}
+		else if (m_HospitalInfoTable == Tablename) {
+			CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+				"TypeSave VARCHAR PRIMARY KEY, TypeInfo VARCHAR, Abridge VARCHAR)").arg(Tablename);  // 医院信息表
+		}
+		else {
+			QLOG_DEBUG() << "未知表名：" << Tablename;
+			return false;
+		}
 	}
-    if (!sqlQuery.exec(CreatStr)) {
-        if(!isTableEmptyTube)
-            QLOG_DEBUG() << Tablename << "创建失败：" << sqlQuery.lastError().text() << __FILE__ << __LINE__;
-        CreatTableSucceed = false;
-    } else {
-        QLOG_DEBUG() << Tablename << "创建成功" << __FILE__ << __LINE__;
-        CreatTableSucceed = true;
-    }
-    return CreatTableSucceed;
+
+	// 只有当表不存在且CreatStr不为空时才执行创建表的SQL语句
+	if (!isTableEmptyTube && !CreatStr.isEmpty()) {
+		if (!sqlQuery.exec(CreatStr)) {
+			QLOG_DEBUG() << Tablename << "创建失败：" << sqlQuery.lastError().text() << __FILE__ << __LINE__;
+			CreatTableSucceed = false;
+		}
+		else {
+			QLOG_DEBUG() << Tablename << "创建成功" << __FILE__ << __LINE__;
+			CreatTableSucceed = true;
+		}
+	}
+	else {
+		// 表已经存在，返回成功
+		CreatTableSucceed = true;
+		QLOG_DEBUG() << Tablename << "表已存在，无需创建";
+	}
+	return CreatTableSucceed;
 }
+
+///*创建机器参数表*/
+//bool CustomCreatSql::CreatParameterTable(const int Index,const QString Tablename,QSqlDatabase DB_Address)
+//{
+//    bool CreatTableSucceed = false;
+//    QSqlQuery sqlQuery(DB_Address);
+//    QString CreatStr;
+//
+//    const bool isTableEmptyTube = isTableExist(Index,Tablename);
+//    if(!isTableEmptyTube){
+//        if (Tablename == m_MachineTubeState) {
+//                CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+//                    "TubeNum INTEGER PRIMARY KEY AUTOINCREMENT, "
+//                    "State INT, TypeReagent VARCHAR, SampleNum INT)").arg(Tablename);  // 试管状态表
+//        } else if (Tablename == m_TestProjectTable) {
+//            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+//                "ReagentGroup INT PRIMARY KEY, TypeReagent VARCHAR)").arg(Tablename);  // 项目数表
+//        } else if (m_SuppLiesTable == Tablename) {
+//            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+//                "TypeSupplies VARCHAR PRIMARY KEY, SuppliesAllowance INT)").arg(Tablename);  // 耗材表
+//        } else if (m_UserTable == Tablename) {
+//            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+//                "UserKey VARCHAR PRIMARY KEY, Password VARCHAR, SVIP INT)").arg(Tablename);  // 用户表
+//        } else if (m_ReferenceTable == Tablename) {
+//            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+//                "ReagendType VARCHAR PRIMARY KEY, TestTime VARCHAR, "
+//                "ManleLow INT, ManleHeigh INT, WomanLow INT, WomanHeigh INT, UnitBom VARCHAR)").arg(Tablename);  // 聚集率表
+//        } else if (m_HospitalInfoTable == Tablename) {
+//            CreatStr = QString("CREATE TABLE IF NOT EXISTS '%1' ("
+//                "TypeSave VARCHAR PRIMARY KEY, TypeInfo VARCHAR, Abridge VARCHAR)").arg(Tablename);  // 医院信息表
+//        } else {
+//            QLOG_DEBUG() << "未知表名：" << Tablename;
+//            return false;
+//        }
+//	}
+//    if (!sqlQuery.exec(CreatStr)) {
+//        if(!isTableEmptyTube)
+//            QLOG_DEBUG() << Tablename << "创建失败：" << sqlQuery.lastError().text() << __FILE__ << __LINE__;
+//        CreatTableSucceed = false;
+//    } else {
+//        QLOG_DEBUG() << Tablename << "创建成功" << __FILE__ << __LINE__;
+//        CreatTableSucceed = true;
+//    }
+//    return CreatTableSucceed;
+//}
 
 /*机器剩余任务,创建空表格*/
 void CustomCreatSql::CreatRemainderTaskTable(const int Index,const QString TodayPath,QSqlDatabase DB_Address)
 {
-    QString creat_sql_table_;
-    bool table_already_exists = false;
-    QSqlQuery sqlQuery;
-    sqlQuery = QSqlQuery(DB_Address);
-    table_already_exists = isTableExist(Index,TodayPath);
-    if(table_already_exists)
-    {
-        QLOG_DEBUG()<< TodayPath<<__FUNCTION__<<__LINE__<<"已存在!"<<endl;
-    }
-    else
-    {
-        creat_sql_table_ =  QString("CREATE TABLE '%1'(\
-                            样本号 varchar PRIMARY KEY NOT NULL,\
-                            贫血孔号 int NOT NULL,\
-                            富血孔号 int NOT NULL,\
-                            富血下针高度 int NOT NULL,\
-                            贫血在试管号 int NOT NULL,\
-                            富血在试管号 varchar NOT NULL,\
-                            测试项目     varchar NOT NULL,\
-                            条形码 varchar NOT NULL)").arg(TodayPath);
-        sqlQuery.prepare(creat_sql_table_);
-        if(!sqlQuery.exec())
-        {
-            QLOG_DEBUG()<<TodayPath <<"创建失败: "<<sqlQuery.lastError()<<endl;
-        }
-    }
-    sqlQuery.finish();
+	QString creat_sql_table_;
+	bool table_already_exists = false;
+	QSqlQuery sqlQuery;
+	sqlQuery = QSqlQuery(DB_Address);
+	table_already_exists = isTableExist(Index, TodayPath);
+	if (table_already_exists)
+	{
+		QLOG_DEBUG() << TodayPath << __FUNCTION__ << __LINE__ << "已存在!" << endl;
+	}
+	else
+	{
+		// 方法1：使用双反斜杠转义
+		creat_sql_table_ = QString("CREATE TABLE \"%1\" ("
+			"样本号 varchar PRIMARY KEY NOT NULL,"
+			"贫血孔号 int NOT NULL,"
+			"富血孔号 int NOT NULL,"
+			"富血下针高度 int NOT NULL,"
+			"贫血在试管号 int NOT NULL,"
+			"富血在试管号 varchar NOT NULL,"
+			"测试项目 varchar NOT NULL,"
+			"条形码 varchar NOT NULL)")
+			.arg(TodayPath);
+		sqlQuery.prepare(creat_sql_table_);
+		if (!sqlQuery.exec())
+		{
+			QLOG_DEBUG() << TodayPath << "创建失败: " << sqlQuery.lastError() << endl;
+		}
+	}
+	sqlQuery.finish();
 	sqlQuery.clear();
-    return;
+	return; 
 }
 
 
@@ -277,7 +335,7 @@ void CustomCreatSql::Delete_Single_Task(const QString SampleNum)
     QString  inquresql;
     QSqlQuery query_sql;
     query_sql = QSqlQuery(m_MachineperformsTaskdb);
-    inquresql = QString("DELETE FROM '%1'where 样本号 = '%2'").arg(m_RemainingTasks).arg(SampleNum);
+    inquresql = QString("DELETE FROM \"%1\" where 样本号 = '%2'").arg(m_RemainingTasks).arg(SampleNum);
     query_sql.exec(inquresql);
     query_sql.finish();
 	query_sql.clear();
@@ -365,7 +423,7 @@ void CustomCreatSql::SearchOneSampleInfo(const int IndexNum,QMap<int,QVariant> &
 {
     QDateTime current_date_time = QDateTime::currentDateTime();
     QString datenum = QString("%1-%2").arg(current_date_time.toString("yyyy/MM/dd")).arg(IndexNum);
-    QString   Query_statement = QString("select * from '%1' where 样本号 = '%2'").arg(m_RemainingTasks).arg(datenum);
+    QString   Query_statement = QString("select * from \"%1\" where 样本号 = '%2'").arg(m_RemainingTasks).arg(datenum);
     QSqlQuery query_sql(Query_statement,m_MachineperformsTaskdb);
     QSqlRecord rec = query_sql.record();
     while(query_sql.next())
@@ -391,7 +449,7 @@ void CustomCreatSql::SearchOneSampleInfo(const int IndexNum,QMap<int,QVariant> &
 /*查找机器未做完剩余的任务(表只剩余项)*/
 void CustomCreatSql::RemainingNotCompleted(QVector<QVariantList> &NotCompletedTask){
 
-    QString   Query_statement = QString("select * from '%1'").arg(m_RemainingTasks);
+    QString   Query_statement = QString("select * from \"%1\"").arg(m_RemainingTasks);
     QSqlQuery query_sql(Query_statement,m_MachineperformsTaskdb);
     QSqlRecord rec = query_sql.record();
     while(query_sql.next())
@@ -429,7 +487,7 @@ void CustomCreatSql::creat_statisticstable(QSqlDatabase db_addres,QString table_
     QSqlQuery sql_query(db_addres);
     if(!isTableExist(exits_,table_name))
     {
-        creat_ = QString("CREATE TABLE '%1'(测试日期 varchar(60) PRIMARY KEY,AA  varchar(10),ADP varchar(10),EPI varchar(10),COL varchar(10),RIS varchar(10))").arg(table_name);
+        creat_ = QString("CREATE TABLE \"%1\"(测试日期 varchar(60) PRIMARY KEY,AA varchar(10),ADP varchar(10),EPI varchar(10),COL varchar(10),RIS varchar(10))").arg(table_name);
         sql_query.prepare(creat_);
         if(!sql_query.exec())
             QLOG_TRACE()<<"生成统计数据表失败"<< sql_query.lastError()<<endl;
@@ -741,12 +799,17 @@ void CustomCreatSql::Initial_configurationEmptyTube()
 void CustomCreatSql::InsertInfoHospital(const QString KeyInfo, const QString Kindname, const QString AbridgeInfo)
 {
     QSqlQuery query(m_MachineConfigdb);
-    QString quer = QObject::tr("INSERT INTO '%1' (TypeSave, TypeInfo, Abridge) VALUES (:TypeSave, :TypeInfo, :Abridge)").arg(m_HospitalInfoTable);
-    query.prepare(quer);
+    QString quer = QObject::tr("INSERT INTO \"%1\" (TypeSave, TypeInfo, Abridge) VALUES (:TypeSave, :TypeInfo, :Abridge)").arg(m_HospitalInfoTable);
+    if (!query.prepare(quer)) {
+        QLOG_ERROR() << "Prepare failed:" << query.lastError().text();
+        return;
+    }
     query.bindValue(0, KeyInfo);
     query.bindValue(1, Kindname);
     query.bindValue(2, AbridgeInfo);
-    query.exec();
+    if (!query.exec()) {
+        QLOG_ERROR() << "Execute failed:" << query.lastError().text();
+    }
     query.finish();
 	query.clear();
     return;
@@ -757,7 +820,7 @@ void CustomCreatSql::DelInfoHospital(const QString KeyInfo)
     QSqlQuery query_sql;
     query_sql = QSqlQuery(m_MachineConfigdb);
     QString cmd_Data ;
-    cmd_Data = QString("delete from '%1' where TypeSave = '%2' ").arg(m_HospitalInfoTable).arg(KeyInfo);
+    cmd_Data = QString("delete from \"%1\" where TypeSave = '%2' ").arg(m_HospitalInfoTable).arg(KeyInfo);
     if(query_sql.exec(cmd_Data))
         QLOG_TRACE()<<"删医院信息"<< m_HospitalInfoTable <<"成功";
     else
@@ -772,7 +835,7 @@ void CustomCreatSql::_obtainPatientInfo(const QString _keywords, QStringList& in
     info_.clear();
     QSqlQuery query_sql;
     query_sql = QSqlQuery(m_MachineConfigdb);
-    QString querystr = QString("select *from '%1'").arg(m_HospitalInfoTable);
+    QString querystr = QString("select * from \"%1\"").arg(m_HospitalInfoTable);
     if (query_sql.exec(querystr)){
         while(query_sql.next()){
           QString _obtain =  query_sql.value(0).toString();
@@ -793,7 +856,7 @@ void CustomCreatSql::SeekHospitalInfo(QVector< QVariantList> &HospitalInfo)
 {
     QSqlQuery query_sql;
     query_sql = QSqlQuery(m_MachineConfigdb);
-    QString temp_str = QString("select *from '%1'").arg(m_HospitalInfoTable);
+    QString temp_str = QString("select * from \"%1\"").arg(m_HospitalInfoTable);
     if (query_sql.exec(temp_str))
     {
         while(query_sql.next())
@@ -814,6 +877,23 @@ void CustomCreatSql::SeekHospitalInfo(QVector< QVariantList> &HospitalInfo)
 //参考值表格操作 表格已创建初始化
 void CustomCreatSql::initReerenceTable()
 {
+    // 检查表是否已经有数据
+    QSqlQuery checkQuery(m_MachineConfigdb);
+    QString checkSql = QString("SELECT COUNT(*) FROM \"%1\"").arg(m_ReferenceTable);
+
+    if (!checkQuery.exec(checkSql)) {
+        QLOG_ERROR() << "检查参考值表失败:" << checkQuery.lastError().text();
+        return;
+    }
+
+    if (checkQuery.next() && checkQuery.value(0).toInt() > 0) {
+        QLOG_DEBUG() << "参考值表已有数据，跳过初始化，当前数据量:" << checkQuery.value(0).toInt();
+        return;  // 表不为空，跳过初始化
+    }
+
+    QLOG_DEBUG() << "参考值表为空，开始初始化...";
+
+
     QStringList KeyList;
     KeyList.clear();
     QUIUtils::itemReferenceTestValue(KeyList);
@@ -834,8 +914,9 @@ void CustomCreatSql::initReerenceTable()
         // 插入时跳过冲突（或根据需求替换）
         ReferencevalueInsert(key_, testTime, 0, 0, 0, 0, "0");
     }
+    QLOG_DEBUG() << "参考值表初始化完成，共插入:" << KeyList.size() << "条记录";
 }
-void CustomCreatSql::ReferencevalueInsert(const QString Reagentkind,
+/*void CustomCreatSql::ReferencevalueInsert(const QString Reagentkind,
                                             const QString Timemm,
                                             const int Malelowvalue,
                                             const int MaleHeighvalue,
@@ -865,78 +946,198 @@ void CustomCreatSql::ReferencevalueInsert(const QString Reagentkind,
     }
     query_sql.finish();
     return;
+}*/
+
+void CustomCreatSql::ReferencevalueInsert(const QString Reagentkind,
+                                            const QString Timemm,
+                                            const int Malelowvalue,
+                                            const int MaleHeighvalue,
+                                            const int WomanLowvalue,
+                                            const int WomanHeighValue,
+                                            const QString uintbomit)
+{
+    // 先检查记录是否已存在
+    QSqlQuery checkQuery(m_MachineConfigdb);
+    QString checkSql = QString("SELECT COUNT(*) FROM \"%1\" WHERE ReagendType = :reagent AND TestTime = :time")
+                       .arg(m_ReferenceTable);
+
+    checkQuery.prepare(checkSql);
+    checkQuery.bindValue(":reagent", Reagentkind);
+    checkQuery.bindValue(":time", Timemm);
+
+    if (checkQuery.exec() && checkQuery.next() && checkQuery.value(0).toInt() > 0) {
+        QLOG_DEBUG() << "记录已存在，跳过插入:" << Reagentkind << Timemm;
+        return;  // 记录已存在，不插入
+    }
+
+    // 记录不存在，执行插入
+    QSqlQuery query_sql(m_MachineConfigdb);
+    QString sql = QString("INSERT INTO \"%1\" (ReagendType, TestTime, ManleLow, ManleHeigh, WomanLow, WomanHeigh, UnitBom) "
+                          "VALUES (:ReagendType, :TestTime, :ManleLow, :ManleHeigh, :WomanLow, :WomanHeigh, :UnitBom)")
+                      .arg(m_ReferenceTable);
+
+    query_sql.prepare(sql);
+    query_sql.bindValue(":ReagendType", Reagentkind);
+    query_sql.bindValue(":TestTime", Timemm);
+    query_sql.bindValue(":ManleLow", Malelowvalue);
+    query_sql.bindValue(":ManleHeigh", MaleHeighvalue);
+    query_sql.bindValue(":WomanLow", WomanLowvalue);
+    query_sql.bindValue(":WomanHeigh", WomanHeighValue);
+    query_sql.bindValue(":UnitBom", uintbomit);
+
+    if (!query_sql.exec()) {
+        QLOG_ERROR() << "插入失败：" << query_sql.lastError().text()
+                     << "，SQL语句：" << query_sql.executedQuery();
+    } else {
+        QLOG_DEBUG() << "插入成功:" << Reagentkind << Timemm;
+    }
+
+    query_sql.finish();
 }
 
 
 void CustomCreatSql::FindReeferenceValue(const QString Key ,QVariantList &DataList)
 {
-    QString  findKey;
-    QSqlQuery query_sql;
-    query_sql = QSqlQuery(m_MachineConfigdb);
-    findKey = QString("select *from '%1' where ReagendType = '%2' ").arg(m_ReferenceTable).arg(Key);
-    if(query_sql.exec(findKey) == false)
-    {
-        QLOG_ERROR()<<"查找参考值失败key="<<findKey<<endl;
-    }
-    else
-    {
-         QSqlRecord rec;
-         while(query_sql.next())
-         {
-            rec = query_sql.record();
-            DataList.push_back(  query_sql.value(rec.indexOf("ManleLow")).toInt());
-            DataList.push_back(  query_sql.value(rec.indexOf("ManleHeigh")).toInt());
-            DataList.push_back(  query_sql.value(rec.indexOf("WomanLow")).toInt());
-            DataList.push_back(  query_sql.value(rec.indexOf("WomanHeigh")).toInt());
-            DataList.push_back(  query_sql.value(rec.indexOf("UnitBom")).toString());
-         }
-    }
-    query_sql.clear();
-    query_sql.finish();
-    return ;
+	// 清空输出参数
+	DataList.clear();
+
+	// 参数验证
+	if (Key.isEmpty()) {
+		QLOG_ERROR() << "查找参考值失败：Key为空";
+		return;
+	}
+
+	QSqlQuery query_sql(m_MachineConfigdb);
+
+	// 修正：使用双引号，修正SQL语法（select * from 要有空格）
+	QString findKey = QString("SELECT * FROM \"%1\" WHERE ReagendType = :key")
+		.arg(m_ReferenceTable);
+
+	query_sql.prepare(findKey);
+	query_sql.bindValue(":key", Key);
+
+	if (!query_sql.exec()) {
+		QLOG_ERROR() << "查找参考值失败: " << query_sql.lastError().text()
+			<< "\nSQL: " << findKey
+			<< "\nKey: " << Key;
+		return;
+	}
+
+	// 检查是否有结果
+	if (!query_sql.next()) {
+		QLOG_WARN() << "未找到参考值记录，ReagendType = " << Key;
+		return;
+	}
+
+	// 获取记录
+	QSqlRecord rec = query_sql.record();
+
+	// 检查列索引是否有效
+	int idxManleLow = rec.indexOf("ManleLow");
+	int idxManleHeigh = rec.indexOf("ManleHeigh");
+	int idxWomanLow = rec.indexOf("WomanLow");
+	int idxWomanHeigh = rec.indexOf("WomanHeigh");
+	int idxUnitBom = rec.indexOf("UnitBom");
+
+	if (idxManleLow == -1 || idxManleHeigh == -1 || idxWomanLow == -1 ||
+		idxWomanHeigh == -1 || idxUnitBom == -1) {
+		QLOG_ERROR() << "表结构错误：缺少必要的列";
+		return;
+	}
+
+	DataList.push_back(query_sql.value(idxManleLow).toInt());
+	DataList.push_back(query_sql.value(idxManleHeigh).toInt());
+	DataList.push_back(query_sql.value(idxWomanLow).toInt());
+	DataList.push_back(query_sql.value(idxWomanHeigh).toInt());
+	DataList.push_back(query_sql.value(idxUnitBom).toString());
+
+	QLOG_DEBUG() << "查询成功 - Key:" << Key
+		<< ", 数据数量:" << DataList.size();
+
+	query_sql.clear();
 }
 
 void CustomCreatSql::_updateReferenceValue(QString key_,QString updatekey_,QString data_)
 {
-    QSqlQuery query_sql(m_MachineConfigdb);
-    QString inquresql = QString("update '%1' set '%2' ='%3' where ReagendType = '%4'").arg(m_ReferenceTable).arg(updatekey_).arg(data_).arg(key_);
-    if (query_sql.exec(inquresql) == false)
-    {
-        QLOG_ERROR() << "更新参考值失败" << inquresql;
-    }
-    query_sql.clear();
-    query_sql.finish();
+	if (key_.isEmpty() || updatekey_.isEmpty()) {
+		QLOG_ERROR() << "更新参考值失败：参数为空";
+		return;
+	}
+
+	QSqlQuery query_sql(m_MachineConfigdb);
+
+	// 关键修改：列名不使用单引号，改为双引号或不使用引号
+	QString inquresql = QString("UPDATE \"%1\" SET \"%2\" = '%3' WHERE ReagendType = '%4'")
+		.arg(m_ReferenceTable)
+		.arg(updatekey_)
+		.arg(data_)
+		.arg(key_);
+
+	if (!query_sql.exec(inquresql)) {
+		QLOG_ERROR() << "更新参考值失败: " << query_sql.lastError().text()
+			<< "\nSQL: " << inquresql;
+	}
+	else {
+		QLOG_DEBUG() << "更新参考值成功，影响行数: " << query_sql.numRowsAffected();
+	}
+
+	query_sql.clear();
 }
 
 //找男同学 && 女同学 参考值
 void CustomCreatSql::_obtainPersondata_(QString key_, QString& outMandata_, QString &outWomandata_)
 {
-    QString  findKey;
-    QSqlQuery query_sql;
-    query_sql = QSqlQuery(m_MachineConfigdb);
-    findKey = QString("select *from '%1' where ReagendType = '%2' ").arg(m_ReferenceTable).arg(key_);
-    if(query_sql.exec(findKey) == false)
-    {
-        QLOG_ERROR()<<"查找参考值失败key="<<findKey<<"line="<<__LINE__<<endl;
-    }
-    else
-    {
-         QSqlRecord rec;
-         while(query_sql.next())
-         {
-            rec = query_sql.record();
-            QString uint_ = query_sql.value(rec.indexOf("UnitBom")).toString();
-            int low_man = query_sql.value(rec.indexOf("ManleLow")).toInt();
-            int heigh_man = query_sql.value(rec.indexOf("ManleHeigh")).toInt();
-            outMandata_  = QString::number(low_man ) + "-" + QString::number(heigh_man ) +"(" + uint_ +")";
-            int low_woman =  query_sql.value(rec.indexOf("WomanLow")).toInt();
-            int heigh_woman = query_sql.value(rec.indexOf("WomanHeigh")).toInt();
-            outWomandata_ = QString::number(low_woman ) + "-" + QString::number(heigh_woman ) +"(" + uint_ +")";
-         }
-    }
-    query_sql.clear();
-    query_sql.finish();
-    return;
+	// 初始化输出参数为空
+	outMandata_.clear();
+	outWomandata_.clear();
+
+	// 参数验证
+	if (key_.isEmpty()) {
+		QLOG_ERROR() << "查找参考值失败：key为空";
+		return;
+	}
+
+	QSqlQuery query_sql(m_MachineConfigdb);
+
+	// 修正：使用双引号，修正SQL语法（select * from 要有空格）
+	QString findKey = QString("SELECT * FROM \"%1\" WHERE ReagendType = :key")
+		.arg(m_ReferenceTable);
+
+	query_sql.prepare(findKey);
+	query_sql.bindValue(":key", key_);
+
+	if (!query_sql.exec()) {
+		QLOG_ERROR() << "查找参考值失败: " << query_sql.lastError().text()
+			<< "\nSQL: " << findKey
+			<< "\nkey: " << key_;
+		return;
+	}
+
+	// 检查是否有结果
+	if (!query_sql.next()) {
+		QLOG_WARN() << "未找到参考值记录，ReagendType = " << key_;
+		return;
+	}
+
+	// 获取记录
+	QSqlRecord rec = query_sql.record();
+	QString uint_ = query_sql.value(rec.indexOf("UnitBom")).toString();
+
+	// 男性参考值
+	int low_man = query_sql.value(rec.indexOf("ManleLow")).toInt();
+	int heigh_man = query_sql.value(rec.indexOf("ManleHeigh")).toInt();
+	outMandata_ = QString("%1-%2(%3)").arg(low_man).arg(heigh_man).arg(uint_);
+
+	// 女性参考值
+	int low_woman = query_sql.value(rec.indexOf("WomanLow")).toInt();
+	int heigh_woman = query_sql.value(rec.indexOf("WomanHeigh")).toInt();
+	outWomandata_ = QString("%1-%2(%3)").arg(low_woman).arg(heigh_woman).arg(uint_);
+
+	QLOG_DEBUG() << "查询成功 - key:" << key_
+		<< ", 男性:" << outMandata_
+		<< ", 女性:" << outWomandata_;
+
+	query_sql.clear();
 }
 
 
@@ -944,13 +1145,34 @@ void CustomCreatSql::_obtainPersondata_(QString key_, QString& outMandata_, QStr
 //操作用户密码表
 void CustomCreatSql::AddUserName(const QString usernameStr,const QString PasswordStr ,const int bvip)
 {
+	// 先检查用户名是否已经存在
+	QSqlQuery checkQuery(m_MachineConfigdb);
+	QString checkSql = QString("SELECT COUNT(1) FROM '%1' WHERE UserKey = ?").arg(m_UserTable);
+	if (!checkQuery.prepare(checkSql)) {
+		QLOG_ERROR() << "Prepare check failed:" << checkQuery.lastError().text();
+		return;
+	}
+	checkQuery.addBindValue(usernameStr);
+	if (checkQuery.exec() && checkQuery.next() && checkQuery.value(0).toInt() > 0) {
+		QLOG_DEBUG() << "用户名已存在：" << usernameStr;
+		return; // 用户名已存在，不执行插入操作
+	}
+
     QSqlQuery query(m_MachineConfigdb);
     QString quer = QObject::tr("INSERT INTO '%1' (UserKey, Password ,SVIP) VALUES (:UserKey, :Password, :SVIP)").arg(m_UserTable);
-    query.prepare(quer);
+    if (!query.prepare(quer)) {
+        QLOG_ERROR() << "Prepare failed:" << query.lastError().text();
+        return;
+    }
     query.bindValue(0, usernameStr);
     query.bindValue(1, PasswordStr);
     query.bindValue(2, bvip);
-    query.exec();
+    if (!query.exec()) {
+        QLOG_ERROR() << "Execute failed:" << query.lastError().text();
+    }
+	else {
+		QLOG_DEBUG() << "用户创建成功：" << usernameStr;
+	}
     query.finish();
 	query.clear();
     return;
@@ -1119,10 +1341,15 @@ void CustomCreatSql::SuppliesAddAllowance(const QString TypeSupplies,const int A
 {
     QSqlQuery query(m_MachineConfigdb);
     QString quer = QObject::tr("INSERT INTO '%1' (TypeSupplies, SuppliesAllowance) VALUES (:TypeSupplies, :SuppliesAllowance)").arg(m_SuppLiesTable);
-    query.prepare(quer);
+    if (!query.prepare(quer)) {
+        QLOG_ERROR() << "Prepare failed:" << query.lastError().text();
+        return;
+    }
     query.bindValue(0, TypeSupplies);
     query.bindValue(1, Allowance);
-    query.exec();
+    if (!query.exec()) {
+        QLOG_ERROR() << "Execute failed:" << query.lastError().text();
+    }
     query.finish();
 	query.clear();
     return;
@@ -1585,9 +1812,9 @@ int CustomCreatSql::update_test_tube_status(quint8 index,int status_,QString ind
     QSqlQuery query_(m_MachineConfigdb);
 
     // 使用参数化查询防止SQL注入
-    QString directives_str = QString("UPDATE `%1` SET SampleNum=?, State=?, TypeReagent=? WHERE TubeNum=?")
-                                 .arg(m_MachineTubeState);
-
+//    QString directives_str = QString("UPDATE `%1` SET SampleNum=?, State=?, TypeReagent=? WHERE TubeNum=?")
+//                                 .arg(m_MachineTubeState);
+    QString directives_str = QString("update \"%1\" set SampleNum = :sampleid, State = :status, TypeReagent = :reagent where TubeNum = :tubeNum").arg(m_MachineTubeState);
     if (!query_.prepare(directives_str)) {
         qWarning() << "Prepare failed:" << query_.lastError().text();
         return -1;
@@ -1622,12 +1849,17 @@ void CustomCreatSql::UpdateTestTubeStateInfo(quint8 index,int status_,QString in
 {
     QSqlQuery query;
     query = QSqlQuery(m_MachineConfigdb);
-    query.prepare("UPDATE EmptyTubeState SET State = ?, SampleNum = ?,TypeReagent = ? WHERE TubeNum = ?");
+    if (!query.prepare("UPDATE EmptyTubeState SET State = ?, SampleNum = ?,TypeReagent = ? WHERE TubeNum = ?")) {
+        QLOG_ERROR() << "Prepare failed:" << query.lastError().text();
+        return;
+    }
     query.addBindValue(status_);
     query.addBindValue(sampleid);
     query.addBindValue(index_reag);
     query.addBindValue(index);
-    query.exec();
+    if (!query.exec()) {
+        QLOG_ERROR() << "Execute failed:" << query.lastError().text();
+    }
     query.finish();
     query.clear();
     return;
@@ -1730,7 +1962,7 @@ void CustomCreatSql::TubeHadBloodNotTesting(QVariantList &NotTubeNum)
 {
     QSqlQuery query_sql;
     query_sql = QSqlQuery(m_MachineConfigdb);
-    QString temp_str = QString("select *from '%1'").arg(m_MachineTubeState);
+    QString temp_str = QString("select * from \"%1\"").arg(m_HospitalInfoTable);
     if (query_sql.exec(temp_str))
     {
         while(query_sql.next())
@@ -1849,11 +2081,22 @@ void CustomCreatSql::deleteTable(QSqlDatabase db, QString& tableName)
 
 void CustomCreatSql::synchronizeStandardValues(const quint8 Index,const bool bfindMan,QVariant &HighValue,QVariant &LowValue,QString &uintbom)
 {
-    QSqlQuery query_sql;
-    query_sql = QSqlQuery(m_MachineConfigdb);
-    QString keystr ="";
-    switch(Index)
-    {
+    // 初始化返回值
+    HighValue = QVariant();
+    LowValue = QVariant();
+    uintbom = QString();
+
+    QSqlQuery query_sql(m_MachineConfigdb);
+
+    // 确保索引在有效范围内
+   if (Index > 19) {
+       QLOG_WARN() << "索引超出范围:" << Index;
+       return;
+   }
+
+   QString keystr ="";
+   switch(Index)
+   {
         case 0: keystr = "AA聚集率-1";     break;
         case 1: keystr = "AA聚集率-2";     break;
         case 2: keystr = "AA聚集率-3";     break;
@@ -1883,24 +2126,34 @@ void CustomCreatSql::synchronizeStandardValues(const quint8 Index,const bool bfi
         return;
     }
     QString findKey = QString("select *from '%1' where ReagendType = '%2'").arg(m_ReferenceTable).arg(keystr);
-    query_sql.exec(findKey);
-    while(query_sql.next())
-   {
-       if(bfindMan)
-       {
-            HighValue =  query_sql.value("MaleHeigh");
-            LowValue =   query_sql.value("MaleLow");
-       }
-       else
-       {
-           HighValue =  query_sql.value("WomanHeigh");
-           LowValue =   query_sql.value("WomanLow");
-       }
-       uintbom = query_sql.value("UnitBom").toString();
-   }
-   query_sql.finish();
-   query_sql.clear();
-   return ;
+    if (!query_sql.exec(findKey)) {
+        QLOG_ERROR() << "查询失败:" << query_sql.lastError().text();
+        return;
+    }
+
+
+    if (query_sql.next()) {
+        if (bfindMan) {
+            HighValue = query_sql.value("ManleHeigh");
+            LowValue = query_sql.value("ManleLow");
+        } else {
+            HighValue = query_sql.value("WomanHeigh");
+            LowValue = query_sql.value("WomanLow");
+        }
+        uintbom = query_sql.value("UnitBom").toString();
+
+        // 验证查询到的值是否有效
+        if (HighValue.isNull() || !HighValue.isValid()) {
+            QLOG_WARN() << "未找到男性参考值 for" << keystr;
+        }
+        if (LowValue.isNull() || !LowValue.isValid()) {
+            QLOG_WARN() << "未找到男性参考值下限 for" << keystr;
+        }
+    } else {
+        QLOG_WARN() << "未找到试剂:" << keystr << "在表" << m_ReferenceTable;
+    }
+    query_sql.finish();
+    return ;
 }
 
 
@@ -2371,7 +2624,17 @@ QList<PETestEntry> CustomCreatSql::selectAllPETestEntries() {
 void CustomCreatSql::CreatMachineTableData()
 {
     const TableConfig configs[] = {
-            {m_MachineTubeState,   [this]{Initial_configurationEmptyTube();}, "空试管孔状态"},
+            {m_MachineTubeState,   [this]{
+
+                 // 只在表为空时才初始化
+                  QSqlQuery query(m_MachineConfigdb);
+                  query.exec(QString("SELECT COUNT(*) FROM %1").arg(m_MachineTubeState));
+                  if(query.next() && query.value(0).toInt() == 0) {
+                      Initial_configurationEmptyTube();
+                  }
+             },
+             "空试管孔状态"},
+
             {m_TestProjectTable,   nullptr,          "创建测试项目保存的数据表[完成]"},
             {m_SuppLiesTable,      nullptr,          "创建耗材管理参数数据表[完成]"},
             {m_UserTable,          [this]{AddUserName("admin","admin",INTENDANT_CONTROL_VIP);}, "admin**创建成功"},

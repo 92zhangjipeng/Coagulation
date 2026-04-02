@@ -1235,73 +1235,63 @@ QString QUIUtils::index_reagent_mapping_reagentName(const quint8 indexReag, QStr
 */
 QString QUIUtils::IndexPorgectMapString(quint8 IndexReagents ,bool Result)
 {
-    QString UPdataKey;
-    if (false == Result)
-    {
-        switch (IndexReagents)
-        {
-            case AA_REAGENT:  UPdataKey = "AA数据"; break;
-            case ADP_REAGENT: UPdataKey = "ADP数据"; break;
-            case EPI_REAGENT: UPdataKey = "EPI数据"; break;
-            case COL_REAGENT: UPdataKey = "COL数据"; break;
-            case RIS_REAGENT: UPdataKey = "RIS数据"; break;
-            default:
-                UPdataKey = "AA数据";
-            break;
-        }
-    }
-    else
-    {
-        switch (IndexReagents)
-        {
-            case AA_REAGENT:  UPdataKey = "AA";  break;
-            case ADP_REAGENT: UPdataKey = "ADP"; break;
-            case EPI_REAGENT: UPdataKey = "EPI"; break;
-            case COL_REAGENT: UPdataKey = "COL"; break;
-            case RIS_REAGENT: UPdataKey = "RIS"; break;
-            default:
-                UPdataKey = "AA";
-            break;
-        }
-    }
-    return UPdataKey;
+    // 定义映射表
+    static const QMap<quint8, QString> fullNameMap = {
+        {AA_REAGENT, "AA数据"},
+        {ADP_REAGENT, "ADP数据"},
+        {EPI_REAGENT, "EPI数据"},
+        {COL_REAGENT, "COL数据"},
+        {RIS_REAGENT, "RIS数据"}
+    };
+
+    static const QMap<quint8, QString> shortNameMap = {
+        {AA_REAGENT, "AA"},
+        {ADP_REAGENT, "ADP"},
+        {EPI_REAGENT, "EPI"},
+        {COL_REAGENT, "COL"},
+        {RIS_REAGENT, "RIS"}
+    };
+
+    const auto& map = Result ? shortNameMap : fullNameMap;
+    return map.value(IndexReagents, Result ? "AA" : "AA数据");
 }
 
-
-/* 输出获取测试结果*/
-QString stage(double v, int precision) //precision为需要保留的精度，2位小数变为2
-{
-    QString _out = QString::number(v, 'f', precision);
-    return _out;
-}
 
 QString QUIUtils::OutPrintTestedResult(QVector<double> TestingDataList)
 {
-    QString _outputtestresult = "0%,0%,0%,0%";
-    int index_sixty,index_onehunderdeighty;
-    QString index_max_val,index_sixty_val,index_onehunderdeighty_val,index_end_val;
-    if(TestingDataList.size() == 300){
-        auto itmax = std::max_element(std::begin(TestingDataList), std::end(TestingDataList));
-        double max_val = *itmax;
-        index_max_val = stage(max_val*100,2) + "%";
+    const QString DEFAULT_RESULT = "0%,0%,0%,0%";
+    const int EXPECTED_SIZE = 300;
 
-        index_sixty = TestingDataList.size()/5 - 1;
-        index_onehunderdeighty = TestingDataList.size()/2 + 29;
-
-        double end_val= *(std::end(TestingDataList) - 1 );
-        index_end_val =  stage(end_val*100, 2)+ "%";
-
-        index_sixty_val =  stage(TestingDataList.at(index_sixty)*100, 2) + "%";
-
-        index_onehunderdeighty_val = stage(TestingDataList.at(index_onehunderdeighty)*100,2)+ "%";
-        _outputtestresult = QString("%1,%2,%3,%4").arg(index_sixty_val).arg(index_onehunderdeighty_val).arg(index_end_val).arg(index_max_val);
-
-    }else{
-        QLOG_ERROR()<<"采集数据个数异常"<<endl;
-        return _outputtestresult;
+    if (TestingDataList.size() != EXPECTED_SIZE) {
+        QLOG_ERROR() << "采集数据个数异常，期望:" << EXPECTED_SIZE
+                     << "实际:" << TestingDataList.size();
+        return DEFAULT_RESULT;
     }
-    QLOG_DEBUG()<<"测试结果值:"<<_outputtestresult;
-    return _outputtestresult;
+
+    // 定义采样点索引
+    const int SAMPLE_INDEX_60 = EXPECTED_SIZE / 5 - 1;      // 第60个点
+    const int SAMPLE_INDEX_180 = EXPECTED_SIZE / 2 + 29;    // 第180个点
+
+
+    // 获取各点数值
+    double val_60 = TestingDataList.at(SAMPLE_INDEX_60);
+    double val_180 = TestingDataList.at(SAMPLE_INDEX_180);
+    double val_end = TestingDataList.last();
+    double val_max = *std::max_element(TestingDataList.begin(), TestingDataList.end());
+
+    // 格式化为百分比
+    auto formatPercent = [](double value) -> QString {
+        return QString::number(value * 100, 'f', 2) + "%";
+    };
+
+    QString result = QString("%1,%2,%3,%4")
+        .arg(formatPercent(val_60))
+        .arg(formatPercent(val_180))
+        .arg(formatPercent(val_end))
+        .arg(formatPercent(val_max));
+
+    QLOG_DEBUG() << "测试结果值:" << result;
+    return result;
 }
 
 
@@ -2870,7 +2860,153 @@ int QUIUtils::suckPPPEndSplitPPP(QByteArrayList &out_directives,
 }
 
 
+
+
+
 int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
+                                    int testHeight,
+                                    QPoint sourcePosition,
+                                    const QList<QPoint>& targetPositions)
+{
+    // 1. 参数验证
+    if (targetPositions.isEmpty()) {
+        QLOG_ERROR() << "目标位置列表为空";
+        return -1;
+    }
+
+    const double STEP_TO_VOLUME_RATIO = 0.347;  // 步数到体积的转换系数
+    const double EXTRA_VOLUME_RATIO = 0.2;      // 额外吸取比例
+
+    // 2. 获取配置参数
+    auto &ini = INI_File();
+    const double prpConvertRatio = ini.getPRPConvertTheratioColumn();  // PRP样本系数
+    const int sampleVolume = ini.GetLearnSamplevolume();               // 单份血样吸取的样本量
+    const int emptyTubeDownHeight = ini.GetEmptyTubeDownHigh();        // 血样针在空试管区下降高度
+    const int securityValue = ini.GetSecurityValue();                  // 空回值
+    const double compensateSteps = securityValue / STEP_TO_VOLUME_RATIO; // 补偿步数
+
+    // 3. 吸空气校准配置（保持原始逻辑）
+    const bool suckAirEnable = true;  // ini.rConfigPara(FIRSTSUCKAIRS).toBool();
+    const int firstSuckAirSteps = ini._getsuckairsuckPRP() + BIG_BEN_INHALE_ARI / 2;
+
+    // 4. 计算总吸取量
+    const int targetCount = targetPositions.size();
+    const double airCompensation = suckAirEnable ? firstSuckAirSteps : 0;
+    const double extraVolume = sampleVolume * EXTRA_VOLUME_RATIO;
+
+    const int totalSuckVolume = static_cast<int>(
+        targetCount * sampleVolume * prpConvertRatio + airCompensation + extraVolume
+    );
+
+    QLOG_DEBUG() << QString("吸PRP总步数:%1 份数:%2").arg(totalSuckVolume).arg(targetCount);
+
+    // 5. 生成指令
+    quint8 directiveNum = out_directives.size() % 255;
+    auto *pActive = Testing::m_TaskDll;
+
+    // 移动到源位置
+    out_directives.push_back(
+        pActive->DLL_XYMoveSpecifiedPosition(sourcePosition, 0, 0, directiveNum)
+    );
+
+    // 吸空气（保持原始逻辑）
+    if (suckAirEnable) {
+        out_directives.push_back(
+            pActive->BigBenActive(true, firstSuckAirSteps, directiveNum, DIS_WASHES_PUMPS, 0)
+        );
+    } else {
+        QLOG_DEBUG() << "PRP加样不吸空气";
+    }
+
+    // 下降到测试高度
+    out_directives.push_back(
+        pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, testHeight, 0, directiveNum,
+                                            false, testHeight, false, GRIPPERNORMAL)
+    );
+
+    // 6. 优化分层吸取策略（关键改进）
+    // 多份分配时减少分层次数，单份时保持原有分层
+    const int suckCycles = (targetCount > 1) ? targetCount : 2;  // 优化：多份时减少分层
+    const int baseStep = totalSuckVolume / suckCycles;
+    const int remainder = totalSuckVolume % suckCycles;
+
+    QLOG_DEBUG() << QString("优化分层策略：目标数%1，分层次数%2").arg(targetCount).arg(suckCycles);
+    QLOG_DEBUG() << "基础步数:" << baseStep << "余数:" << remainder;
+
+    int cumulativeSteps = 0;
+    for (int cycle = 1; cycle <= suckCycles; ++cycle) {
+        int currentStep = baseStep;
+        if (cycle == suckCycles) {
+            currentStep += remainder;
+        }
+        cumulativeSteps += currentStep;
+
+        QLOG_DEBUG() << QString("第%1/%2次吸取，步数:%3，累计步数:%4")
+                            .arg(cycle).arg(suckCycles).arg(currentStep).arg(cumulativeSteps);
+
+        out_directives.push_back(
+            pActive->BigBenActive(true, cumulativeSteps, directiveNum, DIS_WASHES_PUMPS, 0)
+        );
+    }
+
+    QLOG_DEBUG() << "分层吸取完成，总步数:" << cumulativeSteps;
+
+    // 血样针复位
+    out_directives.push_back(
+        pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, directiveNum, false)
+    );
+
+    // 7. 吐富血到各目标位置（保持原始分配逻辑）
+    const int spitVolumePerTarget = static_cast<int>(sampleVolume * prpConvertRatio);
+    QLOG_DEBUG() << "空回补偿步数:" << compensateSteps;
+
+    // 保持原始逻辑：使用剩余量跟踪
+    int remainingVolume = totalSuckVolume;
+
+    for (int i = 0; i < targetCount; ++i) {
+        const QPoint& targetPos = targetPositions.at(i);
+
+        // 移动到目标位置
+        out_directives.push_back(
+            pActive->DLL_XYMoveSpecifiedPosition(targetPos, 0, 0, directiveNum)
+        );
+
+        // 下降到空试管高度
+        out_directives.push_back(
+            pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, emptyTubeDownHeight, 0,
+                                                directiveNum, false, emptyTubeDownHeight,
+                                                false, GRIPPERNORMAL)
+        );
+
+        // 保持原始分配计算逻辑
+        int spitVolume;
+        if (i == 0) {
+            // 第一个位置需要补偿
+            remainingVolume = remainingVolume - (spitVolumePerTarget + compensateSteps);
+            spitVolume = remainingVolume;
+        } else {
+            remainingVolume = remainingVolume - spitVolumePerTarget;
+            spitVolume = remainingVolume;
+        }
+
+        QLOG_DEBUG() << QString("第%1个位置吐出量:%2 剩余量:%3").arg(i+1).arg(spitVolume).arg(remainingVolume);
+
+        // 吐出PRP
+        out_directives.push_back(
+            pActive->BigBenActive(false, spitVolume, directiveNum, DIS_WASHES_PUMPS, 0)
+        );
+
+        // 复位
+        out_directives.push_back(
+            pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, directiveNum, false)
+        );
+    }
+
+    QLOG_DEBUG() << QString("吐富血完成，共处理%1个位置").arg(targetCount);
+    return 1;
+}
+
+/*int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
                                     int Testheigt,
                                     QPoint sourcePosition ,
                                     const QList<QPoint>& targetPositions)
@@ -2958,7 +3094,7 @@ int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
         out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,directiveNum ,false));
     }
     return 1;
-}
+}*/
 
 
 quint8 QUIUtils::_hansdownheightinnertubetray(quint8 _hole)

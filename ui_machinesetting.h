@@ -4477,7 +4477,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(3);
+        tabWidget_config->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);
@@ -4596,7 +4596,7 @@ public:
         poorBlood_changliang->setPrefix(QString());
         label_SecurityValue->setText(QApplication::translate("MachineSetting", "\347\251\272\345\233\236\345\200\274:", nullptr));
         OffsetTestHeightValue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        label_fixedhigh->setText(QApplication::translate("MachineSetting", "\346\265\213\351\253\230\347\211\251\347\220\206\351\253\230\345\272\246:", nullptr));
+        label_fixedhigh->setText(QApplication::translate("MachineSetting", "\345\205\250\350\241\200\346\200\273\351\253\230\345\272\246:", nullptr));
         spinBoxAbsorbX2->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));
         label_AbsorbX2->setText(QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\346\270\205\346\264\227\351\207\217:", nullptr));
         labelwashesTime->setText(QApplication::translate("MachineSetting", "\346\270\205\346\264\227\346\227\266\351\227\264:", nullptr));

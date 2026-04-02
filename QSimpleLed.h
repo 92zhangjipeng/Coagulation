@@ -32,6 +32,7 @@ public:
     };
 
     QSimpleLed(QWidget *parent = nullptr, LEDCOLOR color = GREEN);
+    ~QSimpleLed();
 
     void setCustomOnColor0(const QColor &color) { smColorPalette[CUSTOM].on0 = color; }
     void setCustomOnColor1(const QColor &color) { smColorPalette[CUSTOM].on1 = color; }

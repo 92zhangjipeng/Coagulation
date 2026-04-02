@@ -1,8 +1,16 @@
-﻿#include "QSimpleLed.h"
+#include "QSimpleLed.h"
 #include <QGradient>
 #include <QPainter>
 #include <QDebug>
 #include <QMouseEvent>
+
+// 定义绘制常量
+constexpr qreal BASE_SIZE = 1000.0;
+constexpr qreal OUTER_RADIUS = 500.0;
+constexpr qreal MIDDLE_RADIUS = 450.0;
+constexpr qreal INNER_RADIUS = 400.0;
+constexpr qreal GRADIENT_RADIUS = 1500.0;
+constexpr qreal LIGHT_SOURCE_OFFSET = 500.0;
 
 // https://www.schemecolor.com/
 QSimpleLed::ColorGroup QSimpleLed::smColorPalette[6]
@@ -26,7 +34,17 @@ QSimpleLed::QSimpleLed(QWidget *parent, QSimpleLed::LEDCOLOR color)
     , mColor(color)
 {
     setCheckable(true);
-    setMinimumSize(64, 64);
+    setMinimumSize(34, 34);
+}
+
+QSimpleLed::~QSimpleLed()
+{
+    // 清理定时器资源
+    if (mBlinkTimer && mBlinkTimer->isActive()) {
+        mBlinkTimer->stop();
+    }
+    delete mBlinkTimer;
+    mBlinkTimer = nullptr;
 }
 
 void QSimpleLed::setColors(QSimpleLed::LEDCOLOR color)
@@ -74,9 +92,10 @@ void QSimpleLed::paintEvent(QPaintEvent *event)
 
     QRadialGradient radialGent;
 
-    //
-    // gradient - 1
-    radialGent = QRadialGradient(QPointF(-500, -500), 1500,QPointF(-500, -500));
+    // gradient - 1: 外层渐变（光源在左上角）
+    radialGent = QRadialGradient(QPointF(-LIGHT_SOURCE_OFFSET, -LIGHT_SOURCE_OFFSET), 
+                                 GRADIENT_RADIUS, 
+                                 QPointF(-LIGHT_SOURCE_OFFSET, -LIGHT_SOURCE_OFFSET));
     radialGent.setColorAt(0, QColor(224, 224, 224));
     radialGent.setColorAt(1, QColor(28, 28, 28));
 
@@ -84,96 +103,41 @@ void QSimpleLed::paintEvent(QPaintEvent *event)
 
     painter.setRenderHint(QPainter::Antialiasing);      // 反锯齿
     painter.translate(width()/2, height()/2);           // 绘点移到控件中心处
-    painter.scale(realSize/1000, realSize/1000);
+    painter.scale(realSize/BASE_SIZE, realSize/BASE_SIZE);
     painter.setBrush(QBrush(radialGent));
-    painter.drawEllipse(QPointF(0, 0), 500, 500);
+    painter.drawEllipse(QPointF(0, 0), OUTER_RADIUS, OUTER_RADIUS);
 
-    //
-    // gradient - 2
-    radialGent = QRadialGradient(QPointF(500, 500)
-                                 , 1500
-                                 , QPointF(500, 500));
+    // gradient - 2: 中层渐变（光源在右下角）
+    radialGent = QRadialGradient(QPointF(LIGHT_SOURCE_OFFSET, LIGHT_SOURCE_OFFSET),
+                                 GRADIENT_RADIUS,
+                                 QPointF(LIGHT_SOURCE_OFFSET, LIGHT_SOURCE_OFFSET));
     radialGent.setColorAt(0, QColor(224, 224, 224));
     radialGent.setColorAt(1, QColor(28, 28, 28));
 
     painter.setBrush(QBrush(radialGent));
-    painter.drawEllipse(QPointF(0, 0), 450, 450);
+    painter.drawEllipse(QPointF(0, 0), MIDDLE_RADIUS, MIDDLE_RADIUS);
 
     if (isChecked()) {
-        //
-        // gradient - 3
-        radialGent = QRadialGradient(QPointF(-500, -500)
-                                     , 1500
-                                     , QPointF(-500, -500));
+        // gradient - 3: ON状态内层渐变（光源在左上角）
+        radialGent = QRadialGradient(QPointF(-LIGHT_SOURCE_OFFSET, -LIGHT_SOURCE_OFFSET)
+                                     , GRADIENT_RADIUS
+                                     , QPointF(-LIGHT_SOURCE_OFFSET, -LIGHT_SOURCE_OFFSET));
         radialGent.setColorAt(0, smColorPalette[mColor].on0);
         radialGent.setColorAt(1, smColorPalette[mColor].on1);
 
     } else {
-        //
-        // gradient - 4
-        radialGent = QRadialGradient(QPointF(500, 500), 1500,QPointF(500, 500));
+        // gradient - 4: OFF状态内层渐变（光源在右下角）
+        radialGent = QRadialGradient(QPointF(LIGHT_SOURCE_OFFSET, LIGHT_SOURCE_OFFSET), 
+                                     GRADIENT_RADIUS,
+                                     QPointF(LIGHT_SOURCE_OFFSET, LIGHT_SOURCE_OFFSET));
         radialGent.setColorAt(0, smColorPalette[mColor].off0);
         radialGent.setColorAt(1, smColorPalette[mColor].off1);
     }
 
     painter.setBrush(QBrush(radialGent));
-    painter.drawEllipse(QPoint(0, 0), 400, 400);
 
-    ////////////////////////////////////////////////////////////////
-//    float test2 = realSize*0.5;
-//    float test15 = realSize*1.5;
-//    float test45 = realSize*0.45;
-//    float test4 = realSize*0.4;
+	painter.drawEllipse(QPointF(0, 0), INNER_RADIUS, INNER_RADIUS);
 
-//    //
-//    // gradient - 1
-//    radialGent = QRadialGradient(QPointF(-test2, -test2)
-//                                 , test15
-//                                 , QPointF(-test2, -test2));
-//    radialGent.setColorAt(0, QColor(224, 224, 224));
-//    radialGent.setColorAt(1, QColor(28, 28, 28));
-
-//    QPainter painter(this);
-
-//    painter.setRenderHint(QPainter::Antialiasing);      // 反锯齿
-//    painter.translate(width()/2, height()/2);           // 绘点移到控件中心处
-////    painter.scale(realSize/1000, realSize/1000);
-//    painter.setPen(Qt::NoPen);
-//    painter.setBrush(QBrush(radialGent));
-//    painter.drawEllipse(QPointF(0, 0), test2, test2);
-
-//    //
-//    // gradient - 2
-//    radialGent = QRadialGradient(QPointF(test2, test2)
-//                                 , test15
-//                                 , QPointF(test2, test2));
-//    radialGent.setColorAt(0, QColor(224, 224, 224));
-//    radialGent.setColorAt(1, QColor(28, 28, 28));
-
-//    painter.setBrush(QBrush(radialGent));
-//    painter.drawEllipse(QPointF(0, 0), test45, test45);
-
-//    if (isChecked()) {
-//        //
-//        // gradient - 3
-//        radialGent = QRadialGradient(QPointF(-test2, -test2)
-//                                     , test15
-//                                     , QPointF(-test2, -test2));
-//        radialGent.setColorAt(0, mOnColor1);
-//        radialGent.setColorAt(1, mOnColor2);
-
-//    } else {
-//        //
-//        // gradient - 4
-//        radialGent = QRadialGradient(QPointF(test2, test2)
-//                                     , test15
-//                                     , QPointF(test2, test2));
-//        radialGent.setColorAt(0, mOffColor1);
-//        radialGent.setColorAt(1, mOffColor2);
-//    }
-
-//    painter.setBrush(QBrush(radialGent));
-//    painter.drawEllipse(QPointF(0, 0), test4, test4);
 }
 
 void QSimpleLed::resizeEvent(QResizeEvent *event)

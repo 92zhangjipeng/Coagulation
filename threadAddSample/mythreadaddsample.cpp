@@ -58,17 +58,17 @@ void  mythreadaddsample::waittestsampledata(QString samplename, QString savedtim
     waitTestSapleInfoStu->_barcode      = barcode_str;
     waitTestSapleInfoStu->_CurrRichHole = CurrRichHole;
     waitTestSapleInfoStu->_sampleid     = samplename;
-    if(insertWholeBloodMode)
-    {
-       double totalHeigh = INI_File().GetFixedHigh() + REFERENCE_TO_BOTTOM;
-	   double offsetmm = INI_File().GetTestDifference();
-       double PindownMM = std::abs(totalHeigh - bottomBloodHeight - offsetmm);
-       waitTestSapleInfoStu->_testheighvalue = PindownMM;
-    }
-    else
-    {
+//    if(insertWholeBloodMode)
+//    {
+//       double totalHeigh = INI_File().GetFixedHigh() + REFERENCE_TO_BOTTOM;
+//	   double offsetmm = INI_File().GetTestDifference();
+//       double PindownMM = std::abs(totalHeigh - bottomBloodHeight - offsetmm);
+//       waitTestSapleInfoStu->_testheighvalue = PindownMM;
+//    }
+//    else
+//    {
          waitTestSapleInfoStu->_testheighvalue = bottomBloodHeight;
-    }
+    //}
     waitTestSapleInfoStu->_testproject = project_;
     m_WaitTestStuList.append(waitTestSapleInfoStu);
 
@@ -221,6 +221,7 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
         QUIUtils::suckPPPEndSplitPPP(out_directives_anemia, AnaemiAaxis, AnaemiinEmptyAaxis);
 
         //PRP加样
+        QLOG_DEBUG()<<"样本ID"<<sampleId<<"吸PRP下降高度"<<data_stu->_testheighvalue;
         QUIUtils::SuckPRPandSpitoutPRP(out_directives_anemia,
                                        data_stu->_testheighvalue,
                                        suckbloodyAxis,
