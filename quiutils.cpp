@@ -2338,52 +2338,65 @@ void  QUIUtils::CreatReagArsOtherAxis(QPoint indexFirstPos,QMap<quint8,QPoint> &
             m++;
         }
     }
-    //QLOG_DEBUG()<<"试剂区坐标"<<ReagentZoneOffsetKitsPin;
 }
 
 //生成血样区坐标
 void  QUIUtils::creatBloodSampleAxis(int equipType, QPoint firstPos, QMap<quint8,QPoint> &bloodSampleZone)
 {
-    const uint  inGroupLSpace = 170; //组内竖直间距
-    const uint  inGroupHSpace = 170; //组内横向间距
-    uint GroupSpace = 380; //组与组大间距
-    uint holenum = 0;
-    QPoint tmpAxis(0,0);
-    int GroupTube = 0; //面板的竖直个数
-    switch(equipType)
-    {
-        case KS600:
-            GroupTube =   6;
-            GroupSpace = 480;
-        break;
-        case KS800:
-            GroupTube =  8;
-            GroupSpace = 570;
-        break;
-        case KS1200:
-            GroupTube =  12;
-            GroupSpace = 380;
-        break;
-    default:
-        QLOG_ERROR() << "写入血样孔坐标读取仪器类型异常" << __FUNCTION__ << __LINE__ << endl;
-        break;
-    }
-    for(int g = 0 ; g < GroupTube  ; g++)
-    {
-        for(int r = 0; r < 5; r++)
-        {
-            for(int l = 0 ;l < 2; l++)
-            {
-                if((l+1)/2 == 0)
-                   tmpAxis.setX(firstPos.x() + g*GroupSpace);
-                else
-                   tmpAxis.setX(firstPos.x() + g*GroupSpace + inGroupHSpace);
-                tmpAxis.setY(firstPos.y() + r*inGroupLSpace);
-                bloodSampleZone.insert(holenum,tmpAxis);
-                holenum++;
-            }
-        }
-    }
+    // 清空并预留空间
+    bloodSampleZone.clear();
+
+    // 设备配置结构体
+   struct EquipmentConfig {
+       int rowCount;       // 行数（竖直方向组数）
+       uint groupSpacing;  // 组间间距
+   };
+
+   // 使用查找表替代switch
+   static const QMap<int, EquipmentConfig> equipmentConfigs = {
+       {KS600,  {6, 480}},
+       {KS800,  {8, 570}},
+       {KS1200, {12, 380}}
+   };
+
+   // 查找配置
+   auto configIt = equipmentConfigs.find(equipType);
+   if (configIt == equipmentConfigs.end()) {
+       QLOG_ERROR() << "Unknown equipment type for blood sample axis:" << equipType;
+       return;
+   }
+
+   const auto& config = configIt.value();
+   constexpr int ROWS_PER_GROUP = 5;           // 每组行数
+   constexpr int COLS_PER_GROUP = 2;           // 每组列数
+   constexpr int VERTICAL_SPACING = 170;       // 垂直间距
+   constexpr int HORIZONTAL_SPACING = 170;     // 水平间距
+
+
+   // 预分配内存
+   const int totalHoles = config.rowCount * ROWS_PER_GROUP * COLS_PER_GROUP;
+   //bloodSampleZone.reserve(totalHoles);
+
+   // 生成坐标
+   quint8 holeIndex = 0;
+   for (int rowGroup = 0; rowGroup < config.rowCount; ++rowGroup)
+   {
+       const int groupBaseX = firstPos.x() + rowGroup * config.groupSpacing;
+
+       for (int row = 0; row < ROWS_PER_GROUP; ++row)
+       {
+           const int yPos = firstPos.y() + row * VERTICAL_SPACING;
+
+           // 左列孔位
+           bloodSampleZone.insert(holeIndex++, QPoint(groupBaseX, yPos));
+           // 右列孔位
+           bloodSampleZone.insert(holeIndex++, QPoint(groupBaseX + HORIZONTAL_SPACING, yPos));
+       }
+   }
+
+   // 可选：添加日志记录生成的孔位数量
+   QLOG_INFO() << "为equipType生成的血液样本轴:" << equipType
+                   << "血样孔总数:" << bloodSampleZone.size();
 }
 
 

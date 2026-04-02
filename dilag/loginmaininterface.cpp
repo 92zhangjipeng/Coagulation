@@ -148,15 +148,18 @@ void loginmaininterface::initHardware()
 
 
         //仪器未配置类型
-        connect(mLoadcoordinates,&loadEquipmentPos::setEquipmentIndex,
-                this,&loginmaininterface::slotsetEquipmentIndex);
+        connect(mLoadcoordinates
+                ,&loadEquipmentPos::setEquipmentIndex,
+                this,
+                &loginmaininterface::slotsetEquipmentIndex);
 
         //仪器有型号直接读取坐标
         connect(mLoadcoordinates,&loadEquipmentPos::_whiletoReadEquipPosAixs,
                 this,&loginmaininterface::ToReadtEquipmentTypePos);
 
-        connect(this,&loginmaininterface::makesureequipment,
-                mLoadcoordinates,&loadEquipmentPos::writeEquipmenttyped);
+        connect(this,&loginmaininterface::configuredModel,
+                mLoadcoordinates,
+                &loadEquipmentPos::onconfiguredModel);
 
         //读取写入返回进度
         connect(mLoadcoordinates,&loadEquipmentPos::sendUpdateProgressshow,
@@ -480,35 +483,76 @@ void loginmaininterface::slotsetEquipmentIndex()
     return;
 }
 
-void loginmaininterface::CreatReminderWidget(char index,QString titleStr,QString reminderStr)
+void loginmaininterface::CreatReminderWidget(char index, const QString &titleStr, const QString &reminderStr)
 {
-   if (nullptr == m_pReminderExceptional)
-    {
-        m_pReminderExceptional = new CommandExceptional(index,titleStr,this);
-        m_pReminderExceptional->setAttribute(Qt::WA_DeleteOnClose);
-        connect(m_pReminderExceptional,&CommandExceptional::closeDel,this,&loginmaininterface::closeReminder);
-        if(index == 1)
-        {
-            connect(m_pReminderExceptional,&CommandExceptional::configEquipType,this,[=](quint8 indexEquip)
-            {
-                //先设置仪器型号再写坐标
-                emit makesureequipment(indexEquip,m_bparaexit,_parasettingPath);
-
-                closeReminder();
-                return;
-            });
-        }
-        else
-        {
-            m_pReminderExceptional->setErrInfo(0,reminderStr);
-        }
-        if(index == 4 || index == 1)
-            m_pReminderExceptional->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
-        m_pReminderExceptional->show();
-        update();
+    // 如果窗口已存在，先激活而不是重复创建
+    if (m_pReminderExceptional != nullptr) {
+        m_pReminderExceptional->activateWindow();
+        m_pReminderExceptional->raise();
+        return;
     }
-    return;
+
+    // 使用枚举替代魔数
+   enum ReminderType : char {
+       TypeConfigEquipment = 1,
+       TypeInfo = 2,
+       TypeWarning = 3,
+       TypeTool = 4
+   };
+
+   // 创建提醒窗口
+   m_pReminderExceptional = new CommandExceptional(index, titleStr, this);
+   m_pReminderExceptional->setAttribute(Qt::WA_DeleteOnClose);
+   connect(m_pReminderExceptional, &CommandExceptional::closeDel,
+               this, &loginmaininterface::closeReminder);
+
+    // 根据类型配置不同的行为
+    switch (static_cast<ReminderType>(index)) {
+      case ReminderType::TypeConfigEquipment:
+          setupConfigEquipmentReminder(reminderStr);
+          break;
+
+      case ReminderType::TypeTool:
+          setupToolReminder(reminderStr);
+          break;
+
+      default:
+          setupDefaultReminder(reminderStr);
+          break;
+    }
+    // 设置窗口标志
+    if (index == TypeConfigEquipment || index == TypeTool) {
+        m_pReminderExceptional->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+    }
+
+    m_pReminderExceptional->show();
+    update();
 }
+
+void loginmaininterface::setupConfigEquipmentReminder(const QString& reminderStr)
+{
+     Q_UNUSED(reminderStr);
+    // 连接配置仪器型号的信号
+    connect(m_pReminderExceptional, &CommandExceptional::configEquipType,
+            this, [this](quint8 indexEquip) {
+        // 先设置仪器型号再写坐标
+        emit configuredModel(indexEquip, m_bparaexit, _parasettingPath);
+        closeReminder();
+    });
+}
+
+void loginmaininterface::setupToolReminder(const QString& reminderStr)
+{
+    // 工具类型的特殊配置
+    m_pReminderExceptional->setErrInfo(0, reminderStr);
+}
+
+void loginmaininterface::setupDefaultReminder(const QString& reminderStr)
+{
+    // 默认配置
+    m_pReminderExceptional->setErrInfo(0, reminderStr);
+}
+
 
 void loginmaininterface::closeReminder()
 {

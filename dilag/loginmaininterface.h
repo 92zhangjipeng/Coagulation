@@ -38,9 +38,11 @@ private:
     void initPasswordField();
     void asyncInitDatabase();
     void initHardware();
-
-
     void loaduser();
+
+    void setupConfigEquipmentReminder(const QString& reminderStr);
+    void setupToolReminder(const QString& reminderStr);
+    void setupDefaultReminder(const QString& reminderStr);
 
 private slots:
     void onBtnMenuCloseClicked();
@@ -53,22 +55,17 @@ signals:
     void signalStart();
 
     //配置机型坐标 写坐标
-    void makesureequipment(const quint8 & ,bool,QString);
+    void configuredModel(const quint8 & ,bool,QString);
 
     void sycnParaConfigFileSatte(bool,QString);
 
 public slots:
 
    void ToReadtEquipmentTypePos(quint8 kindType, QString saveTimes); //读仪器坐标
-
    void slotProgressshow(bool bWrite); //返回读写进度
-
    void slotsetEquipmentIndex();
-
-   void CreatReminderWidget(char index, QString titleStr, QString reminderStr); //创建提示框
-
+   void CreatReminderWidget(char index, const QString& titleStr, const QString& reminderStr); //创建提示框
    void slotclosetimercon(bool _conned);
-
    void closeReminder();        //析构对话框
 
 

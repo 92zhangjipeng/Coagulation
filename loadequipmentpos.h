@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QPoint>
+#include <QDir>
+#include <QCoreApplication>
 #include <stdexcept>
 #include <memory>
 #include <mutex>
@@ -187,7 +189,7 @@ public:
     static void throwTubeHolePos(bool bWrite,QPoint &pos);
     static void cleanZoneAxisPos(bool bWrite,int indexNedl,QPoint &pos);
     static void reagetZoneAxisPos(bool bWrite,quint8 indexReag,QPoint &pos);
-    static void chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,QPoint &pos);
+    static void chnZoneAxisPos(bool bWrite, quint8 numChn, quint8 offsetNeedle, QPoint& pos);
     static void bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos);
 
 
@@ -452,7 +454,7 @@ public slots:
     void StatrLoad();
 
     //先设置仪器型号再写坐标
-    void writeEquipmenttyped(const quint8 &index_, bool _ExitParaFile, QString _ParaPath);
+    void onconfiguredModel(const quint8 &index, bool bParaFile, QString bparaPath);
 
     void handlewritedataToEquip(const QByteArray &arry);
 
@@ -469,7 +471,19 @@ private:
 
     void openLoadSerialPort(const QString &portName);
 
+    void initializeAllCoordinates(quint8 index);
 
+    bool saveCoordinateVerification(quint8 equipmentType,
+                                       const QPoint& originAxis,
+                                       const QPoint& cleanZoneBloodPin,
+                                       const QPoint& cleanZoneReagentPin,
+                                       const QPoint& reagentHoleAxis,
+                                       const QPoint& throwCupsAxis,
+                                       const QPoint& bloodZoneAxis,
+                                       const QMap<quint8, QPoint>& reagentPinOffsetChn,
+                                       const QMap<quint8, QPoint>& handsOffsetChn,
+                                       const QMap<quint8, QPoint>& trayTubeOffsetHands,
+                                       const QMap<quint8, QPoint>& trayTubeOffsetBloodPin);
 
 
 
@@ -551,7 +565,7 @@ private:
 
     //写坐标--begin
     void configAxisPoint(QPoint &input,uint x_,uint y_);
-    void LoadCoordinateData(QString filePath, QString keydata_x, QString keydata_y,QPoint& outdata);
+
 
     void loadParaData(bool _bexit, QString filePath,  QString _key ,quint8& outdata);
     void loadParaData(bool _bexit, QString filePath,  QString _key ,quint16& outdata);
@@ -577,12 +591,12 @@ private:
     QPoint initThrowCupsAxis(const quint8 &indexEquipment);
     QPoint initReagentHoleAxis(const quint8 &indexEquipment);
 
-    void initHandsoffsetChn(const quint8 &indexEquipment);
-    void initReagentPinOffsetChn(const quint8 &indexEquipment);
-    void initBloodZoneAxisPos(const quint8 &indexEquipment);
+    QMap<quint8, QPoint> initHandsoffsetChn(const quint8 &indexEquipment);
+    QMap<quint8, QPoint> initReagentPinOffsetChn(const quint8 &indexEquipment);
+    QPoint initBloodZoneAxisPos(const quint8 &indexEquipment);
 
-    void initTrayTubeOffsetHands(const quint8 &indexEquipment);
-    void initTrayTubeOffsetBloodPin(const quint8 &indexEquipment);
+    QMap<quint8, QPoint> initTrayTubeOffsetHands(const quint8 &indexEquipment);
+	QMap<quint8, QPoint> initTrayTubeOffsetBloodPin(const quint8 &indexEquipment);
 
     void initOrderNumI();
 
@@ -629,7 +643,11 @@ private:
     bool m_hasWarned = false; // 添加警告标志
     QString mserialname ;
 
-    bool mcreatSetType = false;       //设置仪器类型标志
+    //设置仪器类型标志
+    bool m_creatSetType = false;
+
+    //true 写 false 读
+    bool m_bReadorWrite;
 
 
     bool mequipnotconnect; //未连接提示一次标志
@@ -641,7 +659,7 @@ private:
 
     QMap<quint8,READPARAMENTER*> mwriteAxismap; //读取仪器内参数
     QMap<quint8,WRITEPARAMENTER*> m_axiswriteequipment; //把坐标写入到仪器内
-    bool m_bReadorWrite;   //true 写 false 读
+
 };
 
 #endif // LOADEQUIPMENTPOS_H
