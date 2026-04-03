@@ -424,7 +424,7 @@ void CustomPlot::displayOriginAxisPoint(bool bFindShow,bool bWrite_x,int notifyV
     }
     else
     {
-        pconfAxis->oper_OriginAxis(bWrite_x,notifyValue);
+        pconfAxis->operOriginAxis(bWrite_x,notifyValue);
     }
 }
 
@@ -805,39 +805,6 @@ void CustomPlot::NotifyShowInstrumentPoint(QMap<quint8,QPoint>& displayPoint ,co
 
        AddBtnSave_backValue(row, false);
    }
-
-
-//    auto iter = displayPoint.begin();
-//    while(iter != displayPoint.end())
-//    {
-//        int row = ui->tableWidget_displayPos->rowCount();
-//        ui->tableWidget_displayPos->insertRow(row);
-
-//        QTableWidgetItem *item = new QTableWidgetItem(QString("%1").arg(row + 1));
-//        item->setFlags(item->flags() & (~Qt::ItemIsEditable));//不可编辑
-//        item->setTextAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-//        ui->tableWidget_displayPos->setItem(row,TableIndexPos::IndexNum,item);
-//        ui->tableWidget_displayPos->item(row,TableIndexPos::IndexNum)->setBackground(QBrush(QColor(204,204,204)));//改变单元格颜色
-//        //设置X
-//        QSpinBox *DisplayXvalue = new QSpinBox(this);
-//        DisplayXvalue->setStyleSheet(m_SpinboxsheetX);
-//        DisplayXvalue->setAlignment(Qt::AlignCenter);
-//        DisplayXvalue->setMaximum(5500);
-//        DisplayXvalue->setFixedHeight(30);
-//        DisplayXvalue->setValue(iter.value().x());
-//        ui->tableWidget_displayPos->setCellWidget(row,TableIndexPos::Instrument_xpos,DisplayXvalue);//添加控件到tableWidget上
-//        //设置Y
-//        QSpinBox *DisplayYvalue = new QSpinBox(this);
-//        DisplayYvalue->setMaximum(5500);
-//        DisplayYvalue->setFixedHeight(30);
-//        DisplayYvalue->setAlignment(Qt::AlignCenter);
-//        DisplayYvalue->setStyleSheet(m_SpinboxsheetY);
-//        DisplayYvalue->setValue(iter.value().y());
-//        ui->tableWidget_displayPos->setCellWidget(row,TableIndexPos::Instrument_ypos, DisplayYvalue);
-//        //保存按钮
-//        AddBtnSave_backValue(row,false);
-//        iter++;
-//    }
 }
 
 

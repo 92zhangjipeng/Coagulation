@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 
+
 typedef struct REAGENTZONEAXIS{
     quint8 index;
     QString reagname;
@@ -199,7 +200,7 @@ public:
     static quint8 witchoneindexTary(const quint8 indextube);
 
     //修改坐标
-    static void oper_OriginAxis(bool bNotif_x,int posValue);
+    static void operOriginAxis(bool bNotif_x,int posValue);
     static void oper_ThrowTubeHolePos(bool bNotif_x,int posValue);
     static void oper_CleanZonePos(bool bNotif_x,int indexNedl,int posValue);
     static void oper_ReagentZonePos(bool bNotif_x, quint8 indexReag, quint16 posValue);
@@ -234,6 +235,8 @@ private:
     static SingletonAxis  *g_pSingletonAxis;
     static EquipmentAXIS_ *g_pEquipAxiaspos;
     static std::mutex m_mutex;
+
+
 };
 
 
@@ -444,6 +447,7 @@ public:
     explicit loadEquipmentPos(QObject *parent = nullptr);
     ~loadEquipmentPos();
 
+
 signals:
     void closetimercon(bool);
 
@@ -455,11 +459,8 @@ public slots:
 
     //先设置仪器型号再写坐标
     void onconfiguredModel(const quint8 &index, bool bParaFile, QString bparaPath);
-
     void handlewritedataToEquip(const QByteArray &arry);
-
     void _sycnobtainEquipmenttyped(bool Parafilestate,QString ParaFilePath);
-
 
 public:
 	void CloseSerial();
@@ -485,7 +486,7 @@ private:
                                        const QMap<quint8, QPoint>& trayTubeOffsetHands,
                                        const QMap<quint8, QPoint>& trayTubeOffsetBloodPin);
 
-
+    //void compareCoordinates(quint8 equipmentType);
 
 
 
@@ -519,38 +520,48 @@ private:
     void recvReagentCapacity(const QStringList hexArry);
 
     void recvOrininAxis(const QStringList hexArry); //0x06 收到原点坐标x...
-    void _recvOrininAxisY(const QStringList hexArry); //0x07 收到原点坐标y...
+    void recvOrininAxisY(const QStringList hexArry); //0x07 收到原点坐标y...
 
     //通道相对试剂针1-5
-    void _recvChnoffsetReagpinXI_V(const QStringList hexArry);
-    void _recvChnoffsetReagpinYI_V(const QStringList hexArry);
+    void recvChnoffsetReagpinXI_V(const QStringList hexArry);
+    void recvChnoffsetReagpinYI_V(const QStringList hexArry);
 
     //通道相对试剂针6-10
-    void _recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata);
-    void _recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata);
+    void recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata);
+    void recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata);
 
-    void _recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvdata); //11 12试剂针 1-3抓手
-    void _recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvdata);
+    //11 12试剂针 1-3抓手
+    void recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvdata);
+    void recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvdata);
 
-    void _recvHandChnVI_IIIV_X(const QStringList ArryRecvdata); //抓手通道 4- 8
-    void _recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata);
+    //抓手通道 4- 8
+    void recvHandChnVI_IIIV_X(const QStringList ArryRecvdata);
+    void recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata);
 
-    void _recvHandsChnX_XIII_X(const QStringList ArryRecvdata); //抓手9 - 12
-    void _recvHandsChnX_XIII_Y(const QStringList ArryRecvdata);
+    //抓手9 - 12
+    void recvHandsChnX_XIII_X(const QStringList ArryRecvdata);
+    void recvHandsChnX_XIII_Y(const QStringList ArryRecvdata);
 
-    void _recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvdata);
-    void _recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvdata);
 
-    void  _recvTraytubeoffsetHands_x(const QStringList ArryRecvdata);
-    void  _recvTraytubeoffsetHands_y(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetHands_x(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetHands_y(const QStringList ArryRecvdata);
 
 
     void groupReagentinfo(bool bread);
+
+    //void initWriteBoardPara();
+    //void LoadingReadBoardPara();
+
+
      //解析接收数据
     void parsingReceivedMessages(const QStringList ArryRecvdata);
 
-    void _equipmentParaParsing(quint8 index_, const QStringList ArryRecvdata);
-    void _mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata); //读取主板内试剂耗材信息
+    void equipmentParaParsing(quint8 index_, const QStringList ArryRecvdata);
+
+    //读取主板内试剂耗材信息
+    void mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata);
 
 
     void RecvSuippleNextStep(const bool bRead,quint8 finished,quint8 nextSend,quint8 indexReagent,
@@ -640,6 +651,7 @@ signals:
 
 private:
     QSerialPort *minitPort = nullptr;
+
     bool m_hasWarned = false; // 添加警告标志
     QString mserialname ;
 
@@ -658,7 +670,9 @@ private:
 
 
     QMap<quint8,READPARAMENTER*> mwriteAxismap; //读取仪器内参数
-    QMap<quint8,WRITEPARAMENTER*> m_axiswriteequipment; //把坐标写入到仪器内
+
+    //把坐标写入到仪器内
+    QMap<quint8,WRITEPARAMENTER*> m_axiswriteequipment;
 
 };
 

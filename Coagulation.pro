@@ -252,7 +252,8 @@ SOURCES += \
     suoweiFileManager/filemanager.cpp \
     customTitleui/framelesswidgethelper.cpp \
     suoweiFileManager/hospitalreportprinter.cpp \
-    datalprocessor.cpp
+    datalprocessor.cpp \
+    verifycoordinates.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -394,7 +395,8 @@ HEADERS += \
     suoweiFileManager/filemanager.h \
     customTitleui/framelesswidgethelper.h \
     suoweiFileManager/hospitalreportprinter.h \
-    datalprocessor.h
+    datalprocessor.h \
+    verifycoordinates.h
 
 FORMS += \
     mainwindow.ui \
