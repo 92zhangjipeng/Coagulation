@@ -12,6 +12,7 @@
 #include <mainwindow.h>
 #include <QCryptographicHash>
 #include <warn_interface.h>
+#include <verifycoordinates.h>
 
 bool checkFileExist(const QString& path) {
     QFile file(path);
@@ -154,7 +155,7 @@ void loginmaininterface::initHardware()
                 &loginmaininterface::slotsetEquipmentIndex);
 
         //仪器有型号直接读取坐标
-        connect(mLoadcoordinates,&loadEquipmentPos::_whiletoReadEquipPosAixs,
+        connect(mLoadcoordinates,&loadEquipmentPos::equipmentHadPosAixs,
                 this,&loginmaininterface::ToReadtEquipmentTypePos);
 
         connect(this,&loginmaininterface::configuredModel,
@@ -168,7 +169,9 @@ void loginmaininterface::initHardware()
         connect(this,&loginmaininterface::sycnParaConfigFileSatte,
                 mLoadcoordinates,&loadEquipmentPos::_sycnobtainEquipmenttyped);
 
-        connect(mLoadcoordinates, &loadEquipmentPos::progresstotal, this, [=](int totalnum) {
+        connect(mLoadcoordinates, &loadEquipmentPos::progresstotal,
+                this, [=](int totalnum)
+        {
             mtotalcommed = totalnum;
             //读参数配置文件存在状态和路径
             emit sycnParaConfigFileSatte(m_bparaexit,_parasettingPath);
@@ -438,23 +441,21 @@ void loginmaininterface::slotProgressshow(bool bWrite)
 
     // 状态文本生成
     const QString progressText = QString::number(progressValue, 'f', 2);
-    const QString modeString = bWrite ? tr("Writing Progress:") : tr("Reading Progress:");
+    const QString modeString = bWrite ? tr("初始写入进度:") : tr("初始读取进度:");
     statusLabel->setText(QString("%1 %2%").arg(modeString).arg(progressText));
 
 
     // 完成状态处理
     if (safeCompleted >= mtotalcommed) {
         // 异步清理策略
-        QMetaObject::invokeMethod(this, [this]() {
+        QMetaObject::invokeMethod(this, [this, bWrite]() {
+
             // 状态同步
-			bool finish = true;
+            bool finish = true;
             SingletonAxis::GetInstance()->sycnAxisState(WRITE_OPERAT, finish);
 
             //init坐标参数读取完成
-
-
-
-
+            VerifyCoordinates::GetInstance()->veirfAxis();
 
 
             // 资源安全释放
@@ -465,14 +466,24 @@ void loginmaininterface::slotProgressshow(bool bWrite)
             }
 
             // 定时器安全停止
-            //if (this->timerId() == mtimerconnect)
-			{
+            if (mtimerconnect != 0) {
                 killTimer(mtimerconnect);
                 mtimerconnect = 0;
             }
+            if (bWrite) {
+                QMessageBox::StandardButton reply = QMessageBox::information(
+                    this,
+                    tr("写入完成"),
+                    tr("初始写入进度已达到100%，需要重启软件使配置生效。是否立即重启？"),
+                    QMessageBox::Yes | QMessageBox::No
+                );
 
-
-
+                if (reply == QMessageBox::Yes) {
+                    // 立即重启软件
+                    qApp->quit();
+                    QProcess::startDetached(qApp->applicationFilePath(), QStringList());
+                }
+            }
 
             }, Qt::QueuedConnection);
         }
@@ -484,6 +495,7 @@ void loginmaininterface::slotsetEquipmentIndex()
     CreatReminderWidget(1,"配置仪器类型","请先选择配置仪器类型?");
     return;
 }
+
 
 void loginmaininterface::CreatReminderWidget(char index, const QString &titleStr, const QString &reminderStr)
 {

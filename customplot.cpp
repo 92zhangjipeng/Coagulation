@@ -21,20 +21,24 @@
 
 bool compairtool(QToolButton *holenum, QToolButton *endhole)
 {
-    QString objectIndex_s = holenum->objectName();
-    int index_s = QUIUtils::StringFindintnum(objectIndex_s);
-    QString objectIndex_e = endhole->objectName();
-    int index_e = QUIUtils::StringFindintnum(objectIndex_e);
-    return (index_s < index_e);
+   if (!holenum || !endhole) return false;
+
+   auto getIndex = [](const QToolButton* btn) {
+       return QUIUtils::StringFindintnum(btn->objectName());
+   };
+
+   return getIndex(holenum) < getIndex(endhole);
 }
 
 bool sortWidgetNumLoc(QWidget *fWidget,QWidget *eWidget)
 {
-    QString objectIndex_s = fWidget->objectName();
-    int index_s = QUIUtils::StringFindintnum(objectIndex_s);
-    QString objectIndex_e = eWidget->objectName();
-    int index_e = QUIUtils::StringFindintnum(objectIndex_e);
-    return (index_s < index_e);
+    // 添加空指针检查
+    if (!fWidget || !eWidget) return false;
+
+    int index_s = QUIUtils::StringFindintnum(fWidget->objectName());
+    int index_e = QUIUtils::StringFindintnum(eWidget->objectName());
+
+    return index_s < index_e;
 }
 
 
@@ -50,21 +54,28 @@ CustomPlot::CustomPlot(QWidget *parent) :
     this->setWindowTitle(tr("坐标位置微调"));
     mfont.setFamily("楷体");
     mfont.setPointSize(10);//设置文字大小
-    ui->widget_displayled->setColors(QSimpleLed::CUSTOM);
-    ui->widget_displayled->setFixedSize(32, 32);
-    ui->widget_displayled->setCustomOnColor0(QColor(0, 127, 0));
-    ui->widget_displayled->setCustomOnColor1(QColor(0, 255, 0));
-    ui->widget_displayled->setCustomOffColor0(QColor(127, 0, 0));
-    ui->widget_displayled->setCustomOffColor1(QColor(255, 0, 0));
-    ui->widget_displayled->setStates(QSimpleLed::LEDSTATES::OFF);
+
     mcustFont.setFamily("楷体");
-    mcustFont.setPointSize(12);//设置文字大小
+    mcustFont.setPointSize(12);
+
+    // 设置LED指示灯
+    auto* led = ui->widget_displayled;
+    led->setColors(QSimpleLed::CUSTOM);
+    led->setFixedSize(32, 32);
+    led->setCustomOnColor0(QColor(0, 127, 0));   // 暗绿
+    led->setCustomOnColor1(QColor(0, 255, 0));   // 亮绿
+    led->setCustomOffColor0(QColor(127, 0, 0));  // 暗红
+    led->setCustomOffColor1(QColor(255, 0, 0));  // 亮红
+    led->setStates(QSimpleLed::LEDSTATES::OFF);
 
     ui->pushButton_TrayHands->hide();
 }
 
 CustomPlot::~CustomPlot()
 {
+    // 断开所有可能引起问题的连接
+    disconnect(this, nullptr, nullptr, nullptr);
+
     if(mpTestCaseRun != nullptr)
     {
         delete mpTestCaseRun;
@@ -97,6 +108,9 @@ void CustomPlot::initstyle(const quint8 equipmentType)
 
     InitdisplayPointTablewidget(ui->tableWidget_displayPos);
 
+    mbloodBtnGroupbox = new QButtonGroup(this);
+    mbloodBtnGroupbox->setExclusive(true);
+
     InitBloodZoneNum(equipmentType);  //初始化血样区
 
     initEmptyTubeHole(equipmentType); //空试管区
@@ -118,7 +132,7 @@ void CustomPlot::initstyle(const quint8 equipmentType)
    mbloodBtnGroupbox->addButton(ui->toolButton_throwTube); //弃杯孔
    mbloodBtnGroupbox->addButton(ui->toolButton_origin);    //原点
    mbloodBtnGroupbox->addButton(ui->toolButton_Clean_1);
-   mbloodBtnGroupbox->setExclusive(true);// 设置是否互斥
+   //mbloodBtnGroupbox->setExclusive(true);// 设置是否互斥
 
    //点击原点校验位置
    connect(ui->toolButton_origin,&QToolButton::clicked,this,[=](){
@@ -127,69 +141,113 @@ void CustomPlot::initstyle(const quint8 equipmentType)
 
 }
 
-void CustomPlot::initCommboxView(quint8 indexType)
+
+
+
+
+void CustomPlot::hideRowsByEquipmentType(quint8 equipmentType)
+   {
+       auto* view = qobject_cast<QListView*>(ui->comboBox_calibrationAarea->view());
+       if (!view) return;
+
+       switch (equipmentType)
+       {
+       case KS600:
+           hideRows(view, {EmptyTube_3_BloodNeedle, EmptyTube_4_BloodNeedle,
+                           EmptyTube_3_Hands, EmptyTube_4_Hands});
+           break;
+       case KS800:
+           hideRows(view, {EmptyTube_4_BloodNeedle, EmptyTube_4_Hands});
+           break;
+       default:
+           break;
+       }
+   }
+
+void CustomPlot::hideRows(QListView* view, const std::vector<int>& rows)
+    {
+        for (int row : rows)
+        {
+            view->setRowHidden(row, true);
+        }
+    }
+
+void CustomPlot::setItemBackgroundColors()
+    {
+        auto* model = qobject_cast<QStandardItemModel*>(ui->comboBox_calibrationAarea->model());
+        if (!model) return;
+
+        // 样本针区域背景色
+        const QColor sampleNeedleColor(190, 190, 190);
+        for (int i = Origin_bloodNeedle; i < CleanLinque_ReagentNeedle; ++i)
+        {
+            if (auto* item = model->item(i))
+                item->setBackground(sampleNeedleColor);
+        }
+
+        // 抓手区域背景色
+        const QColor handsColor(211, 211, 211);
+        for (int i = TestChannel_Hands; i <= EmptyTube_4_Hands; ++i)
+        {
+            if (auto* item = model->item(i))
+                item->setBackground(handsColor);
+        }
+    }
+
+void CustomPlot::initCommboxView(quint8 equipmentType)
 {
-	QMap<int, QString> Instrument_Adjust;
-    Instrument_Adjust.insert((int)Origin_bloodNeedle, "清洗区原点");
-    Instrument_Adjust.insert((int)CleanLinque_bloodNeedle, "[样本针]清洗液");
-    Instrument_Adjust.insert((int)Bloodsample_BloodNeedle, "[样本针]样本区");
-    Instrument_Adjust.insert((int)EmptyTube_1_BloodNeedle, "[样本针]试杯区1");
-    Instrument_Adjust.insert((int)EmptyTube_2_BloodNeedle, "[样本针]试杯区2");
-    Instrument_Adjust.insert((int)EmptyTube_3_BloodNeedle, "[样本针]试杯区3");
-    Instrument_Adjust.insert((int)EmptyTube_4_BloodNeedle, "[样本针]试杯区4");
-    Instrument_Adjust.insert((int)CleanLinque_ReagentNeedle, "[试剂针]清洗液");
-    Instrument_Adjust.insert((int)ReagentLinque_ReagentNeedle, "[试剂针]试剂区");
-    Instrument_Adjust.insert((int)TestChannel_ReagentNeedle, "[试剂针]测试区");
-    Instrument_Adjust.insert((int)TestChannel_Hands, "[抓手]测试区");
-    Instrument_Adjust.insert((int)ThrowCup_Hands, "[抓手]弃杯孔");
-    Instrument_Adjust.insert((int)EmptyTube_1_Hands, "[抓手]试杯区1");
-    Instrument_Adjust.insert((int)EmptyTube_2_Hands, "[抓手]试杯区2");
-    Instrument_Adjust.insert((int)EmptyTube_3_Hands, "[抓手]试杯区3");
-    Instrument_Adjust.insert((int)EmptyTube_4_Hands, "[抓手]试杯区4");
+    // 使用初始化列表构建映射表
+    const QMap<int, QString> instrumentAdjust = {
+        {Origin_bloodNeedle,            "清洗区原点"},
+        {CleanLinque_bloodNeedle,       "[样本针]清洗液"},
+        {Bloodsample_BloodNeedle,       "[样本针]样本区"},
+        {EmptyTube_1_BloodNeedle,       "[样本针]试杯区1"},
+        {EmptyTube_2_BloodNeedle,       "[样本针]试杯区2"},
+        {EmptyTube_3_BloodNeedle,       "[样本针]试杯区3"},
+        {EmptyTube_4_BloodNeedle,       "[样本针]试杯区4"},
+        {CleanLinque_ReagentNeedle,     "[试剂针]清洗液"},
+        {ReagentLinque_ReagentNeedle,   "[试剂针]试剂区"},
+        {TestChannel_ReagentNeedle,     "[试剂针]测试区"},
+        {TestChannel_Hands,             "[抓手]测试区"},
+        {ThrowCup_Hands,                "[抓手]弃杯孔"},
+        {EmptyTube_1_Hands,             "[抓手]试杯区1"},
+        {EmptyTube_2_Hands,             "[抓手]试杯区2"},
+        {EmptyTube_3_Hands,             "[抓手]试杯区3"},
+        {EmptyTube_4_Hands,             "[抓手]试杯区4"}
+    };
 
     ui->comboBox_calibrationAarea->blockSignals(true);
-    auto it = Instrument_Adjust.begin();
-    while(it != Instrument_Adjust.end())
-    {
-        int keyIndex = it.key();
-        ui->comboBox_calibrationAarea->insertItem(keyIndex,it.value());
-        it++;
-    }
-    QListView* view = qobject_cast<QListView*>(ui->comboBox_calibrationAarea->view());
-    switch(indexType)
-    {
-        case KS600:
-            view->setRowHidden(EmptyTube_3_BloodNeedle, true);//隐藏为TRUE，显示为false
-            view->setRowHidden(EmptyTube_4_BloodNeedle, true);
-            view->setRowHidden(EmptyTube_3_Hands, true);
-            view->setRowHidden(EmptyTube_4_Hands, true);
-        break;
-        case KS800:
-            view->setRowHidden(EmptyTube_4_BloodNeedle, true);
-            view->setRowHidden(EmptyTube_4_Hands, true);
-        break;
-        default:    break;
-    }
-    QStandardItemModel *pItemModel = qobject_cast<QStandardItemModel*>(ui->comboBox_calibrationAarea->model());
-    for(int i = Origin_bloodNeedle ; i < CleanLinque_ReagentNeedle ; i++)
-    {
-        pItemModel->item(i)->setBackground(QColor(190, 190, 190));//修改某项背景颜色
-    }
-    for(int i = TestChannel_Hands ; i <= EmptyTube_4_Hands; i++)
-    {
-        pItemModel->item(i)->setBackground(QColor(211, 211, 211));
-    }
-    MyQStyledItemDelegate *pMyQStyledItemDelegate = new MyQStyledItemDelegate(30, this);  //构造的时候传入高度
-    ui->comboBox_calibrationAarea->setItemDelegate(pMyQStyledItemDelegate);    //设置代理
-    ui->comboBox_calibrationAarea->setCurrentIndex(-1);
-    ui->comboBox_calibrationAarea->blockSignals(false);
-    return;
+
+    // 插入所有项目
+   for (auto it = instrumentAdjust.begin(); it != instrumentAdjust.end(); ++it)
+   {
+       ui->comboBox_calibrationAarea->insertItem(it.key(), it.value());
+   }
+
+
+   // 根据设备类型隐藏特定行
+   hideRowsByEquipmentType(equipmentType);
+
+  // 设置不同区域背景色
+  setItemBackgroundColors();
+
+  // 设置行高代理
+  ui->comboBox_calibrationAarea->setItemDelegate(new MyQStyledItemDelegate(30, this));
+  ui->comboBox_calibrationAarea->setCurrentIndex(-1);
+  ui->comboBox_calibrationAarea->blockSignals(false);
 }
+
+
+
+
+
+
+
 
 void CustomPlot::InitBloodZoneNum(quint8 indexModels)
 {
     int showNum = 0;
-    mbloodBtnGroupbox = new QButtonGroup;
+    //mbloodBtnGroupbox = new QButtonGroup;
     switch(indexModels)
     {
         case KS600: showNum = 6;
@@ -1185,8 +1243,8 @@ void CustomPlot::SelectHoleChangebgm(bool changeColor, int selectedIndex, int in
         }
     };
 
-    updateItem(selectedIndex, Instrument_xpos);
-    updateItem(selectedIndex, Instrument_ypos);
+    updateItem(selectedIndex, TableIndexPos::Instrument_xpos);
+    updateItem(selectedIndex, TableIndexPos::Instrument_ypos);
 
     if (changeColor) {
         ui->tableWidget_displayPos->selectRow(selectedIndex);
@@ -1199,7 +1257,7 @@ void CustomPlot::ChangeControlColors(bool changeColor,int selectedIndex)
     static const QColor SELECTED_COLOR(255, 0, 0);
     static const QColor DEFAULT_COLOR(204, 204, 204);
 
-    QTableWidgetItem* item = ui->tableWidget_displayPos->item(selectedIndex, IndexNum);
+    QTableWidgetItem* item = ui->tableWidget_displayPos->item(selectedIndex, TableIndexPos::IndexNum);
     if (!item || item->text().isEmpty()) {
         return;
     }
@@ -1575,7 +1633,7 @@ void Generate_random_numbers(QVector<int> & Randomnum ,int spacevalue)
    }
     for(i = 0; i<numbersList.size(); i++)
     {
-       Randomnum.append(numbersList[i] + spacevalue);;
+       Randomnum.append(numbersList[i] + spacevalue);
     }
     return ;
 }
@@ -1697,7 +1755,7 @@ void CustomPlot::on_toolButton_video_clicked()
     static const QPoint locVideo(190, 3140);
     quint8 codeNum = 0;
 
-    auto modifyArray = Testing::m_TaskDll->XYLocation(locVideo, Blood_z, 2, m_downhigh, codeNum, m_downhigh);
+    auto modifyArray = Testing::m_TaskDll->XYLocation(locVideo, IndexZ::Blood_z, 2, m_downhigh, codeNum, m_downhigh);
 
     ui->label_movedPos->setText(QString("信息录入坐标:[%1,%2]").arg(locVideo.x()).arg(locVideo.y()));
     emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);

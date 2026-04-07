@@ -641,9 +641,11 @@ private:
 
 
 signals:
-    void _whiletoReadEquipPosAixs(quint8, QString); //读取到仪器型号 直接读取坐标
+    //读取到仪器型号 直接读取坐标
+    void equipmentHadPosAixs(quint8, QString);
 
-    void progresstotal(int totalsize); //读或者写的总进度数
+    //读或者写的总进度数
+    void progresstotal(int totalsize);
 
     void sendUpdateProgressshow(bool);
 

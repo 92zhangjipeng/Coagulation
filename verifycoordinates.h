@@ -21,6 +21,9 @@ public:
     bool loadCoordinateVerification(quint8 equipmentType);
     bool loadCoordinateVerification(const QString& equipmentName);
 
+    // 将配置文件坐标同步到仪器
+    bool syncFileToInstrument();
+
     // 从仪器加载当前坐标
     void loadMachineAxis();
 

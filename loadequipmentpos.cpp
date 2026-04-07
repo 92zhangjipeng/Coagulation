@@ -1260,11 +1260,6 @@ void ConsumablesOper::updateReplaceLocRatio(bool isWrite, quint8 indexReag,quint
     return;
 }
 
-
-
-
-
-
 void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &ReagentTol)
 {
     if (!g_pVecReagentInfo || g_pVecReagentInfo->isEmpty()) {
@@ -1609,7 +1604,6 @@ void loadEquipmentPos::RecvSuippleNextStep(const bool bRead,
     } else{
         _writeFinish(finished);
         _sendWriteAxisOrder(nextSend);
-        //QLOG_DEBUG()<<"初始化写入耗材AA 数量=0"<<endl;
     }
     return;
 }
@@ -1887,7 +1881,7 @@ void loadEquipmentPos::handleReadDevicePara(const QStringList hexArray)
     Q_EMIT progresstotal(mwriteAxismap.size());
 
     //已读取到仪器类型--读取仪器内保存的坐标
-    Q_EMIT  _whiletoReadEquipPosAixs(hexParaState,showText);
+    Q_EMIT  equipmentHadPosAixs(hexParaState,showText);
 
     GroupReadParaCommder(EQUIPMENTPARA_I); //开始读取参数
 
@@ -3221,7 +3215,8 @@ void loadEquipmentPos::onconfiguredModel(const quint8 &index, bool bParaFile, QS
     //初始化写主板试剂信息到仪器
     initwriteMainReagNum();
 
-    emit this->progresstotal(m_axiswriteequipment.size());//写入总条数
+    //写入总条数
+    Q_EMIT progresstotal(m_axiswriteequipment.size());
     QLOG_DEBUG() <<"写配置条数"<< m_axiswriteequipment.size()<<endl;
 
     QByteArray writedata;

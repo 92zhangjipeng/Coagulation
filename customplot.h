@@ -167,7 +167,10 @@ private:
     void InitBloodZoneNum(quint8 indexModels);
 
     /*初始化下降高度commbox*/
-    void initCommboxView(quint8 indexType);
+    void initCommboxView(quint8 equipmentType);
+    void setItemBackgroundColors();
+    void hideRows(QListView* view, const std::vector<int>& rows);
+    void hideRowsByEquipmentType(quint8 equipmentType);
 
     /*初始化血样区域孔孔号*/
     void initEmptyTubeHole(quint8 indexType);

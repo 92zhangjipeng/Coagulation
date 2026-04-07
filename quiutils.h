@@ -542,10 +542,10 @@ namespace QUIUtils
                             const QPoint splitPPPloc);
 
 
-//    int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
-//                            int testHeight,
-//                            QPoint sourcePosition,
-//                            const QList<QPoint>& targetPositions);
+    /*int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
+                            int testHeight,
+                            QPoint sourcePosition,
+                            const QList<QPoint>& targetPositions);*/
 
     int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
                             int Testheigt,
