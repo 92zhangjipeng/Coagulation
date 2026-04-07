@@ -457,8 +457,6 @@ public:
     ~cglobal();
 public:
 
-
-
         static  bool gserialConnecStatus;   //串口连接状态
         static QString gserialPortName;     //连接串口号
         static QString g_UserName_str;

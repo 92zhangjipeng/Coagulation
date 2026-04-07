@@ -1,8 +1,9 @@
 ﻿#pragma execution_character_set("utf-8")
 #include "customplot.h"
-#include "loginui.h"
-#include "loginui.h"
 #include "ui_customplot.h"
+#include "loginui.h"
+#include "verifycoordinates.h"
+#include "QsLog/include/QsLog.h"
 #include <QAbstractItemView>
 #include <qDebug>
 #include <QSpinBox>
@@ -13,6 +14,7 @@
 #include <QThread>
 #include <QStandardItemModel>
 #include <QVector>
+#include <QTextCodec>
 #include <algorithm>
 
 
@@ -1134,19 +1136,7 @@ void CustomPlot::on_toolButton_Backorigin_clicked()
     return;
 }
 
-void CustomPlot::closeEvent(QCloseEvent* event)
-{
-    if (QMessageBox::question(this, "修正完成", "是否要关闭?",
-                           QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
-       if (cglobal::gserialConnecStatus) {
-           emit Resetmaneuver();
-           ExitCoordinateSaving();
-       }
-       event->accept();
-   } else {
-       event->ignore();
-   }
-}
+
 
 
 void CustomPlot::ExitCoordinateSaving()
@@ -1712,3 +1702,49 @@ void CustomPlot::on_toolButton_video_clicked()
     ui->label_movedPos->setText(QString("信息录入坐标:[%1,%2]").arg(locVideo.x()).arg(locVideo.y()));
     emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
 }
+
+
+
+void CustomPlot::closeEvent(QCloseEvent* event)
+{
+    //使用更清晰的对话框标题和文本
+    QString title = tr("确认关闭");
+    QString message = tr("确定要关闭窗口吗？");
+
+   //如果串口正忙，给出额外警告
+   if (cglobal::gserialConnecStatus && cglobal::g_StartTesting) {
+       message = tr("串口正在测试中，关闭可能导致数据丢失。\n确定要继续吗？");
+   }
+
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, title, message,
+                                     QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+           if (cglobal::gserialConnecStatus) {
+               QLOG_DEBUG() << "关闭校准坐标，重置操作并保存坐标...";
+
+               //发射信号前检查连接状态
+               if (receivers(SIGNAL(Resetmaneuver())) > 0) {
+                   emit Resetmaneuver();
+               }
+
+               //确保保存操作完成（如果可能是异步的，需要等待）
+               ExitCoordinateSaving();
+
+               //可选 - 等待操作完成
+               //QCoreApplication::processEvents();
+           }
+
+           VerifyCoordinates::GetInstance()->veirfAxis();
+
+           event->accept();  // ✅ 接受关闭事件
+
+   } else {
+       event->ignore();  // ✅ 忽略关闭事件
+   }
+
+
+}
+
+

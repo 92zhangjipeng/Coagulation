@@ -450,6 +450,13 @@ void loginmaininterface::slotProgressshow(bool bWrite)
 			bool finish = true;
             SingletonAxis::GetInstance()->sycnAxisState(WRITE_OPERAT, finish);
 
+            //init坐标参数读取完成
+
+
+
+
+
+
             // 资源安全释放
             if (mLoadcoordinates) {
                 mLoadcoordinates->CloseSerial();
@@ -465,12 +472,7 @@ void loginmaininterface::slotProgressshow(bool bWrite)
             }
 
 
-            // 完成反馈
-            //Q_EMIT progressCompleted(bWrite);
-           /* QTimer::singleShot(1000, [=](){
-                ui->progressBar_readAxis->hide();
-                ui->label_reminder->hide();
-            });*/
+
 
             }, Qt::QueuedConnection);
         }

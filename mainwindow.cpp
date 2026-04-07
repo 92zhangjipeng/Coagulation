@@ -1965,19 +1965,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
     dialog->move(QApplication::desktop()->screen()->rect().center() - dialog->rect().center());
     dialog->show();
 
-
-//    // 检查是否有正在进行的测试
-//    QString warningText,titleText;
-//    QList<QString> btnText;
-//    btnText << tr("取消退出") << tr("清洗后退出") << tr("确定退出");
-//    if (cglobal::g_StartTesting) {
-//         warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
-//         titleText  = tr("操作提示");
-//    }else{
-//        warningText = tr("确定退出并关闭软件？");
-//        titleText  = tr("关闭软件");
-//    }
-//    reminderFunctionWidget(titleText, warningText, btnText);
 }
 
 
@@ -2965,6 +2952,7 @@ void  MainWindow::timeoutObtainMainboadData()
 
 void MainWindow::writeConsumablesExit(){
 
+
     //停止USB 监听
     toggleUsbListening(false);
 
@@ -3686,7 +3674,5 @@ void MainWindow::onStartTestClicked()
     // 开始测试
     begingTesting();
 }
-
-
 
 

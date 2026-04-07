@@ -2877,150 +2877,150 @@ int QUIUtils::suckPPPEndSplitPPP(QByteArrayList &out_directives,
 
 
 
+//int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
+//                                    int testHeight,
+//                                    QPoint sourcePosition,
+//                                    const QList<QPoint>& targetPositions)
+//{
+//    // 1. 参数验证
+//    if (targetPositions.isEmpty()) {
+//        QLOG_ERROR() << "目标位置列表为空";
+//        return -1;
+//    }
+
+//    const double STEP_TO_VOLUME_RATIO = 0.347;  // 步数到体积的转换系数
+//    const double EXTRA_VOLUME_RATIO = 0.2;      // 额外吸取比例
+
+//    // 2. 获取配置参数
+//    auto &ini = INI_File();
+//    const double prpConvertRatio = ini.getPRPConvertTheratioColumn();  // PRP样本系数
+//    const int sampleVolume = ini.GetLearnSamplevolume();               // 单份血样吸取的样本量
+//    const int emptyTubeDownHeight = ini.GetEmptyTubeDownHigh();        // 血样针在空试管区下降高度
+//    const int securityValue = ini.GetSecurityValue();                  // 空回值
+//    const double compensateSteps = securityValue / STEP_TO_VOLUME_RATIO; // 补偿步数
+
+//    // 3. 吸空气校准配置（保持原始逻辑）
+//    const bool suckAirEnable = true;  // ini.rConfigPara(FIRSTSUCKAIRS).toBool();
+//    const int firstSuckAirSteps = ini._getsuckairsuckPRP() + BIG_BEN_INHALE_ARI / 2;
+
+//    // 4. 计算总吸取量
+//    const int targetCount = targetPositions.size(); //吸样个数
+//    const double airCompensation = suckAirEnable ? firstSuckAirSteps : 0;
+//    const double extraVolume = sampleVolume * EXTRA_VOLUME_RATIO;
+
+//    const int totalSuckVolume = static_cast<int>(
+//        targetCount * sampleVolume * prpConvertRatio + airCompensation + extraVolume
+//    );
+
+//    QLOG_DEBUG() << QString("吸PRP总步数:%1 份数:%2").arg(totalSuckVolume).arg(targetCount);
+
+//    // 5. 生成指令
+//    quint8 directiveNum = out_directives.size() % 255;
+//    auto *pActive = Testing::m_TaskDll;
+
+//    // 移动到源位置
+//    out_directives.push_back(
+//        pActive->DLL_XYMoveSpecifiedPosition(sourcePosition, 0, 0, directiveNum)
+//    );
+
+//    // 吸空气（保持原始逻辑）
+//    if (suckAirEnable) {
+//        out_directives.push_back(
+//            pActive->BigBenActive(true, firstSuckAirSteps, directiveNum, DIS_WASHES_PUMPS, 0)
+//        );
+//    } else {
+//        QLOG_DEBUG() << "PRP加样不吸空气";
+//    }
+
+//    // 下降到测试高度
+//    out_directives.push_back(
+//        pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, testHeight, 0, directiveNum,
+//                                            false, testHeight, false, GRIPPERNORMAL)
+//    );
+
+//    // 6. 优化分层吸取策略（关键改进）
+//    // 多份分配时减少分层次数，单份时保持原有分层
+//    const int suckCycles = (targetCount > 1) ? targetCount : 2;  // 优化：多份时减少分层
+//    const int baseStep =  totalSuckVolume / suckCycles;
+//    const int remainder = totalSuckVolume % suckCycles;
+
+//    QLOG_DEBUG() << QString("优化分层策略：目标数%1，分层次数%2").arg(targetCount).arg(suckCycles);
+//    QLOG_DEBUG() << "基础步数:" << baseStep << "余数:" << remainder;
+
+//    int cumulativeSteps = 0;
+//    for (int cycle = 1; cycle <= suckCycles; ++cycle) {
+//        int currentStep = baseStep;
+//        if (cycle == suckCycles) {
+//            currentStep += remainder;
+//        }
+//        cumulativeSteps += currentStep;
+
+//        QLOG_DEBUG() << QString("第%1/%2次吸取，步数:%3，累计步数:%4")
+//                            .arg(cycle).arg(suckCycles).arg(currentStep).arg(cumulativeSteps);
+
+//        out_directives.push_back(
+//            pActive->BigBenActive(true, cumulativeSteps, directiveNum, DIS_WASHES_PUMPS, 0)
+//        );
+//    }
+
+//    QLOG_DEBUG() << "分层吸取完成，总步数:" << cumulativeSteps;
+
+//    // 血样针复位
+//    out_directives.push_back(
+//        pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, directiveNum, false)
+//    );
+
+//    // 7. 吐富血到各目标位置（保持原始分配逻辑）
+//    const int spitVolumePerTarget = static_cast<int>(sampleVolume * prpConvertRatio);
+//    QLOG_DEBUG() << "空回补偿步数:" << compensateSteps;
+
+//    // 保持原始逻辑：使用剩余量跟踪
+//    int remainingVolume = totalSuckVolume;
+
+//    for (int i = 0; i < targetCount; ++i) {
+//        const QPoint& targetPos = targetPositions.at(i);
+
+//        // 移动到目标位置
+//        out_directives.push_back(
+//            pActive->DLL_XYMoveSpecifiedPosition(targetPos, 0, 0, directiveNum)
+//        );
+
+//        // 下降到空试管高度
+//        out_directives.push_back(
+//            pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, emptyTubeDownHeight, 0,
+//                                                directiveNum, false, emptyTubeDownHeight,
+//                                                false, GRIPPERNORMAL)
+//        );
+
+//        // 保持原始分配计算逻辑
+//        int spitVolume;
+//        if (i == 0) {
+//            // 第一个位置需要补偿
+//            remainingVolume = remainingVolume - (spitVolumePerTarget + compensateSteps);
+//            spitVolume = remainingVolume;
+//        } else {
+//            remainingVolume = remainingVolume - spitVolumePerTarget;
+//            spitVolume = remainingVolume;
+//        }
+
+//        QLOG_DEBUG() << QString("第%1个位置吐出量:%2 剩余量:%3").arg(i+1).arg(spitVolume).arg(remainingVolume);
+
+//        // 吐出PRP
+//        out_directives.push_back(
+//            pActive->BigBenActive(false, spitVolume, directiveNum, DIS_WASHES_PUMPS, 0)
+//        );
+
+//        // 复位
+//        out_directives.push_back(
+//            pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, directiveNum, false)
+//        );
+//    }
+
+//    QLOG_DEBUG() << QString("吐富血完成，共处理%1个位置").arg(targetCount);
+//    return 1;
+//}
+
 int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
-                                    int testHeight,
-                                    QPoint sourcePosition,
-                                    const QList<QPoint>& targetPositions)
-{
-    // 1. 参数验证
-    if (targetPositions.isEmpty()) {
-        QLOG_ERROR() << "目标位置列表为空";
-        return -1;
-    }
-
-    const double STEP_TO_VOLUME_RATIO = 0.347;  // 步数到体积的转换系数
-    const double EXTRA_VOLUME_RATIO = 0.2;      // 额外吸取比例
-
-    // 2. 获取配置参数
-    auto &ini = INI_File();
-    const double prpConvertRatio = ini.getPRPConvertTheratioColumn();  // PRP样本系数
-    const int sampleVolume = ini.GetLearnSamplevolume();               // 单份血样吸取的样本量
-    const int emptyTubeDownHeight = ini.GetEmptyTubeDownHigh();        // 血样针在空试管区下降高度
-    const int securityValue = ini.GetSecurityValue();                  // 空回值
-    const double compensateSteps = securityValue / STEP_TO_VOLUME_RATIO; // 补偿步数
-
-    // 3. 吸空气校准配置（保持原始逻辑）
-    const bool suckAirEnable = true;  // ini.rConfigPara(FIRSTSUCKAIRS).toBool();
-    const int firstSuckAirSteps = ini._getsuckairsuckPRP() + BIG_BEN_INHALE_ARI / 2;
-
-    // 4. 计算总吸取量
-    const int targetCount = targetPositions.size();
-    const double airCompensation = suckAirEnable ? firstSuckAirSteps : 0;
-    const double extraVolume = sampleVolume * EXTRA_VOLUME_RATIO;
-
-    const int totalSuckVolume = static_cast<int>(
-        targetCount * sampleVolume * prpConvertRatio + airCompensation + extraVolume
-    );
-
-    QLOG_DEBUG() << QString("吸PRP总步数:%1 份数:%2").arg(totalSuckVolume).arg(targetCount);
-
-    // 5. 生成指令
-    quint8 directiveNum = out_directives.size() % 255;
-    auto *pActive = Testing::m_TaskDll;
-
-    // 移动到源位置
-    out_directives.push_back(
-        pActive->DLL_XYMoveSpecifiedPosition(sourcePosition, 0, 0, directiveNum)
-    );
-
-    // 吸空气（保持原始逻辑）
-    if (suckAirEnable) {
-        out_directives.push_back(
-            pActive->BigBenActive(true, firstSuckAirSteps, directiveNum, DIS_WASHES_PUMPS, 0)
-        );
-    } else {
-        QLOG_DEBUG() << "PRP加样不吸空气";
-    }
-
-    // 下降到测试高度
-    out_directives.push_back(
-        pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, testHeight, 0, directiveNum,
-                                            false, testHeight, false, GRIPPERNORMAL)
-    );
-
-    // 6. 优化分层吸取策略（关键改进）
-    // 多份分配时减少分层次数，单份时保持原有分层
-    const int suckCycles = (targetCount > 1) ? targetCount : 2;  // 优化：多份时减少分层
-    const int baseStep = totalSuckVolume / suckCycles;
-    const int remainder = totalSuckVolume % suckCycles;
-
-    QLOG_DEBUG() << QString("优化分层策略：目标数%1，分层次数%2").arg(targetCount).arg(suckCycles);
-    QLOG_DEBUG() << "基础步数:" << baseStep << "余数:" << remainder;
-
-    int cumulativeSteps = 0;
-    for (int cycle = 1; cycle <= suckCycles; ++cycle) {
-        int currentStep = baseStep;
-        if (cycle == suckCycles) {
-            currentStep += remainder;
-        }
-        cumulativeSteps += currentStep;
-
-        QLOG_DEBUG() << QString("第%1/%2次吸取，步数:%3，累计步数:%4")
-                            .arg(cycle).arg(suckCycles).arg(currentStep).arg(cumulativeSteps);
-
-        out_directives.push_back(
-            pActive->BigBenActive(true, cumulativeSteps, directiveNum, DIS_WASHES_PUMPS, 0)
-        );
-    }
-
-    QLOG_DEBUG() << "分层吸取完成，总步数:" << cumulativeSteps;
-
-    // 血样针复位
-    out_directives.push_back(
-        pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, directiveNum, false)
-    );
-
-    // 7. 吐富血到各目标位置（保持原始分配逻辑）
-    const int spitVolumePerTarget = static_cast<int>(sampleVolume * prpConvertRatio);
-    QLOG_DEBUG() << "空回补偿步数:" << compensateSteps;
-
-    // 保持原始逻辑：使用剩余量跟踪
-    int remainingVolume = totalSuckVolume;
-
-    for (int i = 0; i < targetCount; ++i) {
-        const QPoint& targetPos = targetPositions.at(i);
-
-        // 移动到目标位置
-        out_directives.push_back(
-            pActive->DLL_XYMoveSpecifiedPosition(targetPos, 0, 0, directiveNum)
-        );
-
-        // 下降到空试管高度
-        out_directives.push_back(
-            pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, emptyTubeDownHeight, 0,
-                                                directiveNum, false, emptyTubeDownHeight,
-                                                false, GRIPPERNORMAL)
-        );
-
-        // 保持原始分配计算逻辑
-        int spitVolume;
-        if (i == 0) {
-            // 第一个位置需要补偿
-            remainingVolume = remainingVolume - (spitVolumePerTarget + compensateSteps);
-            spitVolume = remainingVolume;
-        } else {
-            remainingVolume = remainingVolume - spitVolumePerTarget;
-            spitVolume = remainingVolume;
-        }
-
-        QLOG_DEBUG() << QString("第%1个位置吐出量:%2 剩余量:%3").arg(i+1).arg(spitVolume).arg(remainingVolume);
-
-        // 吐出PRP
-        out_directives.push_back(
-            pActive->BigBenActive(false, spitVolume, directiveNum, DIS_WASHES_PUMPS, 0)
-        );
-
-        // 复位
-        out_directives.push_back(
-            pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, directiveNum, false)
-        );
-    }
-
-    QLOG_DEBUG() << QString("吐富血完成，共处理%1个位置").arg(targetCount);
-    return 1;
-}
-
-/*int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
                                     int Testheigt,
                                     QPoint sourcePosition ,
                                     const QList<QPoint>& targetPositions)
@@ -3053,7 +3053,7 @@ int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
     QLOG_DEBUG()<<QString("吸PRP总步数:(%1) 份数:%2").arg(totalSuckVolumeRRP).arg(targetCount );
 
     // 计算每次吸取量（整除)
-    const int doubleTimes = targetCount * 2;
+    const int doubleTimes = targetCount * 1;
     const int baseStep = totalSuckVolumeRRP / doubleTimes;
     const int remainder = totalSuckVolumeRRP % doubleTimes; // 余数处理
     QLOG_DEBUG() << "基础步数:" << baseStep << "余数:" << remainder;
@@ -3108,7 +3108,7 @@ int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
         out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,directiveNum ,false));
     }
     return 1;
-}*/
+}
 
 
 quint8 QUIUtils::_hansdownheightinnertubetray(quint8 _hole)

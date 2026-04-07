@@ -177,6 +177,7 @@ private:
     void creatbeginreadmodule();//构建并开始读取模组数据
 
 
+
     //提供一个切换监听状态的方法 断开USB监听
     void toggleUsbListening(bool enable);
     void listentoUsb();
