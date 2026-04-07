@@ -1902,20 +1902,82 @@ void MainWindow::handleswipeCardSuccessfullyWritten(QString tips, int addindexRe
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    event->ignore();
+    // 如果已经有对话框显示，避免重复弹出
+    if (preminder && preminder->isVisible()) {
+        event->ignore();
+        return;
+    }
 
-    // 检查是否有正在进行的测试
-    QString warningText,titleText;
+    event->ignore();  // 暂时忽略，等待用户选择
+
+    QString warningText, titleText;
     QList<QString> btnText;
     btnText << tr("取消退出") << tr("清洗后退出") << tr("确定退出");
+
+    event->ignore();
+
     if (cglobal::g_StartTesting) {
-         warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
-         titleText  = tr("操作提示");
-    }else{
-        warningText = tr("确定退出并关闭软件？");
-        titleText  = tr("关闭软件");
+       warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
+       titleText = tr("操作提示");
+    } else {
+       warningText = tr("确定退出并关闭软件？");
+       titleText = tr("关闭软件");
     }
-    reminderFunctionWidget(titleText, warningText, btnText);
+
+    // 创建对话框并获取用户选择
+    auto dialog = new FunctionCustomWidget(titleText, warningText);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);  // 关闭时自动删除
+
+    // 添加按钮
+    for (int i = 0; i < btnText.size(); ++i) {
+        dialog->setTextbtnfunction(i, btnText[i]);
+    }
+
+    // 取消退出
+    connect(dialog, &FunctionCustomWidget::sender_1function_, this, [event, dialog]() {
+        event->ignore();  // 忽略关闭事件
+        dialog->close();
+    });
+
+    // 清洗后退出
+    connect(dialog, &FunctionCustomWidget::sender_2function_, this, [event, dialog, this]() {
+        emit controlallchnstate(false);
+        if (!m_MachineAlreadyInitCleanned) {
+            emit FullyAutomatedPlatelets::pinstanceWirteBoard()->closeSerial();
+            FullyAutomatedPlatelets::mainWindow()->deleteExitSoftware();
+        } else {
+            m_shutdownClean = true;
+            equipmentinitActive(false, m_shutdownClean);
+        }
+        event->accept();  // ✅ 接受关闭事件
+        dialog->close();
+    });
+
+    // 直接退出
+    connect(dialog, &FunctionCustomWidget::sender_3function_, this, [event, dialog, this]() {
+        writeConsumablesExit();
+        event->accept();  // ✅ 接受关闭事件
+        dialog->close();
+    });
+
+    // 显示对话框
+    dialog->setWindowModality(Qt::ApplicationModal);  // 使用应用程序模态
+    dialog->move(QApplication::desktop()->screen()->rect().center() - dialog->rect().center());
+    dialog->show();
+
+
+//    // 检查是否有正在进行的测试
+//    QString warningText,titleText;
+//    QList<QString> btnText;
+//    btnText << tr("取消退出") << tr("清洗后退出") << tr("确定退出");
+//    if (cglobal::g_StartTesting) {
+//         warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
+//         titleText  = tr("操作提示");
+//    }else{
+//        warningText = tr("确定退出并关闭软件？");
+//        titleText  = tr("关闭软件");
+//    }
+//    reminderFunctionWidget(titleText, warningText, btnText);
 }
 
 
