@@ -13,6 +13,7 @@
 #include <QCryptographicHash>
 #include <warn_interface.h>
 #include <verifycoordinates.h>
+#include <StyledComparisonDialog.h>
 
 bool checkFileExist(const QString& path) {
     QFile file(path);
@@ -438,56 +439,69 @@ void loginmaininterface::slotProgressshow(bool bWrite)
     animation->setEndValue(progressValue);
     animation->start(QAbstractAnimation::DeleteWhenStopped);
 
-
     // 状态文本生成
     const QString progressText = QString::number(progressValue, 'f', 2);
     const QString modeString = bWrite ? tr("初始写入进度:") : tr("初始读取进度:");
     statusLabel->setText(QString("%1 %2%").arg(modeString).arg(progressText));
 
-
-    // 完成状态处理
-    if (safeCompleted >= mtotalcommed) {
-        // 异步清理策略
-        QMetaObject::invokeMethod(this, [this, bWrite]() {
-
-            // 状态同步
-            bool finish = true;
-            SingletonAxis::GetInstance()->sycnAxisState(WRITE_OPERAT, finish);
-
-            //init坐标参数读取完成
-            VerifyCoordinates::GetInstance()->veirfAxis();
-
-
-            // 资源安全释放
-            if (mLoadcoordinates) {
-                mLoadcoordinates->CloseSerial();
-                delete mLoadcoordinates;
-                mLoadcoordinates = nullptr;
-            }
-
-            // 定时器安全停止
-            if (mtimerconnect != 0) {
-                killTimer(mtimerconnect);
-                mtimerconnect = 0;
-            }
-            if (bWrite) {
-                QMessageBox::StandardButton reply = QMessageBox::information(
-                    this,
-                    tr("写入完成"),
-                    tr("初始写入进度已达到100%，需要重启软件使配置生效。是否立即重启？"),
-                    QMessageBox::Yes | QMessageBox::No
-                );
-
-                if (reply == QMessageBox::Yes) {
-                    // 立即重启软件
-                    qApp->quit();
-                    QProcess::startDetached(qApp->applicationFilePath(), QStringList());
-                }
-            }
-
-            }, Qt::QueuedConnection);
-        }
+    if (safeCompleted >= mtotalcommed){
+       (bWrite)? wirteMachineParaProgress() : readMachineParaFinished();
+    }
 }
+
+void loginmaininterface::closeTimerSerial()
+{
+    // 资源安全释放
+    if (mLoadcoordinates) {
+        mLoadcoordinates->CloseSerial();
+        delete mLoadcoordinates;
+        mLoadcoordinates = nullptr;
+    }
+
+    // 定时器安全停止
+    if (mtimerconnect != 0) {
+        killTimer(mtimerconnect);
+        mtimerconnect = 0;
+    }
+}
+
+void loginmaininterface::wirteMachineParaProgress()
+{
+    QMetaObject::invokeMethod(this, [this]() {
+
+    closeTimerSerial();
+
+    QMessageBox::StandardButton reply = QMessageBox::information(
+            this,
+            tr("写入完成"),
+            tr("初始写入进度已达到100%，需要重启软件使配置生效。是否立即重启？"),
+            QMessageBox::Yes | QMessageBox::No
+        );
+        if (reply == QMessageBox::Yes) {
+        // 立即重启软件
+        qApp->quit();
+        QProcess::startDetached(qApp->applicationFilePath(), QStringList());
+    }
+    }, Qt::QueuedConnection);
+
+}
+
+void loginmaininterface::readMachineParaFinished()
+{
+    bool readFinished = true;
+    SingletonAxis::GetInstance()->sycnAxisState(WRITE_OPERAT, readFinished);
+
+    QMetaObject::invokeMethod(this, [this]() {
+        VerifyCoordinates::GetInstance()->startComparingCoordinates(true);
+
+    }, Qt::QueuedConnection);
+}
+
+
+
+
+
+
 
 
 void loginmaininterface::slotsetEquipmentIndex()

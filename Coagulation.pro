@@ -253,7 +253,8 @@ SOURCES += \
     customTitleui/framelesswidgethelper.cpp \
     suoweiFileManager/hospitalreportprinter.cpp \
     datalprocessor.cpp \
-    verifycoordinates.cpp
+    verifycoordinates.cpp \
+    styledcomparisondialog.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -396,7 +397,8 @@ HEADERS += \
     customTitleui/framelesswidgethelper.h \
     suoweiFileManager/hospitalreportprinter.h \
     datalprocessor.h \
-    verifycoordinates.h
+    verifycoordinates.h \
+    styledcomparisondialog.h
 
 FORMS += \
     mainwindow.ui \

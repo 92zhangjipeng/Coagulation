@@ -44,6 +44,11 @@ private:
     void setupToolReminder(const QString& reminderStr);
     void setupDefaultReminder(const QString& reminderStr);
 
+    void closeTimerSerial();
+    void wirteMachineParaProgress();
+    void readMachineParaFinished();
+
+
 private slots:
     void onBtnMenuCloseClicked();
     void onBtnMenuMaxClicked();

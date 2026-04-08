@@ -1,6 +1,8 @@
 ﻿#ifndef VERIFYCOORDINATES_H
 #define VERIFYCOORDINATES_H
 
+#include "styledcomparisondialog.h"
+
 #include <QObject>
 #include <QWidget>
 #include <QVector>
@@ -8,6 +10,10 @@
 #include <QHash>
 #include <QDebug>
 #include <functional>
+#include <QPointer>
+
+
+class StyledComparisonDialog;
 
 class VerifyCoordinates : public QWidget
 {
@@ -21,18 +27,25 @@ public:
     bool loadCoordinateVerification(quint8 equipmentType);
     bool loadCoordinateVerification(const QString& equipmentName);
 
-    // 将配置文件坐标同步到仪器
-    bool syncFileToInstrument();
+
 
     // 从仪器加载当前坐标
     void loadMachineAxis();
 
     //退出时检验坐标
-    void veirfAxis();
-    void compareCoordinates();
-    void manualCoordinateComparison();
-    void displayCoordinateComparison();
+    void startComparingCoordinates(const bool initMachine);
+    void compareCoordinates(const bool initMachine);
+    void displayStyledComparison(const bool initMachine);
+
+
+    //仪器内坐标同步写入到校准坐标文件
     bool performAxisCalibration();
+
+
+    // 将配置文件坐标同步到仪器
+    bool syncFileToInstrument();
+
+
 
 
 
@@ -297,6 +310,8 @@ private:
     static constexpr int DEFAULT_MIN_COORDINATE = 0;
     static constexpr int DEFAULT_MAX_COORDINATE = 10000;
     static constexpr int COORDINATE_TOLERANCE = 5;  // 坐标允许的误差范围
+
+	QPointer<StyledComparisonDialog> m_comparisonDialog;
 };
 
 #endif // VERIFYCOORDINATES_H

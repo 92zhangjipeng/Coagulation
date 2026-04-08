@@ -2,6 +2,7 @@
 
 #include "verifycoordinates.h"
 #include "loadequipmentpos.h"
+#include "quiutils.h"
 #include "cglobal.h"
 #include <QCoreApplication>
 #include "QsLog/include/QsLog.h"
@@ -357,6 +358,8 @@ void VerifyCoordinates::printLoadedCoordinates() const
     QLOG_DEBUG() << "=========================";
 }
 
+
+
 bool VerifyCoordinates::verifyCoordinates() const
 {
     bool allValid = true;
@@ -538,7 +541,7 @@ QString VerifyCoordinates::getCoordinateDifferences() const
 
 //------------------------------对比提示-----------------------------------------
 
-void VerifyCoordinates::veirfAxis(){
+void VerifyCoordinates::startComparingCoordinates(const bool initMachine){
 
     QLOG_DEBUG() << "=== 开始坐标校验 ===";
     //获取设备类型
@@ -557,10 +560,15 @@ void VerifyCoordinates::veirfAxis(){
     verifyCoord->loadMachineAxis();
 
     //自动进行坐标对比
-    compareCoordinates();
+    compareCoordinates(initMachine);
 }
 
-void VerifyCoordinates::compareCoordinates()
+
+
+
+
+
+void VerifyCoordinates::compareCoordinates(const bool initMachine)
 {
     VerifyCoordinates* verifyCoord = VerifyCoordinates::GetInstance();
 
@@ -574,294 +582,102 @@ void VerifyCoordinates::compareCoordinates()
             QString::fromUtf8("验证结果"),
             QString::fromUtf8("所有坐标验证通过！\n校验坐标与仪器坐标一致。"));
     } else {
-        // 方法2: 获取详细差异信息
-        QString diffDetails = verifyCoord->getCoordinateDifferences();
-
-        QString message = QString::fromUtf8("坐标验证失败！\n\n差异详情：\n%1\n\n是否查看详细对比？")
-            .arg(diffDetails);
-        QMessageBox::StandardButton reply =
-            QMessageBox::warning(this,
-                QString::fromUtf8("坐标不一致"),
-                message,
-                QMessageBox::Yes | QMessageBox::No);
-
-        if (reply == QMessageBox::Yes) {
-            displayCoordinateComparison();
-        }
-    }
-
-    // 方法3: 手动对比特定坐标
-    manualCoordinateComparison();
-}
-
-void VerifyCoordinates::manualCoordinateComparison()
-{
-    VerifyCoordinates* verifyCoord = VerifyCoordinates::GetInstance();
-
-    // 获取校验坐标
-    QPoint expectedOrigin = verifyCoord->getOriginAxis();
-    QPoint expectedThrowHole = verifyCoord->getThrowHoleAxis();
-    QPoint expectedReagentPin = verifyCoord->getReagentHoleAxis();
-
-    // 获取仪器实际坐标
-    QPoint actualOrigin = verifyCoord->getLoadedOriginAxis();
-    QPoint actualThrowHole = verifyCoord->getLoadedThrowHoleAxis();
-    //QPoint actualReagentPin = verifyCoord->getLoadedReagentPin();
-
-    // 计算偏差
-    int originDiffX = actualOrigin.x() - expectedOrigin.x();
-    int originDiffY = actualOrigin.y() - expectedOrigin.y();
-
-    QLOG_DEBUG() << "原点轴 - 预期:" << expectedOrigin
-             << "实际的:" << actualOrigin
-             << "偏移:" << QPoint(originDiffX, originDiffY);
-
-    // 检查偏差是否在允许范围内（例如 ±5）
-    const int TOLERANCE = 5;
-    if (abs(originDiffX) > TOLERANCE || abs(originDiffY) > TOLERANCE) {
-        QLOG_WARN() << "警告：原点轴偏差超过公差！";
+        displayStyledComparison(initMachine);
     }
 }
 
-void VerifyCoordinates::displayCoordinateComparison()
+
+void VerifyCoordinates::displayStyledComparison(const bool initMachine)
 {
-    // 创建对比结果显示窗口
-    QDialog *dialog = new QDialog(this);
+    // 1. 防重入检查 - 使用成员变量
+    if (!m_comparisonDialog.isNull()) {
+        // 如果对话框已存在，将其提升到前台
+        m_comparisonDialog->raise();
+        m_comparisonDialog->activateWindow();
+        QLOG_DEBUG() << "Comparison dialog already exists, raising to front";
+        return;
+    }
+
+
+    // 创建样式化对比窗口
+    StyledComparisonDialog* dialog = new StyledComparisonDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);  // 关闭时自动删除
-    dialog->setWindowTitle("坐标对比详情");
-    dialog->resize(700, 500);
+    m_comparisonDialog = dialog;  // 保存到成员变量
 
-    QTextEdit *textEdit = new QTextEdit(dialog);
-    textEdit->setReadOnly(true);
+    // 准备基础坐标数据
+    QMap<QString, QPair<QPoint, QPoint>> basicPoints;
+    basicPoints["原点坐标"] = qMakePair(m_originAxis, m_loadedOriginAxis);
+    basicPoints["丢杯孔坐标"] = qMakePair(m_throwHoleAxis, m_loadedThrowHoleAxis);
+    basicPoints["试剂针坐标"] = qMakePair(m_reagentPin, m_loadedReagentPin);
+    basicPoints["血样针坐标"] = qMakePair(m_bloodPin, m_loadedBloodPin);
+    basicPoints["清洗区(血针)"] = qMakePair(m_cleanZoneBloodPin, m_loadedCleanZoneBloodPin);
+    basicPoints["清洗区(试剂针)"] = qMakePair(m_cleanZoneReagentPin, m_loadedCleanZoneReagentPin);
 
-    VerifyCoordinates* verifyCoord = VerifyCoordinates::GetInstance();
-
-	// 或者添加安全检查
-	if (!verifyCoord) {
-		qCritical() << "VerifyCoordinates instance is null!";
-		delete dialog;
-		return;
-	}
-
-    QString comparisonText;
-    QTextStream stream(&comparisonText);
-    stream.setCodec("UTF-8");
-
-    // 格式化输出对比结果
-    stream << QString::fromUtf8("========== 坐标对比报告 ==========\n\n");
-
-    // 定义对比项
-    struct CompareItem {
-        QString name;
-        QPoint expected;
-        QPoint actual;
-        int tolerance;
-    };
-
-    QList<CompareItem> items = {
-        {QString::fromUtf8("原点坐标"), verifyCoord->getOriginAxis(),
-         verifyCoord->getLoadedOriginAxis(), 5},
-        {QString::fromUtf8("丢杯孔坐标"), verifyCoord->getThrowHoleAxis(),
-         verifyCoord->getLoadedThrowHoleAxis(), 5},
-        {QString::fromUtf8("试剂针坐标"), verifyCoord->getReagentHoleAxis(),
-         verifyCoord->getLoadedReagentHoleAxis(), 5},
-        {QString::fromUtf8("血样针坐标"), verifyCoord->getBloodModuleOffBloodPin(),
-         verifyCoord->getLoadedBloodModuleOffBloodPin(), 5},
-        {QString::fromUtf8("清洗区(血针)"), verifyCoord->getCleanZoneOffBloodPin(),
-         verifyCoord->getLoadedCleanZoneOffBloodPin(), 5},
-        {QString::fromUtf8("清洗区(试剂针)"), verifyCoord->getCleanZoneOffReagentPin(),
-         verifyCoord->getLoadedCleanZoneOffReagentPin(), 5}
-    };
-
-    for (const auto& item : items) {
-        int dx = item.actual.x() - item.expected.x();
-        int dy = item.actual.y() - item.expected.y();
-        bool inTolerance = (abs(dx) <= item.tolerance && abs(dy) <= item.tolerance);
-
-        stream << QString::fromUtf8("%1:\n")
-                  .arg(item.name);
-        stream << QString::fromUtf8("  校验坐标: (%1, %2)\n")
-                  .arg(item.expected.x()).arg(item.expected.y());
-        stream << QString::fromUtf8("  实际坐标: (%1, %2)\n")
-                  .arg(item.actual.x()).arg(item.actual.y());
-        stream << QString::fromUtf8("  偏差: (%1, %2) ")
-                  .arg(dx).arg(dy);
-        stream << (inTolerance ? QString::fromUtf8("✓ 正常") : QString::fromUtf8("✗ 超出范围"));
-        stream << "\n\n";
+    // 准备抓手通道数据
+    QMap<int, QPair<QPoint, QPoint>> handsChannels;
+    for(int i = 0; i < m_channels.getChannelCount(); ++i) {
+        handsChannels[i] = qMakePair(m_channels.getChannel(i), m_loadedChannels.getChannel(i));
     }
 
-    // ========== 新增：抓手通道坐标对比 ==========
-    stream << QString::fromUtf8("========== 抓手通道坐标对比 ==========\n\n");
-    bool hasHandsChannelDiff = false;
-    for(int i = 0; i < verifyCoord->getChannelOffHands().getChannelCount(); ++i) {
-        QPoint expected = verifyCoord->getChannelOffHands().getChannel(i);
-        QPoint actual = verifyCoord->getLoadedChannelOffHands().getChannel(i);
-        int dx = actual.x() - expected.x();
-        int dy = actual.y() - expected.y();
+    // 准备试剂针通道数据
+    QMap<int, QPair<QPoint, QPoint>> reagentChannels;
+    for(int i = 0; i < m_channelOffReagentPin.getChannelCount(); ++i) {
+        reagentChannels[i] = qMakePair(m_channelOffReagentPin.getChannel(i),
+                                       m_loadedChannelOffReagentPin.getChannel(i));
+    }
 
-        if (dx != 0 || dy != 0) {
-            hasHandsChannelDiff = true;
-            stream << QString::fromUtf8("通道 %1:\n")
-                      .arg(i + 1);
-            stream << QString::fromUtf8("  校验坐标: (%1, %2)\n")
-                      .arg(expected.x()).arg(expected.y());
-            stream << QString::fromUtf8("  实际坐标: (%1, %2)\n")
-                      .arg(actual.x()).arg(actual.y());
-            stream << QString::fromUtf8("  偏差: (%1, %2)\n\n")
-                      .arg(dx).arg(dy);
+    // 准备托盘抓手数据
+    QMap<int, QPair<QPoint, QPoint>> trayHands;
+    for(int i = 0; i < m_handsTaryTube.getTrayCount(); ++i) {
+        trayHands[i] = qMakePair(m_handsTaryTube.getTray(i), m_loadedHandsTaryTube.getTray(i));
+    }
+
+    // 准备托盘血针数据
+    QMap<int, QPair<QPoint, QPoint>> trayBlood;
+    for(int i = 0; i < m_bloodPinTaryTube.getTrayCount(); ++i) {
+        trayBlood[i] = qMakePair(m_bloodPinTaryTube.getTray(i), m_loadedBloodPinTaryTube.getTray(i));
+    }
+
+    // 设置数据
+    dialog->setComparisonData(basicPoints, handsChannels, reagentChannels,
+                              trayHands, trayBlood);
+
+    // 设置公差
+    dialog->setTolerance(COORDINATE_TOLERANCE);
+
+    // 设置校准回调
+    // 使用 QPointer 防止悬空指针
+    QPointer<VerifyCoordinates> thisPtr(this);
+    dialog->setCalibrationCallback([thisPtr, initMachine]() -> bool {
+        if (thisPtr.isNull()) {
+            QLOG_WARN() << "VerifyCoordinates has been destroyed";
+            return false;
         }
-    }
-    if (!hasHandsChannelDiff) {
-        stream << QString::fromUtf8("所有抓手通道坐标一致 ✓\n\n");
-    }
+        if(initMachine)
+            return thisPtr->syncFileToInstrument(); //文件坐标覆盖写到仪器
+        else
+            return thisPtr->performAxisCalibration();//仪器坐标覆盖写到文件
+    });
 
-    // ========== 新增：试剂针通道坐标对比 ==========
-    stream << QString::fromUtf8("========== 试剂针通道坐标对比 ==========\n\n");
-    bool hasReagentChannelDiff = false;
-    for(int i = 0; i < verifyCoord->getChannelOffReagentPin().getChannelCount(); ++i) {
-        QPoint expected = verifyCoord->getChannelOffReagentPin().getChannel(i);
-        QPoint actual = verifyCoord->getLoadedChannelOffReagentPin().getChannel(i);
-        int dx = actual.x() - expected.x();
-        int dy = actual.y() - expected.y();
+    // 对话框关闭时清理引用并关闭定时器串口
+   // 使用成员变量指针进行清理
+   QPointer<StyledComparisonDialog> dialogPtr = dialog;
+   connect(dialog, &StyledComparisonDialog::destroyed, this, [this, dialogPtr]() {
+       // 清理成员变量（仅当当前关闭的对话框正是保存的那个）
+       if (m_comparisonDialog == dialogPtr) {
+           m_comparisonDialog.clear();
+       }
+       QLOG_DEBUG() << "Comparison dialog closed, resources cleaned up";
+   });
 
-        if (dx != 0 || dy != 0) {
-            hasReagentChannelDiff = true;
-            stream << QString::fromUtf8("通道 %1:\n")
-                      .arg(i + 1);
-            stream << QString::fromUtf8("  校验坐标: (%1, %2)\n")
-                      .arg(expected.x()).arg(expected.y());
-            stream << QString::fromUtf8("  实际坐标: (%1, %2)\n")
-                      .arg(actual.x()).arg(actual.y());
-            stream << QString::fromUtf8("  偏差: (%1, %2)\n\n")
-                      .arg(dx).arg(dy);
-        }
-    }
-    if (!hasReagentChannelDiff) {
-        stream << QString::fromUtf8("所有试剂针通道坐标一致 ✓\n\n");
-    }
 
-    // ========== 新增：托盘抓手坐标对比 ==========
-    stream << QString::fromUtf8("========== 托盘抓手坐标对比 ==========\n\n");
-    bool hasTrayHandsDiff = false;
-    for(int i = 0; i < verifyCoord->getTaryTubeOffHands().getTrayCount(); ++i) {
-        QPoint expected = verifyCoord->getTaryTubeOffHands().getTray(i);
-        QPoint actual = verifyCoord->getLoadedTaryTubeOffHands().getTray(i);
-        int dx = actual.x() - expected.x();
-        int dy = actual.y() - expected.y();
-
-        if (dx != 0 || dy != 0) {
-            hasTrayHandsDiff = true;
-            stream << QString::fromUtf8("托盘 %1:\n")
-                      .arg(i + 1);
-            stream << QString::fromUtf8("  校验坐标: (%1, %2)\n")
-                      .arg(expected.x()).arg(expected.y());
-            stream << QString::fromUtf8("  实际坐标: (%1, %2)\n")
-                      .arg(actual.x()).arg(actual.y());
-            stream << QString::fromUtf8("  偏差: (%1, %2)\n\n")
-                      .arg(dx).arg(dy);
-        }
-    }
-    if (!hasTrayHandsDiff) {
-        stream << QString::fromUtf8("所有托盘抓手坐标一致 ✓\n\n");
-    }
-
-    // ========== 新增：托盘血样针坐标对比 ==========
-    stream << QString::fromUtf8("========== 托盘血样针坐标对比 ==========\n\n");
-    bool hasTrayBloodDiff = false;
-    for(int i = 0; i < verifyCoord->getTaryTubeOffBloodPin().getTrayCount(); ++i) {
-        QPoint expected = verifyCoord->getTaryTubeOffBloodPin().getTray(i);
-        QPoint actual = verifyCoord->getLoadedTaryTubeOffBloodPin().getTray(i);
-        int dx = actual.x() - expected.x();
-        int dy = actual.y() - expected.y();
-
-        if (dx != 0 || dy != 0) {
-            hasTrayBloodDiff = true;
-            stream << QString::fromUtf8("托盘 %1:\n")
-                      .arg(i + 1);
-            stream << QString::fromUtf8("  校验坐标: (%1, %2)\n")
-                      .arg(expected.x()).arg(expected.y());
-            stream << QString::fromUtf8("  实际坐标: (%1, %2)\n")
-                      .arg(actual.x()).arg(actual.y());
-            stream << QString::fromUtf8("  偏差: (%1, %2)\n\n")
-                      .arg(dx).arg(dy);
-        }
-    }
-    if (!hasTrayBloodDiff) {
-        stream << QString::fromUtf8("所有托盘血样针坐标一致 ✓\n\n");
-    }
-
-    textEdit->setPlainText(comparisonText);
-
-    QVBoxLayout *layout = new QVBoxLayout(dialog);
-    layout->addWidget(textEdit);
-
-    // 添加操作按钮
-    QPushButton *calibrateBtn = new QPushButton("执行校准", dialog);
-    QPushButton *closeBtn = new QPushButton("关闭", dialog);
-
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    buttonLayout->addWidget(calibrateBtn);
-    buttonLayout->addWidget(closeBtn);
-    layout->addLayout(buttonLayout);
-
-	QPointer<QDialog> dialogPtr(dialog);
-	QPointer<VerifyCoordinates> thisPtr(this);
-
-	// 校准按钮连接 - 安全的版本
-	connect(calibrateBtn, &QPushButton::clicked, [thisPtr, dialogPtr]() {
-		// 检查对象是否仍然有效
-		if (!dialogPtr || !thisPtr) {
-			qWarning() << "Dialog or VerifyCoordinates has been destroyed";
-			return;
-		}
-
-		QMessageBox::StandardButton reply = QMessageBox::question(
-			dialogPtr,
-			"确认校准",
-			"此操作将使用仪器当前坐标覆盖配置文件中的坐标。\n\n"
-			"原配置文件将被备份为 .bak 文件。\n\n"
-			"确定要继续吗？",
-			QMessageBox::Yes | QMessageBox::No
-			);
-
-		if (reply == QMessageBox::Yes) {
-			// 保存 dialog 指针，因为 accept 后可能立即删除
-			QPointer<QDialog> dialogToClose = dialogPtr;
-
-			// 关闭对话框
-			dialogToClose->accept();
-
-			// 延迟执行校准，确保对话框完全关闭
-			QTimer::singleShot(100, thisPtr, [thisPtr, dialogToClose]() {
-				if (!thisPtr) {
-					qWarning() << "VerifyCoordinates destroyed before calibration";
-					return;
-				}
-
-				// 执行校准
-				if (thisPtr->performAxisCalibration()) {
-					QMessageBox::information(thisPtr, "校准完成",
-						"轴坐标校准成功！\n配置文件已更新。");
-				}
-				else {
-					QMessageBox::critical(thisPtr, "校准失败",
-						"轴坐标校准失败，请检查日志。");
-				}
-			});
-		}
-	});
-
-	// 关闭按钮连接 - 也使用 QPointer 保护
-	connect(closeBtn, &QPushButton::clicked, [dialogPtr]() {
-		if (dialogPtr) {
-			dialogPtr->accept();
-		}
-	});
-
-	dialog->exec();
+    // 显示对话框
+    dialog->exec();
 }
 
 
+
+//仪器内坐标同步写入到校准坐标文件
 bool VerifyCoordinates::performAxisCalibration()
 {
     // 防止重入
@@ -1032,7 +848,7 @@ bool VerifyCoordinates::performAxisCalibration()
 }
 
 
-
+//将文件内坐标同步到仪器
 bool VerifyCoordinates::syncFileToInstrument()
 {
     VerifyCoordinates* verifyCoord = VerifyCoordinates::GetInstance();
@@ -1051,9 +867,9 @@ bool VerifyCoordinates::syncFileToInstrument()
 
     QString equipmentName;
     switch (equipmentType) {
-        case 0: equipmentName = "KS600"; break;
-        case 1: equipmentName = "KS800"; break;
-        case 2: equipmentName = "KS1200"; break;
+        case KS600: equipmentName = "KS600"; break;
+        case KS800: equipmentName = "KS800"; break;
+        case KS1200: equipmentName = "KS1200"; break;
         default: equipmentName = "Unknown"; break;
     }
 
@@ -1092,143 +908,123 @@ bool VerifyCoordinates::syncFileToInstrument()
 
     // 5. 同步试剂区坐标（所有试剂位使用相同的偏移量）
     QPoint reagentPin = verifyCoord->getReagentHoleAxis();
-    // 获取当前第一个试剂位坐标，计算偏移量
-    QPoint currentReagentPos;
-    axis->reagetZoneAxisPos(READ_OPERRAT, 0, currentReagentPos);
-    int offsetX = reagentPin.x() - currentReagentPos.x();
-    int offsetY = reagentPin.y() - currentReagentPos.y();
-
-    int reagentCount = 10;  // 试剂位数量
-    for (int i = 0; i < reagentCount; ++i) {
-        QPoint pos;
-        axis->reagetZoneAxisPos(READ_OPERRAT, i, pos);
-        axis->oper_ReagentZonePos(NOTIFY_XPOINT, i, pos.x() + offsetX);
-        axis->oper_ReagentZonePos(NOTIFY_YPOINT, i, pos.y() + offsetY);
+    QMap<quint8, QPoint> allreagentPoints;
+    QUIUtils::CreatReagArsOtherAxis(reagentPin, allreagentPoints);
+    for (auto iter = allreagentPoints.begin(); iter != allreagentPoints.end(); ++iter) {
+        QPoint reagentHole = iter.value();
+        axis->reagetZoneAxisPos(WRITE_OPERAT, iter.key(), reagentHole);
     }
-    QLOG_DEBUG() << QString("同步试剂区坐标，偏移量: (%1,%2)").arg(offsetX).arg(offsetY);
+    QLOG_DEBUG() << QString("同步试剂区");
+
 
     // 6. 同步血样区坐标
+    QMap<quint8,QPoint> alltheBloodHoleAxis;
     QPoint bloodPin = verifyCoord->getBloodModuleOffBloodPin();
-    QPoint currentBloodPos;
-    axis->bloodSampleZonePos(READ_OPERRAT, 0, currentBloodPos);
-    int bloodOffsetX = bloodPin.x() - currentBloodPos.x();
-    int bloodOffsetY = bloodPin.y() - currentBloodPos.y();
-
-    // 获取血样区孔位数量
-    quint8 totalHole = 0;
-    axis->equipmentKind(READ_OPERRAT, totalHole);
-    int bloodHoleCount = 0;
-    switch (totalHole) {
-        case 0: bloodHoleCount = 70; break;  // KS600
-        case 1: bloodHoleCount = 90; break;  // KS800
-        case 2: bloodHoleCount = 120; break; // KS1200
-        default: bloodHoleCount = 120; break;
+    QUIUtils::creatBloodSampleAxis(equipmentType, bloodPin, alltheBloodHoleAxis);
+    auto iter = alltheBloodHoleAxis.constBegin();
+    while(iter != alltheBloodHoleAxis.constEnd())
+    {
+       quint8 holeIndex = iter.key();
+       QPoint holeAxis = iter.value();
+       axis->bloodSampleZonePos(WRITE_OPERAT,holeIndex,holeAxis);
+       iter++;
     }
 
-    for (int i = 0; i < bloodHoleCount; ++i) {
-        QPoint pos;
-        axis->bloodSampleZonePos(READ_OPERRAT, i, pos);
-        axis->oper_bloodSampleZonePos(NOTIFY_XPOINT, i, pos.x() + bloodOffsetX);
-        axis->oper_bloodSampleZonePos(NOTIFY_YPOINT, i, pos.y() + bloodOffsetY);
-    }
-    QLOG_DEBUG() << QString("同步血样区坐标，偏移量: (%1,%2)，共%3个孔位")
-                    .arg(bloodOffsetX).arg(bloodOffsetY).arg(bloodHoleCount);
 
     // 7. 同步抓手通道坐标
     int channelCount = 12;
-    switch (totalHole) {
-        case 0: channelCount = 4; break;
-        case 1: channelCount = 8; break;
-        case 2: channelCount = 12; break;
+    switch (equipmentType) {
+        case KS600: channelCount = 4; break;
+        case KS800: channelCount = 8; break;
+        case KS1200: channelCount = 12; break;
         default: channelCount = 12; break;
     }
 
     for (int i = 0; i < channelCount; ++i) {
         QPoint expected = verifyCoord->getChannelOffHands().getChannel(i);
+
         // 获取当前坐标并计算偏移
-        QPoint current;
-        axis->chnZoneAxisPos(READ_OPERRAT, i, MOTOR_HANDS_INDEX, current);
-        int offsetX_chn = expected.x() - current.x();
-        int offsetY_chn = expected.y() - current.y();
+        int offsetX_chn = expected.x() + i * 350;
+        int offsetY_chn = expected.y();
 
         if (offsetX_chn != 0 || offsetY_chn != 0) {
-            axis->oper_TestChnZoneAxispos(NOTIFY_XPOINT, i, MOTOR_HANDS_INDEX, expected.x());
-            axis->oper_TestChnZoneAxispos(NOTIFY_YPOINT, i, MOTOR_HANDS_INDEX, expected.y());
-            QLOG_DEBUG() << QString("同步抓手通道 %1: (%2,%3)").arg(i).arg(expected.x()).arg(expected.y());
+            axis->oper_TestChnZoneAxispos(NOTIFY_XPOINT, i, MOTOR_HANDS_INDEX, offsetX_chn);
+            axis->oper_TestChnZoneAxispos(NOTIFY_YPOINT, i, MOTOR_HANDS_INDEX, offsetY_chn);
+            QLOG_DEBUG() << QString("同步抓手通道 %1: (%2,%3)").arg(i).arg(offsetX_chn).arg(offsetY_chn);
         }
     }
 
     // 8. 同步试剂针通道坐标
     for (int i = 0; i < channelCount; ++i) {
         QPoint expected = verifyCoord->getChannelOffReagentPin().getChannel(i);
+        int offsetX_chn = expected.x() + i * 350;
+        int offsetY_chn = expected.y();
         if (expected.x() != 0 || expected.y() != 0) {
-            axis->oper_TestChnZoneAxispos(NOTIFY_XPOINT, i, MOTOR_REAGNET_INDEX, expected.x());
-            axis->oper_TestChnZoneAxispos(NOTIFY_YPOINT, i, MOTOR_REAGNET_INDEX, expected.y());
-            QLOG_DEBUG() << QString("同步试剂针通道 %1: (%2,%3)").arg(i).arg(expected.x()).arg(expected.y());
+            axis->oper_TestChnZoneAxispos(NOTIFY_XPOINT, i, MOTOR_REAGNET_INDEX, offsetX_chn);
+            axis->oper_TestChnZoneAxispos(NOTIFY_YPOINT, i, MOTOR_REAGNET_INDEX, offsetY_chn);
+            QLOG_DEBUG() << QString("同步试剂针通道 %1: (%2,%3)").arg(i).arg(offsetX_chn).arg(offsetY_chn);
         }
     }
 
     // 9. 同步托盘抓手坐标
+    constexpr int SPACE_TUBE = 150;     // 内部试管横/纵向间距相同
+    constexpr int ROWS_PER_TRAY = 10;   // 每个托盘行数
+    constexpr int COLS_PER_TRAY = 6;    // 每个托盘列数
+
     int trayCount = 4;
-    switch (totalHole) {
-        case 0: trayCount = 2; break;
-        case 1: trayCount = 3; break;
-        case 2: trayCount = 4; break;
+    switch (equipmentType) {
+        case KS600: trayCount = 2; break;
+        case KS800: trayCount = 3; break;
+        case KS1200: trayCount = 4; break;
         default: trayCount = 4; break;
     }
 
+    quint8 keyHole = 0;
     for (int i = 0; i < trayCount; ++i) {
         QPoint expected = verifyCoord->getTaryTubeOffHands().getTray(i);
         if (expected.x() != 0 || expected.y() != 0) {
-            int startPos = i * 60;
-            // 获取当前坐标计算偏移
-            QPoint current;
-            axis->testTaryZoneAxisPos(READ_OPERRAT, startPos, MOTOR_HANDS_INDEX, current);
-            int offsetX_tray = expected.x() - current.x();
-            int offsetY_tray = expected.y() - current.y();
 
-            // 同步整个托盘的所有孔位
-            int endPos = startPos + 60;
-            for (int pos = startPos; pos < endPos; ++pos) {
-                QPoint cur;
-                axis->testTaryZoneAxisPos(READ_OPERRAT, pos, MOTOR_HANDS_INDEX, cur);
-                axis->oper_TestTrayZonaPos(NOTIFY_XPOINT, pos, MOTOR_HANDS_INDEX, cur.x() + offsetX_tray);
-                axis->oper_TestTrayZonaPos(NOTIFY_YPOINT, pos, MOTOR_HANDS_INDEX, cur.y() + offsetY_tray);
+            for (int row = 0; row < ROWS_PER_TRAY; ++row)
+            {
+                const int yPos = expected.y() + row * SPACE_TUBE;
+
+                for (int col = 0; col < COLS_PER_TRAY; ++col)
+                {
+                    const QPoint tubePos(expected.x() + col * SPACE_TUBE, yPos);
+
+                    // 传递副本（如果函数参数是非const引用）
+                    QPoint pos = tubePos;
+                    axis->oper_TestTrayZonaPos(NOTIFY_XPOINT, keyHole, MOTOR_HANDS_INDEX, pos.x());
+                    axis->oper_TestTrayZonaPos(NOTIFY_YPOINT, keyHole, MOTOR_HANDS_INDEX, pos.y());
+                    ++keyHole;
+                }
             }
-            QLOG_DEBUG() << QString("同步托盘%1抓手坐标，偏移量: (%2,%3)").arg(i).arg(offsetX_tray).arg(offsetY_tray);
         }
     }
 
     // 10. 同步托盘血针坐标
+    keyHole = 0;
     for (int i = 0; i < trayCount; ++i) {
         QPoint expected = verifyCoord->getTaryTubeOffBloodPin().getTray(i);
         if (expected.x() != 0 || expected.y() != 0) {
-            int startPos = i * 60;
-            QPoint current;
-            axis->testTaryZoneAxisPos(READ_OPERRAT, startPos, MOTOR_BLOOD_INDEX, current);
-            int offsetX_blood = expected.x() - current.x();
-            int offsetY_blood = expected.y() - current.y();
 
-            int endPos = startPos + 60;
-            for (int pos = startPos; pos < endPos; ++pos) {
-                QPoint cur;
-                axis->testTaryZoneAxisPos(READ_OPERRAT, pos, MOTOR_BLOOD_INDEX, cur);
-                axis->oper_TestTrayZonaPos(NOTIFY_XPOINT, pos, MOTOR_BLOOD_INDEX, cur.x() + offsetX_blood);
-                axis->oper_TestTrayZonaPos(NOTIFY_YPOINT, pos, MOTOR_BLOOD_INDEX, cur.y() + offsetY_blood);
+            for (int row = 0; row < ROWS_PER_TRAY; ++row)
+            {
+                const int yPos = expected.y() + row * SPACE_TUBE;
+
+                for (int col = 0; col < COLS_PER_TRAY; ++col)
+                {
+                    const QPoint tubePos(expected.x() + col * SPACE_TUBE, yPos);
+
+                    // 传递副本（如果函数参数是非const引用）
+                    QPoint pos = tubePos;
+                    axis->oper_TestTrayZonaPos(NOTIFY_XPOINT, keyHole, MOTOR_BLOOD_INDEX, pos.x());
+                    axis->oper_TestTrayZonaPos(NOTIFY_YPOINT, keyHole, MOTOR_BLOOD_INDEX, pos.y());
+                    ++keyHole;
+                }
             }
-            QLOG_DEBUG() << QString("同步托盘%1血针坐标，偏移量: (%2,%3)").arg(i).arg(offsetX_blood).arg(offsetY_blood);
         }
     }
-
-    // 生成发送命令（如果需要发送到硬件）
-    //QByteArrayList sendCommandsList;
-    // ... 根据您的协议生成命令 ...
-
-//    if (!sendCommandsList.isEmpty()) {
-//        emit writdAxisata(sendCommandsList, "同步配置文件坐标到仪器");
-//    }
-
-//    QLOG_DEBUG() << "=== 配置文件坐标同步完成 ===";
 
     // 重新加载仪器坐标以验证
     verifyCoord->loadMachineAxis();

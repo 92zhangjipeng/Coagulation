@@ -1794,7 +1794,7 @@ void CustomPlot::closeEvent(QCloseEvent* event)
                //QCoreApplication::processEvents();
            }
 
-           VerifyCoordinates::GetInstance()->veirfAxis();
+           VerifyCoordinates::GetInstance()->startComparingCoordinates(false);
 
            event->accept();  // ✅ 接受关闭事件
 
