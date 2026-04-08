@@ -4801,7 +4801,9 @@ public:
 "    padding:0 0px;   	\n"
 "} "));
         verticalLayout_2 = new QVBoxLayout(widget_Rightwidget);
+        verticalLayout_2->setSpacing(5);
         verticalLayout_2->setObjectName(QStringLiteral("verticalLayout_2"));
+        verticalLayout_2->setContentsMargins(5, 5, 5, 5);
         groupBoxconfigure = new QGroupBox(widget_Rightwidget);
         groupBoxconfigure->setObjectName(QStringLiteral("groupBoxconfigure"));
         groupBoxconfigure->setMinimumSize(QSize(0, 220));

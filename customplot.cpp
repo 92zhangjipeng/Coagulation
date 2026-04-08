@@ -16,6 +16,8 @@
 #include <QVector>
 #include <QTextCodec>
 #include <algorithm>
+#include <numeric>
+#include <random>
 
 
 
@@ -69,6 +71,7 @@ CustomPlot::CustomPlot(QWidget *parent) :
     led->setStates(QSimpleLed::LEDSTATES::OFF);
 
     ui->pushButton_TrayHands->hide();
+    initSpinBoxStyle();
 }
 
 CustomPlot::~CustomPlot()
@@ -94,6 +97,32 @@ CustomPlot::~CustomPlot()
     delete ui;
 }
 
+void CustomPlot::initSpinBoxStyle()
+{
+    // 优化X坐标SpinBox样式 - 加减号变小并居中
+    m_SpinboxsheetX =
+        "QSpinBox {"
+           "   background: white;"
+           "   border: 1px solid #dcdfe6;"
+           "   border-radius: 4px;"
+           "   text-align: center;"
+           "   padding: 2px 4px;"
+           "   min-width: 100px;"
+           "   max-width: 120px;"
+           "}"
+           "QSpinBox::up-button, QSpinBox::down-button {"
+           "   width: 14px;"
+           "   height: 12px;"
+           "}"
+           "QSpinBox::up-arrow, QSpinBox::down-arrow {"
+           "   width: 5px;"
+           "   height: 5px;"
+           "}";
+
+    // Y坐标SpinBox样式（同样优化）
+    m_SpinboxsheetY = m_SpinboxsheetX;
+}
+
 void CustomPlot::initstyle(const quint8 equipmentType)
 {
     initCommboxView(equipmentType);
@@ -111,7 +140,7 @@ void CustomPlot::initstyle(const quint8 equipmentType)
     mbloodBtnGroupbox = new QButtonGroup(this);
     mbloodBtnGroupbox->setExclusive(true);
 
-    InitBloodZoneNum(equipmentType);  //初始化血样区
+    initBloodZoneNum(equipmentType);  //初始化血样区
 
     initEmptyTubeHole(equipmentType); //空试管区
 
@@ -136,7 +165,7 @@ void CustomPlot::initstyle(const quint8 equipmentType)
 
    //点击原点校验位置
    connect(ui->toolButton_origin,&QToolButton::clicked,this,[=](){
-       UserClickOriginAxis();
+       userClickOriginAxis();
    });
 
 }
@@ -244,211 +273,365 @@ void CustomPlot::initCommboxView(quint8 equipmentType)
 
 
 
-void CustomPlot::InitBloodZoneNum(quint8 indexModels)
+void CustomPlot::initBloodZoneNum(quint8 indexModels)
 {
-    int showNum = 0;
-    //mbloodBtnGroupbox = new QButtonGroup;
-    switch(indexModels)
-    {
-        case KS600: showNum = 6;
-        break;
-        case KS800: showNum = 9;
-        break;
-        case KS1200: showNum = 12;
-        break;
-		default: showNum = 12; break;
-    }
-    QVector<QList<QToolButton*> > BloodAreasTube;
-    BloodAreasTube.clear();
-    //QList<QToolButton*> holeLineList;
+    // 型号对应的显示数量映射
+    static const QHash<quint8, int> modelToShowNum = {
+        {KS600, 6},
+        {KS800, 9},
+        {KS1200, 12}
+    };
+    const int showNum = modelToShowNum.value(indexModels, 12);
+    constexpr int MAX_BLOOD_ZONE = 12;
 
-   // QList<QWidget *> singleWidget;
-	
-	for (int i = 0; i < 12; i++)
-	{
-		QString findstr = QString("widget_Bloodchild_%1").arg(i +1);
-		QWidget *pwidgt = ui->widget_BloodArea->findChild<QWidget *>(findstr);
-        if(i >= showNum)
+    // 确保按钮组存在
+    if (!mbloodBtnGroupbox) {
+        mbloodBtnGroupbox = new QButtonGroup(this);
+    }
+
+    // 批量处理所有血区
+    for (int i = 0; i < MAX_BLOOD_ZONE; ++i)
+    {
+        QWidget* const bloodWidget = ui->widget_BloodArea->findChild<QWidget*>(
+            QString("widget_Bloodchild_%1").arg(i + 1)
+        );
+
+        if (!bloodWidget) continue;
+
+        // 超出显示数量：隐藏并跳过
+        const bool shouldHide = (i >= showNum);
+        bloodWidget->setVisible(!shouldHide);
+        if (shouldHide) continue;
+
+        // 获取并排序按钮
+        auto buttons = bloodWidget->findChildren<QToolButton*>();
+        if (buttons.isEmpty()) continue;
+
+        std::sort(buttons.begin(), buttons.end(), compairtool);
+
+        // 配置按钮
+        int subIndex = 1;
+        for (auto* btn : buttons)
         {
-            pwidgt->hide();
-            continue;
+            btn->setText(QString::number(subIndex + i * 10));
+            btn->setFont(mfont);
+            btn->setCheckable(true);
+            btn->setAutoExclusive(true);
+            btn->setStyleSheet(m_Cssbtn);
+
+            // 安全建立连接（避免重复）
+            disconnect(btn, &QToolButton::clicked, this, &CustomPlot::ClickBloodTube);
+            connect(btn, &QToolButton::clicked, this, &CustomPlot::ClickBloodTube);
+
+            // 安全添加到按钮组
+            if (mbloodBtnGroupbox->buttons().contains(btn)) {
+                mbloodBtnGroupbox->removeButton(btn);
+            }
+            mbloodBtnGroupbox->addButton(btn);
+
+            ++subIndex;
         }
-		QList<QToolButton *> list = pwidgt->findChildren<QToolButton *>();
-		std::sort(list.begin(), list.end(), compairtool);
-		int k = 1;
-		for (auto it : list)
-		{
-			it->setText(QString("%1").arg(k+ i*10));
-            it->setFont(mfont);
-			it->setCheckable(true);
-			it->setAutoExclusive(true);
-			it->setStyleSheet(m_Cssbtn);
-			mbloodBtnGroupbox->addButton(it);
-			QObject::connect(it, &QToolButton::clicked, this, &CustomPlot::ClickBloodTube);
-			k++;
-		}
-	}
+    }
+
     update();
-	return;   
 }
+
+
+
 
 void CustomPlot::initEmptyTubeHole(quint8 indexType)
 {
-	int showNum = 0;
-	switch (indexType)
-	{
-	case KS600: showNum = 2;
-		break;
-	case KS800: showNum = 3;
-		break;
-	case KS1200: showNum = 4;
-		break;
-	default: showNum = 4; break;
-	}
-	for (int i = 0; i < 4; i++)
-	{
-		QString findkey = QString("widget_testtubetray_%1").arg(i + 1);
-		QWidget *pwidgt = ui->widget_trayall->findChild<QWidget *>(findkey);
-		if (i >= showNum)
-		{
-			pwidgt->hide();
-			continue;
-		}
-		QList<QToolButton *> list = pwidgt->findChildren<QToolButton *>();
-		std::sort(list.begin(), list.end(), compairtool);
-		int k = 1;
-		for (auto iterbtn : list)
-		{
-			iterbtn->setCheckable(true);
-			iterbtn->setAutoExclusive(true);
-			iterbtn->setText(QString("%1").arg(k + 60* i));
-            iterbtn->setFont(mfont);
-			iterbtn->setStyleSheet(m_Cssbtn);
-			mbloodBtnGroupbox->addButton(iterbtn);
-			QObject::connect(iterbtn, &QToolButton::clicked, this, &CustomPlot::ClickEmptyTube);
-			k++;
-		}
-	}
-	return;
+    // 型号对应的显示数量映射
+   static const QHash<quint8, int> kModelShowNum = {
+       {KS600, 2},
+       {KS800, 3},
+       {KS1200, 4}
+   };
+   const int showNum = kModelShowNum.value(indexType, 4);
+   constexpr int MAX_TUBE_TRAY = 4;
+
+   // 确保按钮组存在
+   if (!mbloodBtnGroupbox) {
+       mbloodBtnGroupbox = new QButtonGroup(this);
+   }
+
+   // 处理每个试管托盘
+   for (int i = 0; i < MAX_TUBE_TRAY; ++i)
+   {
+       QString findKey = QString("widget_testtubetray_%1").arg(i + 1);
+       QWidget* trayWidget = ui->widget_trayall->findChild<QWidget*>(findKey);
+
+       if (!trayWidget) continue;
+
+       // 超出显示数量：隐藏并跳过
+       const bool shouldHide = (i >= showNum);
+       trayWidget->setVisible(!shouldHide);
+       if (shouldHide) continue;
+
+       // 获取并排序按钮
+       auto buttons = trayWidget->findChildren<QToolButton*>();
+       if (buttons.isEmpty()) continue;
+
+       std::sort(buttons.begin(), buttons.end(), compairtool);
+
+       // 配置按钮
+       int subIndex = 1;
+       for (auto* btn : buttons)
+       {
+           const int tubeNumber = subIndex + 60 * i;
+           btn->setText(QString::number(tubeNumber));
+           btn->setFont(mfont);
+           btn->setCheckable(true);
+           btn->setAutoExclusive(true);
+           btn->setStyleSheet(m_Cssbtn);
+
+           // 安全建立连接（避免重复）
+           disconnect(btn, &QToolButton::clicked, this, &CustomPlot::ClickEmptyTube);
+           connect(btn, &QToolButton::clicked, this, &CustomPlot::ClickEmptyTube);
+
+           // 安全添加到按钮组
+           if (mbloodBtnGroupbox->buttons().contains(btn)) {
+               mbloodBtnGroupbox->removeButton(btn);
+           }
+           mbloodBtnGroupbox->addButton(btn);
+
+           ++subIndex;
+       }
+   }
+
+   update();  // 如果需要刷新界面
 }
+
+
 
 void CustomPlot::initTestChnHole(quint8 indexType)
 {
-    QList<QToolButton* > testChannelArea = ui->widget_testchannelArea->findChildren<QToolButton *>();
-    std::sort(testChannelArea.begin(),testChannelArea.end(),compairtool);
-    for(auto it_Chn : testChannelArea)
-    {
-        int index = QUIUtils::StringFindintnum(it_Chn->objectName());
-        switch (indexType) {
-        case KS600:
-                    if(index > 4)
-                    {
-                        it_Chn->hide();
-                    }
-                    else
-                    {
-                        it_Chn->setStyleSheet(m_Cssbtn);
-                        QObject::connect(it_Chn,&QToolButton::clicked,this,&CustomPlot::ClickTestChannelTube);
-                    }
-        break;
-        case KS800:
-                    if(index > 8)
-                    {
-                        it_Chn->hide();
-                    }
-                    else
-                    {
-                        it_Chn->setStyleSheet(m_Cssbtn);
-                        QObject::connect(it_Chn,&QToolButton::clicked,this,&CustomPlot::ClickTestChannelTube);
-                    }
-        break;
-        case KS1200:
-                    it_Chn->setStyleSheet(m_Cssbtn);
-                    QObject::connect(it_Chn,&QToolButton::clicked,this,&CustomPlot::ClickTestChannelTube);
-        break;
-        default:
-                    it_Chn->setStyleSheet(m_Cssbtn);
-                    QObject::connect(it_Chn,&QToolButton::clicked,this,&CustomPlot::ClickTestChannelTube);
-        break;
-        }
+    // 获取所有测试通道按钮
+    auto testChannelArea = ui->widget_testchannelArea->findChildren<QToolButton*>();
+    if (testChannelArea.isEmpty()) return;
 
+    std::sort(testChannelArea.begin(), testChannelArea.end(), compairtool);
+
+    // 型号对应的最大通道数映射
+    static const QHash<quint8, int> kModelMaxChannel = {
+        {KS600, 4},
+        {KS800, 8},
+        {KS1200, 12}  // KS1200 不限制，12是最大值
+    };
+    const int maxChannel = kModelMaxChannel.value(indexType, 12);
+
+    // 配置每个通道按钮
+    for (auto* btn : testChannelArea)
+    {
+        int index = QUIUtils::StringFindintnum(btn->objectName());
+
+        // 判断是否需要隐藏
+        bool shouldHide = (maxChannel > 0 && index > maxChannel);
+
+        if (shouldHide)
+        {
+            btn->hide();
+        }
+        else
+        {
+            btn->show();  // 确保之前隐藏的按钮重新显示
+            btn->setStyleSheet(m_Cssbtn);
+
+            // 避免重复连接
+            disconnect(btn, &QToolButton::clicked, this, &CustomPlot::ClickTestChannelTube);
+            connect(btn, &QToolButton::clicked, this, &CustomPlot::ClickTestChannelTube);
+        }
     }
-    return;
+
+    update();
 }
 
 
 void CustomPlot::InitdisplayPointTablewidget(QTableWidget* Tablewidgetpos)
 {
-    QStringList header;
-    header <<tr("编号")<< tr("X坐标")<<tr("Y坐标")<<tr("保存");
-    Tablewidgetpos->setColumnCount(header.size()); //初始化列
-    Tablewidgetpos->setHorizontalHeaderLabels(header); //设置表头
+    if (!Tablewidgetpos) return;
 
+    // 设置表头
+    QStringList header = {tr("编号"), tr("X坐标"), tr("Y坐标"), tr("保存")};
+    Tablewidgetpos->setColumnCount(header.size());
+    Tablewidgetpos->setHorizontalHeaderLabels(header);
+
+    // 基础配置
+    Tablewidgetpos->setFocusPolicy(Qt::NoFocus);
+    Tablewidgetpos->setFrameShape(QFrame::Box);
+    Tablewidgetpos->setShowGrid(true);
+    Tablewidgetpos->verticalHeader()->setVisible(false);
+    Tablewidgetpos->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    Tablewidgetpos->setSelectionMode(QAbstractItemView::NoSelection);
+    Tablewidgetpos->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+    // 行高和列宽（进一步增加行高，确保控件完全显示）
+    Tablewidgetpos->verticalHeader()->setDefaultSectionSize(45);
+    Tablewidgetpos->horizontalHeader()->setFixedHeight(40);
+    Tablewidgetpos->horizontalHeader()->setDefaultSectionSize(40);
+    Tablewidgetpos->setColumnWidth(TableIndexPos::IndexNum, 50);
+    Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_xpos, 135);
+    Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_ypos, 135);
+    Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_save, 105);
+
+    // 表头样式（减小字体和padding）
     QFont font;
-    font.setFamily("新宋体");
+    font.setFamily("Microsoft YaHei");
     font.setBold(true);
-    font.setPixelSize(20);
-    font.setLetterSpacing(QFont::AbsoluteSpacing, 1);// 设置字符间距
+    font.setPixelSize(13);  // 从16降到13
     Tablewidgetpos->horizontalHeader()->setFont(font);
     Tablewidgetpos->horizontalHeader()->setHighlightSections(false);
-    Tablewidgetpos->setFocusPolicy(Qt::NoFocus);
-
-    Tablewidgetpos->horizontalHeader()->setStretchLastSection(true); //设置充满表宽度
-    Tablewidgetpos->verticalHeader()->setDefaultSectionSize(30); //设置行高
-    Tablewidgetpos->horizontalHeader()->setDefaultSectionSize(30);
-    Tablewidgetpos->setFrameShape(QFrame::Box); //设置边框
-    Tablewidgetpos->setShowGrid(true); //设置不显示格子线
-    Tablewidgetpos->verticalHeader()->setVisible(false); //设置垂直头不可见
-    Tablewidgetpos->setEditTriggers(QAbstractItemView::CurrentChanged); //设置不可编辑
-    Tablewidgetpos->setSelectionMode(QAbstractItemView::NoSelection);  //可多选（Ctrl、Shift、  Ctrl+A都可以）
-    Tablewidgetpos->setSelectionBehavior(QAbstractItemView::SelectRows);  //设置选择行为时每次选择一行
-
-    Tablewidgetpos->horizontalHeader()->setFixedHeight(30); //设置表头的高度
-    Tablewidgetpos->horizontalHeader()->setStretchLastSection(true); //使行列头自适应宽度，所有列平均分来填充空白部分
-    Tablewidgetpos->verticalHeader()->setResizeContentsPrecision(QHeaderView::Stretch);
-    Tablewidgetpos->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);    //x先自适应宽度
-    Tablewidgetpos->setColumnWidth(TableIndexPos::IndexNum, 20);
-    Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_xpos, 120);
-    Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_ypos, 120);
-    Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_save, 90);
+    Tablewidgetpos->horizontalHeader()->setStretchLastSection(true);
+    Tablewidgetpos->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
 
     Tablewidgetpos->setStyleSheet(
-        "QTableView::item:selected{color:white;background:rgb(34, 175, 75);}"
-        "QTableView{border:none;background:white;  alternate-background-color: rgb(141, 163, 215); }"
-        "QHeaderView {color: white;font: bold 10pt;background-color: rgb(108, 108, 108); border: 0px solid rgb(144, 144, 144); \
-         border:0px solid rgb(191,191,191);border-left-color: rgba(255, 255, 255, 0);"
-        "border-top-color: rgba(255, 255, 255, 0); border-radius:0px;min-height:29px; }"
-        "QHeaderView::section {color: white; background-color: rgb(64, 64, 64);border: 5px solid #f6f7fa;\
-         border-radius:0px;border-color: rgb(64, 64, 64);}");
-         //设置水平、垂直滚动条样式
-    Tablewidgetpos->horizontalScrollBar()->setStyleSheet("QScrollBar{background:transparent; height:10px;}"
-         "QScrollBar::handle{background:lightgray; border:2px solid transparent; border-radius:5px;}"
-         "QScrollBar::handle:hover{background:gray;}"
-         "QScrollBar::sub-line{background:transparent;}"
-         "QScrollBar::add-line{background:transparent;}");
-    Tablewidgetpos->verticalScrollBar()->setStyleSheet("QScrollBar{background:transparent; width: 10px;}"
-         "QScrollBar::handle{background:lightgray; border:2px solid transparent; border-radius:5px;}"
-         "QScrollBar::handle:hover{background:gray;}"
-         "QScrollBar::sub-line{background:transparent;}"
-         "QScrollBar::add-line{background:transparent;}");
-    return;
+        "QTableWidget {"
+        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "       stop:0 #ffffff, stop:1 #f8f9fa);"
+        "   alternate-background-color: #f8f9fa;"
+        "   border: 1px solid #d1d8e0;"
+        "   border-radius: 6px;"
+        "   gridline-color: #e2e8f0;"
+        "   font: 12px 'Segoe UI', 'Microsoft YaHei';"
+        "}"
+        "QTableWidget::item {"
+        "   padding: 2px 4px;"  // 进一步减少内边距，为控件腾出空间
+        "   border-bottom: 1px solid #e9ecef;"
+        "}"
+        "QTableWidget QWidget {"
+        "   margin: 0px;"
+        "   padding: 0px;"
+        "}"
+        "QTableWidget::item:selected {"
+        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "       stop:0 #007bff, stop:1 #0056b3);"
+        "   color: white;"
+        "   border-radius: 2px;"
+        "}"
+        "QHeaderView {"
+        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "       stop:0 #1a252f, stop:1 #2c3e50);"
+        "   border: none;"
+        "   border-radius: 6px;"  // 从10降到6
+        "   min-height: 32px;"     // 从44降到32
+        "   max-height: 32px;"     // 限制最大高度
+        "}"
+        "QHeaderView::section {"
+        "   background: transparent;"
+        "   color: #ecf0f1;"
+        "   font: bold 13px 'Segoe UI', 'Microsoft YaHei';"  // 从14降到13
+        "   padding: 6px 12px;"     // 从10px 15px降到6px 12px
+        "   border: none;"
+        "   border-right: 1px solid #34495e;"
+        "}"
+        "QHeaderView::section:last { border-right: none; }"
+        "QHeaderView::section:hover {"
+        "   background: rgba(255, 255, 255, 0.1);"
+        "}"
+        "QScrollBar:vertical {"
+        "   background: #f8f9fa;"
+        "   width: 10px;"
+        "   border-radius: 5px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "   background: #adb5bd;"
+        "   border-radius: 5px;"
+        "   min-height: 20px;"
+        "}"
+        "QScrollBar::handle:vertical:hover { background: #6c757d; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+        "QScrollBar:horizontal {"
+        "   background: #f8f9fa;"
+        "   height: 10px;"
+        "   border-radius: 5px;"
+        "}"
+        "QScrollBar::handle:horizontal {"
+        "   background: #adb5bd;"
+        "   border-radius: 5px;"
+        "   min-width: 20px;"
+        "}"
+        "QScrollBar::handle:horizontal:hover { background: #6c757d; }"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }"
+    );
+
+    // 确保行高固定，不会自动调整
+    Tablewidgetpos->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+    // 设置表格尺寸策略，使用Interactive模式允许手动调整，最后一列拉伸
+    Tablewidgetpos->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContentsOnFirstShow);
+    Tablewidgetpos->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    Tablewidgetpos->horizontalHeader()->setStretchLastSection(true);
+
+    // 如果这是主显示表格，使其宽度与右侧widget保持一致
+    if (Tablewidgetpos == ui->tableWidget_displayPos && ui->widget_Rightwidget) {
+        // 获取右侧widget的宽度
+        int rightWidgetWidth = ui->widget_Rightwidget->width();
+
+        // 只有在widget有有效宽度时才设置
+        if (rightWidgetWidth > 100) {
+            // 减去边框和内边距
+            int borderPadding = 8;
+
+            // 计算表格宽度
+            int tableWidth = rightWidgetWidth - borderPadding;
+
+            // 确保宽度在合理范围内
+            if (tableWidth < 420) tableWidth = 420;
+            if (tableWidth > 650) tableWidth = 650;
+
+            // 移除UI文件中设置的最大宽度限制(430)
+            Tablewidgetpos->setMaximumWidth(16777215);
+
+            // 设置表格固定宽度，使其与widget_Rightwidget匹配
+            Tablewidgetpos->setFixedWidth(tableWidth);
+
+            // 重新设置列宽（保持原有比例，最后一列会拉伸）
+            Tablewidgetpos->setColumnWidth(TableIndexPos::IndexNum, 50);
+            Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_xpos, 135);
+            Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_ypos, 135);
+            Tablewidgetpos->setColumnWidth(TableIndexPos::Instrument_save, 105);
+
+            // 最后一列拉伸以填充剩余空间
+            Tablewidgetpos->horizontalHeader()->setStretchLastSection(true);
+
+            QLOG_DEBUG() << "调整表格宽度与widget_Rightwidget一致:"
+                         << "widget宽度=" << rightWidgetWidth
+                         << "表格宽度=" << tableWidth;
+        }
+    }
 }
+
+
+
+
 
 
 //下降高度
 void CustomPlot::CheckGipperDownHigh(QAbstractButton *btn)
 {
-    // 当前点击的按钮
-    int ClickedID = m_CheckGroupBox->id(btn);
-    m_indexDown = ClickedID;
-    switch(ClickedID)
-    {
-        case TheGripperDrops::GipperDown_top:   m_downhigh = 10;    break;
-        case TheGripperDrops::GipperDown_mid:   m_downhigh = 30;    break;
-        case TheGripperDrops::GipperDown_bottom: m_downhigh = 50;   break;
-        case TheGripperDrops::GipperDown_custom: m_downhigh = ui->spinBox_downValue->value(); break;
-        default:    m_downhigh = ui->spinBox_downValue->value();    break;
+    if (!btn || !m_CheckGroupBox) return;
+
+     m_indexDown = m_CheckGroupBox->id(btn);
+
+    // 使用 constexpr 结构体数组
+    static constexpr struct {
+        int id;
+        int height;
+    } kPresets[] = {
+        {TheGripperDrops::GipperDown_top, 10},
+        {TheGripperDrops::GipperDown_mid, 30},
+        {TheGripperDrops::GipperDown_bottom, 50}
+    };
+
+    int height = ui->spinBox_downValue->value();  // 默认值
+
+    for (const auto& preset : kPresets) {
+        if (preset.id == m_indexDown) {
+            height = preset.height;
+            break;
+        }
     }
+
+    m_downhigh = height;
 }
 
 
@@ -461,7 +644,7 @@ void CustomPlot::displayThrowHole(bool bFindShow,bool bWrite_x,int notifyValue)
         QPoint throwHolePoint;
         axis->throwTubeHolePos(READ_OPERRAT, throwHolePoint);
         QMap<quint8, QPoint> points = {{0, throwHolePoint}};
-        NotifyShowInstrumentPoint(points, "弃杯孔(抓手)微调");
+        notifyShowInstrumentPoint(points, "弃杯孔(抓手)微调");
     }
     else
     {
@@ -478,9 +661,9 @@ void CustomPlot::displayOriginAxisPoint(bool bFindShow,bool bWrite_x,int notifyV
     if(bFindShow){
 
         QPoint originPoint;
-		pconfAxis->originPos(READ_OPERRAT, originPoint);
+        pconfAxis->originPos(READ_OPERRAT, originPoint);
         QMap<quint8, QPoint> points = {{0, originPoint}};
-        NotifyShowInstrumentPoint(points, "微调原点坐标");
+        notifyShowInstrumentPoint(points, "微调原点坐标");
     }
     else
     {
@@ -495,15 +678,15 @@ void CustomPlot::displayCleanLinqueAxisPoint(bool bFindShow, quint8  indexZ,bool
     if(bFindShow)
     {
         QPoint cleanPoint;
-		pconfAxis->cleanZoneAxisPos(READ_OPERRAT, indexZ, cleanPoint);
+        pconfAxis->cleanZoneAxisPos(READ_OPERRAT, indexZ, cleanPoint);
 
         QMap<quint8, QPoint> points = {{0, cleanPoint}};
         switch (indexZ) {
             case MOTOR_BLOOD_INDEX:
-                NotifyShowInstrumentPoint(points, "清洗液(样本针)微调");
+                notifyShowInstrumentPoint(points, "清洗液(样本针)微调");
                 break;
             case MOTOR_REAGNET_INDEX:
-                NotifyShowInstrumentPoint(points, "清洗液(试剂针)微调");
+                notifyShowInstrumentPoint(points, "清洗液(试剂针)微调");
                 break;
         }
     }
@@ -554,7 +737,7 @@ void CustomPlot::displayTestChnAxisPoint(bool bFindShow, bool bWrite_x,quint8 in
 {
     //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
     quint8 Typtind = 0;
-	SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,Typtind);
+    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,Typtind);
     if(bFindShow)
     {
         QMap<quint8,QPoint> readAxis;
@@ -574,9 +757,9 @@ void CustomPlot::displayTestChnAxisPoint(bool bFindShow, bool bWrite_x,quint8 in
             readAxis.insert(i,backPoint);
         }
         if(indexZ == MOTOR_REAGNET_INDEX)
-            NotifyShowInstrumentPoint(readAxis,"测试区(试剂针)微调");
+            notifyShowInstrumentPoint(readAxis,"测试区(试剂针)微调");
         else if(indexZ == MOTOR_HANDS_INDEX)
-            NotifyShowInstrumentPoint(readAxis,"测试区(抓手)微调");
+            notifyShowInstrumentPoint(readAxis,"测试区(抓手)微调");
     }
     else
     {
@@ -811,60 +994,112 @@ void CustomPlot::on_comboBox_calibrationAarea_activated(int index)
 }
 
 
+QWidget* CustomPlot::createCenteredButton(const QString& text, int rowIndex, bool needChangeOther)
+{
+    Q_UNUSED(rowIndex);
+    QWidget* container = new QWidget(this);
+    QHBoxLayout* layout = new QHBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setAlignment(Qt::AlignCenter);
+
+    QPushButton* btn = new QPushButton(text, container);
+    btn->setFont(mcustFont);
+    btn->setFixedSize(80, 28);
+    btn->setCursor(Qt::PointingHandCursor);
+    btn->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #4CAF50;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: 4px;"
+        "   font: 12px 'Microsoft YaHei';"
+        "}"
+        "QPushButton:hover { background-color: #45a049; }"
+        "QPushButton:pressed { background-color: #3d8b40; }"
+    );
+
+    if (!needChangeOther) {
+        connect(btn, &QPushButton::clicked, this, &CustomPlot::BtnClickSavePoint);
+    } else {
+        connect(btn, &QPushButton::clicked, this, &CustomPlot::BtnClickOthersSavePoint);
+    }
+
+    layout->addWidget(btn);
+    container->setLayout(layout);
+
+    return container;
+}
 void CustomPlot::AddBtnSave_backValue(int rowIndex,bool NeedChaneOther)
 {
-    QPushButton *btn_save = new QPushButton("保存微调");
-    btn_save->setFont(mcustFont);
-    btn_save->setFixedSize(90,30);
-    //编辑按钮样式
-    if(NeedChaneOther == false)
-    {
-        connect(btn_save,&QPushButton::clicked,this,&CustomPlot::BtnClickSavePoint);//保存单个修改
-    }
-    else
-    {
-        connect(btn_save,&QPushButton::clicked,this,&CustomPlot::BtnClickOthersSavePoint);
-    }
-    //表格中添加Widget
-    ui->tableWidget_displayPos->setCellWidget(rowIndex,TableIndexPos::Instrument_save,btn_save);
-    return;
+    ui->tableWidget_displayPos->setCellWidget(rowIndex, TableIndexPos::Instrument_save,
+           createCenteredButton("保存微调", rowIndex, NeedChaneOther));
 }
 
 
 
+QWidget* CustomPlot::createCenteredSpinBox(int value, const QString& style)
+{
+    // 创建容器Widget
+    QWidget* container = new QWidget(this);
+    QHBoxLayout* layout = new QHBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setAlignment(Qt::AlignCenter);
 
-void CustomPlot::NotifyShowInstrumentPoint(QMap<quint8,QPoint>& displayPoint ,const QString& tableName)
+    // 创建SpinBox
+    QSpinBox* spinBox = new QSpinBox(container);
+    spinBox->setStyleSheet(style);
+    spinBox->setAlignment(Qt::AlignCenter);
+    spinBox->setMaximum(5500);
+    spinBox->setFixedHeight(30);
+    spinBox->setFixedWidth(110);  // 减小宽度以适应更窄的列
+    spinBox->setValue(value);
+
+    // 设置更大的字体
+    QFont font = spinBox->font();
+    font.setPixelSize(15);
+    spinBox->setFont(font);
+
+    // 设置+/-按钮样式
+    spinBox->setButtonSymbols(QSpinBox::PlusMinus);
+
+    // 将SpinBox指针存储为容器属性，便于后续访问
+    container->setProperty("innerSpinBox", QVariant::fromValue<QSpinBox*>(spinBox));
+
+    layout->addWidget(spinBox);
+    container->setLayout(layout);
+
+    return container;
+}
+
+void CustomPlot::notifyShowInstrumentPoint(QMap<quint8,QPoint>& displayPoint ,const QString& tableName)
 {
     ui->label_title->setText(tableName);
 
-    auto createSpinBox = [this](int value, const QString& style) -> QSpinBox* {
-        auto* spinBox = new QSpinBox(this);
-        spinBox->setStyleSheet(style);
-        spinBox->setAlignment(Qt::AlignCenter);
-        spinBox->setMaximum(5500);
-        spinBox->setFixedHeight(30);
-        spinBox->setValue(value);
-        return spinBox;
-    };
+    // 清空表格（可选，根据需求）
+    //ui->tableWidget_displayPos->clearContents();
+    //ui->tableWidget_displayPos->setRowCount(0);
 
-   for(auto iter = displayPoint.constBegin(); iter != displayPoint.constEnd(); ++iter) {
-       const int row = ui->tableWidget_displayPos->rowCount();
-       ui->tableWidget_displayPos->insertRow(row);
+    for (auto iter = displayPoint.constBegin(); iter != displayPoint.constEnd(); ++iter) {
+        const int row = ui->tableWidget_displayPos->rowCount();
+        ui->tableWidget_displayPos->insertRow(row);
 
-       QTableWidgetItem* item = new QTableWidgetItem(QString::number(row + 1));
-       item->setFlags(item->flags() & ~Qt::ItemIsEditable);
-       item->setTextAlignment(Qt::AlignCenter);
-       item->setBackground(QColor(204, 204, 204));
-       ui->tableWidget_displayPos->setItem(row, TableIndexPos::IndexNum, item);
+        // 序号列
+        QTableWidgetItem* item = new QTableWidgetItem(QString::number(row + 1));
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+        item->setTextAlignment(Qt::AlignCenter);
+        item->setBackground(QColor(204, 204, 204));
+        ui->tableWidget_displayPos->setItem(row, TableIndexPos::IndexNum, item);
 
-       ui->tableWidget_displayPos->setCellWidget(row, TableIndexPos::Instrument_xpos,
-           createSpinBox(iter.value().x(), m_SpinboxsheetX));
+        // X坐标列 - 使用容器居中
+        ui->tableWidget_displayPos->setCellWidget(row, TableIndexPos::Instrument_xpos,
+            createCenteredSpinBox(iter.value().x(), m_SpinboxsheetX));
 
-       ui->tableWidget_displayPos->setCellWidget(row, TableIndexPos::Instrument_ypos,
-           createSpinBox(iter.value().y(), m_SpinboxsheetY));
+        // Y坐标列
+        ui->tableWidget_displayPos->setCellWidget(row, TableIndexPos::Instrument_ypos,
+            createCenteredSpinBox(iter.value().y(), m_SpinboxsheetY));
 
-       AddBtnSave_backValue(row, false);
-   }
+        AddBtnSave_backValue(row, false);
+    }
 }
 
 
@@ -886,14 +1121,31 @@ void CustomPlot::InsertOneChangeOthersChange(QMap<quint8,QPoint> displayPoint, c
         ui->tableWidget_displayPos->item(InsertRow,TableIndexPos::IndexNum)->setBackground(QBrush(QColor(204,204,204)));//改变单元格颜色
         if(InsertRow == 0)
         {
-            //设置X
-            QSpinBox *DisplayXvalue = new QSpinBox(this);
+            //设置X - 使用容器实现居中
+            QWidget* containerX = new QWidget(this);
+            QHBoxLayout* layoutX = new QHBoxLayout(containerX);
+            layoutX->setContentsMargins(0, 0, 0, 0);
+            layoutX->setAlignment(Qt::AlignCenter);
+            QSpinBox *DisplayXvalue = new QSpinBox(containerX);
             DisplayXvalue->setStyleSheet(m_SpinboxsheetX);
             DisplayXvalue->setAlignment(Qt::AlignCenter);
             DisplayXvalue->setMaximum(5000);
             DisplayXvalue->setFixedHeight(30);
+            DisplayXvalue->setFixedWidth(110);
             DisplayXvalue->setValue(iter.value().x());
-            ui->tableWidget_displayPos->setCellWidget(InsertRow,TableIndexPos::Instrument_xpos,DisplayXvalue);//添加控件到tableWidget上
+
+            // 设置更大的字体
+            QFont fontX = DisplayXvalue->font();
+            fontX.setPixelSize(15);
+            DisplayXvalue->setFont(fontX);
+
+            // 设置+/-按钮样式
+            DisplayXvalue->setButtonSymbols(QSpinBox::PlusMinus);
+            layoutX->addWidget(DisplayXvalue);
+            // 将SpinBox指针存储为容器属性
+            containerX->setProperty("innerSpinBox", QVariant::fromValue<QSpinBox*>(DisplayXvalue));
+            containerX->setLayout(layoutX);
+            ui->tableWidget_displayPos->setCellWidget(InsertRow,TableIndexPos::Instrument_xpos,containerX);
             connect(DisplayXvalue, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
                 [=](int value)
             {
@@ -901,14 +1153,31 @@ void CustomPlot::InsertOneChangeOthersChange(QMap<quint8,QPoint> displayPoint, c
                 UpdateBaseValue_x(value, DisplayXvalue);
                 DisplayXvalue->setEnabled(true);
             });
-            //设置Y
-            QSpinBox *DisplayYvalue = new QSpinBox(this);
+            //设置Y - 使用容器实现居中
+            QWidget* containerY = new QWidget(this);
+            QHBoxLayout* layoutY = new QHBoxLayout(containerY);
+            layoutY->setContentsMargins(0, 0, 0, 0);
+            layoutY->setAlignment(Qt::AlignCenter);
+            QSpinBox *DisplayYvalue = new QSpinBox(containerY);
             DisplayYvalue->setMaximum(5000);
             DisplayYvalue->setFixedHeight(30);
+            DisplayYvalue->setFixedWidth(110);
             DisplayYvalue->setAlignment(Qt::AlignCenter);
             DisplayYvalue->setStyleSheet(m_SpinboxsheetY);
             DisplayYvalue->setValue(iter.value().y());
-            ui->tableWidget_displayPos->setCellWidget(InsertRow,TableIndexPos::Instrument_ypos, DisplayYvalue);
+
+            // 设置更大的字体
+            QFont fontY = DisplayYvalue->font();
+            fontY.setPixelSize(15);
+            DisplayYvalue->setFont(fontY);
+
+            // 设置+/-按钮样式
+            DisplayYvalue->setButtonSymbols(QSpinBox::PlusMinus);
+            layoutY->addWidget(DisplayYvalue);
+            // 将SpinBox指针存储为容器属性
+            containerY->setProperty("innerSpinBox", QVariant::fromValue<QSpinBox*>(DisplayYvalue));
+            containerY->setLayout(layoutY);
+            ui->tableWidget_displayPos->setCellWidget(InsertRow,TableIndexPos::Instrument_ypos, containerY);
             connect(DisplayYvalue, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
                 [=](int value)
             {
@@ -954,16 +1223,46 @@ void CustomPlot::BtnClickSavePoint()
     QByteArrayList sendcommd;
     QByteArray modifyParaarry_x;
     QByteArray modifyParaarry_y;
-    QPushButton *btn = (QPushButton *)sender();
+    // 安全获取按钮
+    QPushButton *btn = qobject_cast<QPushButton*>(sender());
+    if (!btn) return;
+
+    // 获取按钮在表格中的位置
     int x = btn->mapToParent(QPoint(0,0)).x();
     int y = btn->mapToParent(QPoint(0,0)).y();
     QModelIndex index = ui->tableWidget_displayPos->indexAt(QPoint(x,y));
-    int row = index.row(); //行
+    if (!index.isValid()) return;
 
-    QSpinBox * Point_x = (QSpinBox *)ui->tableWidget_displayPos->cellWidget(row,TableIndexPos::Instrument_xpos);
+    int row = index.row();
+
+    // 从单元格控件中安全获取SpinBox
+    auto getSpinBoxFromCell = [](QWidget* cellWidget) -> QSpinBox* {
+        if (!cellWidget) return nullptr;
+
+        // 如果本身就是QSpinBox，直接返回
+        if (auto* spinBox = qobject_cast<QSpinBox*>(cellWidget)) {
+            return spinBox;
+        }
+
+        // 否则尝试从属性中获取
+        QVariant spinBoxVar = cellWidget->property("innerSpinBox");
+        if (spinBoxVar.isValid() && spinBoxVar.canConvert<QSpinBox*>()) {
+            return spinBoxVar.value<QSpinBox*>();
+        }
+
+        // 最后尝试查找子控件
+        return cellWidget->findChild<QSpinBox*>();
+    };
+
+    QWidget* cellWidgetX = ui->tableWidget_displayPos->cellWidget(row, TableIndexPos::Instrument_xpos);
+    QWidget* cellWidgetY = ui->tableWidget_displayPos->cellWidget(row, TableIndexPos::Instrument_ypos);
+
+    QSpinBox* Point_x = getSpinBoxFromCell(cellWidgetX);
+    QSpinBox* Point_y = getSpinBoxFromCell(cellWidgetY);
+
+    if (!Point_x || !Point_y) return;
+
     int config_xpos = Point_x->value();
-
-    QSpinBox * Point_y = (QSpinBox *)ui->tableWidget_displayPos->cellWidget(row,TableIndexPos::Instrument_ypos);
     int config_ypos = Point_y->value();
 
     switch(m_CalibrationArea)
@@ -1302,77 +1601,77 @@ void  CustomPlot::ClickBloodTube()
 //Click 试管区
 void CustomPlot::ClickEmptyTube()
 {
-	QToolButton* button = qobject_cast<QToolButton*>(QObject::sender());
-	if (!button) return;
+    QToolButton* button = qobject_cast<QToolButton*>(QObject::sender());
+    if (!button) return;
 
-	bool ok = false;
-	int index = button->text().toInt(&ok) - 1;
-	if (!ok || index < 0) return;
+    bool ok = false;
+    int index = button->text().toInt(&ok) - 1;
+    if (!ok || index < 0) return;
 
     quint8 trayId = (index / 60) + 1;
-	QPoint targetPoint;
-	int needleIndex = 0;
-	QString statusText;
-	QString operationType;
+    QPoint targetPoint;
+    int needleIndex = 0;
+    QString statusText;
+    QString operationType;
 
-	// 定义校准区域类型
-	bool isBloodNeedleArea = (m_CalibrationArea >= EmptyTube_1_BloodNeedle &&
-		m_CalibrationArea <= EmptyTube_4_BloodNeedle);
-	bool isHandsArea = (m_CalibrationArea >= EmptyTube_1_Hands &&
-		m_CalibrationArea <= EmptyTube_4_Hands);
+    // 定义校准区域类型
+    bool isBloodNeedleArea = (m_CalibrationArea >= EmptyTube_1_BloodNeedle &&
+        m_CalibrationArea <= EmptyTube_4_BloodNeedle);
+    bool isHandsArea = (m_CalibrationArea >= EmptyTube_1_Hands &&
+        m_CalibrationArea <= EmptyTube_4_Hands);
 
-	if (!isBloodNeedleArea && !isHandsArea) {
-		QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
-		return;
-	}
+    if (!isBloodNeedleArea && !isHandsArea) {
+        QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
+        return;
+    }
 
-	// 确定针类型和操作类型
-	if (isBloodNeedleArea) {
-		needleIndex = MOTOR_BLOOD_INDEX;
-		operationType = "血样针";
-		SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, needleIndex, targetPoint);
-	}
-	else {
-		needleIndex = MOTOR_HANDS_INDEX;
-		operationType = "抓手";
-		SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, needleIndex, targetPoint);
-	}
+    // 确定针类型和操作类型
+    if (isBloodNeedleArea) {
+        needleIndex = MOTOR_BLOOD_INDEX;
+        operationType = "血样针";
+        SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, needleIndex, targetPoint);
+    }
+    else {
+        needleIndex = MOTOR_HANDS_INDEX;
+        operationType = "抓手";
+        SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT, index, needleIndex, targetPoint);
+    }
 
-	// 根据枚举值计算期望的托盘ID
-	int expectedTrayId = 0;
-	if (isBloodNeedleArea) {
-		expectedTrayId = m_CalibrationArea - EmptyTube_1_BloodNeedle + 1;
-	}
-	else {
-		expectedTrayId = m_CalibrationArea - EmptyTube_1_Hands + 1;
-	}
+    // 根据枚举值计算期望的托盘ID
+    int expectedTrayId = 0;
+    if (isBloodNeedleArea) {
+        expectedTrayId = m_CalibrationArea - EmptyTube_1_BloodNeedle + 1;
+    }
+    else {
+        expectedTrayId = m_CalibrationArea - EmptyTube_1_Hands + 1;
+    }
 
-	// 验证托盘ID匹配
-	if (trayId != expectedTrayId) {
-		QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
-		return;
-	}
+    // 验证托盘ID匹配
+    if (trayId != expectedTrayId) {
+        QMessageBox::about(this, "试管区", "请选择匹配的校准区域!");
+        return;
+    }
 
-	// 生成状态文本
-	statusText = QString("试杯区%1(%2)校验位置: [%3,%4]")
-		.arg(trayId)
-		.arg(operationType)
-		.arg(targetPoint.x())
-		.arg(targetPoint.y());
+    // 生成状态文本
+    statusText = QString("试杯区%1(%2)校验位置: [%3,%4]")
+        .arg(trayId)
+        .arg(operationType)
+        .arg(targetPoint.x())
+        .arg(targetPoint.y());
 
-	// 更新选择的行
-	if (m_selectRows != index && m_selectRows > 0) {
-		SelectHoleChangebgm(false, m_selectRows - 60 * (trayId - 1), trayId - 1);
-	}
+    // 更新选择的行
+    if (m_selectRows != index && m_selectRows > 0) {
+        SelectHoleChangebgm(false, m_selectRows - 60 * (trayId - 1), trayId - 1);
+    }
 
-	// 生成运动指令
-	mcodeNum = 0;
-	QByteArrayList modifyArray = Testing::m_TaskDll->XYLocation(targetPoint, needleIndex,
-		1, m_downhigh, mcodeNum, m_downhigh);
+    // 生成运动指令
+    mcodeNum = 0;
+    QByteArrayList modifyArray = Testing::m_TaskDll->XYLocation(targetPoint, needleIndex,
+        1, m_downhigh, mcodeNum, m_downhigh);
 
-	// 更新UI并发送信号
-	ui->label_movedPos->setText(statusText);
-	emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
+    // 更新UI并发送信号
+    ui->label_movedPos->setText(statusText);
+    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
 }
 
 void CustomPlot::ReminderTable(int TableRow)
@@ -1524,7 +1823,7 @@ void CustomPlot::_sendmoveActiveToEquipment(AreasCalibration indexZone, QPoint M
 
 
 //点击原点
-void CustomPlot::UserClickOriginAxis()
+void CustomPlot::userClickOriginAxis()
 {
     if(m_CalibrationArea != Origin_bloodNeedle)
     {
@@ -1606,36 +1905,25 @@ void CustomPlot::Recv_CalibrationMoved()
 
 
 
-void Generate_random_numbers(QVector<int> & Randomnum ,int spacevalue)
+void Generate_random_numbers(QVector<int> & Randomnum, int spacevalue)
 {
-    int i,j;
-    QList<int> numbersList;
-    qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
-    for(i = 0; i < 60; i++)
-    {
-        numbersList.append(qrand()%60);
-        bool flag = true;
-        while(flag){
-         for(j = 0; j < i;j++){
-            if(numbersList[i] == numbersList[j])
-            {
-                break;
-            }
-         }
-         if(j < i)
-         {
-            numbersList[i] = rand()%60;
-          }
-         if(j == i){
-            flag=!flag;
-        }
-      }
-   }
-    for(i = 0; i<numbersList.size(); i++)
-    {
-       Randomnum.append(numbersList[i] + spacevalue);
+    // 使用现代C++随机数生成器
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // 创建0到59的序列
+    QVector<int> numbers(60);
+    std::iota(numbers.begin(), numbers.end(), 0);
+
+    // 打乱序列
+    std::shuffle(numbers.begin(), numbers.end(), gen);
+
+    // 添加偏移量
+    Randomnum.clear();
+    Randomnum.reserve(numbers.size());
+    for (int num : numbers) {
+        Randomnum.append(num + spacevalue);
     }
-    return ;
 }
 
 
@@ -1662,7 +1950,7 @@ void CustomPlot::on_pushButton_TrayHands_clicked()
         connect(mpTestCaseRun,&TubeContinueDoing::sendcode,this,&CustomPlot::slotsendcode);
     }
     mpTestCaseRun->show();
-    return; 
+    return;
 }
 void CustomPlot::slotsendcode(QByteArrayList data_)
 {

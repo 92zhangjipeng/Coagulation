@@ -164,7 +164,7 @@ private:
     void InitdisplayPointTablewidget(QTableWidget* Tablewidgetpos);
 
     /*初始化血样区域孔孔号*/
-    void InitBloodZoneNum(quint8 indexModels);
+    void initBloodZoneNum(quint8 indexModels);
 
     /*初始化下降高度commbox*/
     void initCommboxView(quint8 equipmentType);
@@ -178,7 +178,11 @@ private:
     /*初始化测试通道孔号*/
     void initTestChnHole(quint8 indexType);
 
-    void  UserClickOriginAxis(); //点击校验原点
+    void userClickOriginAxis(); //点击校验原点
+
+    void initSpinBoxStyle();
+    QWidget* createCenteredSpinBox(int value, const QString& style);
+    QWidget* createCenteredButton(const QString& text, int rowIndex, bool needChangeOther);
 
 
     /** 是否显示原点坐标、是否写X坐标、修改X坐标值
@@ -207,10 +211,10 @@ private:
     int displayBloodHoleAxisPoint(bool bFindShow, bool bWrite_x,quint8 indexhole, int notifyValue);
 
     /** 显示仪器区域坐标
-    * @brief NotifyShowInstrumentPoint
+    * @brief notifyShowInstrumentPoint
     * @param displayPoint
     */
-    void NotifyShowInstrumentPoint(QMap<quint8, QPoint> &displayPoint, const QString &tableName);
+    void notifyShowInstrumentPoint(QMap<quint8, QPoint> &displayPoint, const QString &tableName);
 
     /** 修改一个其它左边跟着变化
     * @brief InsertOneChangeOthersChange
@@ -318,23 +322,9 @@ private:
                        "QToolButton:pressed{border-image: url(:/Picture/SetPng/btnpush.png);font-family:'楷体';}"
                        "QToolButton:hover{border-image: url(:/Picture/SetPng/btnon.png);font-family:'楷体';}";
 
-    const QString m_SpinboxsheetX = "QSpinBox{font-size: 15pt;font-family:'楷体';}"
-                              "QSpinBox::up-button{border-image:url(:/Picture/plus.png);"
-                              "subcontrol-position:right;width:30px;height:30px;}"
-                              "QSpinBox::down-button{border-image:url(:/Picture/min32.png);"
-                              "subcontrol-position:left;width:30px;height:30px;}"
-                              "QSpinBox:up-button:pressed{margin-top:2px;}"
-                              "QSpinBox:down-button:pressed{margin-top:2px;}"
-                              "QSpinBox{background-color: rgb(255,250,205);}";
+    QString m_SpinboxsheetX;
+    QString m_SpinboxsheetY;
 
-    const QString m_SpinboxsheetY = "QSpinBox{font-size: 15pt;font-family:'楷体';}"
-                              "QSpinBox::up-button{border-image:url(:/Picture/plus.png);"
-                              "subcontrol-position:right;width:30px;height:30px;}"
-                              "QSpinBox::down-button{border-image:url(:/Picture/min32.png);"
-                              "subcontrol-position:left;width:30px;height:30px;}"
-                              "QSpinBox:up-button:pressed{margin-top:2px;}"
-                              "QSpinBox:down-button:pressed{margin-top:2px;}"
-                              "QSpinBox{background-color: rgb(255 ,228 ,225);}";
     QMap<int,QByteArrayList> mtest_catch_put_commad;
     const quint8 total_tube_num = 60;
     QVector<int> mfromHole;
