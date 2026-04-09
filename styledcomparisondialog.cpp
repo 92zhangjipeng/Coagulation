@@ -19,6 +19,9 @@
 #include <QPainter>
 #include <QPen>
 #include <QFont>
+#include <QCursor>
+#include <QScreen>
+#include <QGuiApplication>
 
 StyledComparisonDialog::StyledComparisonDialog(QWidget *parent)
     : QDialog(parent)
@@ -110,6 +113,19 @@ StyledComparisonDialog::StyledComparisonDialog(QWidget *parent)
     )");
 }
 
+void StyledComparisonDialog::showEvent(QShowEvent *event)
+{
+    QDialog::showEvent(event);
+    // 只在第一次显示时居中
+    static bool firstShow = true;
+    if (firstShow) {
+        firstShow = false;
+        adjustSize();
+        QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        move(screen->geometry().center() - rect().center());
+    }
+}
 void StyledComparisonDialog::setupUI()
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);

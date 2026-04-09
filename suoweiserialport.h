@@ -134,6 +134,7 @@ private:
     bool m_errorSignalConnected = false;
     qint64 m_lastWriteTime = 0;
     QMutex m_writeMutex;
+    QMutex m_lastWriteTimeMutex;
     QQueue<QPair<QByteArray, QString>> m_writeQueue;
     QTimer *m_writeTimer;
     QMetaObject::Connection m_bytesWrittenConnection;

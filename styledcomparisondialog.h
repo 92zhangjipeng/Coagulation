@@ -53,6 +53,9 @@ private:
     QString getStatusColor(bool passed);
     void exportToFile();
 
+protected:
+    void showEvent(QShowEvent *event);
+
 private:
     QTabWidget* m_tabWidget;
     QTreeWidget* m_basicTree;

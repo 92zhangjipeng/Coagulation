@@ -89,7 +89,6 @@ void SuoweiSerialPort::slotcloseseirport()
             mserialPort->close();
         }
 
-        m_writeTimer->stop();
         delete mserialPort;
         mserialPort = nullptr;
     }
@@ -243,7 +242,11 @@ void SuoweiSerialPort::processWriteQueue()
     }
 
     const qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-    const qint64 elapsed = currentTime - m_lastWriteTime;
+    qint64 elapsed;
+    {
+        QMutexLocker locker(&m_lastWriteTimeMutex);
+        elapsed = currentTime - m_lastWriteTime;
+    }
     const qint64 minInterval = 15;
 
     if (elapsed < minInterval) {
@@ -257,7 +260,10 @@ void SuoweiSerialPort::processWriteQueue()
         clearWriteQueue();
         emit connectionStateChanged(false);
     } else {
-        m_lastWriteTime = currentTime;
+        {
+            QMutexLocker locker(&m_lastWriteTimeMutex);
+            m_lastWriteTime = currentTime;
+        }
 
         QMutexLocker locker(&m_writeMutex);
         if (!m_writeQueue.isEmpty()) {
@@ -290,8 +296,19 @@ void SuoweiSerialPort::startSerialthread()
 
 void SuoweiSerialPort::TestMoveTrayTube_recv(const QStringList backArry)
 {
+    if (backArry.size() < 5) {
+        QLOG_WARN() << "TestMoveTrayTube_recv: 数据长度不足，期望至少5项，实际" << backArry.size();
+        return;
+    }
+
     int bFinish = Recve_Motor_motion_state(backArry, 0);
-    int MainBoardfuncode = QString(backArry.at(1)).toInt(nullptr, 16);
+    bool convertOk;
+    int MainBoardfuncode = backArry.at(1).toInt(&convertOk, 16);
+    if (!convertOk) {
+        QLOG_WARN() << "TestMoveTrayTube_recv: 功能码格式无效" << backArry.at(1);
+        return;
+    }
+
     if (bFinish == MOTOR_FINISH && MainBoardfuncode != 22) {
         mTestMoveTrayTubeFinished++;
         if (mTestMoveTrayTubeFinished == mTotalCommd) {
@@ -523,11 +540,13 @@ void SuoweiSerialPort::handleRecvdata()
 
 void SuoweiSerialPort::processCompleteFrames()
 {
-    QReadLocker locker(&m_bufferLock);
+    QWriteLocker locker(&m_bufferLock);
 
     while (m_buffer.size() >= PROTOCOL_LENGTH) {
         QByteArray frame = m_buffer.left(PROTOCOL_LENGTH);
         m_buffer.remove(0, PROTOCOL_LENGTH);
+
+        locker.unlock();
 
         if (Performanceverification::instance()->returnPerformanceTestFlag()) {
             processFrame(frame);
@@ -540,6 +559,8 @@ void SuoweiSerialPort::processCompleteFrames()
                 processFrame(frame);
             }
         }
+
+        locker.relock();
     }
 }
 
@@ -647,7 +668,18 @@ void SuoweiSerialPort::InstancingSerialandOpen(const bool initconnect)
 
 int SuoweiSerialPort::Recve_Motor_motion_state(const QStringList recv_data, const int Index)
 {
-    int Motor_motion_state = recv_data.at(4).toUInt(nullptr, 16);
+    if (recv_data.size() < 5) {
+        QLOG_WARN() << "Recve_Motor_motion_state: 数据长度不足，期望至少5项，实际" << recv_data.size();
+        return 0;
+    }
+
+    bool convertOk;
+    int Motor_motion_state = recv_data.at(4).toUInt(&convertOk, 16);
+    if (!convertOk) {
+        QLOG_WARN() << "Recve_Motor_motion_state: 状态码格式无效" << recv_data.at(4);
+        return 0;
+    }
+
     const int Binary = 2;
     QString hexMessage = QString("%1").arg(Motor_motion_state, 0, 10);
     QString Statestr = QString("%1").arg(QString::number(hexMessage.toInt(), Binary), 8, QChar('0'));
@@ -655,13 +687,19 @@ int SuoweiSerialPort::Recve_Motor_motion_state(const QStringList recv_data, cons
 
     switch (Index) {
         case 0:
-            Motor_motion_state = Statestr.mid(leng - 3, Binary).toUInt(nullptr, Binary);
+            if (leng >= 3) {
+                Motor_motion_state = Statestr.mid(leng - 3, Binary).toUInt(nullptr, Binary);
+            }
             break;
         case 1:
-            Motor_motion_state = Statestr.mid(leng - 5, Binary).toUInt(nullptr, Binary);
+            if (leng >= 5) {
+                Motor_motion_state = Statestr.mid(leng - 5, Binary).toUInt(nullptr, Binary);
+            }
             break;
         case 2:
-            Motor_motion_state = Statestr.mid(0, 3).toUInt(nullptr, Binary);
+            if (leng >= 3) {
+                Motor_motion_state = Statestr.mid(0, 3).toUInt(nullptr, Binary);
+            }
             break;
         default:
             break;
@@ -671,24 +709,44 @@ int SuoweiSerialPort::Recve_Motor_motion_state(const QStringList recv_data, cons
 
 int SuoweiSerialPort::ParseSportLocation(const QStringList recv_data, const int Index)
 {
+    if (recv_data.size() < 6) {
+        QLOG_WARN() << "ParseSportLocation: 数据长度不足，期望至少6项，实际" << recv_data.size();
+        return 0;
+    }
+
     int Sport_Location = 0;
     const int Binary = 2;
-    quint8 area_nums = recv_data.at(5).toUInt(nullptr, 16);
+    bool convertOk;
+    quint8 area_nums = recv_data.at(5).toUInt(&convertOk, 16);
+    if (!convertOk) {
+        QLOG_WARN() << "ParseSportLocation: 区域编号格式无效" << recv_data.at(5);
+        return 0;
+    }
+
     QString hexMessage = QString("%1").arg(area_nums, 0, 10);
     QString areanumstr = QString("%1").arg(QString::number(hexMessage.toInt(), Binary), 8, QChar('0'));
+    int leng = areanumstr.length();
 
     switch (Index) {
         case 0:
-            Sport_Location = areanumstr.mid(4, Binary).toUInt(nullptr, Binary);
+            if (leng >= 6) {
+                Sport_Location = areanumstr.mid(4, Binary).toUInt(nullptr, Binary);
+            }
             break;
         case 1:
-            Sport_Location = areanumstr.mid(6, Binary).toInt(nullptr, Binary);
+            if (leng >= 8) {
+                Sport_Location = areanumstr.mid(6, Binary).toInt(nullptr, Binary);
+            }
             break;
         case 2:
-            Sport_Location = areanumstr.mid(0, 1).toInt(nullptr, Binary);
+            if (leng >= 1) {
+                Sport_Location = areanumstr.mid(0, 1).toInt(nullptr, Binary);
+            }
             break;
         case 3:
-            Sport_Location = areanumstr.mid(0, 1).toInt(nullptr, Binary);
+            if (leng >= 1) {
+                Sport_Location = areanumstr.mid(0, 1).toInt(nullptr, Binary);
+            }
             break;
         default:
             break;
@@ -752,6 +810,11 @@ bool SuoweiSerialPort::isPortValid() const
 
 void SuoweiSerialPort::Parsing_received_messages(const QStringList data_list)
 {
+    if (data_list.size() < 4) {
+        QLOG_ERROR() << "Parsing_received_messages: 数据长度不足，期望至少4项，实际" << data_list.size();
+        return;
+    }
+
     auto safeHexToInt = [](const QString& str, bool& ok) {
         return str.toInt(&ok, HEX_SWITCH);
     };

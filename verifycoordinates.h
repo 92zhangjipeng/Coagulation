@@ -273,6 +273,9 @@ private:
     void initParsers();
     void printLoadedCoordinates() const;
 
+
+    bool createDefaultCoordinateFile(const QString& filePath, const QString& equipmentName);
+
     // 坐标校验文件解析
     bool parseFixedCoordinate(const QString& key, int x, int y);
     bool parseDynamicCoordinate(const QString& key, int x, int y);
