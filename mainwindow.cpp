@@ -291,7 +291,7 @@ void MainWindow::dimmingprogress(bool isDimmingInProgress)
     update();
 }
 
-void MainWindow::init_style_all()
+void MainWindow::initStyleAll()
 {
     m_benterapp = true;
     quint8 indexequipment;
@@ -381,8 +381,10 @@ void MainWindow::init_style_all()
                         ,Qt::QueuedConnection);
 
         QObject::connect(FullyAutomatedPlatelets::pinstanceWirteBoard(),
-                         &ConsumablesWrite::_ShutdownApp,this,[=](){
+                         &ConsumablesWrite::shutdownApp,this,[=](){
+            if(!FullyAutomatedPlatelets::mainWindow()){
                 FullyAutomatedPlatelets::mainWindow()->deleteExitSoftware();
+            }
         });
     }
 

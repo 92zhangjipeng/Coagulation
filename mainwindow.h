@@ -111,7 +111,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void    init_style_all();
+    void    initStyleAll();
     void    ChannelValueshow(QStringList moduleData) override;
     void    displayPara(int Indexmodul, const double tempvalve) override;
     void    PromptInfo(const quint8 Index, const QString ReminderStr, const quint8 iActive) override;

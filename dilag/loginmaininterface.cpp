@@ -366,7 +366,7 @@ void loginmaininterface::on_toolButton_enter_clicked()
 
     // 关闭登录窗口并初始化主界面
     QDialog::accept();
-    FullyAutomatedPlatelets::mainWindow()->init_style_all();
+    FullyAutomatedPlatelets::mainWindow()->initStyleAll();
     return;
 }
 
@@ -495,6 +495,8 @@ void loginmaininterface::readMachineParaFinished()
         VerifyCoordinates::GetInstance()->startComparingCoordinates(true);
 
     }, Qt::QueuedConnection);
+
+	closeTimerSerial();
 }
 
 

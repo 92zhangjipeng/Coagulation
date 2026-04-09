@@ -1,28 +1,64 @@
 ﻿#pragma execution_character_set("utf-8")
 
-#include  "usb_initconnect.h"
-#include  <QCoreApplication>
-#include  <quiutils.h>
-#include  <QThread>
-#include  "testing.h"
+// ============================================================================
+// 头文件包含
+// ============================================================================
 
-#include  "sampledataprocess.h"
+// 类相关定义
+#include "usb_initconnect.h"
+
+// 静态常量定义（必须在类头文件之后）
+const int USB_InitConnect::TASK_TIMEOUT_MS;
+const int USB_InitConnect::MAX_RETRY_COUNT;
+const int USB_InitConnect::TIMEOUT_CHECK_INTERVAL;
+
+// Qt核心库
+#include <QCoreApplication>
+#include <QThread>
+#include <QDateTime>
+#include <QTimer>
+
+// Qt工具类
+#include <quiutils.h>
+
+// 项目头文件
+#include "testing.h"
+#include "sampledataprocess.h"
 #include <operclass/fullyautomatedplatelets.h>
 
+// 标准库
+#include <algorithm>
+#include <exception>
+#include <stdexcept>
 
+// ============================================================================
+// 构造函数与析构函数
+// ============================================================================
+
+/**
+ * @brief USB_InitConnect构造函数
+ * @param parent 父对象指针
+ *
+ * 初始化任务管理线程和超时检查定时器
+ */
 USB_InitConnect::USB_InitConnect(QObject *parent) : QObject(parent)
 {
+    // 将对象移动到独立线程
     moveToThread(&m_thread);
-    QObject::connect(&m_thread,&QThread::started,this,&USB_InitConnect::_pthreadstart);
+    QObject::connect(&m_thread, &QThread::started, this, &USB_InitConnect::_pthreadstart);
 
     // 创建超时检查定时器（定时器也需要移动到线程中）
     m_timeoutTimer = new QTimer(this);
     m_timeoutTimer->setInterval(TIMEOUT_CHECK_INTERVAL);
     QObject::connect(m_timeoutTimer, &QTimer::timeout, this, &USB_InitConnect::checkTaskTimeout);
     m_timeoutTimer->moveToThread(&m_thread); // 定时器也需要在同一线程中运行
-
 }
 
+/**
+ * @brief USB_InitConnect析构函数
+ *
+ * 清理所有资源：停止定时器、等待线程结束、释放内存
+ */
 USB_InitConnect::~USB_InitConnect()
 {
     // 停止超时定时器
@@ -32,36 +68,50 @@ USB_InitConnect::~USB_InitConnect()
         m_timeoutTimer = nullptr;
     }
 
+    // 停止并等待线程结束
     m_thread.quit();
     m_thread.wait();
 
-    if (m_pActionVec != nullptr)
-    {
-        for (auto& action : *m_pActionVec){
+    // 清理动作队列
+    if (m_pActionVec != nullptr) {
+        for (auto& action : *m_pActionVec) {
             delete action;
             action = nullptr;
         }
-
         delete m_pActionVec;
         m_pActionVec = nullptr;
     }
 
-    QLOG_DEBUG()<<"单个发送任务线程析构ID:"<< QThread::currentThreadId();
+    QLOG_DEBUG() << "单个发送任务线程析构ID:" << QThread::currentThreadId();
 }
 
+// ============================================================================
+// 线程管理
+// ============================================================================
+
+/**
+ * @brief 启动任务管理线程
+ *
+ * 如果线程未运行，则启动线程
+ */
 void USB_InitConnect::_startthread()
 {
-    if(!m_thread.isRunning())
-    {
+    if (!m_thread.isRunning()) {
         m_thread.start();
     }
 }
 
+/**
+ * @brief 线程启动初始化函数
+ *
+ * 在线程启动时调用，初始化动作队列并启动超时检查定时器
+ */
 void USB_InitConnect::_pthreadstart()
 {
-    QLOG_DEBUG()<<"单个任务线程ID:"<< QThread::currentThreadId();
-    if(!m_pActionVec)
-    {
+    QLOG_DEBUG() << "单个任务线程ID:" << QThread::currentThreadId();
+
+    // 初始化动作队列
+    if (!m_pActionVec) {
         m_pActionVec = new ActionVec_;
         m_pActionVec->clear();
     }
@@ -73,9 +123,18 @@ void USB_InitConnect::_pthreadstart()
     }
 }
 
+// ============================================================================
+// 槽函数实现
+// ============================================================================
 
-
-void USB_InitConnect::slotCeratActionDate(int ACtionType,const QByteArrayList groupActions)
+/**
+ * @brief 创建动作数据槽函数
+ * @param ACtionType 动作类型
+ * @param groupActions 动作数据组
+ *
+ * 将新的动作数据添加到任务队列，并触发任务发送
+ */
+void USB_InitConnect::slotCeratActionDate(int ACtionType, const QByteArrayList groupActions)
 {
     if (!m_pActionVec) {
         QLOG_ERROR() << "slotCeratActionDate: m_pActionVec is null, action vector not initialized";
@@ -89,22 +148,25 @@ void USB_InitConnect::slotCeratActionDate(int ACtionType,const QByteArrayList gr
     try {
         for (qsizetype i = 0; i < groupActions.size(); ++i) {
             const QByteArray &actionData = groupActions.at(i); // 缓存引用
-            if(actionData.isEmpty()) {
-                QLOG_WARN() << "接收到空指令数据"<<endl;
+            if (actionData.isEmpty()) {
+                QLOG_WARN() << "接收到空指令数据" << endl;
                 continue;
             }
+
             QByteArray indexField = actionData.mid(GET_COMMAND_INDEX, 1);
-            if(indexField.isEmpty()) {
+            if (indexField.isEmpty()) {
                 QLOG_WARN() << "指令索引字段缺失，指令数据:" << actionData;
                 continue;
             }
+
             bool ok;
             QString hexStr = indexField.toHex();
             quint8 index_code = hexStr.toUShort(&ok, HEX_SWITCH);
-            if(!ok) {
+            if (!ok) {
                 QLOG_WARN() << "无效的指令索引值:" << indexField << "原始指令:" << actionData;
                 continue;
             }
+
             EquipmentActive_ *p_singleCommand = new EquipmentActive_;
             // 如果后续设置字段时抛出异常，需要清理这个对象
             try {
@@ -133,6 +195,7 @@ void USB_InitConnect::slotCeratActionDate(int ACtionType,const QByteArrayList gr
         // 清除局部容器的指针，避免双重删除（所有权已转移）
         newActions.clear();
 
+        // 如果有任务，触发发送
         if (!m_pActionVec->empty()) {
             sendTaskHeader();
         }
@@ -144,10 +207,16 @@ void USB_InitConnect::slotCeratActionDate(int ACtionType,const QByteArrayList gr
         QLOG_ERROR() << "slotCeratActionDate异常:" << e.what();
         throw; // 重新抛出，让调用者处理
     }
+
     return;
 }
 
-
+/**
+ * @brief 接收串口数据槽函数
+ * @param commandData 命令数据列表
+ *
+ * 解析串口接收到的数据，处理命令完成状态
+ */
 void USB_InitConnect::Recv_serialdata(const QStringList commandData)
 {
     // 边界检查
@@ -157,32 +226,74 @@ void USB_InitConnect::Recv_serialdata(const QStringList commandData)
     }
 
     bool convertOk1, convertOk2, convertOk3, convertOk4;
-    const int commandIndex =  commandData.value(comd_num).toInt(&convertOk1, 16);
+    const int commandIndex = commandData.value(comd_num).toInt(&convertOk1, 16);
     const int deviceAddress = commandData.value(0).toInt(&convertOk2, 16);
-    const int statusFlags =   commandData.value(4).toInt(&convertOk3, 16);
-    const int errorCode =     commandData.last().toInt(&convertOk4, 16);
+    const int statusFlags = commandData.value(4).toInt(&convertOk3, 16);
+    const int errorCode = commandData.last().toInt(&convertOk4, 16);
 
     if (!convertOk1 || !convertOk2 || !convertOk3 || !convertOk4) {
         QLOG_WARN() << "Invalid hex data in packet";
         return;
     }
 
-
     QString errorLog;
     const int runStatus = QUIUtils::_backmotorexecutionstatus(statusFlags, deviceAddress, errorCode, errorLog);
 
     if (runStatus == MOTOR_FINISH) {
-            QMetaObject::invokeMethod(this, [this, commandIndex]() {
-                deleteFinishCommand(commandIndex);
-            }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, [this, commandIndex]() {
+            deleteFinishCommand(commandIndex);
+        }, Qt::QueuedConnection);
     } else {
         const QString errorData = commandData.join("");
         QLOG_DEBUG().nospace() << "[CMD ERR] " << errorData << " | " << errorLog;
     }
+
     return;
 }
 
+/**
+ * @brief 断线重连槽函数
+ *
+ * 当设备断线重连时，重新发送当前正在执行的任务
+ */
+void USB_InitConnect::slotDisconnectandreconnect()
+{
+    if (!m_pActionVec || m_pActionVec->empty()) {
+        return;
+    }
 
+    auto iter = m_pActionVec->begin();
+    while (iter != m_pActionVec->end()) {
+        EquipmentActive_ *pcommand = *iter;
+        if (!pcommand) {
+            QLOG_WARN() << "slotDisconnectandreconnect: null pointer in action vector";
+            ++iter;
+            continue;
+        }
+
+        if (pcommand->ACtionType == m_runingAction && !pcommand->CompletionStatus) {
+            QLOG_DEBUG() << "重连发命令成功";
+            QString reminderStr = "";
+            ActionsPerformed(m_runingAction, reminderStr);
+            emit writeCommand(pcommand->CommamdArry, reminderStr);
+            break;
+        }
+        ++iter;
+    }
+
+    return;
+}
+
+// ============================================================================
+// 任务队列管理
+// ============================================================================
+
+/**
+ * @brief 删除完成命令
+ * @param indexcode 命令索引号
+ *
+ * 标记指定命令为完成状态，并检查所有任务是否都已完成
+ */
 void USB_InitConnect::deleteFinishCommand(quint8 indexcode)
 {
     if (!m_pActionVec) {
@@ -202,25 +313,33 @@ void USB_InitConnect::deleteFinishCommand(quint8 indexcode)
         QLOG_DEBUG() << "无效命令号: " << indexcode;  // 添加更多调试信息
     }
 
-
-    //遍历是否所有都完成
-   ProcessEquipmentActions(*m_pActionVec);
-   return;
+    // 遍历是否所有任务都完成
+    ProcessEquipmentActions(*m_pActionVec);
+    return;
 }
 
-bool USB_InitConnect::ProcessEquipmentActions(ActionVec_ & actions){
+/**
+ * @brief 处理设备动作队列
+ * @param actions 动作队列引用
+ * @return true 还有未完成的任务，false 所有任务都已完成
+ *
+ * 检查队列中是否有未完成的任务，如果没有则清理资源
+ */
+bool USB_InitConnect::ProcessEquipmentActions(ActionVec_ &actions)
+{
     // 首先检查是否有未完成的任务
     const bool hasIncompleteActions = std::any_of(actions.cbegin(), actions.cend(),
-            [](const EquipmentActive_* action) {
-                return action && !action->CompletionStatus;
-            });
+        [](const EquipmentActive_* action) {
+            return action && !action->CompletionStatus;
+        });
+
     if (hasIncompleteActions) {
-          sendTaskHeader();
-          return true;
+        sendTaskHeader();
+        return true;
     }
 
     try {
-        CompletedActions(m_runingAction); //完成的动作
+        CompletedActions(m_runingAction); // 完成的动作
         m_runingAction = EQUIPMENT_FREETIME;
 
         // 原子性删除：先将所有权转移到局部容器
@@ -233,146 +352,22 @@ bool USB_InitConnect::ProcessEquipmentActions(ActionVec_ & actions){
         }
         // actionsToDelete离开作用域自动销毁，此时actions已经是空容器
         return false;
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         QLOG_ERROR() << "ProcessEquipmentActions exception: " << e.what();
         throw; // 重新抛出原始异常
-    }
-    catch (...) {
+    } catch (...) {
         QLOG_ERROR() << "ProcessEquipmentActions unknown exception";
         throw std::runtime_error("Failed to process equipment actions cleanup");
     }
-
 }
 
-
-bool USB_InitConnect::ActionsPerformed(const int indexActive,QString &aboutActive)
+/**
+ * @brief 数据排序
+ *
+ * 按命令编号对动作队列进行排序（仅在未排序时排序）
+ */
+void USB_InitConnect::dataSort()
 {
-    switch(indexActive)
-    {
-        case EQUIPMENT_BOOT_CLEAN:
-        {
-            aboutActive = "开机初始化清洗";
-            break;
-        }
-        case EQUIPMENT_BTN_REAET:
-        {
-            aboutActive = "按钮复位";
-            break;
-        }
-        case EQUIPMENT_BTN_CLEAN:
-        {
-            aboutActive = "按钮清洗";
-            break;
-        }
-        case COORDINATE_FINE_TUNING_TEST:
-        {
-            aboutActive ="坐标微调测试动作";
-            break;
-        }
-        default: break;
-    }
-    return true;
-}
-
-
-//执行的动作
-void USB_InitConnect::CompletedActions(const int indexActive)
-{
-    switch(indexActive)
-    {
-        case EQUIPMENT_BOOT_CLEAN:
-        {
-            QLOG_DEBUG()<<"开机清洗完成";
-            emit bootInitCleanFinished();
-            break;
-        }
-        case EQUIPMENT_BTN_REAET:
-        {
-            emit btn_resetComplete();
-            break;
-        }
-        case EQUIPMENT_BTN_CLEAN:
-        {
-            emit btn_CleanComplete();
-            break;
-        }
-        case COORDINATE_FINE_TUNING_TEST:
-        {
-            emit CoordinatefinetuningactionFinish();
-            break;
-        }
-        case BLOODPINDOWNHEIGH:
-        case BLOODPINDOWNHEIGH_CLEANLINQUEFAILED:
-        case BLOODPINDOWNHEIGH_SERUMMODEL:
-        case BLOODPINDOWNHEIGH_ANEMIALINQUEFAILED:
-
-        case REAGPIN_CLEANLINQUE_DOWN:
-        case REAGPIN_REAGLINQUE_FAILEDDOWN:
-        case REAGPIN_DOWNHEIGH_IN_AA:
-        case REAGPIN_DOWNHEIGH_IN_ADP:
-        case REAGPIN_DOWNHEIGH_IN_EPI:
-        case REAGPIN_DOWNHEIGH_IN_COL:
-        case REAGPIN_DOWNHEIGH_IN_RIS:
-
-       case HANDSDOWN_THROWCUP:
-       case HANDSDOWN_TRAYTUBE_1:
-       case HANDSDOWN_TRAYTUBE_2:
-       case HANDSDOWN_TRAYTUBE_3:
-       case HANDSDOWN_TRAYTUBE_4:
-
-       case HANDSDOWN_CHN_1:
-       case HANDSDOWN_CHN_2:
-       case HANDSDOWN_CHN_3:
-       case HANDSDOWN_CHN_4:
-       case HANDSDOWN_CHN_5:
-       case HANDSDOWN_CHN_6:
-       case HANDSDOWN_CHN_7:
-       case HANDSDOWN_CHN_8:
-       case HANDSDOWN_CHN_9:
-       case HANDSDOWN_CHN_10:
-       case HANDSDOWN_CHN_11:
-       case HANDSDOWN_CHN_12:
-        {
-            emit finishviewdownheigh(indexActive);
-        }
-        default: break;
-    }
-    return;
-}
-
-
-//断线后连
-void USB_InitConnect::slotDisconnectandreconnect()
-{
-    if (!m_pActionVec || m_pActionVec->empty())
-    {
-        return;
-    }
-
-    auto iter = m_pActionVec->begin();
-    while(iter != m_pActionVec->end())
-    {
-        EquipmentActive_ *pcommand = *iter;
-        if (!pcommand) {
-            QLOG_WARN() << "slotDisconnectandreconnect: null pointer in action vector";
-            ++iter;
-            continue;
-        }
-        if(pcommand->ACtionType == m_runingAction && !pcommand->CompletionStatus)
-        {
-            QLOG_DEBUG()<<"重连发命令成功";
-            QString reminderStr = "";
-            ActionsPerformed(m_runingAction,reminderStr);
-            emit writeCommand(pcommand->CommamdArry,reminderStr);
-            break;
-        }
-        ++iter;
-    }
-    return;
-}
-
-void USB_InitConnect::dataSort(){
     if (!m_pActionVec) {
         return;
     }
@@ -385,20 +380,27 @@ void USB_InitConnect::dataSort(){
         // 两者都非空，比较 Command_number
         return a->Command_number < b->Command_number;
     };
-    // 3. 仅在未排序时进行排序
+
+    // 仅在未排序时进行排序
     if (!std::is_sorted(m_pActionVec->begin(), m_pActionVec->end(), actionCompare)) {
         std::sort(m_pActionVec->begin(), m_pActionVec->end(), actionCompare);
     }
 }
 
+/**
+ * @brief 发送首个任务字节
+ *
+ * 选择优先级最高的任务发送，并更新任务状态
+ */
 void USB_InitConnect::sendTaskHeader()
 {
-    // 空容器检查（关键安全防护)
+    // 空容器检查（关键安全防护）
     QString reminderStr;
     if (!m_pActionVec || m_pActionVec->empty()) {
         qCritical() << "Attempted to send task header with empty action vector";
         return;
     }
+
     try {
         dataSort();
 
@@ -432,6 +434,7 @@ void USB_InitConnect::sendTaskHeader()
                 return a->sendCount < b->sendCount;
             }
         );
+
         if (iter != m_pActionVec->cend()) {
             EquipmentActive_* cmd = *iter;
             // 验证任务是否有效
@@ -453,17 +456,129 @@ void USB_InitConnect::sendTaskHeader()
                         << "超时次数:" << cmd->timeoutCount;
 
             ActionsPerformed(m_runingAction, reminderStr);
-            if(m_runingAction == EQUIPMENT_BOOT_CLEAN)
+            if (m_runingAction == EQUIPMENT_BOOT_CLEAN) {
                 Q_EMIT CleaningProgress(index, m_pActionVec->count());
+            }
             Q_EMIT writeCommand(sendData, reminderStr);
         }
-
     } catch (const std::exception& e) {
         qFatal("Task header processing failed: %s", e.what());
     }
+
     return;
 }
 
+// ============================================================================
+// 动作执行与完成
+// ============================================================================
+
+/**
+ * @brief 动作执行处理
+ * @param indexActive 动作索引
+ * @param aboutActive 动作描述（输出参数）
+ * @return 总是返回true
+ *
+ * 根据动作索引返回对应的动作描述
+ */
+bool USB_InitConnect::ActionsPerformed(const int indexActive, QString &aboutActive)
+{
+    switch (indexActive) {
+        case EQUIPMENT_BOOT_CLEAN: {
+            aboutActive = "开机初始化清洗";
+            break;
+        }
+        case EQUIPMENT_BTN_REAET: {
+            aboutActive = "按钮复位";
+            break;
+        }
+        case EQUIPMENT_BTN_CLEAN: {
+            aboutActive = "按钮清洗";
+            break;
+        }
+        case COORDINATE_FINE_TUNING_TEST: {
+            aboutActive = "坐标微调测试动作";
+            break;
+        }
+        default:
+            break;
+    }
+
+    return true;
+}
+
+/**
+ * @brief 动作完成回调
+ * @param indexActive 动作索引
+ *
+ * 根据完成的动作类型发送相应的完成信号
+ */
+void USB_InitConnect::CompletedActions(const int indexActive)
+{
+    switch (indexActive) {
+        case EQUIPMENT_BOOT_CLEAN: {
+            QLOG_DEBUG() << "开机清洗完成";
+            emit bootInitCleanFinished();
+            break;
+        }
+        case EQUIPMENT_BTN_REAET: {
+            emit btn_resetComplete();
+            break;
+        }
+        case EQUIPMENT_BTN_CLEAN: {
+            emit btn_CleanComplete();
+            break;
+        }
+        case COORDINATE_FINE_TUNING_TEST: {
+            emit CoordinatefinetuningactionFinish();
+            break;
+        }
+        case BLOODPINDOWNHEIGH:
+        case BLOODPINDOWNHEIGH_CLEANLINQUEFAILED:
+        case BLOODPINDOWNHEIGH_SERUMMODEL:
+        case BLOODPINDOWNHEIGH_ANEMIALINQUEFAILED:
+        case REAGPIN_CLEANLINQUE_DOWN:
+        case REAGPIN_REAGLINQUE_FAILEDDOWN:
+        case REAGPIN_DOWNHEIGH_IN_AA:
+        case REAGPIN_DOWNHEIGH_IN_ADP:
+        case REAGPIN_DOWNHEIGH_IN_EPI:
+        case REAGPIN_DOWNHEIGH_IN_COL:
+        case REAGPIN_DOWNHEIGH_IN_RIS:
+        case HANDSDOWN_THROWCUP:
+        case HANDSDOWN_TRAYTUBE_1:
+        case HANDSDOWN_TRAYTUBE_2:
+        case HANDSDOWN_TRAYTUBE_3:
+        case HANDSDOWN_TRAYTUBE_4:
+        case HANDSDOWN_CHN_1:
+        case HANDSDOWN_CHN_2:
+        case HANDSDOWN_CHN_3:
+        case HANDSDOWN_CHN_4:
+        case HANDSDOWN_CHN_5:
+        case HANDSDOWN_CHN_6:
+        case HANDSDOWN_CHN_7:
+        case HANDSDOWN_CHN_8:
+        case HANDSDOWN_CHN_9:
+        case HANDSDOWN_CHN_10:
+        case HANDSDOWN_CHN_11:
+        case HANDSDOWN_CHN_12: {
+            emit finishviewdownheigh(indexActive);
+            break;
+        }
+        default:
+            break;
+    }
+
+    return;
+}
+
+// ============================================================================
+// 超时检查
+// ============================================================================
+
+/**
+ * @brief 检查任务超时
+ *
+ * 定期检查任务队列中的任务是否超时，处理超时重试和失败标记
+ */
 void USB_InitConnect::checkTaskTimeout()
 {
     if (!m_pActionVec || m_pActionVec->empty()) {
@@ -485,7 +600,7 @@ void USB_InitConnect::checkTaskTimeout()
                 // 任务超时
                 action->timeoutCount++;
                 QLOG_WARN() << "任务超时检测: 命令" << action->Command_number
-                              << "超时" << elapsed << "ms, 超时次数:" << action->timeoutCount;
+                          << "超时" << elapsed << "ms, 超时次数:" << action->timeoutCount;
 
                 if (action->timeoutCount >= MAX_RETRY_COUNT) {
                     // 超过最大重试次数，标记为失败
