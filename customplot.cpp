@@ -84,16 +84,9 @@ CustomPlot::~CustomPlot()
         delete mpTestCaseRun;
         mpTestCaseRun = nullptr;
     }
-    if(m_CheckGroupBox)
-    {
-        delete m_CheckGroupBox;
-        m_CheckGroupBox = nullptr;
-    }
-    if(mbloodBtnGroupbox)
-    {
-        delete mbloodBtnGroupbox;
-        mbloodBtnGroupbox = nullptr;
-    }
+    // m_CheckGroupBox and mbloodBtnGroupbox are child objects with parent 'this'
+    // They will be automatically deleted by Qt's parent-child mechanism
+    // No need to delete them manually to avoid double deletion
     delete ui;
 }
 
@@ -127,6 +120,10 @@ void CustomPlot::initstyle(const quint8 equipmentType)
 {
     initCommboxView(equipmentType);
 
+    if (m_CheckGroupBox) {
+        delete m_CheckGroupBox;
+        m_CheckGroupBox = nullptr;
+    }
     m_CheckGroupBox = new  QButtonGroup(this);
     m_CheckGroupBox->setExclusive(true); //互斥
     m_CheckGroupBox->addButton(ui->checkBox_downTop,TheGripperDrops::GipperDown_top);
@@ -137,6 +134,10 @@ void CustomPlot::initstyle(const quint8 equipmentType)
 
     InitdisplayPointTablewidget(ui->tableWidget_displayPos);
 
+    if (mbloodBtnGroupbox) {
+        delete mbloodBtnGroupbox;
+        mbloodBtnGroupbox = nullptr;
+    }
     mbloodBtnGroupbox = new QButtonGroup(this);
     mbloodBtnGroupbox->setExclusive(true);
 
@@ -1367,25 +1368,34 @@ void  CustomPlot::UpdateBaseValue_y(int NotifyValue_y)
 void CustomPlot::updateNotifyOffsetValue(bool bupdate_x, const int offsetValue)
 {
     int rowscount = ui->tableWidget_displayPos->rowCount();
+    const int xposCol = TableIndexPos::Instrument_xpos;
+    const int yposCol = TableIndexPos::Instrument_ypos;
+
     for(int i = 0; i < rowscount; i++)
     {
         if(bupdate_x == NOTIFY_XPOINT)
         {
-            if(ui->tableWidget_displayPos->item(i,TableIndexPos::Instrument_xpos) == nullptr || ui->tableWidget_displayPos->item(i,TableIndexPos::Instrument_xpos)->text().isEmpty())
+            // 安全获取表格项
+            QTableWidgetItem* xItem = ui->tableWidget_displayPos->item(i, xposCol);
+            if(xItem == nullptr || xItem->text().isEmpty())
             {
                 continue;
             }
-            int tablevalue = ui->tableWidget_displayPos->item(i,TableIndexPos::Instrument_xpos)->text().toInt();
-            ui->tableWidget_displayPos->item(i, TableIndexPos::Instrument_xpos)->setText(QString("%1").arg(tablevalue + offsetValue));
+            // 使用局部变量避免重复查找
+            int tablevalue = xItem->text().toInt();
+            xItem->setText(QString("%1").arg(tablevalue + offsetValue));
         }
         else
         {
-            if(ui->tableWidget_displayPos->item(i,TableIndexPos::Instrument_ypos) == nullptr || ui->tableWidget_displayPos->item(i,TableIndexPos::Instrument_ypos)->text().isEmpty())
+            // 安全获取表格项
+            QTableWidgetItem* yItem = ui->tableWidget_displayPos->item(i, yposCol);
+            if(yItem == nullptr || yItem->text().isEmpty())
             {
                 continue;
             }
-            int tablevalue = ui->tableWidget_displayPos->item(i,TableIndexPos::Instrument_ypos)->text().toInt();
-            ui->tableWidget_displayPos->item(i, TableIndexPos::Instrument_ypos)->setText(QString("%1").arg(tablevalue + offsetValue));
+            // 使用局部变量避免重复查找
+            int tablevalue = yItem->text().toInt();
+            yItem->setText(QString("%1").arg(tablevalue + offsetValue));
         }
     }
     update();
@@ -1991,6 +2001,11 @@ void CustomPlot::on_pushButton_TrayHands_2_clicked()
         auto it = mfromHole.constBegin();
         while(it != mfromHole.constEnd()){
             int hole_catch = *it;
+            // 边界检查，防止容器大小不匹配导致的越界
+            if (index_ >= mendHole.size()) {
+                QLOG_WARN() << "索引越界: index_" << index_ << "mendHole大小:" << mendHole.size();
+                break;
+            }
             int hole_put = mendHole.at(index_);
             test_catch_putdown_cup(hole_catch,hole_put,mtest_catch_put_commad);
             index_++;
@@ -2089,8 +2104,4 @@ void CustomPlot::closeEvent(QCloseEvent* event)
    } else {
        event->ignore();  // ✅ 忽略关闭事件
    }
-
-
 }
-
-

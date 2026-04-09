@@ -124,7 +124,7 @@ private:
     //维护模式
     void configBloodpinparaSignals();
 
-	void _configReagPinparaSignals();
+    void _configReagPinparaSignals();
 
     void _configHandsinitChn(quint8 equipmentIndex_);
 
@@ -206,9 +206,9 @@ private slots:
     void on_lineEdit_Tab0_hospital_name_editingFinished();
     void show_Preence_sets();
     void on_toolButton_ADD_clicked();
-	void on_toolButton_Import_clicked();
+    void on_toolButton_Import_clicked();
     void on_toolButton_export_clicked();
-	void on_pushButton_backsetting_clicked();
+    void on_pushButton_backsetting_clicked();
     void on_pushButton_SelTextOutPath_clicked();
 
     void on_pushButton_Adjustcoordinates_clicked();
@@ -225,7 +225,7 @@ public:
 
     void _finishmovetestdownhigh(int index_);//测试下Z高度完成
 
-	void openKeyboard(); //取消监听键盘
+    void openKeyboard(); //取消监听键盘
 
     void disablechn(QVector<quint8> indexchnList); //调整LED值失败禁用通道
 

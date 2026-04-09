@@ -3,6 +3,8 @@
 #include "machinesetting.h"
 #include "ui_machinesetting.h"
 #include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 #include <QMessageBox>
 #include <QHeaderView>
 #include <QFileDialog>
@@ -65,66 +67,34 @@ MachineSetting::MachineSetting(QWidget *parent) :
 
 MachineSetting::~MachineSetting()
 {
+    // 清理QButtonGroup
     delete mResultMode;
     mResultMode = nullptr;
 
+    // 重置智能指针
+    m_Performanceverification.reset();
 
-	m_Performanceverification.reset();
-
-    for(auto p : m_rootList)
-    {
-        QTreeWidgetItem* neddel = p;
-        delete neddel;
-        neddel = nullptr;
-    }
+    // 使用qDeleteAll简化QList清理
+    qDeleteAll(m_rootList);
     m_rootList.clear();
 
-    auto iter = m_pbloodLableList.begin();
-    while(iter != m_pbloodLableList.end())
-    {
-        if(iter.value() != nullptr )
-        {
-            delete iter.value();
-            iter.value() = nullptr;
-        }
-        iter++;
-    }
-    QMap<QLabel* ,btnLable* > nullmap;
-    m_pbloodLableList.swap(nullmap);
+    // 使用qDeleteAll清理QMap中的值（键是QLabel*，由Qt父对象系统管理）
+    qDeleteAll(m_pbloodLableList.values());
+    m_pbloodLableList.clear();
 
+    qDeleteAll(m_preagpinLableList.values());
+    m_preagpinLableList.clear();
 
-    iter = m_preagpinLableList.begin();
-    while(iter != m_preagpinLableList.end())
-    {
-        if(iter.value() != nullptr )
-        {
-            delete iter.value();
-            iter.value() = nullptr;
-        }
-        iter++;
-    }
-    QMap<QLabel* ,btnLable* > nullmapreagpin;
-    m_preagpinLableList.swap(nullmapreagpin);
+    qDeleteAll(m_pHandsLableList.values());
+    m_pHandsLableList.clear();
 
-    iter = m_pHandsLableList.begin();
-    while(iter != m_pHandsLableList.end())
-    {
-        if(iter.value() != nullptr )
-        {
-            delete iter.value();
-            iter.value() = nullptr;
-        }
-        iter++;
-    }
-    QMap<QLabel* ,btnLable* > nullmaphands;
-    m_pHandsLableList.swap(nullmaphands);
-
-
+    // 清理动画对象
     if(m_propertyAnimation){
         delete m_propertyAnimation;
         m_propertyAnimation = nullptr;
     }
 
+    // 清理UI
     delete ui;
 }
 
@@ -179,7 +149,7 @@ void MachineSetting::_initpara()
 
     initSheet();//init按钮等控件样式显示
 
-	QStringList itemCutNum{ "1" , "2" , "3" ,"5" , "10" };
+    QStringList itemCutNum{ "1" , "2" , "3" ,"5" , "10" };
     QListWidget* listWidget = new QListWidget(this);
     for(int i = 0 ; i < itemCutNum.count(); ++i){
         QListWidgetItem *item = new QListWidgetItem(itemCutNum.at(i));
@@ -215,6 +185,8 @@ void MachineSetting::initSheet()
     if(styleFile.open(QIODevice::ReadOnly)) {
           m_settButtonQss = QLatin1String(styleFile.readAll());
           styleFile.close();
+    } else {
+        QLOG_WARN() << "Failed to load pushbutton QSS:" << styleFile.errorString();
     }
 
     QHash<QPushButton*, QString> pushButtonList = {
@@ -244,6 +216,8 @@ void MachineSetting::initSheet()
     if(styleFileToolBtn.open(QIODevice::ReadOnly)) {
           m_setToolButtonQss = QLatin1String(styleFileToolBtn.readAll());
           styleFileToolBtn.close();
+    } else {
+        QLOG_WARN() << "Failed to load toolbutton QSS:" << styleFileToolBtn.errorString();
     }
     QHash<QToolButton*, QString> toolButtonList = {
          {ui->toolButton_Import,    tr("导入坐标文件")},
@@ -399,8 +373,8 @@ void MachineSetting::initSheet()
     GlobalData::QCheckboxSheet(ui->checkBox_absorbance,tr("吸光度算法"));
     GlobalData::QCommboxSheet(ui->comboBox_CutNum);
 
-    
-	//测试曲线模式
+
+    //测试曲线模式
     mResultMode = new QButtonGroup();
     mResultMode->addButton(ui->checkBox_originTestData,FILTER_NO);
     mResultMode->addButton(ui->checkBox_average, FILTER_AVERAGE_VALUE);
@@ -543,6 +517,12 @@ void MachineSetting::openKeyboard()
 
 void MachineSetting::SlotSetChannelValueUpdate(const int IndexChannel, const int DisplayValue)
 {
+    // 边界检查，防止索引越界
+    if (IndexChannel < 0 || IndexChannel >= m_displayChannelwidget.size()) {
+        QLOG_WARN() << "无效的通道索引:" << IndexChannel << "最大索引:" << m_displayChannelwidget.size();
+        return;
+    }
+
     m_displayChannelwidget.at(IndexChannel)->setValue(DisplayValue);
     if(cglobal::g_controldimmingfinished)
         return;
@@ -710,7 +690,7 @@ void MachineSetting::init_MchineCommon()
     auto* pSqlData = FullyAutomatedPlatelets::pinstancesqlData();
     // 获取用户名列表并检查有效性
     QStringList allUsernames;
-	pSqlData->FindAllUsername(allUsernames);
+    pSqlData->FindAllUsername(allUsernames);
     if (allUsernames.isEmpty()) {
         QLOG_WARN() << "No users found or database error occurred";
         return;
@@ -726,7 +706,7 @@ void MachineSetting::init_MchineCommon()
         if (username == "hospital_name") continue;
 
         bool isSuperUser = false;
-		pSqlData->SelectUserPermissionsControl(username, isSuperUser);
+        pSqlData->SelectUserPermissionsControl(username, isSuperUser);
 
         // 一次性创建带图标和文本的列表项
         QListWidgetItem* item = new QListWidgetItem(isSuperUser ? QIcon(":/Picture/SvipUser.png")
@@ -831,12 +811,12 @@ void MachineSetting::on_pushButton_DELETE_clicked()
 /*更改密码*/
 void MachineSetting::on_pushButton_CHANGE_clicked()
 {
-	// 2. 获取选中用户
-	QListWidgetItem *currentItem = ui->listWidget_user->currentItem();
-	if (!currentItem) {
-		QMessageBox::warning(this, tr("修改异常"), tr("请先选择一个用户!"));
-		return;
-	}
+    // 2. 获取选中用户
+    QListWidgetItem *currentItem = ui->listWidget_user->currentItem();
+    if (!currentItem) {
+        QMessageBox::warning(this, tr("修改异常"), tr("请先选择一个用户!"));
+        return;
+    }
 
     // 1. 权限校验 應該為當前鄧麗用戶 currentItem->text()
     if (!hasModifyPermission(cglobal::g_UserName_str)) {
@@ -1105,23 +1085,43 @@ void MachineSetting::initializeHospitalDepartmentInformation()
 
 void MachineSetting::InitTabTwoDate(int tabnum ,QString str)
 {
+    // 边界检查：确保tabnum在有效范围内
+    if (tabnum < 0 || tabnum >= m_tableList.size()) {
+        QLOG_WARN() << "InitTabTwoDate: 无效的表格索引:" << tabnum << "表格数量:" << m_tableList.size();
+        return;
+    }
+
     QStringList temp_strlist;
     temp_strlist.clear();
     int pos = str.indexOf("|");
+    if (pos == -1) {
+        QLOG_WARN() << "InitTabTwoDate: 无效的字符串格式，缺少分隔符'|':" << str;
+        return;
+    }
+
     QString tempdata = str.left(pos);
-    QString tempdata_1 =str.right(str.length()-pos-1);
-    temp_strlist<<tempdata<<tempdata_1;
-    int rows = temp_strlist.count()/2;
-    for(int i = 0 ; i< rows ;i++)
+    QString tempdata_1 = str.right(str.length() - pos - 1);
+    temp_strlist << tempdata << tempdata_1;
+
+    int rows = temp_strlist.count() / 2;
+    for(int i = 0; i < rows; i++)
     {
         int Total_Row = m_tableList.at(tabnum)->rowCount();
         m_tableList.at(tabnum)->insertRow(Total_Row);
+
+        // 安全访问temp_strlist，虽然循环条件已经保证安全，但添加检查更稳健
+        if (2*i >= temp_strlist.size() || 2*i+1 >= temp_strlist.size()) {
+            QLOG_WARN() << "InitTabTwoDate: 字符串列表索引越界";
+            break;
+        }
+
         QString temp_str = temp_strlist.at(2*i);
-        QString temp_str_1= temp_strlist.at(2*i+1);
-        m_tableList.at(tabnum)->setItem(Total_Row,0,new QTableWidgetItem(QString(temp_str)));
-        m_tableList.at(tabnum)->item(Total_Row,0)->setTextAlignment(Qt::AlignVCenter|Qt::AlignHCenter);
-        m_tableList.at(tabnum)->setItem(Total_Row,1,new QTableWidgetItem(QString(temp_str_1)));
-        m_tableList.at(tabnum)->item(Total_Row,1)->setTextAlignment(Qt::AlignVCenter|Qt::AlignHCenter);
+        QString temp_str_1 = temp_strlist.at(2*i+1);
+
+        m_tableList.at(tabnum)->setItem(Total_Row, 0, new QTableWidgetItem(QString(temp_str)));
+        m_tableList.at(tabnum)->item(Total_Row, 0)->setTextAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+        m_tableList.at(tabnum)->setItem(Total_Row, 1, new QTableWidgetItem(QString(temp_str_1)));
+        m_tableList.at(tabnum)->item(Total_Row, 1)->setTextAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     }
     return;
 }
@@ -1149,7 +1149,7 @@ void MachineSetting::on_toolButton_ADD_clicked()
     }
 
     const int indexSel = Pcommbox->currentIndex();
-	const QString keySer = Pcommbox->currentText();
+    const QString keySer = Pcommbox->currentText();
 
     QString Displaytext = QString("%1|%2").arg(abberciationText).arg(nameText);
     InitTabTwoDate(indexSel,Displaytext);
@@ -1170,12 +1170,28 @@ void MachineSetting::on_toolButton_Delete_clicked()
     QComboBox* Pcommbox = ui->comboBox_Category;
     const int curindex = Pcommbox->currentIndex();
 
+    // 边界检查：确保curindex在有效范围内
+    if (curindex < 0 || curindex >= m_tableList.size()) {
+        QLOG_WARN() << "on_toolButton_Delete_clicked: 无效的表格索引:" << curindex << "表格数量:" << m_tableList.size();
+        showWarningDialog(tr("无效的类别索引!"));
+        return;
+    }
+
     int selectrow = m_tableList.at(curindex)->currentRow();
     if (selectrow < 0){
         showWarningDialog(tr("删除选中为空!"));
         return;
     }
-    QString Kind = m_tableList.at(curindex)->item(selectrow,0)->text();
+
+    // 安全访问表格项
+    QTableWidgetItem* item = m_tableList.at(curindex)->item(selectrow, 0);
+    if (!item) {
+        QLOG_WARN() << "on_toolButton_Delete_clicked: 表格项为空";
+        showWarningDialog(tr("选中的项目无效!"));
+        return;
+    }
+
+    QString Kind = item->text();
     m_tableList.at(curindex)->removeRow(selectrow);
 
     QString Type = QString("%1_%2").arg(curindex).arg(Kind);
@@ -1377,20 +1393,20 @@ void MachineSetting::updatepara(const bool isTesting){
     for (int i = 0; i < m_capactityList.size(); ++i) {
         quint16 updatevalue = 0;
         consumables->updateReagentTotal(READ_OPERRAT, i, updatevalue);
-		if (m_capactityList[i]->value() != updatevalue) {
-			m_capactityList[i]->setValue(updatevalue);
-		}
+        if (m_capactityList[i]->value() != updatevalue) {
+            m_capactityList[i]->setValue(updatevalue);
+        }
     }
 
     // 更新限值比率及设备配置
     for (int i = 0; i < m_limitratioList.size(); ++i) {
         quint8 updatevalue = 0;
         consumables->updateReagentLimit(READ_OPERRAT, i, updatevalue);
-		// Only update if the value has changed
-		if (m_limitratioList[i]->value() != updatevalue) {
-			m_limitratioList[i]->setValue(updatevalue);
+        // Only update if the value has changed
+        if (m_limitratioList[i]->value() != updatevalue) {
+            m_limitratioList[i]->setValue(updatevalue);
             FullyAutomatedPlatelets::pinstanceinstrument()->configwarmvalue(i, updatevalue);
-		}
+        }
     }
 
     QList<QCheckBox*> pcontrolChannelList = ui->usechannel->findChildren<QCheckBox*>();
@@ -1436,26 +1452,7 @@ void MachineSetting::updatepara(const bool isTesting){
 //        static_cast<double>(ui->doubleSpinBox_Add_RIS_Ratio->value())
 //    };
 
-//    quint8 spitReagentDownHeigh[REAGENT_COUNT] = {
-//        static_cast<quint8>(ui->spinBox_down_AA->value()),
-//        static_cast<quint8>(ui->spinBox_down_ADP->value()),
-//        static_cast<quint8>(ui->spinBox_down_ADR->value()),
-//        static_cast<quint8>(ui->spinBox_down_COL->value()),
-//        static_cast<quint8>(ui->spinBox_down_RIS->value())
-//    };
 
-//    int size = qMin(m_capactityList.size(), m_limitratioList.size()); // 取最小size防止越界
-
-//    for (int i = 0; i < REAGENT_COUNT; ++i) {
-//        ini.setTypesReagentSuckVolume(reagentTypes[i],suckReagentVol[i]); //配置吸试剂的量
-//        ini.setTypesReagentSuckRatio(reagentTypes[i],suckReagentVolRatio[i]); //配置吸试剂比例系数
-//        ini.setTypesReagentSuckAdd_Ratio(reagentTypes[i],suckReagentVolRatioadd[i]);  //吸试剂吸多余的比例
-//        ini.setTypesReagentNeedleDownHigh(reagentTypes[i],spitReagentDownHeigh[i]); //试剂加到测试通道下针高度
-//    }
-
-//    for (int i = 0; i < size; ++i) {
-//        QSpinBox *capacitySpinBox = m_capactityList.at(i);
-//        QSpinBox *limitSpinBox = m_limitratioList.at(i);
 
 //        // 检查指针是否有效
 //        if (!capacitySpinBox || !limitSpinBox) {
@@ -1564,16 +1561,26 @@ void MachineSetting::updateReagentCapacityAndLimit() {
     const int size = qMin(m_capactityList.size(), m_limitratioList.size());
 
     const QString Suppilefile = QCoreApplication::applicationDirPath() + "/consumables.ini";
+
+    // 确保配置文件存在且有正确格式
     QFile filePara(Suppilefile);
-    bool bexit = filePara.exists();
-    if(!bexit){
-       filePara.open(QIODevice::Append);
-       QLOG_WARN()<<"耗材配置文件不存在,创建"<<__FILE__<<__LINE__<<endl;
+    if (!filePara.exists()) {
+        if (!filePara.open(QIODevice::WriteOnly)) {
+            QLOG_ERROR() << "无法创建耗材配置文件:" << filePara.errorString();
+            return;
+        }
+        // 写入初始文件头或默认配置
+        QTextStream out(&filePara);
+        out << "[Consumables]\n";
+        out << "; 耗材配置文件\n";
+        out << "; 自动生成于 " << QDateTime::currentDateTime().toString() << "\n";
+        filePara.close();
+        QLOG_INFO() << "耗材配置文件已创建:" << Suppilefile;
     }
 
     for (int i = 0; i < size; ++i) {
         if (QSpinBox *capacitySpinBox = m_capactityList.value(i)) {
-			quint16 capacityVol = capacitySpinBox->value();
+            quint16 capacityVol = capacitySpinBox->value();
             QUIUtils::sycnBottleCapacity(Suppilefile, i, capacityVol);
             ConsumablesOper::GetpInstance()->updateReagentTotal(
                 WRITE_OPERAT, i, capacityVol);
@@ -1735,9 +1742,9 @@ void MachineSetting::initdisplaymoduleChn( const quint8 equipmentIndex)
     bool binitactiv = false;
     auto &ini = INI_File();
 
-	QDoubleSpinBox *pmodulTempA = ui->doubleSpinBox_Moduletemperature_1;
-	QDoubleSpinBox *pmodulTempB = ui->doubleSpinBox_Moduletemperature_2;
-	QDoubleSpinBox *pmodulTempC = ui->doubleSpinBox_Moduletemperature_3;
+    QDoubleSpinBox *pmodulTempA = ui->doubleSpinBox_Moduletemperature_1;
+    QDoubleSpinBox *pmodulTempB = ui->doubleSpinBox_Moduletemperature_2;
+    QDoubleSpinBox *pmodulTempC = ui->doubleSpinBox_Moduletemperature_3;
 
     //模组通道
     QList<QCheckBox*> QCheckBoxList = ui->usechannel->findChildren<QCheckBox*>();
@@ -1759,8 +1766,8 @@ void MachineSetting::initdisplaymoduleChn( const quint8 equipmentIndex)
             }
             if(binitactiv == false)
             {
-				pmodulTempA->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_1)).toDouble());
-				pmodulTempB->hide();
+                pmodulTempA->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_1)).toDouble());
+                pmodulTempB->hide();
                 pmodulTempC->hide();
                 ui->label_Moduletemperature_2->hide();
                 ui->label_Moduletemperature_3->hide();
@@ -1776,9 +1783,9 @@ void MachineSetting::initdisplaymoduleChn( const quint8 equipmentIndex)
             }
             if(binitactiv == false)
             {
-				pmodulTempA->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_1)).toDouble());
-				pmodulTempB->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_2)).toDouble());
-				pmodulTempC->hide();
+                pmodulTempA->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_1)).toDouble());
+                pmodulTempB->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_2)).toDouble());
+                pmodulTempC->hide();
                 ui->label_Moduletemperature_3->hide();
                 binitactiv = true;
             }
@@ -1787,9 +1794,9 @@ void MachineSetting::initdisplaymoduleChn( const quint8 equipmentIndex)
         {
             if(binitactiv == false)
             {
-				pmodulTempA->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_1)).toDouble());
-				pmodulTempB->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_2)).toDouble());
-				pmodulTempC->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_3)).toDouble());
+                pmodulTempA->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_1)).toDouble());
+                pmodulTempB->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_2)).toDouble());
+                pmodulTempC->setValue(ini.rConfigPara(QString("ModuleTemperature%1").arg(MODULE_3)).toDouble());
                 binitactiv = true;
             }
         }
@@ -1812,9 +1819,9 @@ void MachineSetting::sendmainbordBasicPara()
     }
 
 
-	bool scanbar = ui->UseBarCode->isChecked();
-	bool rightReagent = ui->checkBox_UesSecondReagentHole->isChecked();
-	bool initcatchcups = ui->checkBox_catchcups->isChecked();
+    bool scanbar = ui->UseBarCode->isChecked();
+    bool rightReagent = ui->checkBox_UesSecondReagentHole->isChecked();
+    bool initcatchcups = ui->checkBox_catchcups->isChecked();
     QVariantMap configs = {
             {FIRSTSUCKAIRS, ui->checkBox_suck_offset->isChecked()}, //吸样校准
             {SCANCODEBAR, scanbar }, //使用条形码
@@ -1919,9 +1926,9 @@ void MachineSetting::BloodPinParaWriteBoadr()
     BloodPinParams params;
 
     params.paramIndex4 = {
-		static_cast<quint16>(ui->spinBoxAbsorbX2->value()) ,
-		static_cast<quint16>(ui->poorBlood_changliang->value()),
-		static_cast<quint16>(ui->spinBox_suckairs->value()),
+        static_cast<quint16>(ui->spinBoxAbsorbX2->value()) ,
+        static_cast<quint16>(ui->poorBlood_changliang->value()),
+        static_cast<quint16>(ui->spinBox_suckairs->value()),
         static_cast<quint32>(ui->spinBox_WashesTime->value())
 
     };
@@ -2022,7 +2029,7 @@ void MachineSetting::notifyReagentPinParaToBoard()
                                          ReagentDownPinmm,
                                         otherReagentData);
     emit SetParatoInstrument({sendOrder,sendOtherOrder},"配置试剂针参数");
-	return;
+    return;
 }
 
 
@@ -2137,7 +2144,7 @@ void MachineSetting::initloginpassword()
         menterShortcut =  new QShortcut(QKeySequence(Qt::Key_F4), this);
         connectEnterReturnShortcuts();
     }
-	ui->lineEdit_maintenance->setFocus();
+    ui->lineEdit_maintenance->setFocus();
     ui->lineEdit_maintenance->setEchoMode(QLineEdit::Password);
     ui->lineEdit_maintenance->setPlaceholderText("请输入维护密码");// 添加输入提示
     ui->tabWidget_config->hide();
@@ -2187,7 +2194,7 @@ void MachineSetting::onMaintenanceButtonClicked(){
     } else {
         Engineerinterfacelayout(false);
         emit LoginEngineerMode(false);
-		ui->lineEdit_maintenance->setFocus();
+        ui->lineEdit_maintenance->setFocus();
         ui->label_maintenance->show();
         ui->lineEdit_maintenance->show();
         ui->lineEdit_maintenance->clear();
@@ -2196,9 +2203,9 @@ void MachineSetting::onMaintenanceButtonClicked(){
         ui->pushButton_maintenance->setText("登入维护(F4)");
         connectEnterReturnShortcuts();
         if (!inputPassword.isEmpty()) {
-			QMessageBox::warning(this, "错误", "密码错误");  // 增加错误反馈
-			return;
-		}    
+            QMessageBox::warning(this, "错误", "密码错误");  // 增加错误反馈
+            return;
+        }
     }
 }
 void MachineSetting::Engineerinterfacelayout(bool enterEngineerMode)
@@ -2265,11 +2272,11 @@ void MachineSetting::configBloodpinparaSignals()
             INI_File().SetEmptyTubeDownHigh(ui->EmptyHeigh->value());
         }, "空试管区下血样针降高度"),
 
-		std::make_tuple(ui->doubleSpinBox_Ratio_ben, [=]{
+        std::make_tuple(ui->doubleSpinBox_Ratio_ben, [=]{
             INI_File().SetPPPConversionScale(ui->doubleSpinBox_Ratio_ben->value());
         }, ""),
 
-		std::make_tuple(ui->doubleSpinBox_PRPratio, [=]{
+        std::make_tuple(ui->doubleSpinBox_PRPratio, [=]{
             INI_File().setPRPConvertTheratioColumn(ui->doubleSpinBox_PRPratio->value());
         }, ""),
 
@@ -2277,50 +2284,50 @@ void MachineSetting::configBloodpinparaSignals()
             INI_File().setPEAddSuckRatio(ui->doubleSpinBoxAddRatio->value());
         },"PEaddRatio"),
 
-		std::make_tuple(ui->SecurityValue_box, [=]{
+        std::make_tuple(ui->SecurityValue_box, [=]{
             INI_File().SetSecurityValue(ui->SecurityValue_box->value());
         }, "空回值"),
 
-		std::make_tuple(ui->poorBlood_changliang, [=]{
+        std::make_tuple(ui->poorBlood_changliang, [=]{
             double volSuckPPP = ui->poorBlood_changliang->value();
             QLOG_DEBUG()<<"初始化设置吸PPP/PRP样本量"<<volSuckPPP;
             INI_File().SetLearnSamplevolume(volSuckPPP);
         }, "样本用量"),
 
-		std::make_tuple(ui->FixedHighvalue, [=]{
+        std::make_tuple(ui->FixedHighvalue, [=]{
             INI_File().SetFixedHigh(ui->FixedHighvalue->value());
         }, "测高物理高度"),
 
-		std::make_tuple(ui->OffsetTestHeightValue, [=]{
+        std::make_tuple(ui->OffsetTestHeightValue, [=]{
             INI_File().SetTestDifference(ui->OffsetTestHeightValue->value());
         }, ""),
 
-		std::make_tuple(ui->spinBoxAbsorbX2, [=]{
+        std::make_tuple(ui->spinBoxAbsorbX2, [=]{
             INI_File().SetAbsorbWashingfluidX2(ui->spinBoxAbsorbX2->value());
         }, "洗血样针吸清洗液的量"),
 
-		std::make_tuple(ui->spinBox_WashesTime, [=]{
+        std::make_tuple(ui->spinBox_WashesTime, [=]{
             INI_File().setWashesTime(ui->spinBox_WashesTime->value());
         }, "清洗时间"),
 
-		std::make_tuple(ui->spinBox_CleanLinqueFailedHigh, [=]{
+        std::make_tuple(ui->spinBox_CleanLinqueFailedHigh, [=]{
             INI_File().SetFailedCleanLinqueHigh(ui->spinBox_CleanLinqueFailedHigh->value());
         }, "液面探测失败下降高度(清洗剂)血样针"),
 
-		std::make_tuple(ui->Testheighdownheigh, [=]{
+        std::make_tuple(ui->Testheighdownheigh, [=]{
             INI_File().SetAbsorbTubeBottom(ui->Testheighdownheigh->value());
         }, "血浆模式下针高度"),
 
-		std::make_tuple(ui->spinBox_faliedlinque, [=]{
+        std::make_tuple(ui->spinBox_faliedlinque, [=]{
             INI_File().SetFailedLinqueHigh(ui->spinBox_faliedlinque->value());
         }, "液面探测失败高度(贫血)"),
 
-		std::make_tuple(ui->spinBox_suckairs, [=]{
+        std::make_tuple(ui->spinBox_suckairs, [=]{
             INI_File()._setsuckairsuckPRP(ui->spinBox_suckairs->value());
         }, "吸富血前吸空气量:")
     };
 
-	// 使用std::get替代结构化绑定
+    // 使用std::get替代结构化绑定
     for (const auto& item : configTable) {
         QWidget* widget = std::get<0>(item);
         auto action = std::get<1>(item);
@@ -2611,12 +2618,22 @@ void MachineSetting::innitHands(quint8 equipmentIndex_)
 bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
 {
     QLabel *plabel = qobject_cast<QLabel *>(obj);
+    if (!plabel) {
+        return MachineSetting::eventFilter(obj, ev);
+    }
+
     if(m_pbloodLableList.contains(plabel))
     {
        if(ev->type() == QEvent::MouseButtonPress)
        {
            auto iter = m_pbloodLableList.find(plabel);
+           if (iter == m_pbloodLableList.end()) {
+               return false;
+           }
            btnLable* pstuinfo = iter.value();
+           if (!pstuinfo || !pstuinfo->pdownmovemm) {
+               return false;
+           }
            if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
                return false;
            plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
@@ -2632,7 +2649,13 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
         if(ev->type() == QEvent::MouseButtonPress)
         {
             auto it_ = m_preagpinLableList.find(plabel);
+            if (it_ == m_preagpinLableList.end()) {
+                return false;
+            }
             btnLable* pstuinfo = it_.value();
+            if (!pstuinfo || !pstuinfo->pdownmovemm) {
+                return false;
+            }
             if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
                 return false;
             plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
@@ -2647,7 +2670,13 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
         if(ev->type() == QEvent::MouseButtonPress)
         {
             auto it_ = m_pHandsLableList.find(plabel);
+            if (it_ == m_pHandsLableList.end()) {
+                return false;
+            }
             btnLable* pstuinfo = it_.value();
+            if (!pstuinfo || !pstuinfo->pdownmovemm) {
+                return false;
+            }
             if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
                 return false;
             plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
@@ -2663,17 +2692,17 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
 
 void MachineSetting::_finishmovetestdownhigh(int index_)
 {
-	auto findAndResetStyle = [index_](auto& container) -> bool {
-		for (auto it = container.begin(); it != container.end(); ++it) {
-			// 使用Qt迭代器API 
-			btnLable* pstuinfo = it.value();  // 关键修正：value()方法
-			if (pstuinfo->index_ == index_) {
-				pstuinfo->plableinfo->setStyleSheet("");
-				return true;
-			}
-		}
-		return false;
-	};
+    auto findAndResetStyle = [index_](auto& container) -> bool {
+        for (auto it = container.begin(); it != container.end(); ++it) {
+            // 使用Qt迭代器API
+            btnLable* pstuinfo = it.value();  // 关键修正：value()方法
+            if (pstuinfo->index_ == index_) {
+                pstuinfo->plableinfo->setStyleSheet("");
+                return true;
+            }
+        }
+        return false;
+    };
 
     // 按顺序搜索三个列表
     if (findAndResetStyle(m_pbloodLableList)) return;
@@ -2846,6 +2875,8 @@ void MachineSetting::initDimmingTab(QTableWidget *pdimmingTable, const quint8 in
         QFile styleFile(":/Picture/SetPng/wholePushbutton.qss");
         if (styleFile.open(QIODevice::ReadOnly)) {
             customQss = QString::fromLatin1(styleFile.readAll());
+        } else {
+            QLOG_WARN() << "Failed to load cached pushbutton QSS:" << styleFile.errorString();
         }
     }
 
@@ -2967,9 +2998,9 @@ void MachineSetting::insertDataItem(QTableWidget* pdimmingTable,
 
     // 4. 设置编辑权限
     //item->setFlags(readOnly ? item->flags() & \~Qt::ItemIsEditable : item->flags() | Qt::ItemIsEditable);
-	if(!readOnly)
-		item->setFlags(Qt::ItemIsEnabled);
-	
+    if(!readOnly)
+        item->setFlags(Qt::ItemIsEnabled);
+
     // 5. 单次设置表项
     pdimmingTable->setItem(row, col, item);
 }
@@ -3019,11 +3050,11 @@ void MachineSetting::handleButtonAction(int moduleIndex, int column)
     // 1. 定义操作映射表 - 消除重复switch
     struct ModuleAction {
 
-		// 添加显式构造函数
-		ModuleAction(std::function<QByteArray()> g, QString n, bool p = false)
-			: getData(std::move(g)),
-			actionName(std::move(n)),
-			requiresPause(p) {}
+        // 添加显式构造函数
+        ModuleAction(std::function<QByteArray()> g, QString n, bool p = false)
+            : getData(std::move(g)),
+            actionName(std::move(n)),
+            requiresPause(p) {}
 
         std::function<QByteArray()> getData;
         QString actionName;
@@ -3107,39 +3138,39 @@ void MachineSetting::loadPerformanceEvaluation(QWidget *parentWidget){
         return;
     }
 
-	// 确保UI操作在主线程执行
-	Q_ASSERT(QThread::currentThread() == qApp->thread());
+    // 确保UI操作在主线程执行
+    Q_ASSERT(QThread::currentThread() == qApp->thread());
 
     // 单例模式管理窗口
     if(!m_Performanceverification) {
         m_Performanceverification.reset(new ReplaceTheTestTubeTray(m_typedequipment,parentWidget));
-		
-		// 清理旧布局（安全内存管理）
-		QLayout* oldLayout = parentWidget->layout();
-		if (oldLayout) {
-			QLayoutItem* item;
-			while ((item = oldLayout->takeAt(0)) != nullptr) {
-				delete item->widget();
-				delete item;
-			}
-			delete oldLayout;
-		}
 
-		// 配置自适应布局
-		QHBoxLayout* mainLayout = new QHBoxLayout(parentWidget);
-		mainLayout->setContentsMargins(0, 0, 0, 0);  // 消除边距
-		mainLayout->addWidget(m_Performanceverification.get());
+        // 清理旧布局（安全内存管理）
+        QLayout* oldLayout = parentWidget->layout();
+        if (oldLayout) {
+            QLayoutItem* item;
+            while ((item = oldLayout->takeAt(0)) != nullptr) {
+                delete item->widget();
+                delete item;
+            }
+            delete oldLayout;
+        }
+
+        // 配置自适应布局
+        QHBoxLayout* mainLayout = new QHBoxLayout(parentWidget);
+        mainLayout->setContentsMargins(0, 0, 0, 0);  // 消除边距
+        mainLayout->addWidget(m_Performanceverification.get());
     }
 
-	
+
 
     // 异步加载资源
-	QTimer::singleShot(0, this, [this, parentWidget]() {
-		if (m_Performanceverification) {
+    QTimer::singleShot(0, this, [this, parentWidget]() {
+        if (m_Performanceverification) {
             m_Performanceverification->showNormal();
-			parentWidget->updateGeometry();
-		}
-	});
+            parentWidget->updateGeometry();
+        }
+    });
 }
 
 void MachineSetting::HandleoutputResultData(const QString& id,const quint8& channel,const std::array<double, 3>& ratios)

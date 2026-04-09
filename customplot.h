@@ -332,10 +332,6 @@ private:
     int mfromtray;
     int mendtray;
     bool mbstopTestadjust;
-
-
-
-
 };
 
 #endif // CUSTOMPLOT_H
