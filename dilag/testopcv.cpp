@@ -227,20 +227,22 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
     }
 
     auto &ini = INI_File();
-    redBloodCellHeightMm = rbcHeightPixels / pixelToMmRatio;
-    referenceToBottomDistance = ini.GetFixedHigh();
+    //redBloodCellHeightMm = rbcHeightPixels / pixelToMmRatio; //红细胞高度
+    referenceToBottomDistance = ini.GetFixedHigh(); //参照物top到针高度
+    double safetyMargin = ini.GetTestDifference();  //偏移高度
 
+    //  红细胞top与参照物top像素差（实际偏差像素）  = 红细胞TOP像素 - 参照物TOP像素
     double interfaceToReferenceTopPixels = interfaceY - referenceObjectRect.y;
+    //像素差实际高度mm(像素/比列) （实际偏差高度）
     double interfaceToReferenceTopMm = interfaceToReferenceTopPixels / pixelToMmRatio;
+    QLOG_DEBUG()<<"（实际偏差高度）"<<interfaceToReferenceTopMm;
 
-    double safetyMargin = ini.GetTestDifference();
-    //double totalDropDistance = referenceToBottomDistance + interfaceToReferenceTopMm;
-    //maxNeedleDropHeight = max(0.0, totalDropDistance - redBloodCellHeightMm - safetyMargin);
+    //针到参照物top的高度mm + （实际偏差高度）
+    double totalDropDistance = ROTB - interfaceToReferenceTopMm; //输出血样高度
+    redBloodCellHeightMm = max(0.0, totalDropDistance);
+    redBloodCellHeightMm = round(redBloodCellHeightMm * 100) / 100; //保留2位小数
 
-    //double totalDropDistance = referenceToBottomDistance/* + REFERENCE_TO_BOTTOM*/;
-    maxNeedleDropHeight = max(0.0, ini.GetFixedHigh() - redBloodCellHeightMm - safetyMargin);
-    maxNeedleDropHeight = round(maxNeedleDropHeight * 100) / 100; //保留2位小数
-
+    maxNeedleDropHeight = referenceToBottomDistance + ROTB - redBloodCellHeightMm - safetyMargin;
 
     QLOG_DEBUG() << "计算参数:";
     QLOG_DEBUG() << "红细胞高度像素: " << rbcHeightPixels << "px";
@@ -366,7 +368,6 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
    displayImage(resultImage, ui->label_showimage);
 
 
-
    QString infoText = QString(
            "<div style='color: black;'>"
            "检测完成:<br>"
@@ -382,7 +383,7 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
            .arg(redBloodCellHeight)
            .arg(redBloodCellHeightMm, 0, 'f', 2)
            .arg(pixelToMmRatio)
-           .arg(maxNeedleDropHeight, 0, 'f', 1)
+           .arg(maxNeedleDropHeight, 0, 'f', 2)
            .arg(INI_File().GetFixedHigh(), 0, 'f', 1);
 
    // 如果识别到的颜色类型是黑色，添加红色警告文字
@@ -391,7 +392,7 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
    }
 
    QString redBloodCellHeightMmstr = QString("%1").arg(redBloodCellHeightMm, 0, 'f', 2);
-   emit imageoutResult(redBloodCellHeightMmstr,maxNeedleDropHeight); // 显示血的距离、和下针的高度
+   emit imageoutResult(redBloodCellHeightMmstr); // 显示血的距离、和下针的高度
 
    // 启用富文本显示
    ui->label_ratio->setTextFormat(Qt::RichText);

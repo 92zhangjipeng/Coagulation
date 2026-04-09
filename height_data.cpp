@@ -1154,7 +1154,7 @@ void Height_Data::selectPPPholeChange(const QString& index_) {
  * @param id 样本ID
  * @param heightValue 高度值
  */
-void Height_Data::updateTableItem(const QString& id, double heightValue,const double drapDownHeigh)
+void Height_Data::updateTableItem(const QString& id, double heightValue)
 {
     QTableWidget* table = ui->Sample_Data_tablewidget;
     const int rowCount = table->rowCount();
@@ -1169,7 +1169,7 @@ void Height_Data::updateTableItem(const QString& id, double heightValue,const do
             table->setItem(i, HEIGHT_DATA, heightItem);
         }
 
-        heightItem->setText(QString::number(heightValue) + "["+ QString::number(drapDownHeigh)+"]");
+        heightItem->setText(QString::number(heightValue));
         heightItem->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
         heightItem->setForeground((heightValue <= 0) ? Qt::red : palette().text());
         break;
@@ -1180,7 +1180,7 @@ void Height_Data::updateTableItem(const QString& id, double heightValue,const do
  * @brief 处理样本添加逻辑
  * @param heightValue 测量高度值
  */
-void Height_Data::handleSampleAddition(const double heightValue, const double drapDownHeigh)
+void Height_Data::handleSampleAddition(const double heightValue)
 {
     // 检查加样孔位状态
     QStringList availableHoles;
@@ -1190,7 +1190,7 @@ void Height_Data::handleSampleAddition(const double heightValue, const double dr
     }
 
     //添加全血样本
-    addwholeBloodSample(heightValue,drapDownHeigh ,availableHoles);
+    addwholeBloodSample(heightValue ,availableHoles);
 }
 
 void Height_Data::showHoleWarning(const QStringList& holes)
@@ -1206,11 +1206,11 @@ void Height_Data::showHoleWarning(const QStringList& holes)
 
 
 
-void Height_Data::addwholeBloodSample(double value, const double drapDownHeigh, const QStringList& holes)
+void Height_Data::addwholeBloodSample(double value, const QStringList& holes)
 {
 	auto &ini = INI_File();
 	
-    addOneTestSample(ini.GetWholeBloodModel(), value, holes, "null",drapDownHeigh);
+    addOneTestSample(ini.GetWholeBloodModel(), value, holes, "null");
 }
 
 
@@ -1306,7 +1306,7 @@ QString Height_Data::generateSampleId(){
 /// 添加一个样本到表格
 int Height_Data::addOneTestSample(const bool isWholeBloodMode, double testHeight,
                                    const QStringList &availableHoles,
-                                   const QString &barcode, const double drapDownHeigh)
+                                   const QString &barcode)
 {
 
     // 参数验证
@@ -1340,11 +1340,9 @@ int Height_Data::addOneTestSample(const bool isWholeBloodMode, double testHeight
         // 3. 添加测高值
         double heightValue = calculateHeightValue(isWholeBloodMode, testHeight);
         if (!addHeightValueToRow(sampleTable, currentRow, heightValue,
-                                  isWholeBloodMode,drapDownHeigh)) {
+                                  isWholeBloodMode)) {
             throw std::runtime_error("添加测高值失败");
         }
-
-
 
 
         // 4. 添加孔号选择器
@@ -1445,22 +1443,18 @@ bool Height_Data::addSampleIdToRow(QTableWidget *table, int row,
 // 添加测高值到指定行
 //=============================================================================
 bool Height_Data::addHeightValueToRow(QTableWidget *table, int row,
-                                       double heightValue, bool isInvalid, double drapDownHeigh)
+                                       double heightValue, bool isInvalid)
 {
     if (!table || row < 0) return false;
 
     QString displayText;
     if(isInvalid){
-        displayText = QString("%1[%2]")
-                      .arg(heightValue, 0, 'f', 2)
-                      .arg(drapDownHeigh, 0, 'f', 2);
+        displayText = QString("%1").arg(heightValue, 0, 'f', 2);
     }else {
         displayText = QString::number(heightValue, 'f', 2);
     }
     QTableWidgetItem *item = new QTableWidgetItem(displayText);
     item->setTextAlignment(Qt::AlignCenter);
-
-
     table->setItem(row, HEIGHT_DATA, item);
     return true;
 }
@@ -1471,7 +1465,7 @@ bool Height_Data::addHeightValueToRow(QTableWidget *table, int row,
 double Height_Data::calculateHeightValue(bool isWholeBloodMode, double testHeight) const
 {
     if (isWholeBloodMode) {
-        QLOG_DEBUG()<<"全血模式下针高度["<<testHeight<<"]";
+        QLOG_DEBUG()<<"全血模式高度["<<testHeight<<"]";
         return testHeight;
     }
     return INI_File().GetAbsorbTubeBottom();
@@ -1654,7 +1648,7 @@ int Height_Data::Addtasksmanually()
     }
 
     // 添加样本（全血模式下TestHeight传0表示使用默认值）
-    return addOneTestSample(false, 0.0, availableHoleList, QString("null"),0.0f);
+    return addOneTestSample(false, 0.0, availableHoleList, QString("null"));
 }
 
 
@@ -1821,21 +1815,18 @@ void Height_Data::sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
 			if (combox) CurrRichHole = combox->currentText().toInt(); // 直接获取文本 [[1]]
 		}
 
-
-        double plasmaHeight = 0.0;      // 血浆层高度（正常模式）
-        double wholeBloodHeight = 0.0;  // 全血模式下的额外参数
-        bool isWholeBloodMode = extractBracketValue(heightItem->text(), plasmaHeight, wholeBloodHeight);
-        // 根据模式选择下针高度
+        //PRP下针
         double needleDown = 0.0f;
-        if (isWholeBloodMode) {
-            // 全血模式：使用方括号内的值（红细胞层高度？）
-            needleDown = plasmaHeight;
-            qDebug() << "全血模式，下针高度:" << needleDown;
-        } else {
-            // 正常模式：使用主数值（血浆层高度）
-            needleDown = wholeBloodHeight;
-            qDebug() << "血浆模式，下针高度:" << needleDown;
+        if(INI_File().GetWholeBloodModel()){
+            const double wholeBloodmamode  = heightItem->text().toDouble();
+            needleDown = switchWholeModeHeight(wholeBloodmamode);
+            QLOG_DEBUG() << "全血模式，红细胞层高度:" << wholeBloodmamode<<"mm"<<"下针高度"<<needleDown<<"mm";
+        }else{
+            double Plasmamode  = heightItem->text().toDouble();
+            needleDown = Plasmamode;
+            QLOG_DEBUG() << "血浆模式，下针高度:" << needleDown;
         }
+
 
 		// 6. 发射信号（使用预计算的totalTasks和savedtime）
         emit sycnwaittestsampledata(
@@ -1975,17 +1966,19 @@ void Height_Data::AF_DATA_REQUEST(QVariant sampleiddata)
 
 
 
-void Height_Data::onImageoutResult(const QString redBloodCellHeigh, const double maxNeedleDropHeight){
+void Height_Data::onImageoutResult(const QString redBloodCellHeigh){
+
+    double outTestResult = redBloodCellHeigh.toDouble();
+    const double wholeBloodHeigh = round(outTestResult * 100) / 100; //保留2位小数
 
     // 模块2: 表格数据替换模式 重测
     if (m_isreplaceopencv) {
-       updateTableItem(m_repTestOpencvId, redBloodCellHeigh.toDouble(),maxNeedleDropHeight);
+       updateTableItem(m_repTestOpencvId, wholeBloodHeigh);
        return;
     }
 
     //样本添加逻辑
-    const double outTestResult = redBloodCellHeigh.toDouble();
-    handleSampleAddition(outTestResult,maxNeedleDropHeight);
+    handleSampleAddition(wholeBloodHeigh);
     return;
 }
 
@@ -2052,4 +2045,13 @@ void Height_Data::cleanupThread()
         delete m_testFindPrpHeigh;
         m_testFindPrpHeigh = nullptr;
     }
+}
+
+//转换血浆模式高度
+double Height_Data::switchWholeModeHeight(const double redBloodHeigh)
+{
+    auto &ini = INI_File();
+    double referenceToBottomDistance = ini.GetFixedHigh(); //参照物top到针高度
+    double safetyMargin = ini.GetTestDifference();  //偏移高度
+    return referenceToBottomDistance + ROTB - redBloodHeigh - safetyMargin;
 }

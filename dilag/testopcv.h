@@ -33,6 +33,7 @@ using namespace cv;
 using namespace std;
 
 
+
 // 二值化参数结构体
 struct BinaryParameters {
     // 红色参数
@@ -214,7 +215,7 @@ private:
 
 
 signals:
-   void imageoutResult(const QString redBloodCellHeigh,const double maxNeedleDropHeight);
+   void imageoutResult(const QString redBloodCellHeigh);
 
 public:
    void handleSycnOpendcvImage(const QString &imagePath);

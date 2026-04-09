@@ -69,14 +69,17 @@ public:
 
 private:
 
-    void updateTableItem(const QString& id, double heightValue, const double drapDownHeigh);
-    void handleSampleAddition(const double heightValue, const double drapDownHeigh);
+    void updateTableItem(const QString& id, double heightValue);
+    void handleSampleAddition(const double heightValue);
     void showHoleWarning(const QStringList& holes);
-    void addwholeBloodSample(double value,const double drapDownHeigh, const QStringList& holes);
+    void addwholeBloodSample(double value, const QStringList& holes);
 
     //初始话测试显示界面
     void initLoadOpencvTestImag();
     void cleanupThread();
+
+    //转换血浆模式高度
+    double switchWholeModeHeight(const double redBloodHeigh);
 
 protected:
     void    closeEvent(QCloseEvent *event);
@@ -118,7 +121,7 @@ public slots:
     void selectPPPholeChange(const QString& index_);
 
     //测高结果
-    void onImageoutResult(const QString redBloodCellHeigh,const double maxNeedleDropHeight);
+    void onImageoutResult(const QString redBloodCellHeigh);
 
 private slots:
     void tableItemClicked(int row,int col);
@@ -134,13 +137,12 @@ private:
 
     int addOneTestSample(const bool isWholeBloodMode, double testHeight,
                           const QStringList &availableHoles,
-                          const QString &barcode,const double drapDownHeigh);
+                          const QString &barcode);
 
     bool addCheckBoxToRow(QTableWidget *table, int row);
     bool addSampleIdToRow(QTableWidget *table, int row,
                           const QString &sampleId, bool isWholeBloodMode);
-    bool addHeightValueToRow(QTableWidget *table, int row,
-                             double heightValue, bool isInvalid,double drapDownHeigh);
+    bool addHeightValueToRow(QTableWidget *table, int row,double heightValue, bool isInvalid);
     bool addHoleSelectorToRow(QTableWidget *table, int row,
                               const QString &sampleId,
                               const QStringList &availableHoles,

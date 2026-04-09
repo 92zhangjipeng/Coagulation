@@ -147,7 +147,7 @@ double INI_File::GetFixedHigh()
 
 /**
  * @brief INI_File::SetTestDifference
- * @param UpOffsetmm PPP最底部向上偏移高度
+ * @param UpOffsetmm PrP最底部向上偏移高度
  */
 void  INI_File::SetTestDifference(double UpOffsetmm )
 {

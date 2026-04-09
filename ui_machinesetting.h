@@ -4463,7 +4463,7 @@ public:
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
         tabWidget_3->setCurrentIndex(1);
-        tabWidget_config->setCurrentIndex(2);
+        tabWidget_config->setCurrentIndex(0);
 
 
         QMetaObject::connectSlotsByName(MachineSetting);
@@ -4564,7 +4564,7 @@ public:
         label_setAddr->setText(QApplication::translate("MachineSetting", "\345\234\260\345\235\200:", nullptr));
         tabWidget_3->setTabText(tabWidget_3->indexOf(tab_Nornal), QApplication::translate("MachineSetting", "\346\226\207\346\234\254\345\257\274\345\207\272", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_LIS), QApplication::translate("MachineSetting", "LIS", nullptr));
-        label_fixedhigh->setText(QApplication::translate("MachineSetting", "\345\205\250\350\241\200\346\200\273\351\253\230\345\272\246:", nullptr));
+        label_fixedhigh->setText(QApplication::translate("MachineSetting", "\345\205\250\350\241\200\346\265\213\351\253\230\351\253\230\345\272\246:", nullptr));
         EmptyHeigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         label_ratio_ben->setText(QApplication::translate("MachineSetting", "PPP\347\263\273\346\225\260:", nullptr));
         label_EmptyTubeHeigh->setText(QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\344\270\213\351\231\215\351\253\230\345\272\246:", nullptr));

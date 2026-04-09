@@ -439,7 +439,7 @@ bool opencvfindHeigh::IdentifyRBCHeight(cv::Mat img,double ratioimg,double &Bloo
                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 200, 0), 1);
 
     auto &ini = INI_File();
-    double  fixedHeigh = ini.GetFixedHigh() + REFERENCE_TO_BOTTOM;
+    double  fixedHeigh = ini.GetFixedHigh() + ROTB;
     double  pinDownSuckHeigh = fixedHeigh - (BloodHeigh + ini.GetTestDifference());
     QLOG_DEBUG()<<"总高度:"<< fixedHeigh <<"-(测出血样高度+"<<"偏移高度)";
     QLOG_DEBUG()<<"测出血样高度"<<BloodHeigh;

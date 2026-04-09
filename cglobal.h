@@ -220,7 +220,7 @@
 
 //测高模块的参照物高度 mm
 #define  REFERENCE_HEIGHT		 20 
-#define  REFERENCE_TO_BOTTOM     26.8   //51.8    //26.8
+#define  ROTB                    34.8 //参照物到测高模块底部
 
 //读取耗材卡状态
 #define CONSUMABLES_READ_NORMAL       0x00  //正常(读取)
