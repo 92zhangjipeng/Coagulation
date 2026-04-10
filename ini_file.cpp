@@ -6,6 +6,7 @@
 #include "cglobal.h"
 #include "QsLog/include/QsLog.h"
 
+const QString INI_File::Instrument_parameters = "InstrumentParameters";  // 定义
 
 INI_File::INI_File()
 {
@@ -159,6 +160,21 @@ double INI_File::GetTestDifference(void)
 {
     m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("TestHeightDifference");
     return m_psetting->value(m_Section_Key).toDouble();
+}
+
+
+const QString INI_File::KEY_REF_BOTTOM_DISTANCE = QString("%1/RefBottomDistance").arg(Instrument_parameters);
+/** 参照物到底部距离
+ * @brief INI_File::setRefBottomDistance
+ * @param distance
+ */
+void INI_File::setRefBottomDistance(const double distance)
+{
+    m_psetting->setValue(KEY_REF_BOTTOM_DISTANCE,distance);
+}
+double INI_File::getRefBottomDistance(void)
+{
+    return m_psetting->value(KEY_REF_BOTTOM_DISTANCE).toDouble();
 }
 
 

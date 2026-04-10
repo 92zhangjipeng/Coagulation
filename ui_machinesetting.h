@@ -270,8 +270,6 @@ public:
     QDoubleSpinBox *FixedHighvalue;
     QLabel *OffsetTestHeight;
     QDoubleSpinBox *OffsetTestHeightValue;
-    QLabel *label_failedlinque_3;
-    QSpinBox *spinBox_CleanLinqueFailedHigh;
     QLabel *label_3;
     QSpinBox *Testheighdownheigh;
     QLabel *label_failedlinque;
@@ -282,6 +280,10 @@ public:
     QSpinBox *spinBoxAbsorbX2;
     QLabel *labelwashesTime;
     QSpinBox *spinBox_WashesTime;
+    QLabel *label_failedlinque_3;
+    QSpinBox *spinBox_CleanLinqueFailedHigh;
+    QLabel *labelmoduleBottom;
+    QDoubleSpinBox *doubleSpinBoxBottomHeigh;
     QWidget *tab_reagpin;
     QGridLayout *gridLayout_6;
     QGroupBox *groupBox_RetagentBox;
@@ -3001,26 +3003,6 @@ public:
 
         gridLayout_5->addWidget(OffsetTestHeightValue, 5, 2, 1, 1);
 
-        label_failedlinque_3 = new QLabel(tab_configbloodpin);
-        label_failedlinque_3->setObjectName(QStringLiteral("label_failedlinque_3"));
-        label_failedlinque_3->setMinimumSize(QSize(190, 30));
-        label_failedlinque_3->setMaximumSize(QSize(190, 0));
-        label_failedlinque_3->setFont(font6);
-
-        gridLayout_5->addWidget(label_failedlinque_3, 6, 2, 1, 1);
-
-        spinBox_CleanLinqueFailedHigh = new QSpinBox(tab_configbloodpin);
-        spinBox_CleanLinqueFailedHigh->setObjectName(QStringLiteral("spinBox_CleanLinqueFailedHigh"));
-        spinBox_CleanLinqueFailedHigh->setMinimumSize(QSize(140, 30));
-        spinBox_CleanLinqueFailedHigh->setMaximumSize(QSize(140, 30));
-        spinBox_CleanLinqueFailedHigh->setFont(font10);
-        spinBox_CleanLinqueFailedHigh->setStyleSheet(QStringLiteral(""));
-        spinBox_CleanLinqueFailedHigh->setAlignment(Qt::AlignCenter);
-        spinBox_CleanLinqueFailedHigh->setMinimum(20);
-        spinBox_CleanLinqueFailedHigh->setMaximum(99);
-
-        gridLayout_5->addWidget(spinBox_CleanLinqueFailedHigh, 7, 2, 1, 1);
-
         label_3 = new QLabel(tab_configbloodpin);
         label_3->setObjectName(QStringLiteral("label_3"));
         label_3->setMinimumSize(QSize(170, 30));
@@ -3111,7 +3093,7 @@ public:
         spinBox_WashesTime = new QSpinBox(tab_configbloodpin);
         spinBox_WashesTime->setObjectName(QStringLiteral("spinBox_WashesTime"));
         spinBox_WashesTime->setMinimumSize(QSize(100, 30));
-        spinBox_WashesTime->setMaximumSize(QSize(122222, 16777215));
+        spinBox_WashesTime->setMaximumSize(QSize(140, 16777215));
         spinBox_WashesTime->setFont(font6);
         spinBox_WashesTime->setAlignment(Qt::AlignCenter);
         spinBox_WashesTime->setMinimum(500);
@@ -3119,6 +3101,42 @@ public:
         spinBox_WashesTime->setSingleStep(100);
 
         gridLayout_5->addWidget(spinBox_WashesTime, 7, 4, 1, 1);
+
+        label_failedlinque_3 = new QLabel(tab_configbloodpin);
+        label_failedlinque_3->setObjectName(QStringLiteral("label_failedlinque_3"));
+        label_failedlinque_3->setMinimumSize(QSize(190, 30));
+        label_failedlinque_3->setMaximumSize(QSize(190, 0));
+        label_failedlinque_3->setFont(font6);
+
+        gridLayout_5->addWidget(label_failedlinque_3, 8, 4, 1, 1);
+
+        spinBox_CleanLinqueFailedHigh = new QSpinBox(tab_configbloodpin);
+        spinBox_CleanLinqueFailedHigh->setObjectName(QStringLiteral("spinBox_CleanLinqueFailedHigh"));
+        spinBox_CleanLinqueFailedHigh->setMinimumSize(QSize(140, 30));
+        spinBox_CleanLinqueFailedHigh->setMaximumSize(QSize(140, 30));
+        spinBox_CleanLinqueFailedHigh->setFont(font10);
+        spinBox_CleanLinqueFailedHigh->setStyleSheet(QStringLiteral(""));
+        spinBox_CleanLinqueFailedHigh->setAlignment(Qt::AlignCenter);
+        spinBox_CleanLinqueFailedHigh->setMinimum(20);
+        spinBox_CleanLinqueFailedHigh->setMaximum(99);
+
+        gridLayout_5->addWidget(spinBox_CleanLinqueFailedHigh, 9, 4, 1, 1);
+
+        labelmoduleBottom = new QLabel(tab_configbloodpin);
+        labelmoduleBottom->setObjectName(QStringLiteral("labelmoduleBottom"));
+        labelmoduleBottom->setMinimumSize(QSize(0, 30));
+        labelmoduleBottom->setMaximumSize(QSize(16777215, 0));
+        labelmoduleBottom->setFont(font6);
+
+        gridLayout_5->addWidget(labelmoduleBottom, 6, 2, 1, 1);
+
+        doubleSpinBoxBottomHeigh = new QDoubleSpinBox(tab_configbloodpin);
+        doubleSpinBoxBottomHeigh->setObjectName(QStringLiteral("doubleSpinBoxBottomHeigh"));
+        doubleSpinBoxBottomHeigh->setMinimumSize(QSize(0, 30));
+        doubleSpinBoxBottomHeigh->setMaximumSize(QSize(140, 16777215));
+        doubleSpinBoxBottomHeigh->setDecimals(1);
+
+        gridLayout_5->addWidget(doubleSpinBoxBottomHeigh, 7, 2, 1, 1);
 
         tabWidget_config->addTab(tab_configbloodpin, QString());
         tab_reagpin = new QWidget();
@@ -4581,9 +4599,6 @@ public:
         FixedHighvalue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         OffsetTestHeight->setText(QApplication::translate("MachineSetting", "\346\265\213\351\253\230\345\201\217\347\247\273\351\253\230\345\272\246:", nullptr));
         OffsetTestHeightValue->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        label_failedlinque_3->setText(QApplication::translate("MachineSetting", "\346\240\267\346\234\254\351\222\210\346\270\205\346\264\227\346\216\242\346\265\213\351\253\230\345\272\246:", nullptr));
-        spinBox_CleanLinqueFailedHigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
-        spinBox_CleanLinqueFailedHigh->setPrefix(QString());
         label_3->setText(QApplication::translate("MachineSetting", "\350\241\200\346\265\206\346\250\241\345\274\217\344\270\213\351\231\215\351\253\230\345\272\246:", nullptr));
         Testheighdownheigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
         Testheighdownheigh->setPrefix(QString());
@@ -4596,6 +4611,10 @@ public:
         labelwashesTime->setText(QApplication::translate("MachineSetting", "\346\270\205\346\264\227\346\227\266\351\227\264:", nullptr));
         spinBox_WashesTime->setSuffix(QApplication::translate("MachineSetting", "ms", nullptr));
         spinBox_WashesTime->setPrefix(QString());
+        label_failedlinque_3->setText(QApplication::translate("MachineSetting", "\346\240\267\346\234\254\351\222\210\346\270\205\346\264\227\346\216\242\346\265\213\351\253\230\345\272\246:", nullptr));
+        spinBox_CleanLinqueFailedHigh->setSuffix(QApplication::translate("MachineSetting", "mm", nullptr));
+        spinBox_CleanLinqueFailedHigh->setPrefix(QString());
+        labelmoduleBottom->setText(QApplication::translate("MachineSetting", "\346\250\241\345\235\227\345\272\225\351\203\250\350\267\235\347\246\273\357\274\232", nullptr));
         tabWidget_config->setTabText(tabWidget_config->indexOf(tab_configbloodpin), QApplication::translate("MachineSetting", "\350\241\200\346\240\267\351\222\210\351\205\215\347\275\256\345\217\202\346\225\260", nullptr));
         groupBox_RetagentBox->setTitle(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\350\257\225\345\211\202\345\217\202\346\225\260", nullptr));
         label_11->setText(QApplication::translate("MachineSetting", "\345\220\270\350\257\225\345\211\202\347\263\273\346\225\260", nullptr));

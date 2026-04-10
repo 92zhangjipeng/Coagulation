@@ -82,6 +82,9 @@ public:
     void   SetTestDifference(double UpOffsetmm);
     double GetTestDifference(void);
 
+    void   setRefBottomDistance(const double distance);
+    double getRefBottomDistance(void);
+
 
     //抓手在通道的下针高度
     void    _sethandsdownheiht(quint8 indexchn,quint8 downmm);
@@ -194,8 +197,9 @@ public:
 private:
     QString m_qstrFileName;
     QSettings *m_psetting; 
-    const QString Instrument_parameters = "InstrumentParameters";
+	static  const QString Instrument_parameters /*= "InstrumentParameters"*/;
     QString m_Section_Key;
+    static const QString KEY_REF_BOTTOM_DISTANCE;
 
 };
 

@@ -586,9 +586,9 @@ void VerifyCoordinates::compareCoordinates(const bool initMachine)
     bool isValid = verifyCoord->verifyCoordinates();
 
     if (isValid) {
-        QMessageBox::information(this,
-            QString::fromUtf8("验证结果"),
-            QString::fromUtf8("所有坐标验证通过！\n校验坐标与仪器坐标一致。"));
+        //QMessageBox::information(this,
+            //QString::fromUtf8("验证结果"),
+            //QString::fromUtf8("所有坐标验证通过！\n校验坐标与仪器坐标一致。"));
     } else {
         displayStyledComparison(initMachine);
     }

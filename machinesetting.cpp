@@ -13,6 +13,7 @@
 #include "testing.h"
 #include <random>
 #include <QMetaType>
+#include <tuple>
 #include <iostream>
 #include "globaldata.h"
 #include "warn_interface.h"
@@ -312,6 +313,7 @@ void MachineSetting::initSheet()
             ui->doubleSpinBox_Ratio_ben,
             ui->doubleSpinBox_PRPratio,
             ui->doubleSpinBoxAddRatio,
+            ui->doubleSpinBoxBottomHeigh,
             ui->FixedHighvalue,
             ui->OffsetTestHeightValue,
             ui->doubleSpinBox_AA_Ratio,
@@ -2262,7 +2264,7 @@ void MachineSetting::connectSetting(QWidget* widget, SettingAction action)
     }
 }
 
-#include <tuple>
+
 void MachineSetting::configBloodpinparaSignals()
 {
     // 统一配置表：控件指针 + INI设置函数 + 日志信息
@@ -2300,7 +2302,11 @@ void MachineSetting::configBloodpinparaSignals()
 
         std::make_tuple(ui->OffsetTestHeightValue, [=]{
             INI_File().SetTestDifference(ui->OffsetTestHeightValue->value());
-        }, ""),
+        }, "测高偏移"),
+
+        std::make_tuple(ui->doubleSpinBoxBottomHeigh, [=]{
+            INI_File().setRefBottomDistance(ui->doubleSpinBoxBottomHeigh->value());
+        }, "参照物底部距离"),
 
         std::make_tuple(ui->spinBoxAbsorbX2, [=]{
             INI_File().SetAbsorbWashingfluidX2(ui->spinBoxAbsorbX2->value());
@@ -2388,6 +2394,8 @@ void MachineSetting::_initBloodpinpara()
 
     double Differencemm =  ini.GetTestDifference();
     ui->OffsetTestHeightValue->setValue(Differencemm);
+
+    ui->doubleSpinBoxBottomHeigh->setValue(ini.getRefBottomDistance());
 
     //物理测高固定高度
     double Physicalheight = ini.GetFixedHigh();

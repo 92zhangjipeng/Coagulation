@@ -2053,5 +2053,6 @@ double Height_Data::switchWholeModeHeight(const double redBloodHeigh)
     auto &ini = INI_File();
     double referenceToBottomDistance = ini.GetFixedHigh(); //参照物top到针高度
     double safetyMargin = ini.GetTestDifference();  //偏移高度
-    return referenceToBottomDistance + ROTB - redBloodHeigh - safetyMargin;
+    double rotb  =   ini.getRefBottomDistance();   //参照物到底部距离
+    return referenceToBottomDistance + rotb - redBloodHeigh - safetyMargin + RAISETHERULER;
 }

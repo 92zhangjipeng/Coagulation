@@ -230,6 +230,7 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
     //redBloodCellHeightMm = rbcHeightPixels / pixelToMmRatio; //红细胞高度
     referenceToBottomDistance = ini.GetFixedHigh(); //参照物top到针高度
     double safetyMargin = ini.GetTestDifference();  //偏移高度
+    double rotb  =   ini.getRefBottomDistance();   //参照物到底部距离
 
     //  红细胞top与参照物top像素差（实际偏差像素）  = 红细胞TOP像素 - 参照物TOP像素
     double interfaceToReferenceTopPixels = interfaceY - referenceObjectRect.y;
@@ -238,11 +239,11 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
     QLOG_DEBUG()<<"（实际偏差高度）"<<interfaceToReferenceTopMm;
 
     //针到参照物top的高度mm + （实际偏差高度）
-    double totalDropDistance = ROTB - interfaceToReferenceTopMm; //输出血样高度
+    double totalDropDistance = rotb - interfaceToReferenceTopMm - RAISETHERULER; //输出血样高度
     redBloodCellHeightMm = max(0.0, totalDropDistance);
     redBloodCellHeightMm = round(redBloodCellHeightMm * 100) / 100; //保留2位小数
 
-    maxNeedleDropHeight = referenceToBottomDistance + ROTB - redBloodCellHeightMm - safetyMargin;
+    maxNeedleDropHeight = referenceToBottomDistance + rotb - redBloodCellHeightMm - safetyMargin + RAISETHERULER;
 
     QLOG_DEBUG() << "计算参数:";
     QLOG_DEBUG() << "红细胞高度像素: " << rbcHeightPixels << "px";
@@ -255,12 +256,6 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
     QLOG_DEBUG() << "参照物到针底部距离: " << referenceToBottomDistance << "mm";
     QLOG_DEBUG() << "下针最大下降高度: " << maxNeedleDropHeight << "mm"<<endl;
 }
-
-
-
-
-
-
 
 
 
@@ -292,6 +287,7 @@ double TestOpcv::calculatePixelToCmRatio(Mat& referenceMask, double realHeightCm
     Rect boundingRect = cv::boundingRect(*largestContour);
     double pixelHeight = boundingRect.height;
 
+    //QLOG_DEBUG()<<"宽度转换成像素比"<<boundingRect.width / 5;
     return pixelHeight / realHeightCm;
 }
 
@@ -325,35 +321,42 @@ void TestOpcv::markResultsOnOriginalImage(Mat& originalImage, const Point& inter
 {
      Mat overlay = originalImage.clone();
 
+     // 1. 绘制液面水平线（血浆-红细胞分界面）
      if (interfacePoint.y >= 0 && interfacePoint.y < originalImage.rows) {
-         Rect rbcRegion(0, interfacePoint.y, originalImage.cols, rbcHeight);
-         rectangle(overlay, rbcRegion, Scalar(0, 0, 255), -1);
-         double alpha = 0.3;
-         addWeighted(overlay, alpha, originalImage, 1 - alpha, 0, originalImage);
-         rectangle(originalImage, rbcRegion, Scalar(0, 0, 200), 2);
+
+         line(originalImage, Point(0, interfacePoint.y),
+         Point(originalImage.cols, interfacePoint.y), Scalar(255, 0, 0), 2);   // 蓝色线
      }
 
      if (referenceRect.width > 0 && referenceRect.height > 0) {
          rectangle(originalImage, referenceRect, Scalar(0, 255, 0), 3);
-         putText(originalImage, "Reference Object",
+
+         // 在参照物顶部增加一条水平线（与矩形框上边缘重合，但单独绘制以示强调）
+         line(originalImage, Point(0, referenceRect.y),
+                Point(originalImage.cols , referenceRect.y), Scalar(0, 255, 0), 2);
+
+         putText(originalImage, "Reference",
                  Point(referenceRect.x, referenceRect.y - 10),
                  FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 255, 0), 2);
      }
 
      if (interfacePoint.y >= 0 && interfacePoint.y < originalImage.rows) {
-         line(originalImage, Point(0, interfacePoint.y),
-              Point(originalImage.cols, interfacePoint.y), Scalar(255, 0, 0), 2);
-         circle(originalImage, Point(originalImage.cols / 2, interfacePoint.y),
-                10, Scalar(255, 0, 0), -1);
+
+        int fontFace = FONT_HERSHEY_SIMPLEX;
+        double fontScale = 0.7;
+        int thickness = 2;
+        putText(originalImage, "RBC Interface",
+                        Point(10, interfacePoint.y - 20), fontFace, fontScale,
+                        Scalar(255, 0, 0), thickness);
      }
 
-     int fontFace = FONT_HERSHEY_SIMPLEX;
-     double fontScale = 0.7;
-     int thickness = 2;
+//     int fontFace = FONT_HERSHEY_SIMPLEX;
+//     double fontScale = 0.7;
+//     int thickness = 2;
 
-     putText(originalImage, "Plasma-RBC Interface",
-             Point(10, interfacePoint.y - 20), fontFace, fontScale,
-             Scalar(255, 0, 0), thickness);
+//     putText(originalImage, "RBC Interface",
+//             Point(10, interfacePoint.y - 20), fontFace, fontScale,
+//             Scalar(255, 0, 0), thickness);
 }
 
 void TestOpcv::displayResults(const double& khemolysisIndex)
@@ -453,7 +456,7 @@ Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
         if (rect.y > gray.rows * 0.7 && rect.width > gray.cols * 0.3) {
             whiteBottomY = max(whiteBottomY, rect.y);
             whiteGrooveRect = rect;
-            rectangle(result, rect, Scalar(255, 0, 0), 2);
+            //rectangle(result, rect, Scalar(255, 0, 0), 2);
         }
     }
 
@@ -1013,8 +1016,6 @@ MaxRectInfo TestOpcv::getMaxRectangleInfo(const BoundingRectResult& result)
 
 
 
-
-
 void TestOpcv::trayfindImg()
 {
     if (imageOrinin.empty()) {
@@ -1058,7 +1059,7 @@ void TestOpcv::trayfindImg()
 
     double realHeightCm = REFERENCE_HEIGHT;
     pixelToMmRatio = calculatePixelToCmRatio(referenceMask, realHeightCm);
-    QLOG_DEBUG() << "像素到毫米的比例:" << pixelToMmRatio << "像素/毫米";
+    QLOG_DEBUG() << "像素到毫米的比例(高转换):" << pixelToMmRatio << "像素/毫米";
 
     int grooveWidth = 180;
     Mat grooveRegion = extractGrooveRegion(image, referenceMask, grooveWidth);

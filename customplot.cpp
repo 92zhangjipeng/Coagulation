@@ -21,6 +21,7 @@
 
 
 
+
 bool compairtool(QToolButton *holenum, QToolButton *endhole)
 {
    if (!holenum || !endhole) return false;
@@ -1495,14 +1496,18 @@ void CustomPlot::DelTableText()
 //复位
 void CustomPlot::on_toolButton_Backorigin_clicked()
 {
-    emit Resetmaneuver();
+    backMachinOrigin();
+    return;
+}
+
+void CustomPlot::backMachinOrigin()
+{
     auto *pconfAxis = SingletonAxis::GetInstance();
     QPoint locAxis(0,0);
     pconfAxis->originPos(READ_OPERRAT,locAxis);
     ui->label_movedPos->setText(QString("复位位置: X[%2]  Y[%3]").arg(locAxis.x()).arg(locAxis.y()));
-    return;
+    Q_EMIT Resetmaneuver();
 }
-
 
 
 
@@ -2055,15 +2060,61 @@ void CustomPlot::send_test_cups_accurate()
 //移动到摄像头区域下样本针
 void CustomPlot::on_toolButton_video_clicked()
 {
-    static const QPoint locVideo(190, 3140);
-    quint8 codeNum = 0;
+    if (!mCameraWindow.isNull()) {
+        mCameraWindow->show();
+        mCameraWindow->raise();
+        mCameraWindow->activateWindow();
+        return;
+    }
 
-    auto modifyArray = Testing::m_TaskDll->XYLocation(locVideo, IndexZ::Blood_z, 2, m_downhigh, codeNum, m_downhigh);
+    CameraWindow *win = new CameraWindow(nullptr);
+    win->setAttribute(Qt::WA_DeleteOnClose);   // 关闭时自动 delete
 
-    ui->label_movedPos->setText(QString("信息录入坐标:[%1,%2]").arg(locVideo.x()).arg(locVideo.y()));
-    emit SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
+    connect(win, &CameraWindow::moveTestHeigh,
+            this, &CustomPlot::onMoveTestHeigh);
+
+    connect(win, &CameraWindow::backOrigin,
+            this, &CustomPlot::onbackOrigin);
+
+    connect(win, &CameraWindow::testSuckPrpAct,
+            this, &CustomPlot::onTestSuckPrpAct);
+
+
+    connect(win, &QObject::destroyed, this, [this]() {
+           mCameraWindow.clear();  // 清空 QPointer（其实不是必须，isNull() 已能检测）
+    });
+
+   // 窗口居中
+   if (QWidget *parentWindow = this->window()) {
+       win->adjustSize();
+       QPoint center = parentWindow->geometry().center();
+       QRect winRect = win->geometry();
+       win->move(center.x() - winRect.width() / 2,
+                 center.y() - winRect.height() / 2);
+   }
+
+   mCameraWindow = win;   // QPointer 接管观察
+   win->show();
 }
 
+void CustomPlot::onMoveTestHeigh(const int x, const int y,const double downMm)
+{
+    QPoint locVideo(x, y); //200 3140
+    quint8 codeNum = 0;
+    ui->label_movedPos->setText(QString("测高位置:[%1,%2]").arg(x).arg(y));
+    auto modifyArray = Testing::m_TaskDll->XYLocation(locVideo, IndexZ::Blood_z, 0,
+                                                      downMm, codeNum, downMm);
+    Q_EMIT SportActive(COORDINATE_FINE_TUNING_TEST, modifyArray);
+}
+void CustomPlot::onbackOrigin()
+{
+    backMachinOrigin();
+}
+
+void CustomPlot::onTestSuckPrpAct(const QByteArrayList data)
+{
+    Q_EMIT SportActive(COORDINATE_FINE_TUNING_TEST, data);
+}
 
 
 void CustomPlot::closeEvent(QCloseEvent* event)

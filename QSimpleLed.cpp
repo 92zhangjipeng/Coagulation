@@ -1,4 +1,4 @@
-#include "QSimpleLed.h"
+﻿#include "QSimpleLed.h"
 #include <QGradient>
 #include <QPainter>
 #include <QDebug>

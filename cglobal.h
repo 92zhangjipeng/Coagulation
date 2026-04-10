@@ -219,8 +219,8 @@
 
 
 //测高模块的参照物高度 mm
-#define  REFERENCE_HEIGHT		 20 
-#define  ROTB                    34.8 //参照物到测高模块底部
+#define  REFERENCE_HEIGHT		 20
+#define  RAISETHERULER           2   //刻度尺垫高了2mm
 
 //读取耗材卡状态
 #define CONSUMABLES_READ_NORMAL       0x00  //正常(读取)

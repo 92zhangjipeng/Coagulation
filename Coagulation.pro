@@ -14,6 +14,7 @@ QT      += network
 QT      += core gui opengl
 QT      += printsupport
 
+
 CONFIG  += c++14
 
 
@@ -56,6 +57,8 @@ include(./QsLog/QsLog.pri)
 QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8 /utf-8
 LIBS    +=-lopengl32 -lglu32
 LIBS    += -lsetupapi -lcfgmgr32
+
+LIBS += -lQt5Multimedia -lQt5MultimediaWidgets
 
 msvc:QMAKE_CXXFLAGS += -source-charset:utf-8
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
@@ -254,7 +257,8 @@ SOURCES += \
     suoweiFileManager/hospitalreportprinter.cpp \
     datalprocessor.cpp \
     verifycoordinates.cpp \
-    styledcomparisondialog.cpp
+    styledcomparisondialog.cpp \
+    camerawindow.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -398,7 +402,8 @@ HEADERS += \
     suoweiFileManager/hospitalreportprinter.h \
     datalprocessor.h \
     verifycoordinates.h \
-    styledcomparisondialog.h
+    styledcomparisondialog.h \
+    camerawindow.h
 
 FORMS += \
     mainwindow.ui \

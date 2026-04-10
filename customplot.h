@@ -7,9 +7,11 @@
 #include <QScrollBar>
 #include <QSpinBox>
 #include <QPair>
+#include <QPointer>
 #include "testing.h"
 #include <QStyledItemDelegate>
 #include "tubecontinuedoing.h"
+#include "CameraWindow.h"
 
 namespace Ui {
 class CustomPlot;
@@ -185,6 +187,8 @@ private:
     QWidget* createCenteredButton(const QString& text, int rowIndex, bool needChangeOther);
 
 
+    void backMachinOrigin();
+
     /** 是否显示原点坐标、是否写X坐标、修改X坐标值
     *bFindShow ：true 显示 false 修改X坐标
     * bWrite_x ：true 修改X false 修改Y
@@ -284,6 +288,10 @@ public slots:
    void ClickTestChannelTube();
    void ClickReagentsTube();
 
+   void onMoveTestHeigh(const int x, const int y,const double downMm);
+   void onbackOrigin();
+   void onTestSuckPrpAct(const QByteArrayList data);
+
     /** 收到校准消息完成
     * @brief Recv_CalibrationMoved
     */
@@ -306,6 +314,8 @@ private:
     QPoint mbtnClickPos;   //单击的坐标
     quint8   mcodeNum;       //命令编号
     QFont mcustFont;
+
+    QPointer<CameraWindow> mCameraWindow;
 
 
     QMap<int,QPoint> mReagentLinqueVaue; //记录初始列表内的值==试剂液、试剂针

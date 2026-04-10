@@ -3038,7 +3038,10 @@ int QUIUtils::SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
     quint8 directiveNum  = out_directives.size()%255;
     auto *pActive = Testing::m_TaskDll;
 
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(sourcePosition,0,0,directiveNum ));
+    //血样针复位
+    out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,directiveNum ,false));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(sourcePosition,0,0,directiveNum));
+
     if(bsuckAir)
         out_directives.push_back(pActive->BigBenActive(true,firstSuckAir,directiveNum ,DIS_WASHES_PUMPS,0));
     else
