@@ -19,7 +19,18 @@
 
 using namespace cv;
 using namespace dnn;
+using namespace std;
 
+// BloodAnalysisConfig 静态方法实现
+BinaryParameters BloodAnalysisConfig::getDefaultBinaryParams() {
+    BinaryParameters params;
+    params.redSMin = 80;
+    params.redVMin = 60;
+    params.darkRedVMax = 120;
+    params.blackVMax = 40;
+    params.morphSize = 3;
+    return params;
+}
 
 TestOpcv::TestOpcv(QWidget *parent) :
     QWidget(parent),
@@ -34,7 +45,6 @@ TestOpcv::TestOpcv(QWidget *parent) :
     ui->setupUi(this);
     initsignal();
     initshowimg();
-
 
     ui->widget_bar->hide();
 
@@ -56,12 +66,10 @@ TestOpcv::TestOpcv(QWidget *parent) :
     }
 }
 
-
 TestOpcv::~TestOpcv()
 {
     delete ui;
 }
-
 
 void debugImshow(std::string name,Mat & image){
     cv::namedWindow(name, cv::WINDOW_NORMAL);
@@ -73,28 +81,32 @@ void debugImshow(std::string name,Mat & image){
 
 void TestOpcv::initshowimg()
 {
-    QFont font;
-    font.setFamily("楷体");
-    font.setPixelSize(14);
-    font.setBold(true);
-    ui->label_ratio->setText("检测就绪:");
+	QFont font;
+	font.setFamily("楷体");
+	font.setPixelSize(14);
+	font.setBold(true);
+	ui->label_ratio->setText("检测就绪:");
 
-    QPalette sample_palette;
-    sample_palette.setColor(QPalette::Window, Qt::white);
-    sample_palette.setColor(QPalette::WindowText, QColor(28, 134, 238));
-    ui->widgetShowImag->setAutoFillBackground(true);
-    ui->widgetShowImag->setPalette(sample_palette);
+	QPalette sample_palette;
+	sample_palette.setColor(QPalette::Window, Qt::white);
+	sample_palette.setColor(QPalette::WindowText, QColor(28, 134, 238));
+	ui->widgetShowImag->setAutoFillBackground(true);
+	ui->widgetShowImag->setPalette(sample_palette);
 
-    QPalette pe;
-    pe.setColor(QPalette::WindowText, Qt::red);
-    ui->label_showimage->setPalette(pe);
+	QPalette pe;
+	pe.setColor(QPalette::WindowText, Qt::red);
+	ui->label_showimage->setPalette(pe);
 
-    font.setPixelSize(25);
-    ui->label_showimage->setFont(font);
-    ui->label_showimage->setWordWrap(true);
-    ui->label_showimage->setAlignment(Qt::AlignTop | Qt::AlignCenter);
-    QString text = "暂无图片";
-    ui->label_showimage->setText(text.split("", QString::SkipEmptyParts).join("\n"));
+	font.setPixelSize(25);
+	ui->label_showimage->setFont(font);
+	ui->label_showimage->setWordWrap(true);
+	ui->label_showimage->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+	QString text = "暂无图片";
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+	ui->label_showimage->setText(text.split("", Qt::SkipEmptyParts).join("\n"));
+#else
+	ui->label_showimage->setText(text.split("", QString::SkipEmptyParts).join("\n"));
+#endif
 }
 
 /** 显示图片**/
@@ -351,14 +363,6 @@ void TestOpcv::markResultsOnOriginalImage(Mat& originalImage, const Point& inter
                         Point(10, interfacePoint.y - 20), fontFace, fontScale,
                         Scalar(255, 0, 0), thickness);
      }
-
-//     int fontFace = FONT_HERSHEY_SIMPLEX;
-//     double fontScale = 0.7;
-//     int thickness = 2;
-
-//     putText(originalImage, "RBC Interface",
-//             Point(10, interfacePoint.y - 20), fontFace, fontScale,
-//             Scalar(255, 0, 0), thickness);
 }
 
 void TestOpcv::displayResults(const double& khemolysisIndex)
@@ -405,13 +409,8 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
    ui->label_ratio->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
 }
 
-
-
-
-
-
 // 计算轮廓的U型多特征融合的精确定位
-Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
+Mat TestOpcv::findTubeByMultiFeatures(Mat& inputImage) {
     Mat result;
     inputImage.copyTo(result);
 
@@ -650,8 +649,6 @@ Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
     return croppedImage;
 }
 
-
-
 void TestOpcv::handleSycnOpendcvImage(const QString &imagePath){
     ui->label_ratio->setText("检测就绪:");
 
@@ -690,7 +687,6 @@ void TestOpcv::handleSycnOpendcvImage(const QString &imagePath){
        displayImage(img, ui->label_showimage);
    }
 
-
     // 重置检测结果
     redBloodCellHeight = 0;
     detectedInterface = Point(-1, -1);
@@ -701,9 +697,6 @@ void TestOpcv::handleSycnOpendcvImage(const QString &imagePath){
 
     trayfindImg();
 }
-
-
-
 
 void TestOpcv::tubeBinaryProcessingWithParams(const cv::Mat& inputImage,
                                   cv::Mat& redBinary,
@@ -788,8 +781,6 @@ void TestOpcv::tubeBinaryProcessingWithParams(const cv::Mat& inputImage,
     }
 }
 
-
-
 BoundingRectResult TestOpcv::calculateMaxBoundingRect(const cv::Mat& redBinary,
                                           const cv::Mat& darkRedBinary,
                                           const cv::Mat& blackBinary,
@@ -868,7 +859,6 @@ BoundingRectResult TestOpcv::calculateMaxBoundingRect(const cv::Mat& redBinary,
                shouldDiscard = true;
            }
 
-
             if (area >= minArea && !shouldDiscard) {
                 result.blackRect = cv::boundingRect(maxBlackContour);
                 result.blackArea = area;
@@ -906,9 +896,6 @@ BoundingRectResult TestOpcv::calculateMaxBoundingRect(const cv::Mat& redBinary,
 
     return result;
 }
-
-
-
 
 void TestOpcv::drawAndDisplayResults(const cv::Mat& originalImage,
                                       const BoundingRectResult& result,
@@ -977,7 +964,6 @@ void TestOpcv::drawAndDisplayResults(const cv::Mat& originalImage,
     }
 }
 
-
 MaxRectInfo TestOpcv::getMaxRectangleInfo(const BoundingRectResult& result)
 {
     MaxRectInfo maxInfo;
@@ -1016,8 +1002,6 @@ MaxRectInfo TestOpcv::getMaxRectangleInfo(const BoundingRectResult& result)
     return maxInfo;
 }
 
-
-
 void TestOpcv::trayfindImg()
 {
     if (imageOrinin.empty()) {
@@ -1025,36 +1009,15 @@ void TestOpcv::trayfindImg()
         return;
     }
 
-    Mat image = imageOrinin.clone();
+    cv::Mat image = imageOrinin.clone();
 
-    // 检测环境亮度
-    Mat gray;
-    cvtColor(image, gray, COLOR_BGR2GRAY);
-    Scalar meanBrightness = mean(gray);
-    QLOG_DEBUG() << "环境亮度: " << meanBrightness[0];
-
-    bool isDarkEnvironment = meanBrightness[0] < 80;
-    if (isDarkEnvironment) {
-        QLOG_DEBUG() << "检测到暗色环境，启用暗色优化模式";
+    // 1. 检测环境亮度
+    if (!detectEnvironmentBrightness(image)) {
+        QLOG_DEBUG() << "环境亮度检测完成";
     }
 
-	// 第一个颜色范围: hsv(208, 69%, 68%) -> H:104, S:176, V:173//原来的蓝色
-    Scalar lowerColor1 = Scalar(94, 100, 100);
-    Scalar upperColor1 = Scalar(114, 255, 255);
-
-    // 第二个颜色范围: hsv(187, 64%, 74%) -> H:93, S:163, V:189 (±10范围)
-    Scalar lowerColor2 = Scalar(83, 100, 100);
-    Scalar upperColor2 = Scalar(103, 255, 255);
-
-    // 查找参照物矩形框（同时检测两个颜色）
-    referenceObjectRect = findReferenceObjectRectDualColor(image, lowerColor1, upperColor1, lowerColor2, upperColor2);
-    if (referenceObjectRect.width == 0 || referenceObjectRect.height == 0) {
-        QMessageBox::warning(this, "提示", "未找到参照物");
-        return;
-    }
-
-    Mat referenceMask = findReferenceObjectDualColor(image, lowerColor1, upperColor1, lowerColor2, upperColor2);
-    if (countNonZero(referenceMask) == 0) {
+    // 2. 查找参照物
+    if (!findReferenceObjectWithDualColor(image)) {
         QMessageBox::warning(this, "提示", "未找到参照物");
         return;
     }
@@ -1071,8 +1034,6 @@ void TestOpcv::trayfindImg()
         return;
     }
 
-
-
     // 创建自定义参数
     BinaryParameters params;
     params.redSMin = 80;        // 提高红色饱和度阈值
@@ -1080,7 +1041,6 @@ void TestOpcv::trayfindImg()
     params.darkRedVMax = 120;   // 调整暗红色最大亮度
     params.blackVMax = 40;      // 降低黑色最大亮度
     params.morphSize = 3;       // 使用较小的形态学核
-
 
     //在凹槽带试管区域识别出试管的宽度
     cv::Mat redBinarytmp, darkRedBinarytmp, blackBinarytmp;
@@ -1092,13 +1052,13 @@ void TestOpcv::trayfindImg()
     MaxRectInfo maxInfotmp = getMaxRectangleInfo(resulttmp);
 
     Mat testTubeMat = IdentifyWidthOfTheTestTube(grooveRegion,
-                                                 static_cast<double>(maxInfotmp.rect.x)   ,
+                                                 static_cast<double>(maxInfotmp.rect.x),
                                                  static_cast<double>(maxInfotmp.rect.width));
     // 计算下针参数
     detectedInterface = Point(0, maxInfotmp.top);
     redBloodCellHeight = maxInfotmp.height;
     maxInfoColor = maxInfotmp.colorType;
-    calculateNeedleDropParameters(detectedInterface.y,redBloodCellHeight, pixelToMmRatio);
+    calculateNeedleDropParameters(detectedInterface.y, redBloodCellHeight, pixelToMmRatio);
 
     // 显示最终结果
     processedImage = testTubeMat.clone();
@@ -1106,24 +1066,19 @@ void TestOpcv::trayfindImg()
     //检查PRP 也就是血浆状态离心后的血浆正常情况下应该是
     //淡黄色、清澈透明的。如果出现泛红（呈淡红色、粉红色或洗肉水样），这确实是一个异常现象，需要引起注意。
     //医学检验上被称为 “溶血”
-    InspectionResult resultPrp = inspectPRP(testTubeMat,static_cast<double>(maxInfotmp.top));
+    InspectionResult resultPrp = inspectPRP(testTubeMat, static_cast<double>(maxInfotmp.top));
 
     displayResults(resultPrp.hemolysisIndex);
 
     return;
-
-    // 处理凹槽区域并找到试管
-//    Mat resultImage = testTubeMat; //findTubeByMultiFeatures(grooveRegion);
 }
 
-Mat TestOpcv::IdentifyWidthOfTheTestTube(Mat & grooveTube,const double &left,const double& widthpx){
+Mat TestOpcv::IdentifyWidthOfTheTestTube(Mat & grooveTube, const double &left, const double& widthpx){
     // 截取试管区域（保持原始高度）
      Rect tubeROI(left, 0, widthpx, grooveTube.rows);
      Mat testTubeMat = grooveTube(tubeROI).clone();
      return testTubeMat;
 }
-
-
 
 InspectionResult TestOpcv::inspectPRP(const Mat &testTubeImage, double topRegionRatio)
 {
@@ -1196,4 +1151,91 @@ InspectionResult TestOpcv::inspectPRP(const Mat &testTubeImage, double topRegion
     result.hemolysisIndex = redRatio;
 
     return result;
+}
+
+bool TestOpcv::detectEnvironmentBrightness(const cv::Mat& image) {
+    cv::Mat gray;
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    cv::Scalar meanBrightness = cv::mean(gray);
+    QLOG_DEBUG() << "环境亮度: " << meanBrightness[0];
+
+    bool isDarkEnvironment = meanBrightness[0] < BloodAnalysisConfig::ENVIRONMENT_BRIGHTNESS_THRESHOLD;
+    if (isDarkEnvironment) {
+        QLOG_DEBUG() << "检测到暗色环境，启用暗色优化模式";
+    }
+    return isDarkEnvironment;
+}
+
+bool TestOpcv::findReferenceObjectWithDualColor(const cv::Mat& image) {
+    // 使用配置类管理颜色范围
+    cv::Scalar lowerColor1 = cv::Scalar(BloodAnalysisConfig::REF_COLOR1_H_MIN, 100, 100);
+    cv::Scalar upperColor1 = cv::Scalar(BloodAnalysisConfig::REF_COLOR1_H_MAX, 255, 255);
+    cv::Scalar lowerColor2 = cv::Scalar(BloodAnalysisConfig::REF_COLOR2_H_MIN, 100, 100);
+    cv::Scalar upperColor2 = cv::Scalar(BloodAnalysisConfig::REF_COLOR2_H_MAX, 255, 255);
+
+    // 创建非const副本用于处理
+    cv::Mat nonConstImage = image.clone();
+
+    // 查找参照物矩形框（同时检测两个颜色）
+    referenceObjectRect = findReferenceObjectRectDualColor(nonConstImage, lowerColor1, upperColor1, lowerColor2, upperColor2);
+    if (referenceObjectRect.width == 0 || referenceObjectRect.height == 0) {
+        QLOG_ERROR() << "未找到参照物";
+        return false;
+    }
+
+    referenceMask = findReferenceObjectDualColor(nonConstImage, lowerColor1, upperColor1, lowerColor2, upperColor2);
+    if (cv::countNonZero(referenceMask) == 0) {
+        QLOG_ERROR() << "参照物掩膜为空";
+        return false;
+    }
+
+    return true;
+}
+
+bool TestOpcv::extractAndAnalyzeGrooveRegion(const cv::Mat& image) {
+    // 计算像素到毫米比例
+    pixelToMmRatio = calculatePixelToCmRatio(referenceMask, BloodAnalysisConfig::REFERENCE_HEIGHT_MM);
+    QLOG_DEBUG() << "像素到毫米的比例(高转换):" << pixelToMmRatio << "像素/毫米";
+
+    // 创建非const副本用于处理
+    cv::Mat nonConstImage = image.clone();
+
+    // 提取凹槽区域
+    cv::Mat grooveRegion = extractGrooveRegion(nonConstImage, referenceMask, BloodAnalysisConfig::DEFAULT_GROOVE_WIDTH);
+    if (grooveRegion.empty()) {
+        QLOG_ERROR() << "无法提取凹槽区域";
+        return false;
+    }
+
+    // 使用配置类管理二值化参数
+    BinaryParameters params = BloodAnalysisConfig::getDefaultBinaryParams();
+
+    // 在凹槽带试管区域识别出试管的宽度
+    cv::Mat redBinarytmp, darkRedBinarytmp, blackBinarytmp;
+    tubeBinaryProcessingWithParams(grooveRegion, redBinarytmp, darkRedBinarytmp, blackBinarytmp, params);
+
+    // 计算外接矩形
+    BoundingRectResult resulttmp = calculateMaxBoundingRect(redBinarytmp, darkRedBinarytmp, blackBinarytmp,
+                                                          BloodAnalysisConfig::MIN_CONTOUR_AREA);
+
+    MaxRectInfo maxInfotmp = getMaxRectangleInfo(resulttmp);
+
+    cv::Mat testTubeMat = IdentifyWidthOfTheTestTube(grooveRegion,
+                                                     static_cast<double>(maxInfotmp.rect.x),
+                                                     static_cast<double>(maxInfotmp.rect.width));
+
+    // 计算下针参数
+    detectedInterface = cv::Point(0, maxInfotmp.top);
+    redBloodCellHeight = maxInfotmp.height;
+    maxInfoColor = maxInfotmp.colorType;
+    calculateNeedleDropParameters(detectedInterface.y, redBloodCellHeight, pixelToMmRatio);
+
+    // 显示最终结果
+    processedImage = testTubeMat.clone();
+
+    // 检查PRP（血浆状态）
+    InspectionResult resultPrp = inspectPRP(testTubeMat, static_cast<double>(maxInfotmp.top));
+    displayResults(resultPrp.hemolysisIndex);
+
+    return true;
 }
