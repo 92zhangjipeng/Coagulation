@@ -160,6 +160,8 @@ private:
 
     //计算出下一个样本ID
     QString generateSampleId();
+    // 辅助函数：从表格获取指定日期的最大序号
+    int getMaxSequenceFromTable(const QString& date);
 
     //手动添加任务
     int  Addtasksmanually();

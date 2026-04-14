@@ -3304,31 +3304,31 @@ int CustomCreatSql::getMaxSampleID(const QString datetoday)
     {
         return 0;
     }
-    QVector<int> idVec;
-    int biggestId = 0;
-    QString GETSAMPLEBASICRESULT_ID = QString("SELECT  *FROM ResultData");
+
+    // 样本号格式：YYYYMMDD + 4位数字
+    // 例如：202604140001
+    QString startPattern = datetoday +"0000";  // "202604140000"
+    QString endPattern = datetoday + "9999";
+
+    QString sql = QString(
+            "SELECT MAX(CAST(SUBSTR(样本号, %1, 4) AS INTEGER)) as max_id "
+            "FROM ResultData "
+            "WHERE 样本号 >= '%2' AND 样本号 <= '%3'"
+        ).arg(datetoday.length() + 1).arg(startPattern).arg(endPattern);
+
     QSqlQuery sql_query(m_database);
-    if(sql_query.exec(GETSAMPLEBASICRESULT_ID))
-    {
-        QSqlRecord rec;
-        QString Finddate;
-        int findid;
-        while(sql_query.next())
-        {
-            rec = sql_query.record();
-            QString id = sql_query.value(rec.indexOf("样本号")).toString();
-            GlobalData::apartSampleId(id,Finddate,findid);
-            if(datetoday == Finddate)
-                idVec.push_back(findid);
+    int biggestId = 0;
+
+    if(sql_query.exec(sql) && sql_query.next()) {
+        // 注意：MAX可能返回NULL，需要处理
+        if(!sql_query.value("max_id").isNull()) {
+            biggestId = sql_query.value("max_id").toInt();
         }
     }
-    if(idVec.size() != 0){
-        auto max = std::max_element(std::begin(idVec), std::end(idVec));
-        biggestId = *max;
-    }
-    sql_query.clear();
-    sql_query.finish();
+
+    m_database.close();
     return biggestId;
+
 }
 
 QVector<int> CustomCreatSql::getTodayAllSampleid(const QString datetoday)

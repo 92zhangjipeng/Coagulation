@@ -1276,28 +1276,41 @@ void Height_Data::selectInverseItem()
     }
 }
 
+
 //计算出下一个样本ID
 QString Height_Data::generateSampleId(){
     QString todayLast = GlobalData::ObatinCreatSampleTime();
-    const int countRows = ui->Sample_Data_tablewidget->rowCount() - 1;
 
-    // 尝试从表格最后一行获取样本号
-    if (countRows > 0) {
-        QTableWidgetItem* item = ui->Sample_Data_tablewidget->item(countRows - 1, SAMLPE_NAME);
-        if (item && !item->text().isEmpty()) {
-            QString sampleid = item->text();
-            QString datefind;
-            int setsampleNum = 0;
+    // 1. 先从表格中获取当天的最大序号（包括未保存的数据）
+    int maxSeqInTable = getMaxSequenceFromTable(todayLast);
 
-			GlobalData::apartSampleId(sampleid, datefind, setsampleNum);
-            return GlobalData::groupDateAndID(todayLast, setsampleNum + 1);
-            
+    // 2. 从数据库获取当天的最大序号
+    int maxSeqInDB = FullyAutomatedPlatelets::pinstancesqlData()->getMaxSampleID(todayLast);
+
+    // 3. 取两者的最大值
+    int maxSeq = qMax(maxSeqInTable, maxSeqInDB);
+
+    // 4. 生成新ID
+    return GlobalData::groupDateAndID(todayLast, maxSeq + 1);
+}
+
+// 辅助函数：从表格获取指定日期的最大序号
+int Height_Data::getMaxSequenceFromTable(const QString& date) {
+    int maxSeq = 0;
+    int rowCount = ui->Sample_Data_tablewidget->rowCount();
+
+    for(int row = 0; row < rowCount; row++) {
+        auto* item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+        if(item && !item->text().isEmpty()) {
+            QString itemDate;
+            int seqNum = 0;
+            GlobalData::apartSampleId(item->text(), itemDate, seqNum);
+            if(itemDate == date && seqNum > maxSeq) {
+                maxSeq = seqNum;
+            }
         }
     }
-
-    // 回退方案：从数据库获取最大ID
-    int maxid = FullyAutomatedPlatelets::pinstancesqlData()->getMaxSampleID(todayLast);
-    return GlobalData::groupDateAndID(todayLast, maxid + 1);
+    return maxSeq;
 }
 
 

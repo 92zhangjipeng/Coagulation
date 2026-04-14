@@ -56,10 +56,12 @@ TestOpcv::TestOpcv(QWidget *parent) :
     }
 }
 
+
 TestOpcv::~TestOpcv()
 {
     delete ui;
 }
+
 
 void debugImshow(std::string name,Mat & image){
     cv::namedWindow(name, cv::WINDOW_NORMAL);

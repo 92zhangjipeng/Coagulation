@@ -258,7 +258,9 @@ SOURCES += \
     datalprocessor.cpp \
     verifycoordinates.cpp \
     styledcomparisondialog.cpp \
-    camerawindow.cpp
+    camerawindow.cpp \
+    opencvFindRBC/customtitlebar.cpp \
+    opencvFindRBC/industrialimagegallery.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -403,7 +405,9 @@ HEADERS += \
     datalprocessor.h \
     verifycoordinates.h \
     styledcomparisondialog.h \
-    camerawindow.h
+    camerawindow.h \
+    opencvFindRBC/customtitlebar.h \
+    opencvFindRBC/industrialimagegallery.h
 
 FORMS += \
     mainwindow.ui \

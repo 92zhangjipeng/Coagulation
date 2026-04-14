@@ -2638,6 +2638,7 @@ void  MainWindow::TestHeightFinish(const bool finished)
         beepAction(tr("测高成功！"), 30, 1);
         //拍照完成全血模式在特定的任务界面
 
+
     }
     else {
         beepAction(tr("测高失败！"), 30,3);
@@ -2647,6 +2648,8 @@ void  MainWindow::TestHeightFinish(const bool finished)
     emit ConfigUsedBuzzerMark(false);
     return;
 }
+
+
 //TestHeightFinish（）
 
 
