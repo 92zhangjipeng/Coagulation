@@ -407,7 +407,7 @@ signals:
     void OpenInstrumentCamera(const quint8);
 	void findCameraIndexByDevicePath(const QString& );
 
-    //触发到测高开始解析图片
+    //触发到测高开始拍照
     void triggerTestHeight();
 
     //所有样本测试完成曲线界面复原

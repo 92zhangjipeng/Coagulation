@@ -1765,7 +1765,7 @@ void MainWindow::setupAltimeterConnections()
             Qt::QueuedConnection);
 
 
-    // 测高蜂鸣器提示
+    // 测高蜂鸣器提示--摄像头拍照完成保存图像
     connect(mAltimetertrigger, &opencvfindHeigh::Testheightfinish,
             this, &MainWindow::TestHeightFinish,
             Qt::QueuedConnection);
@@ -2635,7 +2635,9 @@ void  MainWindow::TestHeightFinish(const bool finished)
 
     if (finished) {
         // 成功：单次蜂鸣
-        beepAction(tr("测高成功！"), 30,1);
+        beepAction(tr("测高成功！"), 30, 1);
+        //拍照完成全血模式在特定的任务界面
+
     }
     else {
         beepAction(tr("测高失败！"), 30,3);
@@ -3641,9 +3643,8 @@ bool MainWindow::initializeAltimeter()
 void MainWindow::triggerHeightMeasurement()
 {
     try {
-        QLOG_INFO() << "开始触发测高测试";
         // 发射测高触发信号
-        emit triggerTestHeight();
+        Q_EMIT triggerTestHeight();
         QLOG_DEBUG() << "测高触发信号已发射";
 
     } catch (const std::exception& e) {
