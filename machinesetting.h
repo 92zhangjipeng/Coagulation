@@ -28,6 +28,7 @@
 #include <cmath>
 #include <memory>
 #include "operregistry.h"
+#include "opencvFindRBC/customtitlebar.h"
 
 #include  "replacethetesttubetray.h" //性能验证
 
@@ -77,6 +78,7 @@ protected:
     void closeEvent(QCloseEvent *event);
     void showEvent(QShowEvent* event) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;
+    void changeEvent(QEvent *event) override;
 
 private:
     void initDimmingTab(QTableWidget *pdimmingTable, const quint8 indexequipment); //初始化调光表格
@@ -124,7 +126,7 @@ private:
     //维护模式
     void configBloodpinparaSignals();
 
-	void _configReagPinparaSignals();
+    void _configReagPinparaSignals();
 
     void _configHandsinitChn(quint8 equipmentIndex_);
 
@@ -206,9 +208,9 @@ private slots:
     void on_lineEdit_Tab0_hospital_name_editingFinished();
     void show_Preence_sets();
     void on_toolButton_ADD_clicked();
-	void on_toolButton_Import_clicked();
+    void on_toolButton_Import_clicked();
     void on_toolButton_export_clicked();
-	void on_pushButton_backsetting_clicked();
+    void on_pushButton_backsetting_clicked();
     void on_pushButton_SelTextOutPath_clicked();
 
     void on_pushButton_Adjustcoordinates_clicked();
@@ -216,6 +218,10 @@ private slots:
     void on_pushButtonopenSuck_clicked();
     void on_pushButtonsavedimming_clicked();
 
+    // 标题栏槽函数
+    void onCloseRequested();
+    void onMinimizeRequested();
+    void onMaximizeRequested();
 
 public:
 
@@ -225,7 +231,7 @@ public:
 
     void _finishmovetestdownhigh(int index_);//测试下Z高度完成
 
-	void openKeyboard(); //取消监听键盘
+    void openKeyboard(); //取消监听键盘
 
     void disablechn(QVector<quint8> indexchnList); //调整LED值失败禁用通道
 
@@ -291,6 +297,9 @@ private:
     void configWriteDimming2Board();
 
 
+    // 添加标题栏相关的初始化函数
+    void initCustomTitleBar();
+
 
 
 private:
@@ -352,7 +361,7 @@ private:
     quint8 m_typedequipment;
     QPropertyAnimation* m_propertyAnimation = nullptr;
 
-    QMap<QLabel* , btnLable*>   m_pbloodLableList;   //血样针lable要下针命令
+    QMap<QLabel* , btnLable*>   m_pbloodLableList;   //样本针lable要下针命令
     QMap<QLabel* , btnLable* >  m_preagpinLableList; //试剂针lable要下针命令
     QMap<QLabel* , btnLable*>   m_pHandsLableList;   //抓手针lable要下针命令
 
@@ -374,6 +383,10 @@ private:
 
     void connectEnterReturnShortcuts();
     void disconnectEnterReturnShortcuts();
+
+
+    // 添加自定义标题栏成员
+    CustomTitleBar *m_titleBar = nullptr;
 
 
     // 私有辅助模板函数

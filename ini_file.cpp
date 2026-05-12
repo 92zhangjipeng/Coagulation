@@ -6,6 +6,8 @@
 #include "cglobal.h"
 #include "QsLog/include/QsLog.h"
 
+const QString INI_File::Instrument_parameters = "InstrumentParameters";  // 定义
+const QString INI_File::kPrintPara = "PrintSettings"; //打印参数
 
 INI_File::INI_File()
 {
@@ -13,13 +15,31 @@ INI_File::INI_File()
     m_psetting = new QSettings(m_qstrFileName,QSettings::IniFormat);
     m_psetting->setIniCodec("UTF-8");
     m_Section_Key = "";
-
 }
 
 INI_File::~INI_File()
 {
     delete m_psetting;
     m_psetting = nullptr;
+}
+
+/*
+ * 粘附率
+ * @brief INI_File::setPrintAdhesion
+ * @param show
+ */
+void INI_File::setPrintAdhesion(const bool show)
+{
+    QString key = QString("%1/%2").arg(kPrintPara).arg("PrintAdhesion");
+    m_psetting->setValue(key, show);
+    m_psetting->sync();  // 立即写入文件
+}
+
+bool INI_File::getPrintAdhesion()
+{
+    QString key = QString("%1/%2").arg(kPrintPara).arg("PrintAdhesion");
+    // 第二个参数是默认值，如果键不存在则返回 true
+    return m_psetting->value(key, true).toBool();
 }
 
 //写入基础参数
@@ -77,6 +97,19 @@ void INI_File::setFilteringMode(const int indexMode){
     m_psetting->setValue(keywrite,indexMode);
 }
 
+
+quint8 INI_File::getTubeManager()
+{
+    const QString keyget = QString("TubeManager/%2").arg(Instrument_parameters).arg("currentTray");
+    return m_psetting->value(keyget, 0).toUInt();
+}
+
+void INI_File::setTubeManager(const quint8 currentTray)
+{
+    const QString keyset = QString("TubeManager/%2").arg(Instrument_parameters).arg("currentTray");
+    m_psetting->setValue(keyset,currentTray);
+    m_psetting->sync();
+}
 
 quint8 INI_File::getInstrumentType()
 {
@@ -147,7 +180,7 @@ double INI_File::GetFixedHigh()
 
 /**
  * @brief INI_File::SetTestDifference
- * @param UpOffsetmm PPP最底部向上偏移高度
+ * @param UpOffsetmm PrP最底部向上偏移高度
  */
 void  INI_File::SetTestDifference(double UpOffsetmm )
 {
@@ -159,6 +192,21 @@ double INI_File::GetTestDifference(void)
 {
     m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("TestHeightDifference");
     return m_psetting->value(m_Section_Key).toDouble();
+}
+
+
+const QString INI_File::KEY_REF_BOTTOM_DISTANCE = QString("%1/RefBottomDistance").arg(Instrument_parameters);
+/** 参照物到底部距离
+ * @brief INI_File::setRefBottomDistance
+ * @param distance
+ */
+void INI_File::setRefBottomDistance(const double distance)
+{
+    m_psetting->setValue(KEY_REF_BOTTOM_DISTANCE,distance);
+}
+double INI_File::getRefBottomDistance(void)
+{
+    return m_psetting->value(KEY_REF_BOTTOM_DISTANCE).toDouble();
 }
 
 
@@ -403,7 +451,7 @@ double INI_File::GetLearnSamplevolume()
 
 /*
 *
-* 空试管区下针高度(血样针下针高度)
+* 空试管区下针高度(样本针下针高度)
 */
 void INI_File::SetEmptyTubeDownHigh(double high)
 {
@@ -432,7 +480,7 @@ int INI_File::GetFailedLinqueHigh()
 }
 
 /*
-* 探测失败高度（清洗剂=血样针）
+* 探测失败高度（清洗剂=样本针）
 */
 void INI_File::SetFailedCleanLinqueHigh(int highValue)
 {
@@ -513,8 +561,8 @@ quint8  INI_File::GetAbsorbWashingfluidX1()
 }
 
 /*
-*吸取清洗剂 ==清洗血样针
-* 吸取清洗剂X2 的量(洗血样针)
+*吸取清洗剂 ==清洗样本针
+* 吸取清洗剂X2 的量(洗样本针)
 */
 void  INI_File::SetAbsorbWashingfluidX2(int ul_value)
 {

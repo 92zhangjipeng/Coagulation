@@ -27,12 +27,6 @@ private slots:
 
     void _threadruningstart();
 
-   
-
-signals:
-
-private slots:
-
 public slots :
 
     void slotwritePdf(QString pathload);

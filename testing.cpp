@@ -1,10 +1,7 @@
-﻿#pragma execution_character_set("utf-8")
-
-#include "genericfunctions.h"
+﻿#include "genericfunctions.h"
 #include "testing.h"
 #include "ui_testing.h"
 #include <QScrollBar>
-#include <QMessageBox>
 #include <QTreeWidgetItem>
 #include <QCoreApplication>
 #include <math.h>
@@ -13,7 +10,6 @@
 #include <QThread>
 #include <QDebug>
 #include <QDesktopWidget>
-#include <QMessageBox>
 #include <string.h>
 #include <QPainter>
 #include <QMouseEvent>
@@ -25,6 +21,10 @@
 #include "quiutils.h"
 #include <operclass/fullyautomatedplatelets.h>
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
+
 using namespace std;
 UsbCodeDispose* Testing::m_TaskDll = nullptr;
 
@@ -32,9 +32,8 @@ Testing::Testing(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::Testing),
     mInituiBloodArea(false),
-    mReminderTube(-1),
-    alreadyinitchannelui(false)
-    ,m_ProTotalTube(0),
+    alreadyinitchannelui(false),
+    m_ProTotalTube(0),
     m_ThrowTube(0),
     m_blinkState(false)
 
@@ -43,6 +42,7 @@ Testing::Testing(QWidget *parent) :
     this->setWindowFlags(Qt::FramelessWindowHint);
     mflashingTubeList.clear();
     m_TaskDll = new UsbCodeDispose;
+    mreminderPPPandPRPhole.clear();
 }
 
 Testing::~Testing()
@@ -91,131 +91,267 @@ void  Testing::toggleBlinkState(){
     update();
 }
 
+
 void Testing::resizeEvent(QResizeEvent *event)
 {
     Q_UNUSED(event);
     mInituiBloodArea = false;
 
-    //先获取大框的宽和高
-    const int  appWidth = ui->widget_main->size().width();
-    const int  appHeigh = ui->widget_main->size().height();
+    // 先获取大框的宽和高
+    const int appWidth = ui->widget_main->size().width();
+    const int appHeigh = ui->widget_main->size().height();
 
-    //间距
+    // 间距
     const int boardSpaceX = 5;
     const int boardSpaceY = 5;
 
+    int ChnBarHeight = 155;
+    int ThrowCupWidth = 120;
+    int ThrowCupHeight = boardSpaceY - 5;
+    int Left_width = appWidth - boardSpaceX * 2 - 2 * 2;
 
-    int ChnBarHeight = 155;                                     //测试通道高
-    int ThrowCupWidth = 120;                                    //弃杯孔宽
-    int ThrowCupHeight = boardSpaceY - 5;                    //弃杯孔高
-    int Left_width = appWidth - boardSpaceX*2 - 2*2;
+    // 清除 widget_channelarea 的布局
+    if (ui->widget_channelarea->layout()) {
+        QLayoutItem* item;
+        while ((item = ui->widget_channelarea->layout()->takeAt(0)) != nullptr) {
+            delete item;
+        }
+        delete ui->widget_channelarea->layout();
+    }
 
+    // 测试通道区域
+    ui->widget_channelarea->setGeometry(boardSpaceX, boardSpaceY, Left_width, ChnBarHeight);
 
-    //测试通道Loc
-    int ChnModulePos_x = 0;
-    ui->widget_channelarea->setGeometry(boardSpaceX, boardSpaceY, Left_width,ChnBarHeight);
-    ui->DroptheCup->setGeometry(appWidth - 100, 5, ThrowCupHeight, ThrowCupWidth);  //弃杯孔位置
-    //QLOG_DEBUG()<<"大框高"<<big_h<<"通道高"<<ChnBarHeight<<endl;
+    // 获取 channelarea 的实际尺寸
+    int channelAreaWidth = ui->widget_channelarea->width();
+    int channelAreaHeight = ui->widget_channelarea->height();
 
-    //血样区和试管盘高度 = 大框高 - 测试通道高 - 2个间距 - 4个横线线宽
-    int BloodAndTrayTubeHeight = appHeigh - ui->widget_channelarea->height() - boardSpaceY*3 - 4*2;
-    //试管馆盘位置
-    int TrayTubeHeight = BloodAndTrayTubeHeight/3*2 ;  //试管区高度
+    // 弃杯孔控件尺寸
+    int dropCupWidth = 80;
+    int dropCupHeight = 120;
+    int dropCupLeftMargin = 15;   // DroptheCup 与模块的间距
+
+    // 计算模块可用的宽度（减去 DroptheCup 占用的空间和间距）
+    int availableForModulesWidth = channelAreaWidth - dropCupWidth - dropCupLeftMargin;
+
+    // 血样区和试管盘高度
+    int BloodAndTrayTubeHeight = appHeigh - ui->widget_channelarea->height() - boardSpaceY * 3 - 4 * 2;
+    int TrayTubeHeight = BloodAndTrayTubeHeight / 3 * 2;
     int taryTopy = ui->widget_channelarea->geometry().bottomLeft().y() + boardSpaceY;
-    ui->widget_testcup->setGeometry(boardSpaceX, taryTopy,Left_width, TrayTubeHeight);
-    //QLOG_DEBUG()<<"试管馆盘位置"<<"topx"<<BoadrSpacing_x <<"topy"<<taryTopy<<"试管宽"<<Left_width<<"试管高"<<TrayTubeHeight<<endl;
+    ui->widget_testcup->setGeometry(boardSpaceX, taryTopy, Left_width, TrayTubeHeight);
 
-    //血样管区域
-    int bloodBottomLoc_topy  = ui->widget_testcup->geometry().bottomLeft().y() + boardSpaceY; //底部Y - 血样区高 - 间距
-    int BloodSampleHeight = appHeigh - ui->widget_channelarea->height() - ui->widget_testcup->height() - 3*boardSpaceY; //血样区高
+    // 血样管区域
+    int bloodBottomLoc_topy = ui->widget_testcup->geometry().bottomLeft().y() + boardSpaceY;
+    int BloodSampleHeight = appHeigh - ui->widget_channelarea->height() - ui->widget_testcup->height() - 3 * boardSpaceY;
     ui->widget_Sample_1->setFixedHeight(BloodSampleHeight);
     ui->widget_Sample_1->setFixedWidth(Left_width);
-    ui->widget_Sample_1->setGeometry(boardSpaceX,bloodBottomLoc_topy ,Left_width,BloodSampleHeight);
-    //QLOG_DEBUG()<<"血样区和试管盘高度"<<BloodAndTrayTubeHeight<<"血样区高"<<BloodSampleHeight<<endl;
+    ui->widget_Sample_1->setGeometry(boardSpaceX, bloodBottomLoc_topy, Left_width, BloodSampleHeight);
 
+    // 动态计算试管盘大小
+    constexpr int bigSpace = 29;
+    int ColWidth = (Left_width - 5) / bigSpace;
+    int TaryTubeWidth = ColWidth * 6;
 
-
-    //单个试管盘宽
-    constexpr  int bigSpace = 29;
-    constexpr  int kDefaultTraySpacingY = 15;
-    int ColWidth = (Left_width - 5)/bigSpace;
-    int TaryTubeWidth = ColWidth *6;
-
-
-    ui->widget_TestCup_0->setFixedSize(TaryTubeWidth,TrayTubeHeight);
-    ui->widget_TestCup_1->setFixedSize(TaryTubeWidth,TrayTubeHeight);
-    ui->widget_TestCup_2->setFixedSize(TaryTubeWidth,TrayTubeHeight);
-    ui->widget_TestCup_3->setFixedSize(TaryTubeWidth,TrayTubeHeight);
-    //QLOG_DEBUG()<<"单个试管宽"<<TaryTubeWidth;
-
-    //试管区高度
-    int ibeginning = 0;
-    int iending = 0;
-    switch(minstrumentType)
+    // 根据试管盘数量动态调整宽度，确保居中
+    int visibleTraysCount = 0;
+    switch (minstrumentType)
     {
-        case KS600:
-        {
-            ibeginning = 120;
-            iending = 240;
-            ui->widget_TestCup_2->hide();
-            ui->widget_TestCup_3->hide();
-            ChnModulePos_x = (appWidth - boardSpaceX - ui->widget_Module1->width() - ThrowCupWidth)/2;
-            ui->widget_Module1->move(ChnModulePos_x ,kDefaultTraySpacingY);
+        case KS600: visibleTraysCount = 2; break;
+        case KS800: visibleTraysCount = 3; break;
+        case KS1200: visibleTraysCount = 4; break;
+        default: visibleTraysCount = 2; break;
+    }
 
+    // 重新计算试管盘宽度，使其能完美居中
+    int maxTrayWidth = (Left_width - (visibleTraysCount - 1) * boardSpaceX) / visibleTraysCount;
+    int finalTrayWidth = qMin(TaryTubeWidth, maxTrayWidth);
 
-            ui->widget_TestCup_0->setGeometry(ColWidth*1 + TaryTubeWidth/2, 0,TaryTubeWidth, TrayTubeHeight );
-            ui->widget_TestCup_1->setGeometry(ColWidth*2+TaryTubeWidth*2+TaryTubeWidth/2, 0, TaryTubeWidth, TrayTubeHeight);
-            for(;ibeginning < iending; ibeginning++)
-                FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(ibeginning, TESTTUBES_CLIPPEDAWAY);
-            break;
-        }
-        case KS800:
-        {
-            ibeginning = 180;
-            iending = 240;
-            ChnModulePos_x = (appWidth - boardSpaceX - ui->widget_Module1->width() - ui->widget_Module2->width() - ThrowCupWidth)/2;
-            ui->widget_Module1->move(ChnModulePos_x ,kDefaultTraySpacingY);
-            ChnModulePos_x = ChnModulePos_x + ui->widget_Module1->width() + boardSpaceX*2;
-            ui->widget_Module2->move(ChnModulePos_x ,kDefaultTraySpacingY);
+    QList<QWidget*> trayWidgets = {ui->widget_TestCup_0, ui->widget_TestCup_1,
+                                    ui->widget_TestCup_2, ui->widget_TestCup_3};
 
-            ui->widget_TestCup_3->hide();
-            ui->widget_TestCup_0->setGeometry(ColWidth*1+TaryTubeWidth/2, 0, TaryTubeWidth, TrayTubeHeight );
-            ui->widget_TestCup_1->setGeometry(ColWidth*2+TaryTubeWidth/2+TaryTubeWidth, 0, TaryTubeWidth, TrayTubeHeight);
-            ui->widget_TestCup_2->setGeometry(ColWidth*3+TaryTubeWidth/2+TaryTubeWidth*2, 0, TaryTubeWidth, TrayTubeHeight);
-            for(;ibeginning < iending; ibeginning++)
-                FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(ibeginning, TESTTUBES_CLIPPEDAWAY);
-            break;
-        }
-        case KS1200:
-        {
-           ui->widget_TestCup_0->setGeometry(ColWidth *1, 0, TaryTubeWidth, TaryTubeWidth);
-           ui->widget_TestCup_1->setGeometry(ColWidth *2 + TaryTubeWidth*1, 0, TaryTubeWidth, TrayTubeHeight );
-           ui->widget_TestCup_2->setGeometry(ColWidth *3 + TaryTubeWidth*2, 0, TaryTubeWidth, TrayTubeHeight);
-           ui->widget_TestCup_3->setGeometry(ColWidth *4 + TaryTubeWidth*3, 0, TaryTubeWidth, TrayTubeHeight);
+    // 计算试管盘总宽度和起始位置
+    int totalTraysWidth = visibleTraysCount * finalTrayWidth + (visibleTraysCount - 1) * boardSpaceX;
+    int startTrayX = (Left_width - totalTraysWidth) / 2;
 
-           ChnModulePos_x = (appWidth - boardSpaceX - ui->widget_Module1->width() - ui->widget_Module2->width()- ui->widget_Module3->width() - ThrowCupWidth)/2;
-           ui->widget_Module1->move(ChnModulePos_x ,kDefaultTraySpacingY);
-           ChnModulePos_x = ChnModulePos_x + ui->widget_Module1->width() + boardSpaceX*2;
-           ui->widget_Module2->move(ChnModulePos_x ,kDefaultTraySpacingY);
-           ChnModulePos_x = ChnModulePos_x + ui->widget_Module2->width() + boardSpaceX*3;
-           ui->widget_Module3->move(ChnModulePos_x ,kDefaultTraySpacingY);
-           break;
-        }
-        default:{
-            ibeginning = 120;
-            iending = 240;
-            ui->widget_TestCup_2->hide();
-            ui->widget_TestCup_3->hide();
-            ui->widget_TestCup_0->setGeometry(ColWidth*1+TaryTubeWidth/2+TaryTubeWidth, 0, TaryTubeWidth, TrayTubeHeight );
-            ui->widget_TestCup_1->setGeometry(ColWidth*2+TaryTubeWidth*2+TaryTubeWidth/2, 0, TaryTubeWidth, TrayTubeHeight);
-            for(;ibeginning < iending; ibeginning++)
-                FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(ibeginning, TESTTUBES_CLIPPEDAWAY);
-            break;
-
+    for (int i = 0; i < trayWidgets.size(); ++i) {
+        if (i < visibleTraysCount) {
+            trayWidgets[i]->setFixedSize(finalTrayWidth, TrayTubeHeight);
+            int x = startTrayX + i * (finalTrayWidth + boardSpaceX);
+            trayWidgets[i]->setGeometry(x, 0, finalTrayWidth, TrayTubeHeight);
+            trayWidgets[i]->show();
+        } else {
+            trayWidgets[i]->hide();
         }
     }
+
+    // ========== 通道模块布局 - ProgressBar 尽可能大 ==========
+    constexpr int moduleSpacing = 10;           // 模块之间的间距
+    constexpr int progressBarSpacing = 10;      // ProgressBar 之间的间距
+    constexpr int progressBarsPerModule = 4;    // 每个模块的 ProgressBar 数量
+
+    // 标签相关尺寸
+    constexpr int labelHeight = 28;              // 文字标签高度
+    constexpr int labelTopMargin = 2;            // 标签上边距（与 ProgressBar 的间距）- 减小为2px
+    constexpr int moduleTopMargin = 4;           // 模块上边距 - 减小为4px
+    constexpr int moduleBottomMargin = 4;        // 模块下边距 - 减小为4px
+
+    // 计算 ProgressBar 可用的最大尺寸
+    // 可用高度 = channelarea 总高度 - 上下边距 - 标签高度 - 标签上边距
+    int availableHeightForBar = channelAreaHeight - moduleTopMargin - moduleBottomMargin - labelHeight - labelTopMargin;
+
+    // 根据型号确定模块数量
+    int modulesCount = 0;
+    int startTubeForUpdate = 0;
+    int endTubeForUpdate = 0;
+
+    switch (minstrumentType)
+    {
+        case KS600:
+            modulesCount = 1;
+            startTubeForUpdate = 120;
+            endTubeForUpdate = 240;
+            break;
+        case KS800:
+            modulesCount = 2;
+            startTubeForUpdate = 180;
+            endTubeForUpdate = 240;
+            break;
+        case KS1200:
+            modulesCount = 3;
+            startTubeForUpdate = 0;
+            endTubeForUpdate = 0;
+            break;
+        default:
+            modulesCount = 1;
+            startTubeForUpdate = 120;
+            endTubeForUpdate = 240;
+            break;
+    }
+
+    // 计算每个模块的最大可用宽度（考虑 DroptheCup 占用的空间）
+    int totalSpacingForBars = (progressBarsPerModule - 1) * progressBarSpacing;
+    int maxModuleWidth = (availableForModulesWidth - (modulesCount - 1) * moduleSpacing) / modulesCount;
+    int maxBarWidthByWidth = (maxModuleWidth - totalSpacingForBars) / progressBarsPerModule;
+
+    // 取高度限制和宽度限制的最小值
+    int progressBarSize = qMin(availableHeightForBar, maxBarWidthByWidth);
+    // 设置最小尺寸限制
+    progressBarSize = qMax(progressBarSize, 65);
+
+    // 重新计算模块宽度
+    int moduleWidth = progressBarsPerModule * progressBarSize + (progressBarsPerModule - 1) * progressBarSpacing;
+    int moduleHeight = moduleTopMargin + progressBarSize + labelTopMargin + labelHeight + moduleBottomMargin;
+
+    // 确保模块高度不超过 channelarea 高度
+    moduleHeight = qMin(moduleHeight, channelAreaHeight);
+
+    // 布局模块
+    QList<QWidget*> modules = {ui->widget_Module1, ui->widget_Module2, ui->widget_Module3};
+
+    // 设置所有模块的大小
+    for (int i = 0; i < modules.size(); ++i) {
+        if (i < modulesCount) {
+            modules[i]->setFixedSize(moduleWidth, moduleHeight);
+            modules[i]->show();
+        } else {
+            modules[i]->hide();
+        }
+    }
+
+    // 计算模块起始位置（在可用宽度内水平居中，整体垂直居中）
+    int totalModulesWidth = modulesCount * moduleWidth + (modulesCount - 1) * moduleSpacing;
+    int startX = (availableForModulesWidth - totalModulesWidth) / 2;  // 在可用宽度内居中
+    int startY = (channelAreaHeight - moduleHeight) / 2;  // 垂直居中
+
+    // 设置弃杯孔位置（在 widget_channelarea 的最右侧）
+    int dropCupX = channelAreaWidth - dropCupWidth;  // 最右侧
+    int dropCupY = (channelAreaHeight - dropCupHeight) / 2;  // 垂直居中
+
+    // 确保弃杯孔是 widget_channelarea 的直接子控件
+    ui->DroptheCup->setParent(ui->widget_channelarea);
+    ui->DroptheCup->setGeometry(dropCupX, dropCupY, dropCupWidth, dropCupHeight);
+    ui->DroptheCup->show();
+
+    // 设置模块位置（在弃杯孔左侧居中显示）
+    for (int i = 0; i < modulesCount; ++i) {
+        int x = startX + i * (moduleWidth + moduleSpacing);
+        modules[i]->setGeometry(x, startY, moduleWidth, moduleHeight);
+    }
+
+    // 更新模块内部的 ProgressBar 和标签的位置和大小
+    for (int i = 0; i < modulesCount; ++i) {
+        QList<ProgressBar*> progressBars = modules[i]->findChildren<ProgressBar*>();
+        QList<QLabel*> labels = modules[i]->findChildren<QLabel*>();
+
+        // 按名称排序确保顺序正确（Channel_bock_1, Channel_bock_2, ...）
+        std::sort(progressBars.begin(), progressBars.end(),
+            [](ProgressBar* a, ProgressBar* b) {
+                return a->objectName() < b->objectName();
+            });
+        std::sort(labels.begin(), labels.end(),
+            [](QLabel* a, QLabel* b) {
+                return a->objectName() < b->objectName();
+            });
+
+        // 设置 ProgressBar 大小和位置
+        for (int j = 0; j < progressBars.size() && j < progressBarsPerModule; ++j) {
+            ProgressBar* bar = progressBars[j];
+            if (bar) {
+                bar->setFixedSize(progressBarSize, progressBarSize);
+                int barX = j * (progressBarSize + progressBarSpacing);
+                bar->setGeometry(barX, moduleTopMargin, progressBarSize, progressBarSize);
+
+                // 设置 ProgressBar 样式
+                int borderRadius = qMax(progressBarSize / 10, 5);
+                bar->setStyleSheet(QString(
+                    "ProgressBar {"
+                    "   background-color: #E8ECF0;"
+                    "   border-radius: %1px;"
+                    "}"
+                    "ProgressBar::chunk {"
+                    "   background-color: #5B9BD5;"
+                    "   border-radius: %1px;"
+                    "}"
+                ).arg(borderRadius));
+            }
+        }
+
+        // 设置标签位置和样式 - 显示在 ProgressBar 下方，减小垂直间距
+        for (int j = 0; j < labels.size() && j < progressBarsPerModule; ++j) {
+            QLabel* label = labels[j];
+            if (label) {
+                int labelX = j * (progressBarSize + progressBarSpacing);
+                // 减小标签与 ProgressBar 之间的垂直间距（从 8px 减小到 2px）
+                int labelY = moduleTopMargin + progressBarSize + 2;
+                label->setGeometry(labelX, labelY, progressBarSize, labelHeight);
+
+                // 设置标签样式 - 增大字体大小，使其显示更清晰
+                label->setStyleSheet(
+                    "QLabel {"
+                    "   font-family: 'Microsoft YaHei';"
+                    "   font-size: 13px;"
+                    "   font-weight: 600;"
+                    "   color: #2C3035;"
+                    "   background: transparent;"
+                    "}"
+                );
+                label->setAlignment(Qt::AlignCenter);
+                label->setWordWrap(true);
+            }
+        }
+    }
+    // ========== 通道模块布局结束 ==========
+
+    // 更新数据库中的试管状态（KS1200 不需要）
+    if (startTubeForUpdate < endTubeForUpdate) {
+        for (int i = startTubeForUpdate; i < endTubeForUpdate; ++i) {
+            FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(i, TESTTUBES_CLIPPEDAWAY);
+        }
+    }
+
     return;
 }
+
 
 void Testing::initControlShowChannelProgress(quint8 startChannel,
                                                 QWidget * progressChannel,
@@ -388,8 +524,8 @@ void Testing::showTestChannelInfo(const quint8& channelIndex,const QString& samp
         return;
     }
 
-    if (channelIndex >= Channelreminder.size() || Channelreminder.isEmpty()) {
-        QLOG_WARN() << "Invalid channel index:" << channelIndex;
+    if (Channelreminder.isEmpty()) {
+        QLOG_WARN() << "通道提示文字为NULL";
         return;
     }
 
@@ -516,16 +652,12 @@ bool Testing::handlePaintEvents(QObject *watched, QEvent *event){
 
 
 bool Testing::handleResizeEvents(QObject *watched, QEvent *event){
+    Q_UNUSED(event);
+
     // 重置初始化状态，确保下次绘制时重新计算坐标
     if (watched == ui->widget_Sample_1) {
         mInituiBloodArea = false;
     }
-
-//    for (int i = 0; i < 4; ++i) {
-//        if (watched == getTrayWidget(i)) {
-//            mInitEmptyArea[i] = false;
-//        }
-//    }
 
     // 不拦截事件，继续传递
     return false;
@@ -555,9 +687,9 @@ bool Testing::eventFilter(QObject *watched, QEvent *event)
     }
 
     // 处理鼠标事件
-    else if (event->type() == QEvent::MouseButtonPress) {
-        return handleMouseEvents(watched, event);
-    }
+//    else if (event->type() == QEvent::MouseButtonPress) {
+//        return handleMouseEvents(watched, event);
+//    }
 
     // 其他事件传递给基类
     return QWidget::eventFilter(watched, event);
@@ -583,7 +715,8 @@ void Testing::init_testtube_tray(const int index_tray)
       }
       else
       {
-          FullyAutomatedPlatelets::pinstancesqlData()->UpdateTestTubeStateInfo(from_tube, TESTTUBES_FREETIME, "noone", 0);
+          FullyAutomatedPlatelets::pinstancesqlData()->UpdateTestTubeStateInfo(from_tube,
+                                                                    TESTTUBES_FREETIME, "noone", 0);
       }
     }
     update();
@@ -664,24 +797,47 @@ void Testing::showCleaningbit()
 /*初始化任务测高界面*/
 void Testing::initTheTaskInterface()
 {
+    //任务对话框关闭
     FullyAutomatedPlatelets::pinstanceAddsampletest()->initcreat();
-    connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),&Height_Data::Taskconfigcloe,this,[=](){
-         m_opendedheight = false; //任务对话框关闭
+    connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),
+            &Height_Data::Taskconfigcloe,this,[=]()
+    {
+         m_opendedheight = false;
     });
-    connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),&Height_Data::ReminderHole,this,[=](int richhole){
-        mReminderTube = richhole;
-        update();
+
+
+    //PPP血样孔提示
+    connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),
+            &Height_Data::reminderPPPandPRPputHole,
+            this,[=](const quint8 richhole)
+    {
+        if(richhole == 255){
+            mreminderPPPandPRPhole.clear();  // 255表示清空
+        }
+        else if(mreminderPPPandPRPhole.contains(richhole)){
+            mreminderPPPandPRPhole.removeOne(richhole);  // 移除指定孔号
+        }
+        else{
+            mreminderPPPandPRPhole.push_back(richhole);  // 添加新孔号
+        }
     });
+
+    //更新提示PRP孔
+    connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),
+            &Height_Data::reminderPPPandPRPputHoleNotify,
+            this,[=](const quint8 oldPRPHole,const quint8 changePRPHole)
+    {
+		int index = mreminderPPPandPRPhole.indexOf(oldPRPHole);
+		if (index != -1) {
+			mreminderPPPandPRPhole[index] = changePRPHole;
+		}
+    });
+
+
+
     connect(FullyAutomatedPlatelets::pinstanceAddsampletest(),&Height_Data::updateTestTubeSatus,
             this,&Testing::sycnChangeuiTubeStatus,
             Qt::QueuedConnection);
-    return;
-}
-
-void  Testing::SlotRemderbloodhole(int richhole)
-{
-    mReminderTube = richhole;
-    update();
     return;
 }
 
@@ -724,7 +880,7 @@ void Testing::HandleObtainPRPImage(const QString &pathImage)
 
     if (m_opendedheight) {
         // 窗口首次打开时的初始化逻辑
-        sampleTestWindow->setWindowFlags(Qt::Widget);
+        sampleTestWindow->setWindowFlags(sampleTestWindow->windowFlags() | Qt::FramelessWindowHint);
         sampleTestWindow->show();
 
     } else {
@@ -749,7 +905,7 @@ void Testing::HandleReopencvImageTubePRP(const QString &reId,const QString &path
 
     if (m_opendedheight) {
         // 窗口首次打开时的初始化逻辑
-        sampleTestWindow->setWindowFlags(Qt::Widget);
+        sampleTestWindow->setWindowFlags(sampleTestWindow->windowFlags() | Qt::FramelessWindowHint);
         sampleTestWindow->show();
 
     } else {
@@ -778,7 +934,7 @@ void Testing::_showaddsamplewidget()
     }
 
     if(m_opendedheight == false){
-        widget->setWindowFlags(Qt::Widget);
+        widget->setWindowFlags(widget->windowFlags() | Qt::FramelessWindowHint);
         widget->show();
         m_opendedheight = true;
     }
@@ -816,7 +972,7 @@ void Testing::slotThrowtesttube()
 
 
 /*所有样本测试完成*/
-void Testing::AllSampleTested()
+void Testing::allSampleTested()
 {
 
     // 检查对象是否有效
@@ -831,6 +987,7 @@ void Testing::AllSampleTested()
     try{
         // 批量UI更新开始禁用更新，进行多次修改
         //setUpdatesEnabled(false);
+        cglobal::g_StartTesting = false;
 
         ui->widget_showtips->setValue(100);
         m_ProTotalTube = 0; //需要测试的样本数
@@ -981,34 +1138,23 @@ void Testing::replacEmptyTestTary(int index_tary)
 
 void Testing::VectorReplaceClear(quint8 Index)
 {
-    //耗材更换试管盘--处理测试界面显示
-    if (mEmptyTubeAssigned.contains(Index))
-    {
-        auto EmptyTube = mEmptyTubeAssigned.find(Index);
-        mEmptyTubeAssigned.erase(EmptyTube);
-    }
-    if (mEmptyTubeAbsorb_Poorblood.contains(Index))
-    {
-        auto EmptyTube = mEmptyTubeAbsorb_Poorblood.find(Index);
-        mEmptyTubeAbsorb_Poorblood.erase(EmptyTube);
-    }
-    if (mEmptyTubeAbsorb_Richblood.contains(Index))
-    {
-        auto EmptyTube = mEmptyTubeAbsorb_Richblood.find(Index);
-        mEmptyTubeAbsorb_Richblood.erase(EmptyTube);
-    }
-    if (mEmptyTubeClipMoved.contains(Index))
-    {
-        auto EmptyTube = mEmptyTubeClipMoved.find(Index);
-        mEmptyTubeClipMoved.erase(EmptyTube);
-    }
-    if (mEmptyText.contains(Index))
-    {
-        auto Text = mEmptyText.find(Index);
-        mEmptyText.erase(Text);
-    }
+    // 耗材更换试管盘--处理测试界面显示
+    auto eraseIfFound = [this](auto& container, quint8 index) {
+       auto it = container.find(index);
+       if (it != container.end()) {
+           container.erase(it);
+       }
+    };
+
+    eraseIfFound(mEmptyTubeAssigned, Index);
+    eraseIfFound(mEmptyTubeAbsorb_Poorblood, Index);
+    eraseIfFound(mEmptyTubeAbsorb_Richblood, Index);
+    eraseIfFound(mEmptyTubeClipMoved, Index);
+    eraseIfFound(mEmptyText, Index);
     return;
 }
+
+
 
 /****************-血样孔绘制 ******************/
 QFont ConfigureTextstyle(int size)
@@ -1127,49 +1273,82 @@ void Testing::DrawBloodTopText()
 {
     QPainter painter(ui->widget_Sample_1);
     painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform | QPainter::Qt4CompatiblePainting);
-    QFont font = ConfigureTextstyle(20);
+    QFont font = ConfigureTextstyle(18);
     painter.setFont(font);
     QList<QString> ReminderToptext;
     ReminderToptext<<"A"<<"B"<<"C"<<"D"<<"E"<<"F"<<"G"<<"H"<<"I"<<"J"<<"K"<<"L";
+
     int TextHeight = 30;
-    int BloodAreasWidth = 0; //血样区界面总宽度
-    int SpaceLeft = ui->widget_TestCup_0->geometry().bottomLeft().x(); //距离左边边界
+    int BloodAreasWidth = 0;
+    QPoint cupGlobalPos = ui->widget_TestCup_0->mapToGlobal(QPoint(0, 0));
+    int SpaceLeft = ui->widget_Sample_1->mapFromGlobal(cupGlobalPos).x();
     int TotalCols = 0;
     quint8 equipmentKind = 0;
     SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
+
     switch(equipmentKind)
     {
         case KS600:
-            TotalCols = 6 ;
+            TotalCols = 6;
             BloodAreasWidth = ui->widget_TestCup_1->geometry().bottomRight().x() -
                     ui->widget_TestCup_0->geometry().bottomLeft().x();
         break;
         case KS800:
-            TotalCols = 8 ;
+            TotalCols = 8;
             BloodAreasWidth = ui->widget_TestCup_2->geometry().bottomRight().x() -
                     ui->widget_TestCup_0->geometry().bottomLeft().x();
-
         break;
         case KS1200:
-            TotalCols = 12 ;
+            TotalCols = 12;
             BloodAreasWidth = ui->widget_TestCup_3->geometry().bottomRight().x() -
                     ui->widget_TestCup_0->geometry().bottomLeft().x();
-
         break;
         default:
-            TotalCols = 6 ;
+            TotalCols = 6;
             BloodAreasWidth = ui->widget_TestCup_1->geometry().bottomRight().x() - ui->widget_TestCup_0->geometry().bottomLeft().x();
-
         break;
     }
+
     painter.setPen(cglobal::g_TextColorBlack);
-    int oneWidth = (BloodAreasWidth - TotalCols*5)/TotalCols;
+    int oneWidth = (BloodAreasWidth - TotalCols * 5) / TotalCols;
+
+    // ========== 动态计算半径（不依赖成员变量）==========
+    // 获取血样区的高度
+    //QRect bloodRect = ui->widget_Sample_1->rect();
+    //constexpr int kSpaceTopY = 30;
+    //int BloodZoneHeigh = bloodRect.height() - kSpaceTopY;
+
+//    int perHoleWidth = oneWidth / 2;
+//    int oneHeight = BloodZoneHeigh / 5;  // TotalRows = 5
+//    int diameter = qMin(perHoleWidth, oneHeight);
+//    int bloodRadius = (diameter - 2) / 2;
+    int visualOffset = -11;  // 根据实际效果调整
+    // ================================================
     for(int n = 0; n < TotalCols; n++)
-    {
-       int x_ = SpaceLeft+ n*oneWidth + n*5;
-       int y_ = 0;
-       QRect _Rect(QPoint(x_,y_),QSize(oneWidth,TextHeight));
-       painter.drawText(QPoint(_Rect.center().x() - m_BloodBigRadius,_Rect.center().y() + 5), ReminderToptext.at(n));
+       {
+           // 计算每列的X起始位置
+           int x_ = SpaceLeft + n * oneWidth + n * 5;
+
+           // 左孔的中心位置
+           int leftHoleCenterX = x_ + oneWidth / 4;
+           // 右孔的中心位置
+           int rightHoleCenterX = x_ + oneWidth * 3 / 4;
+
+           // 文字应该在左右两个孔的中间位置（整列的中心）
+           int textCenterX = (leftHoleCenterX + rightHoleCenterX) / 2;
+
+           QFontMetrics fm(font);
+           QString text = ReminderToptext.at(n);
+           QRect textRect = fm.boundingRect(text);
+
+           // 以整列的中心为基准绘制文字
+           QPoint textPos(
+               textCenterX - textRect.width() / 2 + visualOffset,
+               TextHeight - 2
+           );
+
+           painter.drawText(textPos, text);
+
     }
     return;
 }
@@ -1181,34 +1360,43 @@ void Testing::DrawBloodHoleInnerText(const QMap<quint8, QPoint>& BloodHoleMap)
     }
 
 
-	QPainter painter(ui->widget_Sample_1);
+    QPainter painter(ui->widget_Sample_1);
     if (!painter.isActive()) {
         return;
     }
 
     painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform
                            | QPainter::Qt4CompatiblePainting);
-	painter.setFont(ConfigureTextstyle(16));
+    QFont font = ConfigureTextstyle(14);
+    painter.setFont(font);
+    QFontMetrics fm(font);
 
-	static const QMap<quint8, QString> numberMap = {
-		{ 0, "1" },
-		{ 2, "2" },
-		{ 4, "3" },
-		{ 1, "4" },
-		{ 3, "5" }
-	};
+    static const QMap<quint8, QString> numberMap = {
+        { 0, "1" },
+        { 2, "2" },
+        { 4, "3" },
+        { 1, "4" },
+        { 3, "5" }
+    };
 
-	for (auto iter = BloodHoleMap.constBegin(); iter != BloodHoleMap.constEnd(); ++iter) {
-		if (iter.key() % 2 == 0) {
-			const QPoint& pos = iter.value();
-			QPoint textPos(pos.x() - m_BloodBigRadius * 2 + 7, pos.y() + 5);
+    for (auto iter = BloodHoleMap.constBegin(); iter != BloodHoleMap.constEnd(); ++iter) {
+        if (iter.key() % 2 == 0) {
+            const QPoint& pos = iter.value();
 
-			auto it = numberMap.find(iter.key() % 5);
-			if (it != numberMap.end()) {
-				painter.drawText(textPos, it.value());
-			}
-		}
-	}
+            auto it = numberMap.find(iter.key() % 5);
+            if (it != numberMap.end()) {
+                QString text = it.value();
+                QRect textRect = fm.boundingRect(text);
+
+                // 计算文字位置，使其在左侧居中显示并与圆环保持 2px 边距
+                QPoint textPos(
+                    pos.x() - m_BloodBigRadius * 2 - 2,
+                    pos.y() + textRect.height() / 2 - 2
+                );
+                painter.drawText(textPos, text);
+            }
+        }
+    }
 }
 
 void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHole)
@@ -1264,18 +1452,16 @@ void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHol
 
     // 5. 配置绘制参数
     painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
-    painter.setFont(ConfigureTextstyle(12));
+    QFont font = ConfigureTextstyle(11);
+    painter.setFont(font);
 
     QPen pen;
     pen.setColor(cglobal::g_LineColor);
     pen.setWidthF(1);
     painter.setPen(pen);
 
-    // 6. 预先计算常量
-    const int textOffsetSingle = -2;
-    const int textOffsetDouble = -6;
-    const int textOffsetTriple = -11;
-    const int textVerticalOffset = 5;
+    // 6. 预先计算字体度量
+    QFontMetrics fm(font);
 
     // 7. 安全的迭代绘制
     for (auto iter = safeBloodHoleCopy.constBegin(); iter != safeBloodHoleCopy.constEnd(); ++iter) {
@@ -1304,54 +1490,58 @@ void Testing::UpdateBloodHoleColors(int State, QMap<quint8, QPoint>& MapBloodHol
             const QString& showText = itText.value();
 
             // 8. 确定颜色方案
-			QPalette palette;
-			painter.setPen(pen);
+            QPalette palette;
+            painter.setPen(pen);
 
             switch (State) {
                 case TUBE_INIT:
-                    palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); 
+                    palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor);
                     break;
                 case TUBE_CHECKED:
                     (holeId % 2 != 0) ? palette.setColor(QPalette::Background, cglobal::g_RichBloodColor)
-															: palette.setColor(QPalette::Background, cglobal::g_PoorBloodColor);
+                                                            : palette.setColor(QPalette::Background, cglobal::g_PoorBloodColor);
                     break;
                 case TUBE_OUTRESULT:
                      palette.setColor(QPalette::Background, cglobal::g_OutResult);
                     break;
                 default:
                     QLOG_WARN() << "Unknown state:" << State << ", using default color";
-					palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); // 默认颜色
+                    palette.setColor(QPalette::Background, cglobal::g_SamllBgmColor); // 默认颜色
                     break;
             }
 
-            // 9. 绘制外圈（提醒环）
-            bool isReminderHole = (mReminderTube - 1 == holeId || mReminderTube == holeId);
-			painter.setBrush(isReminderHole
-				? QBrush(cglobal::g_ReminderBloodHoleColor, Qt::SolidPattern)
-				: QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
-			painter.drawEllipse(center, m_BloodBigRadius, m_BloodBigRadius); //画大圆
+            // 9.绘制外圈
+            painter.setBrush(QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
+            painter.drawEllipse(center, m_BloodBigRadius, m_BloodBigRadius); //画大圆
 
+             // 如果是提醒孔，绘制一个矩形框来突出显示
+            if(mreminderPPPandPRPhole.contains(holeId)|| mreminderPPPandPRPhole.contains(holeId + 1)){
+                // 框的大小比大圆稍大一些
+                int frameSize = m_BloodBigRadius + 1;
+                QRect frameRect(center.x() - frameSize, center.y() - frameSize,
+                               frameSize * 2, frameSize * 2);
+
+                // 设置框的颜色（使用提醒色）
+                painter.setPen(QPen(cglobal::g_ReminderBloodHoleColor, 2, Qt::SolidLine));
+                painter.setBrush(Qt::NoBrush);
+                painter.drawRect(frameRect);
+            }
 
             // 10. 绘制内圈
-			painter.setBrush(QBrush(palette.brush(QPalette::Background)));
-			painter.drawEllipse(center, m_BloodSmallRadius, m_BloodSmallRadius);
+            painter.setBrush(QBrush(palette.brush(QPalette::Background)));
+            painter.drawEllipse(center, m_BloodSmallRadius, m_BloodSmallRadius);
 
             // 11. 绘制文本
             if (!showText.isEmpty()) {
                 QColor textColor = (holeId % 2 == 0) ? cglobal::g_TextColorRoorblood : cglobal::g_TextColorRichblood;
                 painter.setPen(textColor);
 
-                QPoint textPos = center;
-                textPos.setY(textPos.y() + textVerticalOffset);
-
-                // 根据文本长度调整水平位置
-                if (showText.size() == 1) {
-                    textPos.setX(textPos.x() + textOffsetSingle);
-                } else if (showText.size() == 2) {
-                    textPos.setX(textPos.x() + textOffsetDouble);
-                } else if (showText.size() >= 3) {
-                    textPos.setX(textPos.x() + textOffsetTriple);
-                }
+                // 使用 QFontMetrics 实现完美的文字居中
+                QRect textRect = fm.boundingRect(showText);
+                QPoint textPos(
+                    center.x() - textRect.width() / 2,
+                    center.y() + textRect.height() / 2 - 2
+                );
 
                 painter.drawText(textPos, showText);
             }
@@ -1423,42 +1613,83 @@ void Testing::ToggletheReagentPosition(int mouse_posx , int mouse_posy)
     return;
 }
 
-//点击孔取消任务
+/**
+ * @brief 处理血样孔右键点击取消任务
+ * @param mouse_posx 鼠标点击的X坐标（相对窗口）
+ * @param mouse_posy 鼠标点击的Y坐标（相对窗口）
+ * @note 仅对偶数孔号（血样孔）生效，奇数孔号（富血样孔）不响应取消操作
+ * @note 使用预计算的转换矩阵优化坐标转换性能
+ * @warning 样本测试过程中禁止取消任务
+ * @return 无返回值，通过信号触发取消任务对话框
+ */
 void Testing::ClickCanelTask(int mouse_posx , int mouse_posy)
 {
+    // 安全检查
+    if (!ui || !ui->widget_Sample_1 || !this) {
+        QLOG_ERROR() << "UI components not properly initialized";
+        return;
+    }
+
     QPoint bloodpos;
-    int Cliclhole = -1;
+    int clickedHole = -1;
     QList<int> emptytube;
     emptytube.clear();
-    int Leftpos,Rightpos,Toppos,bottompos;
+    int leftPos, rightPos, topPos, bottomPos;
+
     auto iter = m_Blood_Tray_Checked.constBegin();
     while(iter != m_Blood_Tray_Checked.constEnd())
     {
-        int left_w = ui->widget_Machine->width() + 20;
-        bloodpos = ui->widget_Sample_1->mapToParent(QPoint(left_w + iter.value().x(),iter.value().y()));
-        Leftpos =  bloodpos.x() - Big_radius;
-        Rightpos = bloodpos.x() + Big_radius;
-        Toppos =  bloodpos.y() - Big_radius;
-        bottompos = bloodpos.y() + Big_radius;
-        if((mouse_posx >= Leftpos && mouse_posx <= Rightpos) && (mouse_posy >= Toppos && mouse_posy <= bottompos))
-        {
+        // 计算血样孔在this中的实际位置
+        // 使用Qt的坐标转换方法
+        QPoint holeRelativePos = iter.value();
+        QPoint actualPos = this->mapFromGlobal(ui->widget_Sample_1->mapToGlobal(holeRelativePos));
+        int actualX = actualPos.x();
+        int actualY = actualPos.y();
+
+        // 计算孔的边界区域
+        leftPos = actualX - m_BloodBigRadius;
+        rightPos = actualX + m_BloodBigRadius;
+        topPos = actualY - m_BloodBigRadius;
+        bottomPos = actualY + m_BloodBigRadius;
+
+        // 边界检查
+        if (actualX < 0 || actualY < 0 || leftPos < 0 || topPos < 0) {
+            QLOG_WARN() << "Invalid hole position detected for hole" << iter.key();
+            ++iter;
+            continue;
+        }
+
+        // 调试输出
+            QLOG_DEBUG() << "孔" << iter.key()
+        << "点击位置:" << mouse_posx << mouse_posy
+        << "孔区域:[" << leftPos << "," << rightPos
+        << "][" << topPos << "," << bottomPos << "]"
+        << "孔中心:(" << actualX << "," << actualY << ")"
+        << "半径:" << m_BloodBigRadius
+        << "控件位置:(" << ui->widget_Sample_1->pos().x() << "," << ui->widget_Sample_1->pos().y() << ")"
+        << "孔相对位置:(" << iter.value().x() << "," << iter.value().y() << ")";
+
+        if((mouse_posx >= leftPos && mouse_posx <= rightPos) &&
+                (mouse_posy >= topPos && mouse_posy <= bottomPos)){
+
             if (cglobal::g_StartTesting)
             {
                 FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("取消失败", "样本测试中请勿取消测试样本!");
                 return;
             }
-            Cliclhole = iter.key();
-            if(Cliclhole % 2 == 0)   //点击的是血孔号可以取消任务
+            clickedHole = iter.key();
+            if(clickedHole % 2 == BLOOD_HOLE_TYPE_EVEN)
             {
+                // ... 取消任务逻辑
                 QList<int> sample_tasklist; //获取贫血的血样区孔号
                 QList<int> sampleidList;
                 StructInstance::getInstance()->cancel_sample_task(sample_tasklist,sampleidList);
                 clickAnaemiaHoleCancelTestTask(sampleidList); //取消任务点击贫血孔号
             }
-            update();
             break;
         }
-        iter++;
+        ++iter;
+
     }
     update();
     return;
@@ -1498,6 +1729,11 @@ void Testing::clickAnaemiaHoleCancelTestTask(QList<int> waitTestSampleId)
     return;
 }
 
+QList<quint8> Testing::getAllocatePPPandPRPHole()
+{
+    return  mreminderPPPandPRPhole;
+}
+
 //取消任务孔号
 void Testing::CanceltaskbackTubecolor(int PPPHole, int PRPHoles, QList<quint8> emptytubehole)
 {
@@ -1516,11 +1752,14 @@ void Testing::CanceltaskbackTubecolor(int PPPHole, int PRPHoles, QList<quint8> e
     processHole(PPPHole);
     processHole(PRPHoles);
 
+    // 从提示列表中移除取消的孔号
+    //mreminderPPPandPRPhole.removeOne(PPPHole);
+    //mreminderPPPandPRPhole.removeOne(PRPHoles);
+
     for(int tube : emptytubehole){
         FullyAutomatedPlatelets::pinstancesqlData()->update_test_tube_status(tube,
                                                                              TESTTUBES_FREETIME,
-                                                                             "noone",
-                                                                              0);
+                                                                             "noone",                                                                      0);
         // 删除相关映射条目：直接使用find检查
         auto emptyIt = mEmptyTubeAssigned.find(tube);
         if (emptyIt != mEmptyTubeAssigned.end()) {
@@ -1531,6 +1770,9 @@ void Testing::CanceltaskbackTubecolor(int PPPHole, int PRPHoles, QList<quint8> e
         if (textIt != mEmptyText.end()) {
             mEmptyText.erase(textIt);
         }
+
+        // 从提示列表中移除空试管孔号
+        //mreminderPPPandPRPhole.removeOne(tube);
     }
     return;
 }
@@ -1577,14 +1819,14 @@ void Testing::SampleTestingChangInitColor(QPoint BloodPoint ,quint8 FinishChanne
     DrawChannelProgress(completedChannel, 0);      // 通道显示变0
     Channelreminder.at(completedChannel)->hide();  // 隐藏通道显示信息
 
-	for (auto it = m_TestingSample.begin(); it != m_TestingSample.end(); ) {
-		if (it.value() == FinishChannel) {
-			it = m_TestingSample.erase(it);
-		}
-		else {
-			++it;
-		}
-	}
+    for (auto it = m_TestingSample.begin(); it != m_TestingSample.end(); ) {
+        if (it.value() == FinishChannel) {
+            it = m_TestingSample.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
     return;
 }
 
@@ -1607,7 +1849,7 @@ void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,quint8 IndexTray,quin
 {
     QPainter painter(pTrayWidget);
     painter.setRenderHint(QPainter::Antialiasing, true);
-    QFont font = ConfigureTextstyle(12);
+    QFont font = ConfigureTextstyle(11);
     painter.setFont(font);
 
     quint8 FirstHole = 0;
@@ -1687,12 +1929,17 @@ void  Testing::DrawTrayTestTubeUiAxis(QWidget* pTrayWidget,quint8 IndexTray,quin
         painter.drawEllipse(TrayTubeFirst.value(), SmalleRadius, SmalleRadius); //画小圆
         painter.setPen(cglobal::g_TextColorWhite);
         QString SampleText = mEmptyText[TrayTubeFirst.key()];
-        if (SampleText.length() >= 3)
-            painter.drawText(QPoint(TrayTubeFirst.value().x() - 9, TrayTubeFirst.value().y() + 5), SampleText);
-        else if (SampleText.length() == 2)
-            painter.drawText(QPoint(TrayTubeFirst.value().x() - 6, TrayTubeFirst.value().y() + 5), SampleText);
-        else if (SampleText.length() == 1)
-            painter.drawText(QPoint(TrayTubeFirst.value().x() - 2, TrayTubeFirst.value().y() + 5), SampleText);
+
+        // 使用智能文本对齐方式
+        if (!SampleText.isEmpty()) {
+            QFontMetrics fm(font);
+            QRect textRect = fm.boundingRect(SampleText);
+            QPoint textPos(
+                TrayTubeFirst.value().x() - textRect.width() / 2,
+                TrayTubeFirst.value().y() + textRect.height() / 2 - 2
+            );
+            painter.drawText(textPos, SampleText);
+        }
 
         if(EndHoleNum == (FirstHole + 1))
             break;
@@ -1852,30 +2099,40 @@ void Testing::showCleanreagent()
 /*显示弃杯孔*/
 void Testing::showDiscardTheCup()
 {
-    QPainter painter(ui->DroptheCup);
-    QFont font = ConfigureTextstyle(14);
-    painter.setFont(font);
-    painter.setRenderHint(QPainter::Antialiasing,true);
-    m_DiscardCupHole.setX((ui->DroptheCup->width() >> 1));
-    m_DiscardCupHole.setY((ui->DroptheCup->height() >> 1));
-    QPalette palette;
-    painter.setPen(cglobal::g_LineColor); // -- 圆环外圈的颜色
-    palette.setColor(QPalette::Background,cglobal::g_SamllBgmColor); //-----内圆环背景颜色
-    painter.setRenderHint(QPainter::Antialiasing, true);//设置渲染,启动反锯齿
-    painter.setBrush(QBrush(cglobal::g_OuterRingColor,Qt::SolidPattern)); //设置画刷形式 -- 外圆环的颜色
-    painter.drawEllipse(m_DiscardCupHole,TopDraw_Bigradius,TopDraw_Bigradius); //画大圆
-    painter.setBrush(QBrush(palette.brush(QPalette::Background))); //设置画刷为背景色
-    painter.drawEllipse(m_DiscardCupHole,TopDraw_Smallradius,TopDraw_Smallradius); //画小圆
-    painter.setPen(QColor(0,0,0));
-    painter.drawText(QPoint(m_DiscardCupHole.x()- 20 ,m_DiscardCupHole.y() + 5),tr("弃杯孔"));
-    return;
+   QPainter painter(ui->DroptheCup);
+   QFont font = ConfigureTextstyle(14);
+   painter.setFont(font);
+   painter.setRenderHint(QPainter::Antialiasing, true);
+
+   // 计算中心点（圆心）
+   int centerX = ui->DroptheCup->width() / 2;
+   int centerY = ui->DroptheCup->height() / 2;
+   m_DiscardCupHole.setX(centerX);
+   m_DiscardCupHole.setY(centerY);
+
+   // 绘制外圆环
+   painter.setPen(cglobal::g_LineColor);
+   painter.setBrush(QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
+   painter.drawEllipse(m_DiscardCupHole, TopDraw_Bigradius, TopDraw_Bigradius);
+
+   // 绘制内圆（背景色）
+   painter.setBrush(QBrush(cglobal::g_SamllBgmColor));
+   painter.drawEllipse(m_DiscardCupHole, TopDraw_Smallradius, TopDraw_Smallradius);
+
+   // 绘制文字（居中于圆心）
+   painter.setPen(QColor(0, 0, 0));
+   QString text = tr("弃杯孔");
+   QRect textRect = painter.fontMetrics().boundingRect(text);
+   QPoint textPos(centerX - textRect.width() / 2,
+                  centerY + textRect.height() / 3); // 微调垂直居中
+   painter.drawText(textPos, text);
 }
 
 /*测试试管显示初始坐标*/
 void Testing::CreatTrayTestTubeUiAxis(int indexTray) {
     constexpr quint8 Total_Cols = 6;
     constexpr quint8 Total_Rows = 10;
-    constexpr int spaceing = 5;
+    constexpr int spacing = 5;
 
     // 预定义控件和起始孔映射
     QWidget* trayWidgets[] = {ui->widget_TestCup_0, ui->widget_TestCup_1,
@@ -1892,10 +2149,9 @@ void Testing::CreatTrayTestTubeUiAxis(int indexTray) {
     const int Width_OnceHeight = AloneHeight / Total_Rows;
     const int setdiameter = std::min(Width_OnceWidth, Width_OnceHeight);
 
-    m_BigRadius = (setdiameter - spaceing) / 2;
-    m_SmalleRadius = std::abs(m_BigRadius - m_BigRadius/7*3);
-
-    //m_Testcups.reserve(FirstIndexHole + Total_Rows * Total_Cols); // 预分配内存
+    // 与 widget_Sample_1 样式一致的半径计算
+    m_BigRadius = (setdiameter - spacing) / 2;
+    m_SmalleRadius = qAbs(m_BigRadius - 2);
 
     for (int r = 0; r < Total_Rows; ++r) {
         const int y_base = r * Width_OnceHeight;

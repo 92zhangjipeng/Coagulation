@@ -507,7 +507,6 @@ public:
     QLabel *label_to;
     QSpinBox *spinBox_endtray;
     QPushButton *pushButton_TrayHands_2;
-    QPushButton *pushButton_TrayHands;
     QLabel *label_title;
     QTableWidget *tableWidget_displayPos;
     QLabel *label_movedPos;
@@ -518,38 +517,362 @@ public:
             CustomPlot->setObjectName(QStringLiteral("CustomPlot"));
         CustomPlot->resize(1901, 797);
         QFont font;
-        font.setFamily(QStringLiteral("Arial"));
-        font.setPointSize(12);
+        font.setFamily(QString::fromUtf8("Microsoft YaHei,\345\276\256\350\275\257\351\233\205\351\273\221,PingFang SC,Arial,sans-serif"));
         CustomPlot->setFont(font);
         QIcon icon;
         icon.addFile(QStringLiteral(":/Picture/logo.ico"), QSize(), QIcon::Normal, QIcon::Off);
         CustomPlot->setWindowIcon(icon);
+        CustomPlot->setStyleSheet(QString::fromUtf8("\n"
+"/* ==================== \345\205\250\345\261\200\345\214\273\347\226\227\346\265\205\350\223\235\351\243\216\346\240\274 ==================== */\n"
+"QWidget {\n"
+"    background-color: #F0F7FF;\n"
+"    font-family: \"Microsoft YaHei\", \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"PingFang SC\", Arial, sans-serif;\n"
+"    font-size: 13px;\n"
+"    color: #1A3A4A;\n"
+"}\n"
+"\n"
+"/* ==================== \344\270\273\345\256\271\345\231\250\351\235\242\346\235\277 ==================== */\n"
+"QWidget#widget_Leftwidget,\n"
+"QWidget#widget_trayall {\n"
+"    background-color: #E8F1FA;\n"
+"    border: 1px solid #B8D4E8;\n"
+"    border-radius: 8px;\n"
+"}\n"
+"\n"
+"QWidget#widget_Rightwidget {\n"
+"    background-color: #E8F1FA;\n"
+"    border: 1px solid #B8D4E8;\n"
+"    border-radius: 8px;\n"
+"}\n"
+"\n"
+"/* ==================== \345\255\220\345\214\272\345\237\237\351\235\242\346\235\277\357\274\210\347\231\275\350\211\262\345\215\241\347\211\207\357\274\211 ==================== */\n"
+"QWidget#widget_ClaneA"
+                        "rea,\n"
+"QWidget#widget_OriginArea,\n"
+"QWidget#widget_testchannelArea,\n"
+"QWidget#widget_ThrowCupArea,\n"
+"QWidget#widget_testtubetray_1,\n"
+"QWidget#widget_testtubetray_2,\n"
+"QWidget#widget_testtubetray_3,\n"
+"QWidget#widget_testtubetray_4,\n"
+"QWidget#widget_Bloodchild_1,\n"
+"QWidget#widget_Bloodchild_2,\n"
+"QWidget#widget_Bloodchild_3,\n"
+"QWidget#widget_Bloodchild_4,\n"
+"QWidget#widget_Bloodchild_5,\n"
+"QWidget#widget_Bloodchild_6,\n"
+"QWidget#widget_Bloodchild_7,\n"
+"QWidget#widget_Bloodchild_8,\n"
+"QWidget#widget_Bloodchild_9,\n"
+"QWidget#widget_Bloodchild_10,\n"
+"QWidget#widget_Bloodchild_11,\n"
+"QWidget#widget_Bloodchild_12,\n"
+"QWidget#widget_ReagentsArea,\n"
+"QWidget#widget_video {\n"
+"    background-color: #FFFFFF;\n"
+"    border: 1px solid #C5E0F4;\n"
+"    border-radius: 8px;\n"
+"}\n"
+"\n"
+"/* ==================== \345\267\245\345\205\267\346\240\217\346\214\211\351\222\256 ==================== */\n"
+"QToolButton {\n"
+"    background-color: #EFF7FF;\n"
+"    border: 1px solid #B8D4E8;\n"
+"    bor"
+                        "der-radius: 6px;\n"
+"    color: #1A5A7A;\n"
+"    font-size: 12px;\n"
+"    font-weight: normal;\n"
+"    padding: 4px;\n"
+"}\n"
+"\n"
+"QToolButton:hover {\n"
+"    background-color: #D9EAFB;\n"
+"    border: 1px solid #7BB3D6;\n"
+"    color: #0D4A6A;\n"
+"}\n"
+"\n"
+"QToolButton:pressed,\n"
+"QToolButton:checked {\n"
+"    background-color: #C5E0F4;\n"
+"    border: 1px solid #5A9BC2;\n"
+"    color: #0A3F5A;\n"
+"}\n"
+"\n"
+"QToolButton:checked:hover {\n"
+"    background-color: #B8D9F0;\n"
+"    border: 1px solid #4A8AB0;\n"
+"}\n"
+"\n"
+"/* ==================== \345\244\215\344\275\215/\346\265\213\350\257\225\346\214\211\351\222\256\357\274\210\345\274\272\350\260\203\357\274\211 ==================== */\n"
+"QToolButton#toolButton_Backorigin,\n"
+"QPushButton#pushButton_TrayHands_2 {\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0,\n"
+"        stop:0 #2C7FB8, stop:1 #1E6EA5);\n"
+"    border: none;\n"
+"    border-radius: 6px;\n"
+"    color: white;\n"
+"    font-size: 14px;\n"
+"    font-weight: bold"
+                        ";\n"
+"    padding: 6px 12px;\n"
+"}\n"
+"\n"
+"QToolButton#toolButton_Backorigin:hover,\n"
+"QPushButton#pushButton_TrayHands_2:hover {\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0,\n"
+"        stop:0 #3A8FC8, stop:1 #287EB5);\n"
+"}\n"
+"\n"
+"QToolButton#toolButton_Backorigin:pressed,\n"
+"QPushButton#pushButton_TrayHands_2:pressed {\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0,\n"
+"        stop:0 #1E6EA5, stop:1 #155A8A);\n"
+"}\n"
+"\n"
+"/* ==================== \350\257\225\345\211\202\346\214\211\351\222\256 ==================== */\n"
+"QToolButton#toolButton_Reagent_20,\n"
+"QToolButton#toolButton_Reagent_21,\n"
+"QToolButton#toolButton_Reagent_22,\n"
+"QToolButton#toolButton_Reagent_23,\n"
+"QToolButton#toolButton_Reagent_24,\n"
+"QToolButton#toolButton_Reagent_25,\n"
+"QToolButton#toolButton_Reagent_26,\n"
+"QToolButton#toolButton_Reagent_27,\n"
+"QToolButton#toolButton_Reagent_28,\n"
+"QToolButton#toolButton_Reagent_29 {\n"
+"    background-color: #EFF7FF;\n"
+""
+                        "    border: 1px solid #B8D4E8;\n"
+"    border-radius: 12px;\n"
+"    color: #1A5A7A;\n"
+"    font-size: 10px;\n"
+"    font-weight: bold;\n"
+"}\n"
+"\n"
+"/* ==================== \344\277\241\346\201\257\345\275\225\345\205\245\346\214\211\351\222\256 ==================== */\n"
+"QToolButton#toolButton_video {\n"
+"    background-color: transparent;\n"
+"    border: none;\n"
+"    color: #1A5A7A;\n"
+"    font-size: 12px;\n"
+"}\n"
+"\n"
+"QToolButton#toolButton_video:hover {\n"
+"    color: #2C7FB8;\n"
+"}\n"
+"\n"
+"/* ==================== GroupBox ==================== */\n"
+"QGroupBox {\n"
+"    background-color: #F4FAFF;\n"
+"    border: 1px solid #C5E0F4;\n"
+"    border-radius: 8px;\n"
+"    margin-top: 12px;\n"
+"    font-size: 14px;\n"
+"    font-weight: bold;\n"
+"    color: #1A5A7A;\n"
+"}\n"
+"\n"
+"QGroupBox::title {\n"
+"    subcontrol-origin: margin;\n"
+"    subcontrol-position: top center;\n"
+"    padding: 0 10px;\n"
+"    background-color: #F4FAFF;\n"
+"    color: #1A5A7A;\n"
+"}\n"
+"\n"
+"/* ==================== CheckBox =="
+                        "================== */\n"
+"QCheckBox {\n"
+"    color: #1A3A4A;\n"
+"    font-size: 13px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator {\n"
+"    width: 18px;\n"
+"    height: 18px;\n"
+"    border-radius: 3px;\n"
+"    border: 1px solid #B8D4E8;\n"
+"    background-color: white;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked {\n"
+"    background-color: #2C7FB8;\n"
+"    border: 1px solid #2C7FB8;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:hover {\n"
+"    border: 1px solid #7BB3D6;\n"
+"}\n"
+"\n"
+"/* ==================== SpinBox ==================== */\n"
+"QSpinBox, QDoubleSpinBox {\n"
+"    background-color: white;\n"
+"    border: 1px solid #C5E0F4;\n"
+"    border-radius: 4px;\n"
+"    padding: 4px 8px;\n"
+"    color: #1A3A4A;\n"
+"    font-size: 13px;\n"
+"}\n"
+"\n"
+"QSpinBox:focus, QDoubleSpinBox:focus {\n"
+"    border: 1px solid #2C7FB8;\n"
+"}\n"
+"\n"
+"/* ==================== ComboBox ==================== */\n"
+"QComboBox {\n"
+"    background-color: white;\n"
+"    border: 1px solid #C5E0F4;\n"
+"    border-radius: 4px;\n"
+"    padding: 4px"
+                        " 8px;\n"
+"    color: #1A3A4A;\n"
+"    font-size: 13px;\n"
+"}\n"
+"\n"
+"QComboBox:hover {\n"
+"    border: 1px solid #7BB3D6;\n"
+"}\n"
+"\n"
+"QComboBox::drop-down {\n"
+"    border: none;\n"
+"    width: 20px;\n"
+"}\n"
+"\n"
+"QComboBox::down-arrow {\n"
+"    image: none;\n"
+"    border-left: 5px solid transparent;\n"
+"    border-right: 5px solid transparent;\n"
+"    border-top: 6px solid #5A9BC2;\n"
+"}\n"
+"\n"
+"QComboBox QAbstractItemView {\n"
+"    background-color: white;\n"
+"    border: 1px solid #C5E0F4;\n"
+"    selection-background-color: #D9EAFB;\n"
+"    selection-color: #1A5A7A;\n"
+"}\n"
+"\n"
+"/* ==================== TableWidget ==================== */\n"
+"QTableWidget {\n"
+"    background-color: white;\n"
+"    border: 1px solid #C5E0F4;\n"
+"    border-radius: 6px;\n"
+"    gridline-color: #E0EDF5;\n"
+"}\n"
+"\n"
+"QTableWidget::item {\n"
+"    padding: 5px;\n"
+"    color: #1A3A4A;\n"
+"}\n"
+"\n"
+"QTableWidget::item:selected {\n"
+"    background-color: #D9EAFB;\n"
+"    color: #1A5A7A;\n"
+"}\n"
+"\n"
+"QHeaderView::sect"
+                        "ion {\n"
+"    background-color: #E8F1FA;\n"
+"    border: none;\n"
+"    border-bottom: 1px solid #C5E0F4;\n"
+"    padding: 6px;\n"
+"    color: #1A5A7A;\n"
+"    font-weight: bold;\n"
+"}\n"
+"\n"
+"/* ==================== QLabel ==================== */\n"
+"QLabel {\n"
+"    color: #1A3A4A;\n"
+"}\n"
+"\n"
+"QLabel#label_title,\n"
+"QLabel#label_movedPos {\n"
+"    font-size: 14px;\n"
+"    font-weight: bold;\n"
+"    color: #1A5A7A;\n"
+"}\n"
+"\n"
+"QLabel#label_empty_1,\n"
+"QLabel#label_empty_2,\n"
+"QLabel#label_empty_3,\n"
+"QLabel#label_empty_4 {\n"
+"    font-size: 13px;\n"
+"    color: #5A9BC2;\n"
+"}\n"
+"\n"
+"QLabel#label_a,\n"
+"QLabel#label_b,\n"
+"QLabel#label_c,\n"
+"QLabel#label_d,\n"
+"QLabel#label_e,\n"
+"QLabel#label_f,\n"
+"QLabel#label_g,\n"
+"QLabel#label_h,\n"
+"QLabel#label_i,\n"
+"QLabel#label_j,\n"
+"QLabel#label_k,\n"
+"QLabel#label_l {\n"
+"    font-size: 14px;\n"
+"    font-weight: bold;\n"
+"    color: #2C7FB8;\n"
+"}\n"
+"\n"
+"/* ==================== \350\257\225\346\235\257\345\214\272\346\240\207\347\255\276 ========"
+                        "============ */\n"
+"QLabel[text^=\"\350\257\225\346\235\257\345\214\272\"] {\n"
+"    color: #1A5A7A;\n"
+"    font-size: 12px;\n"
+"    font-weight: bold;\n"
+"}\n"
+"\n"
+"/* ==================== \346\273\232\345\212\250\346\235\241 ==================== */\n"
+"QScrollBar:vertical {\n"
+"    background-color: #E8F1FA;\n"
+"    width: 10px;\n"
+"    border-radius: 5px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:vertical {\n"
+"    background-color: #B8D4E8;\n"
+"    border-radius: 5px;\n"
+"    min-height: 20px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:vertical:hover {\n"
+"    background-color: #7BB3D6;\n"
+"}\n"
+"\n"
+"QScrollBar:horizontal {\n"
+"    background-color: #E8F1FA;\n"
+"    height: 10px;\n"
+"    border-radius: 5px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:horizontal {\n"
+"    background-color: #B8D4E8;\n"
+"    border-radius: 5px;\n"
+"    min-width: 20px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:horizontal:hover {\n"
+"    background-color: #7BB3D6;\n"
+"}\n"
+""));
         horizontalLayout = new QHBoxLayout(CustomPlot);
         horizontalLayout->setSpacing(5);
         horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
         horizontalLayout->setContentsMargins(5, 5, 5, 5);
         widget_Leftwidget = new QWidget(CustomPlot);
         widget_Leftwidget->setObjectName(QStringLiteral("widget_Leftwidget"));
-        widget_Leftwidget->setStyleSheet(QLatin1String("QWidget#widget_Leftwidget{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183); \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Leftwidget->setStyleSheet(QStringLiteral(""));
         gridLayout = new QGridLayout(widget_Leftwidget);
         gridLayout->setObjectName(QStringLiteral("gridLayout"));
         widget_ClaneArea = new QWidget(widget_Leftwidget);
         widget_ClaneArea->setObjectName(QStringLiteral("widget_ClaneArea"));
         widget_ClaneArea->setMinimumSize(QSize(50, 0));
         widget_ClaneArea->setMaximumSize(QSize(80, 160));
-        widget_ClaneArea->setStyleSheet(QLatin1String("QWidget#widget_ClaneArea{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_ClaneArea->setStyleSheet(QStringLiteral(""));
         gridLayout_3 = new QGridLayout(widget_ClaneArea);
         gridLayout_3->setSpacing(5);
         gridLayout_3->setObjectName(QStringLiteral("gridLayout_3"));
@@ -559,26 +882,11 @@ public:
         toolButton_Clean_1->setMinimumSize(QSize(32, 32));
         toolButton_Clean_1->setMaximumSize(QSize(32, 32));
         QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font1.setPointSize(10);
+        font1.setFamily(QString::fromUtf8("Microsoft YaHei,\345\276\256\350\275\257\351\233\205\351\273\221,PingFang SC,Arial,sans-serif"));
+        font1.setBold(false);
+        font1.setWeight(50);
         toolButton_Clean_1->setFont(font1);
-        toolButton_Clean_1->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Clean_1->setStyleSheet(QStringLiteral(""));
 
         gridLayout_3->addWidget(toolButton_Clean_1, 0, 0, 1, 1);
 
@@ -589,36 +897,14 @@ public:
         widget_OriginArea->setObjectName(QStringLiteral("widget_OriginArea"));
         widget_OriginArea->setMinimumSize(QSize(50, 0));
         widget_OriginArea->setMaximumSize(QSize(80, 80));
-        widget_OriginArea->setStyleSheet(QLatin1String("QWidget#widget_OriginArea{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_OriginArea->setStyleSheet(QStringLiteral(""));
         gridLayout_4 = new QGridLayout(widget_OriginArea);
         gridLayout_4->setObjectName(QStringLiteral("gridLayout_4"));
         toolButton_origin = new QToolButton(widget_OriginArea);
         toolButton_origin->setObjectName(QStringLiteral("toolButton_origin"));
         toolButton_origin->setMinimumSize(QSize(32, 32));
         toolButton_origin->setMaximumSize(QSize(32, 32));
-        toolButton_origin->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_origin->setStyleSheet(QStringLiteral(""));
 
         gridLayout_4->addWidget(toolButton_origin, 0, 0, 1, 1);
 
@@ -628,39 +914,15 @@ public:
         widget_testchannelArea = new QWidget(widget_Leftwidget);
         widget_testchannelArea->setObjectName(QStringLiteral("widget_testchannelArea"));
         widget_testchannelArea->setMaximumSize(QSize(16777215, 80));
-        widget_testchannelArea->setStyleSheet(QLatin1String("QWidget#widget_testchannelArea{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_testchannelArea->setStyleSheet(QStringLiteral(""));
         horizontalLayout_6 = new QHBoxLayout(widget_testchannelArea);
         horizontalLayout_6->setObjectName(QStringLiteral("horizontalLayout_6"));
         toolButton_Channel_1 = new QToolButton(widget_testchannelArea);
         toolButton_Channel_1->setObjectName(QStringLiteral("toolButton_Channel_1"));
         toolButton_Channel_1->setMinimumSize(QSize(32, 32));
         toolButton_Channel_1->setMaximumSize(QSize(32, 32));
-        QFont font2;
-        font2.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        toolButton_Channel_1->setFont(font2);
-        toolButton_Channel_1->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_1->setFont(font1);
+        toolButton_Channel_1->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_1);
 
@@ -668,24 +930,8 @@ public:
         toolButton_Channel_2->setObjectName(QStringLiteral("toolButton_Channel_2"));
         toolButton_Channel_2->setMinimumSize(QSize(32, 32));
         toolButton_Channel_2->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_2->setFont(font2);
-        toolButton_Channel_2->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_2->setFont(font1);
+        toolButton_Channel_2->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_2);
 
@@ -693,24 +939,8 @@ public:
         toolButton_Channel_3->setObjectName(QStringLiteral("toolButton_Channel_3"));
         toolButton_Channel_3->setMinimumSize(QSize(32, 32));
         toolButton_Channel_3->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_3->setFont(font2);
-        toolButton_Channel_3->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_3->setFont(font1);
+        toolButton_Channel_3->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_3);
 
@@ -718,24 +948,8 @@ public:
         toolButton_Channel_4->setObjectName(QStringLiteral("toolButton_Channel_4"));
         toolButton_Channel_4->setMinimumSize(QSize(32, 32));
         toolButton_Channel_4->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_4->setFont(font2);
-        toolButton_Channel_4->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_4->setFont(font1);
+        toolButton_Channel_4->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_4);
 
@@ -743,24 +957,8 @@ public:
         toolButton_Channel_5->setObjectName(QStringLiteral("toolButton_Channel_5"));
         toolButton_Channel_5->setMinimumSize(QSize(32, 32));
         toolButton_Channel_5->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_5->setFont(font2);
-        toolButton_Channel_5->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_5->setFont(font1);
+        toolButton_Channel_5->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_5);
 
@@ -768,24 +966,8 @@ public:
         toolButton_Channel_6->setObjectName(QStringLiteral("toolButton_Channel_6"));
         toolButton_Channel_6->setMinimumSize(QSize(32, 32));
         toolButton_Channel_6->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_6->setFont(font2);
-        toolButton_Channel_6->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_6->setFont(font1);
+        toolButton_Channel_6->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_6);
 
@@ -793,24 +975,8 @@ public:
         toolButton_Channel_7->setObjectName(QStringLiteral("toolButton_Channel_7"));
         toolButton_Channel_7->setMinimumSize(QSize(32, 32));
         toolButton_Channel_7->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_7->setFont(font2);
-        toolButton_Channel_7->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_7->setFont(font1);
+        toolButton_Channel_7->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_7);
 
@@ -818,24 +984,8 @@ public:
         toolButton_Channel_8->setObjectName(QStringLiteral("toolButton_Channel_8"));
         toolButton_Channel_8->setMinimumSize(QSize(32, 32));
         toolButton_Channel_8->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_8->setFont(font2);
-        toolButton_Channel_8->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_8->setFont(font1);
+        toolButton_Channel_8->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_8);
 
@@ -843,24 +993,8 @@ public:
         toolButton_Channel_9->setObjectName(QStringLiteral("toolButton_Channel_9"));
         toolButton_Channel_9->setMinimumSize(QSize(32, 32));
         toolButton_Channel_9->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_9->setFont(font2);
-        toolButton_Channel_9->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_9->setFont(font1);
+        toolButton_Channel_9->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_9);
 
@@ -868,24 +1002,8 @@ public:
         toolButton_Channel_10->setObjectName(QStringLiteral("toolButton_Channel_10"));
         toolButton_Channel_10->setMinimumSize(QSize(32, 32));
         toolButton_Channel_10->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_10->setFont(font2);
-        toolButton_Channel_10->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_10->setFont(font1);
+        toolButton_Channel_10->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_10);
 
@@ -893,24 +1011,8 @@ public:
         toolButton_Channel_11->setObjectName(QStringLiteral("toolButton_Channel_11"));
         toolButton_Channel_11->setMinimumSize(QSize(32, 32));
         toolButton_Channel_11->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_11->setFont(font2);
-        toolButton_Channel_11->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_11->setFont(font1);
+        toolButton_Channel_11->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_11);
 
@@ -918,24 +1020,8 @@ public:
         toolButton_Channel_12->setObjectName(QStringLiteral("toolButton_Channel_12"));
         toolButton_Channel_12->setMinimumSize(QSize(32, 32));
         toolButton_Channel_12->setMaximumSize(QSize(32, 32));
-        toolButton_Channel_12->setFont(font2);
-        toolButton_Channel_12->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Channel_12->setFont(font1);
+        toolButton_Channel_12->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_6->addWidget(toolButton_Channel_12);
 
@@ -946,47 +1032,19 @@ public:
         widget_ThrowCupArea->setObjectName(QStringLiteral("widget_ThrowCupArea"));
         widget_ThrowCupArea->setMinimumSize(QSize(80, 80));
         widget_ThrowCupArea->setMaximumSize(QSize(80, 80));
-        widget_ThrowCupArea->setStyleSheet(QLatin1String("QWidget#widget_ThrowCupArea{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_ThrowCupArea->setStyleSheet(QStringLiteral(""));
         toolButton_throwTube = new QToolButton(widget_ThrowCupArea);
         toolButton_throwTube->setObjectName(QStringLiteral("toolButton_throwTube"));
         toolButton_throwTube->setGeometry(QRect(20, 20, 32, 32));
         toolButton_throwTube->setMinimumSize(QSize(32, 32));
         toolButton_throwTube->setMaximumSize(QSize(32, 32));
-        toolButton_throwTube->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_throwTube->setStyleSheet(QStringLiteral(""));
 
         gridLayout->addWidget(widget_ThrowCupArea, 0, 4, 1, 1);
 
         widget_trayall = new QWidget(widget_Leftwidget);
         widget_trayall->setObjectName(QStringLiteral("widget_trayall"));
-        widget_trayall->setStyleSheet(QLatin1String("QWidget#widget_trayall{  \n"
-"	border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183); \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_trayall->setStyleSheet(QStringLiteral(""));
         horizontalLayout_trayAll = new QHBoxLayout(widget_trayall);
         horizontalLayout_trayAll->setSpacing(10);
         horizontalLayout_trayAll->setObjectName(QStringLiteral("horizontalLayout_trayAll"));
@@ -994,42 +1052,18 @@ public:
         widget_testtubetray_1 = new QWidget(widget_trayall);
         widget_testtubetray_1->setObjectName(QStringLiteral("widget_testtubetray_1"));
         widget_testtubetray_1->setMinimumSize(QSize(300, 0));
-        QFont font3;
-        font3.setFamily(QString::fromUtf8("\345\256\213\344\275\223"));
-        font3.setPointSize(12);
-        widget_testtubetray_1->setFont(font3);
-        widget_testtubetray_1->setStyleSheet(QLatin1String("QWidget#widget_testtubetray_1{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc;\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_testtubetray_1->setFont(font);
+        widget_testtubetray_1->setStyleSheet(QStringLiteral(""));
         gridLayout_17 = new QGridLayout(widget_testtubetray_1);
-        gridLayout_17->setSpacing(5);
         gridLayout_17->setObjectName(QStringLiteral("gridLayout_17"));
+        gridLayout_17->setHorizontalSpacing(5);
+        gridLayout_17->setVerticalSpacing(1);
         gridLayout_17->setContentsMargins(5, 5, 5, 5);
         toolButton_Emptyube_9 = new QToolButton(widget_testtubetray_1);
         toolButton_Emptyube_9->setObjectName(QStringLiteral("toolButton_Emptyube_9"));
         toolButton_Emptyube_9->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_9->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_9->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_9->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_9, 1, 4, 1, 1);
 
@@ -1037,23 +1071,7 @@ public:
         toolButton_Emptyube_13->setObjectName(QStringLiteral("toolButton_Emptyube_13"));
         toolButton_Emptyube_13->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_13->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_13->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_13->setStyleSheet(QStringLiteral(""));
         toolButton_Emptyube_13->setToolButtonStyle(Qt::ToolButtonTextOnly);
 
         gridLayout_17->addWidget(toolButton_Emptyube_13, 2, 2, 1, 1);
@@ -1062,23 +1080,7 @@ public:
         toolButton_Emptyube_12->setObjectName(QStringLiteral("toolButton_Emptyube_12"));
         toolButton_Emptyube_12->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_12->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_12->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_12->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_12, 2, 1, 1, 1);
 
@@ -1086,23 +1088,7 @@ public:
         toolButton_Emptyube_11->setObjectName(QStringLiteral("toolButton_Emptyube_11"));
         toolButton_Emptyube_11->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_11->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_11->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_11->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_11, 1, 6, 1, 1);
 
@@ -1138,23 +1124,7 @@ public:
         toolButton_Emptyube_2->setObjectName(QStringLiteral("toolButton_Emptyube_2"));
         toolButton_Emptyube_2->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_2->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_2->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_2->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_2, 0, 3, 1, 1);
 
@@ -1162,23 +1132,7 @@ public:
         toolButton_Emptyube_10->setObjectName(QStringLiteral("toolButton_Emptyube_10"));
         toolButton_Emptyube_10->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_10->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_10->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_10->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_10, 1, 5, 1, 1);
 
@@ -1186,23 +1140,7 @@ public:
         toolButton_Emptyube_3->setObjectName(QStringLiteral("toolButton_Emptyube_3"));
         toolButton_Emptyube_3->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_3->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_3->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_3->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_3, 0, 4, 1, 1);
 
@@ -1210,23 +1148,7 @@ public:
         toolButton_Emptyube_8->setObjectName(QStringLiteral("toolButton_Emptyube_8"));
         toolButton_Emptyube_8->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_8->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_8->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_8->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_8, 1, 3, 1, 1);
 
@@ -1234,23 +1156,7 @@ public:
         toolButton_Emptyube_6->setObjectName(QStringLiteral("toolButton_Emptyube_6"));
         toolButton_Emptyube_6->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_6->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_6->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_6->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_6, 1, 1, 1, 1);
 
@@ -1258,23 +1164,7 @@ public:
         toolButton_Emptyube_7->setObjectName(QStringLiteral("toolButton_Emptyube_7"));
         toolButton_Emptyube_7->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_7->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_7->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_7->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_7, 1, 2, 1, 1);
 
@@ -1282,23 +1172,7 @@ public:
         toolButton_Emptyube_5->setObjectName(QStringLiteral("toolButton_Emptyube_5"));
         toolButton_Emptyube_5->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_5->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_5->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_5->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_5, 0, 6, 1, 1);
 
@@ -1593,23 +1467,7 @@ public:
         toolButton_Emptyube_1->setObjectName(QStringLiteral("toolButton_Emptyube_1"));
         toolButton_Emptyube_1->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_1->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_1->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_1->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_1, 0, 2, 1, 1);
 
@@ -1617,23 +1475,7 @@ public:
         toolButton_Emptyube_0->setObjectName(QStringLiteral("toolButton_Emptyube_0"));
         toolButton_Emptyube_0->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_0->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_0->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_0->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_0, 0, 1, 1, 1);
 
@@ -1648,33 +1490,18 @@ public:
         toolButton_Emptyube_4->setObjectName(QStringLiteral("toolButton_Emptyube_4"));
         toolButton_Emptyube_4->setMinimumSize(QSize(32, 32));
         toolButton_Emptyube_4->setMaximumSize(QSize(32, 32));
-        toolButton_Emptyube_4->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Emptyube_4->setStyleSheet(QStringLiteral(""));
 
         gridLayout_17->addWidget(toolButton_Emptyube_4, 0, 5, 1, 1);
 
         label_empty_1 = new QLabel(widget_testtubetray_1);
         label_empty_1->setObjectName(QStringLiteral("label_empty_1"));
         label_empty_1->setMaximumSize(QSize(16777215, 14));
-        QFont font4;
-        font4.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font4.setPointSize(14);
-        label_empty_1->setFont(font4);
+        QFont font2;
+        font2.setFamily(QString::fromUtf8("Microsoft YaHei,\345\276\256\350\275\257\351\233\205\351\273\221,PingFang SC,Arial,sans-serif"));
+        font2.setBold(true);
+        font2.setWeight(75);
+        label_empty_1->setFont(font2);
         label_empty_1->setAlignment(Qt::AlignCenter);
 
         gridLayout_17->addWidget(label_empty_1, 10, 1, 1, 6);
@@ -1685,17 +1512,12 @@ public:
         widget_testtubetray_2 = new QWidget(widget_trayall);
         widget_testtubetray_2->setObjectName(QStringLiteral("widget_testtubetray_2"));
         widget_testtubetray_2->setMinimumSize(QSize(300, 0));
-        widget_testtubetray_2->setFont(font3);
-        widget_testtubetray_2->setStyleSheet(QLatin1String("QWidget#widget_testtubetray_2{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px; 	\n"
-"} "));
+        widget_testtubetray_2->setFont(font);
+        widget_testtubetray_2->setStyleSheet(QStringLiteral(""));
         gridLayout_18 = new QGridLayout(widget_testtubetray_2);
-        gridLayout_18->setSpacing(5);
         gridLayout_18->setObjectName(QStringLiteral("gridLayout_18"));
+        gridLayout_18->setHorizontalSpacing(5);
+        gridLayout_18->setVerticalSpacing(1);
         gridLayout_18->setContentsMargins(5, 5, 5, 5);
         toolButton_Emptyube_60 = new QToolButton(widget_testtubetray_2);
         toolButton_Emptyube_60->setObjectName(QStringLiteral("toolButton_Emptyube_60"));
@@ -2120,7 +1942,7 @@ public:
         label_empty_2 = new QLabel(widget_testtubetray_2);
         label_empty_2->setObjectName(QStringLiteral("label_empty_2"));
         label_empty_2->setMaximumSize(QSize(16777215, 15));
-        label_empty_2->setFont(font4);
+        label_empty_2->setFont(font2);
         label_empty_2->setAlignment(Qt::AlignCenter);
 
         gridLayout_18->addWidget(label_empty_2, 10, 0, 1, 6);
@@ -2131,17 +1953,12 @@ public:
         widget_testtubetray_3 = new QWidget(widget_trayall);
         widget_testtubetray_3->setObjectName(QStringLiteral("widget_testtubetray_3"));
         widget_testtubetray_3->setMinimumSize(QSize(300, 0));
-        widget_testtubetray_3->setFont(font3);
-        widget_testtubetray_3->setStyleSheet(QLatin1String("QWidget#widget_testtubetray_3{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_testtubetray_3->setFont(font);
+        widget_testtubetray_3->setStyleSheet(QStringLiteral(""));
         gridLayout_19 = new QGridLayout(widget_testtubetray_3);
-        gridLayout_19->setSpacing(5);
         gridLayout_19->setObjectName(QStringLiteral("gridLayout_19"));
+        gridLayout_19->setHorizontalSpacing(5);
+        gridLayout_19->setVerticalSpacing(1);
         gridLayout_19->setContentsMargins(5, 5, 5, 5);
         toolButton_Emptyube_120 = new QToolButton(widget_testtubetray_3);
         toolButton_Emptyube_120->setObjectName(QStringLiteral("toolButton_Emptyube_120"));
@@ -2566,7 +2383,7 @@ public:
         label_empty_3 = new QLabel(widget_testtubetray_3);
         label_empty_3->setObjectName(QStringLiteral("label_empty_3"));
         label_empty_3->setMaximumSize(QSize(16777215, 15));
-        label_empty_3->setFont(font4);
+        label_empty_3->setFont(font2);
         label_empty_3->setAlignment(Qt::AlignCenter);
 
         gridLayout_19->addWidget(label_empty_3, 10, 0, 1, 6);
@@ -2577,17 +2394,12 @@ public:
         widget_testtubetray_4 = new QWidget(widget_trayall);
         widget_testtubetray_4->setObjectName(QStringLiteral("widget_testtubetray_4"));
         widget_testtubetray_4->setMinimumSize(QSize(300, 0));
-        widget_testtubetray_4->setFont(font3);
-        widget_testtubetray_4->setStyleSheet(QLatin1String("QWidget#widget_testtubetray_4{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_testtubetray_4->setFont(font);
+        widget_testtubetray_4->setStyleSheet(QStringLiteral(""));
         gridLayout_20 = new QGridLayout(widget_testtubetray_4);
-        gridLayout_20->setSpacing(5);
         gridLayout_20->setObjectName(QStringLiteral("gridLayout_20"));
+        gridLayout_20->setHorizontalSpacing(5);
+        gridLayout_20->setVerticalSpacing(1);
         gridLayout_20->setContentsMargins(5, 5, 5, 5);
         toolButton_Emptyube_235 = new QToolButton(widget_testtubetray_4);
         toolButton_Emptyube_235->setObjectName(QStringLiteral("toolButton_Emptyube_235"));
@@ -3012,7 +2824,7 @@ public:
         label_empty_4 = new QLabel(widget_testtubetray_4);
         label_empty_4->setObjectName(QStringLiteral("label_empty_4"));
         label_empty_4->setMaximumSize(QSize(16777215, 15));
-        label_empty_4->setFont(font4);
+        label_empty_4->setFont(font2);
         label_empty_4->setAlignment(Qt::AlignCenter);
 
         gridLayout_20->addWidget(label_empty_4, 10, 0, 1, 6);
@@ -3026,29 +2838,15 @@ public:
         widget_BloodArea = new QWidget(widget_Leftwidget);
         widget_BloodArea->setObjectName(QStringLiteral("widget_BloodArea"));
         widget_BloodArea->setMinimumSize(QSize(1140, 0));
-        widget_BloodArea->setStyleSheet(QLatin1String("QWidget#widget_BloodArea{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183); \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_BloodArea->setStyleSheet(QStringLiteral(""));
         horizontalLayout_sampleblood = new QHBoxLayout(widget_BloodArea);
         horizontalLayout_sampleblood->setSpacing(15);
         horizontalLayout_sampleblood->setObjectName(QStringLiteral("horizontalLayout_sampleblood"));
         horizontalLayout_sampleblood->setContentsMargins(5, 5, 5, 5);
         widget_Bloodchild_1 = new QWidget(widget_BloodArea);
         widget_Bloodchild_1->setObjectName(QStringLiteral("widget_Bloodchild_1"));
-        QFont font5;
-        font5.setFamily(QString::fromUtf8("\345\256\213\344\275\223"));
-        widget_Bloodchild_1->setFont(font5);
-        widget_Bloodchild_1->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_1{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Bloodchild_1->setFont(font);
+        widget_Bloodchild_1->setStyleSheet(QStringLiteral(""));
         gridLayout_5 = new QGridLayout(widget_Bloodchild_1);
         gridLayout_5->setSpacing(0);
         gridLayout_5->setObjectName(QStringLiteral("gridLayout_5"));
@@ -3057,23 +2855,7 @@ public:
         toolButton_Blood_1->setObjectName(QStringLiteral("toolButton_Blood_1"));
         toolButton_Blood_1->setMinimumSize(QSize(32, 32));
         toolButton_Blood_1->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_1->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_1->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_1, 1, 2, 1, 1);
 
@@ -3081,23 +2863,7 @@ public:
         toolButton_Blood_2->setObjectName(QStringLiteral("toolButton_Blood_2"));
         toolButton_Blood_2->setMinimumSize(QSize(32, 32));
         toolButton_Blood_2->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_2->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_2->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_2, 2, 1, 1, 1);
 
@@ -3105,23 +2871,7 @@ public:
         toolButton_Blood_0->setObjectName(QStringLiteral("toolButton_Blood_0"));
         toolButton_Blood_0->setMinimumSize(QSize(32, 32));
         toolButton_Blood_0->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_0->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_0->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_0, 1, 1, 1, 1);
 
@@ -3129,23 +2879,7 @@ public:
         toolButton_Blood_4->setObjectName(QStringLiteral("toolButton_Blood_4"));
         toolButton_Blood_4->setMinimumSize(QSize(32, 32));
         toolButton_Blood_4->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_4->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_4->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_4, 3, 1, 1, 1);
 
@@ -3153,23 +2887,7 @@ public:
         toolButton_Blood_5->setObjectName(QStringLiteral("toolButton_Blood_5"));
         toolButton_Blood_5->setMinimumSize(QSize(32, 32));
         toolButton_Blood_5->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_5->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_5->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_5, 3, 2, 1, 1);
 
@@ -3177,23 +2895,7 @@ public:
         toolButton_Blood_3->setObjectName(QStringLiteral("toolButton_Blood_3"));
         toolButton_Blood_3->setMinimumSize(QSize(32, 32));
         toolButton_Blood_3->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_3->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_3->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_3, 2, 2, 1, 1);
 
@@ -3201,23 +2903,7 @@ public:
         toolButton_Blood_9->setObjectName(QStringLiteral("toolButton_Blood_9"));
         toolButton_Blood_9->setMinimumSize(QSize(32, 32));
         toolButton_Blood_9->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_9->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_9->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_9, 5, 2, 1, 1);
 
@@ -3225,23 +2911,7 @@ public:
         toolButton_Blood_6->setObjectName(QStringLiteral("toolButton_Blood_6"));
         toolButton_Blood_6->setMinimumSize(QSize(32, 32));
         toolButton_Blood_6->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_6->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_6->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_6, 4, 1, 1, 1);
 
@@ -3249,23 +2919,7 @@ public:
         toolButton_Blood_7->setObjectName(QStringLiteral("toolButton_Blood_7"));
         toolButton_Blood_7->setMinimumSize(QSize(32, 32));
         toolButton_Blood_7->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_7->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_7->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_7, 4, 2, 1, 1);
 
@@ -3273,23 +2927,7 @@ public:
         toolButton_Blood_8->setObjectName(QStringLiteral("toolButton_Blood_8"));
         toolButton_Blood_8->setMinimumSize(QSize(32, 32));
         toolButton_Blood_8->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_8->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_8->setStyleSheet(QStringLiteral(""));
 
         gridLayout_5->addWidget(toolButton_Blood_8, 5, 1, 1, 1);
 
@@ -3306,14 +2944,8 @@ public:
 
         widget_Bloodchild_2 = new QWidget(widget_BloodArea);
         widget_Bloodchild_2->setObjectName(QStringLiteral("widget_Bloodchild_2"));
-        widget_Bloodchild_2->setFont(font5);
-        widget_Bloodchild_2->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_2{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc;\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_Bloodchild_2->setFont(font);
+        widget_Bloodchild_2->setStyleSheet(QStringLiteral(""));
         gridLayout_6 = new QGridLayout(widget_Bloodchild_2);
         gridLayout_6->setSpacing(0);
         gridLayout_6->setObjectName(QStringLiteral("gridLayout_6"));
@@ -3322,23 +2954,7 @@ public:
         toolButton_Blood_10->setObjectName(QStringLiteral("toolButton_Blood_10"));
         toolButton_Blood_10->setMinimumSize(QSize(32, 32));
         toolButton_Blood_10->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_10->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_10->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_10, 1, 0, 1, 1);
 
@@ -3346,23 +2962,7 @@ public:
         toolButton_Blood_11->setObjectName(QStringLiteral("toolButton_Blood_11"));
         toolButton_Blood_11->setMinimumSize(QSize(32, 32));
         toolButton_Blood_11->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_11->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_11->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_11, 1, 1, 1, 1);
 
@@ -3370,23 +2970,7 @@ public:
         toolButton_Blood_12->setObjectName(QStringLiteral("toolButton_Blood_12"));
         toolButton_Blood_12->setMinimumSize(QSize(32, 32));
         toolButton_Blood_12->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_12->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_12->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_12, 2, 0, 1, 1);
 
@@ -3394,23 +2978,7 @@ public:
         toolButton_Blood_13->setObjectName(QStringLiteral("toolButton_Blood_13"));
         toolButton_Blood_13->setMinimumSize(QSize(32, 32));
         toolButton_Blood_13->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_13->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_13->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_13, 2, 1, 1, 1);
 
@@ -3418,23 +2986,7 @@ public:
         toolButton_Blood_17->setObjectName(QStringLiteral("toolButton_Blood_17"));
         toolButton_Blood_17->setMinimumSize(QSize(32, 32));
         toolButton_Blood_17->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_17->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_17->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_17, 4, 1, 1, 1);
 
@@ -3442,23 +2994,7 @@ public:
         toolButton_Blood_16->setObjectName(QStringLiteral("toolButton_Blood_16"));
         toolButton_Blood_16->setMinimumSize(QSize(32, 32));
         toolButton_Blood_16->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_16->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_16->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_16, 4, 0, 1, 1);
 
@@ -3466,23 +3002,7 @@ public:
         toolButton_Blood_15->setObjectName(QStringLiteral("toolButton_Blood_15"));
         toolButton_Blood_15->setMinimumSize(QSize(32, 32));
         toolButton_Blood_15->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_15->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_15->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_15, 3, 1, 1, 1);
 
@@ -3490,23 +3010,7 @@ public:
         toolButton_Blood_14->setObjectName(QStringLiteral("toolButton_Blood_14"));
         toolButton_Blood_14->setMinimumSize(QSize(32, 32));
         toolButton_Blood_14->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_14->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_14->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_14, 3, 0, 1, 1);
 
@@ -3514,23 +3018,7 @@ public:
         toolButton_Blood_18->setObjectName(QStringLiteral("toolButton_Blood_18"));
         toolButton_Blood_18->setMinimumSize(QSize(32, 32));
         toolButton_Blood_18->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_18->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_18->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_18, 5, 0, 1, 1);
 
@@ -3538,23 +3026,7 @@ public:
         toolButton_Blood_19->setObjectName(QStringLiteral("toolButton_Blood_19"));
         toolButton_Blood_19->setMinimumSize(QSize(32, 32));
         toolButton_Blood_19->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_19->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_19->setStyleSheet(QStringLiteral(""));
 
         gridLayout_6->addWidget(toolButton_Blood_19, 5, 1, 1, 1);
 
@@ -3571,14 +3043,8 @@ public:
 
         widget_Bloodchild_3 = new QWidget(widget_BloodArea);
         widget_Bloodchild_3->setObjectName(QStringLiteral("widget_Bloodchild_3"));
-        widget_Bloodchild_3->setFont(font5);
-        widget_Bloodchild_3->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_3{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Bloodchild_3->setFont(font);
+        widget_Bloodchild_3->setStyleSheet(QStringLiteral(""));
         gridLayout_7 = new QGridLayout(widget_Bloodchild_3);
         gridLayout_7->setSpacing(0);
         gridLayout_7->setObjectName(QStringLiteral("gridLayout_7"));
@@ -3587,23 +3053,7 @@ public:
         toolButton_Blood_20->setObjectName(QStringLiteral("toolButton_Blood_20"));
         toolButton_Blood_20->setMinimumSize(QSize(32, 32));
         toolButton_Blood_20->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_20->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_20->setStyleSheet(QStringLiteral(""));
 
         gridLayout_7->addWidget(toolButton_Blood_20, 1, 0, 1, 1);
 
@@ -3611,23 +3061,7 @@ public:
         toolButton_Blood_21->setObjectName(QStringLiteral("toolButton_Blood_21"));
         toolButton_Blood_21->setMinimumSize(QSize(32, 32));
         toolButton_Blood_21->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_21->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_21->setStyleSheet(QStringLiteral(""));
 
         gridLayout_7->addWidget(toolButton_Blood_21, 1, 1, 1, 1);
 
@@ -3700,14 +3134,8 @@ public:
 
         widget_Bloodchild_4 = new QWidget(widget_BloodArea);
         widget_Bloodchild_4->setObjectName(QStringLiteral("widget_Bloodchild_4"));
-        widget_Bloodchild_4->setFont(font5);
-        widget_Bloodchild_4->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_4{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc;\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_Bloodchild_4->setFont(font);
+        widget_Bloodchild_4->setStyleSheet(QStringLiteral(""));
         gridLayout_8 = new QGridLayout(widget_Bloodchild_4);
         gridLayout_8->setSpacing(0);
         gridLayout_8->setObjectName(QStringLiteral("gridLayout_8"));
@@ -3716,23 +3144,7 @@ public:
         toolButton_Blood_30->setObjectName(QStringLiteral("toolButton_Blood_30"));
         toolButton_Blood_30->setMinimumSize(QSize(32, 32));
         toolButton_Blood_30->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_30->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_30->setStyleSheet(QStringLiteral(""));
 
         gridLayout_8->addWidget(toolButton_Blood_30, 1, 1, 1, 1);
 
@@ -3761,23 +3173,7 @@ public:
         toolButton_Blood_31->setObjectName(QStringLiteral("toolButton_Blood_31"));
         toolButton_Blood_31->setMinimumSize(QSize(32, 32));
         toolButton_Blood_31->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_31->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_31->setStyleSheet(QStringLiteral(""));
 
         gridLayout_8->addWidget(toolButton_Blood_31, 1, 2, 1, 1);
 
@@ -3829,14 +3225,8 @@ public:
 
         widget_Bloodchild_5 = new QWidget(widget_BloodArea);
         widget_Bloodchild_5->setObjectName(QStringLiteral("widget_Bloodchild_5"));
-        widget_Bloodchild_5->setFont(font5);
-        widget_Bloodchild_5->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_5{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Bloodchild_5->setFont(font);
+        widget_Bloodchild_5->setStyleSheet(QStringLiteral(""));
         gridLayout_9 = new QGridLayout(widget_Bloodchild_5);
         gridLayout_9->setSpacing(0);
         gridLayout_9->setObjectName(QStringLiteral("gridLayout_9"));
@@ -3924,14 +3314,8 @@ public:
 
         widget_Bloodchild_6 = new QWidget(widget_BloodArea);
         widget_Bloodchild_6->setObjectName(QStringLiteral("widget_Bloodchild_6"));
-        widget_Bloodchild_6->setFont(font5);
-        widget_Bloodchild_6->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_6{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Bloodchild_6->setFont(font);
+        widget_Bloodchild_6->setStyleSheet(QStringLiteral(""));
         gridLayout_10 = new QGridLayout(widget_Bloodchild_6);
         gridLayout_10->setSpacing(0);
         gridLayout_10->setObjectName(QStringLiteral("gridLayout_10"));
@@ -4019,14 +3403,8 @@ public:
 
         widget_Bloodchild_7 = new QWidget(widget_BloodArea);
         widget_Bloodchild_7->setObjectName(QStringLiteral("widget_Bloodchild_7"));
-        widget_Bloodchild_7->setFont(font5);
-        widget_Bloodchild_7->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_7{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Bloodchild_7->setFont(font);
+        widget_Bloodchild_7->setStyleSheet(QStringLiteral(""));
         gridLayout_11 = new QGridLayout(widget_Bloodchild_7);
         gridLayout_11->setSpacing(0);
         gridLayout_11->setObjectName(QStringLiteral("gridLayout_11"));
@@ -4114,14 +3492,8 @@ public:
 
         widget_Bloodchild_8 = new QWidget(widget_BloodArea);
         widget_Bloodchild_8->setObjectName(QStringLiteral("widget_Bloodchild_8"));
-        widget_Bloodchild_8->setFont(font5);
-        widget_Bloodchild_8->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_8{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc;\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_Bloodchild_8->setFont(font);
+        widget_Bloodchild_8->setStyleSheet(QStringLiteral(""));
         gridLayout_12 = new QGridLayout(widget_Bloodchild_8);
         gridLayout_12->setSpacing(0);
         gridLayout_12->setObjectName(QStringLiteral("gridLayout_12"));
@@ -4209,14 +3581,8 @@ public:
 
         widget_Bloodchild_9 = new QWidget(widget_BloodArea);
         widget_Bloodchild_9->setObjectName(QStringLiteral("widget_Bloodchild_9"));
-        widget_Bloodchild_9->setFont(font5);
-        widget_Bloodchild_9->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_9{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_Bloodchild_9->setFont(font);
+        widget_Bloodchild_9->setStyleSheet(QStringLiteral(""));
         gridLayout_13 = new QGridLayout(widget_Bloodchild_9);
         gridLayout_13->setSpacing(0);
         gridLayout_13->setObjectName(QStringLiteral("gridLayout_13"));
@@ -4304,14 +3670,8 @@ public:
 
         widget_Bloodchild_10 = new QWidget(widget_BloodArea);
         widget_Bloodchild_10->setObjectName(QStringLiteral("widget_Bloodchild_10"));
-        widget_Bloodchild_10->setFont(font5);
-        widget_Bloodchild_10->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_10{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_Bloodchild_10->setFont(font);
+        widget_Bloodchild_10->setStyleSheet(QStringLiteral(""));
         gridLayout_14 = new QGridLayout(widget_Bloodchild_10);
         gridLayout_14->setSpacing(0);
         gridLayout_14->setObjectName(QStringLiteral("gridLayout_14"));
@@ -4399,14 +3759,8 @@ public:
 
         widget_Bloodchild_11 = new QWidget(widget_BloodArea);
         widget_Bloodchild_11->setObjectName(QStringLiteral("widget_Bloodchild_11"));
-        widget_Bloodchild_11->setFont(font5);
-        widget_Bloodchild_11->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_11{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        widget_Bloodchild_11->setFont(font);
+        widget_Bloodchild_11->setStyleSheet(QStringLiteral(""));
         gridLayout_15 = new QGridLayout(widget_Bloodchild_11);
         gridLayout_15->setSpacing(0);
         gridLayout_15->setObjectName(QStringLiteral("gridLayout_15"));
@@ -4494,14 +3848,8 @@ public:
 
         widget_Bloodchild_12 = new QWidget(widget_BloodArea);
         widget_Bloodchild_12->setObjectName(QStringLiteral("widget_Bloodchild_12"));
-        widget_Bloodchild_12->setFont(font5);
-        widget_Bloodchild_12->setStyleSheet(QLatin1String("QWidget#widget_Bloodchild_12{  \n"
-"  border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px; 	\n"
-"} "));
+        widget_Bloodchild_12->setFont(font);
+        widget_Bloodchild_12->setStyleSheet(QStringLiteral(""));
         gridLayout_16 = new QGridLayout(widget_Bloodchild_12);
         gridLayout_16->setSpacing(0);
         gridLayout_16->setObjectName(QStringLiteral("gridLayout_16"));
@@ -4559,23 +3907,7 @@ public:
         toolButton_Blood_118->setObjectName(QStringLiteral("toolButton_Blood_118"));
         toolButton_Blood_118->setMinimumSize(QSize(32, 32));
         toolButton_Blood_118->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_118->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_118->setStyleSheet(QStringLiteral(""));
 
         gridLayout_16->addWidget(toolButton_Blood_118, 5, 0, 1, 1);
 
@@ -4583,23 +3915,7 @@ public:
         toolButton_Blood_119->setObjectName(QStringLiteral("toolButton_Blood_119"));
         toolButton_Blood_119->setMinimumSize(QSize(32, 32));
         toolButton_Blood_119->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_119->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_119->setStyleSheet(QStringLiteral(""));
 
         gridLayout_16->addWidget(toolButton_Blood_119, 5, 1, 1, 1);
 
@@ -4607,23 +3923,7 @@ public:
         toolButton_Blood_117->setObjectName(QStringLiteral("toolButton_Blood_117"));
         toolButton_Blood_117->setMinimumSize(QSize(32, 32));
         toolButton_Blood_117->setMaximumSize(QSize(32, 32));
-        toolButton_Blood_117->setStyleSheet(QString::fromUtf8("QToolButton\n"
-"{\n"
-"    border-image: url(:/Picture/SetPng/btninit.png); \n"
-"}\n"
-"QToolButton:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnon.png);\n"
-"}\n"
-"QToolButton:pressed,QToolButton:checked\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpush.png);\n"
-"}\n"
-"//\346\214\211\344\270\213\347\212\266\346\200\201\346\227\266\346\202\254\346\265\256\347\212\266\346\200\201\n"
-"QToolButton:checked:hover\n"
-"{\n"
-"	border-image: url(:/Picture/SetPng/btnpushing.png);\n"
-"}"));
+        toolButton_Blood_117->setStyleSheet(QStringLiteral(""));
 
         gridLayout_16->addWidget(toolButton_Blood_117, 4, 1, 1, 1);
 
@@ -4644,20 +3944,14 @@ public:
         widget_ReagentsArea = new QWidget(widget_Leftwidget);
         widget_ReagentsArea->setObjectName(QStringLiteral("widget_ReagentsArea"));
         widget_ReagentsArea->setMaximumSize(QSize(80, 16777215));
-        widget_ReagentsArea->setStyleSheet(QLatin1String("QWidget#widget_ReagentsArea{  \n"
-"    border: 2px solid rgba(220,220,220);\n"
-"	background-color:#fdfcfc; \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_ReagentsArea->setStyleSheet(QStringLiteral(""));
         gridLayout_2 = new QGridLayout(widget_ReagentsArea);
         gridLayout_2->setObjectName(QStringLiteral("gridLayout_2"));
         toolButton_Reagent_21 = new QToolButton(widget_ReagentsArea);
         toolButton_Reagent_21->setObjectName(QStringLiteral("toolButton_Reagent_21"));
         toolButton_Reagent_21->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_21->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_21->setFont(font1);
+        toolButton_Reagent_21->setFont(font2);
         toolButton_Reagent_21->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_21->setAutoExclusive(true);
 
@@ -4667,7 +3961,7 @@ public:
         toolButton_Reagent_20->setObjectName(QStringLiteral("toolButton_Reagent_20"));
         toolButton_Reagent_20->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_20->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_20->setFont(font1);
+        toolButton_Reagent_20->setFont(font2);
         toolButton_Reagent_20->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_20->setAutoExclusive(true);
 
@@ -4677,7 +3971,7 @@ public:
         toolButton_Reagent_25->setObjectName(QStringLiteral("toolButton_Reagent_25"));
         toolButton_Reagent_25->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_25->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_25->setFont(font1);
+        toolButton_Reagent_25->setFont(font2);
         toolButton_Reagent_25->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_25->setAutoExclusive(true);
 
@@ -4687,7 +3981,7 @@ public:
         toolButton_Reagent_27->setObjectName(QStringLiteral("toolButton_Reagent_27"));
         toolButton_Reagent_27->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_27->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_27->setFont(font1);
+        toolButton_Reagent_27->setFont(font2);
         toolButton_Reagent_27->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_27->setAutoExclusive(true);
 
@@ -4697,7 +3991,7 @@ public:
         toolButton_Reagent_26->setObjectName(QStringLiteral("toolButton_Reagent_26"));
         toolButton_Reagent_26->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_26->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_26->setFont(font1);
+        toolButton_Reagent_26->setFont(font2);
         toolButton_Reagent_26->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_26->setAutoExclusive(true);
 
@@ -4707,7 +4001,7 @@ public:
         toolButton_Reagent_22->setObjectName(QStringLiteral("toolButton_Reagent_22"));
         toolButton_Reagent_22->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_22->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_22->setFont(font1);
+        toolButton_Reagent_22->setFont(font2);
         toolButton_Reagent_22->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_22->setAutoExclusive(true);
 
@@ -4717,7 +4011,7 @@ public:
         toolButton_Reagent_28->setObjectName(QStringLiteral("toolButton_Reagent_28"));
         toolButton_Reagent_28->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_28->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_28->setFont(font1);
+        toolButton_Reagent_28->setFont(font2);
         toolButton_Reagent_28->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_28->setAutoExclusive(true);
 
@@ -4727,7 +4021,7 @@ public:
         toolButton_Reagent_29->setObjectName(QStringLiteral("toolButton_Reagent_29"));
         toolButton_Reagent_29->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_29->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_29->setFont(font1);
+        toolButton_Reagent_29->setFont(font2);
         toolButton_Reagent_29->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_29->setAutoExclusive(true);
 
@@ -4737,7 +4031,7 @@ public:
         toolButton_Reagent_24->setObjectName(QStringLiteral("toolButton_Reagent_24"));
         toolButton_Reagent_24->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_24->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_24->setFont(font1);
+        toolButton_Reagent_24->setFont(font2);
         toolButton_Reagent_24->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_24->setAutoExclusive(true);
 
@@ -4747,7 +4041,7 @@ public:
         toolButton_Reagent_23->setObjectName(QStringLiteral("toolButton_Reagent_23"));
         toolButton_Reagent_23->setMinimumSize(QSize(32, 32));
         toolButton_Reagent_23->setMaximumSize(QSize(32, 32));
-        toolButton_Reagent_23->setFont(font1);
+        toolButton_Reagent_23->setFont(font2);
         toolButton_Reagent_23->setStyleSheet(QStringLiteral(""));
         toolButton_Reagent_23->setAutoExclusive(true);
 
@@ -4759,21 +4053,15 @@ public:
         widget_video = new QWidget(widget_Leftwidget);
         widget_video->setObjectName(QStringLiteral("widget_video"));
         widget_video->setMaximumSize(QSize(80, 140));
-        widget_video->setFont(font2);
-        widget_video->setStyleSheet(QLatin1String("QWidget#widget_video{  \n"
-"    border: 1px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183); \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_video->setFont(font);
+        widget_video->setStyleSheet(QStringLiteral(""));
         gridLayout_21 = new QGridLayout(widget_video);
         gridLayout_21->setSpacing(5);
         gridLayout_21->setObjectName(QStringLiteral("gridLayout_21"));
         gridLayout_21->setContentsMargins(5, 5, 5, 5);
         toolButton_video = new QToolButton(widget_video);
         toolButton_video->setObjectName(QStringLiteral("toolButton_video"));
-        toolButton_video->setFont(font2);
+        toolButton_video->setFont(font1);
         toolButton_video->setStyleSheet(QStringLiteral("border: 0px "));
         QIcon icon1;
         icon1.addFile(QStringLiteral(":/Picture/SetPng/Image_find_fcun.png"), QSize(), QIcon::Normal, QIcon::Off);
@@ -4793,46 +4081,14 @@ public:
         widget_Rightwidget->setObjectName(QStringLiteral("widget_Rightwidget"));
         widget_Rightwidget->setMinimumSize(QSize(450, 0));
         widget_Rightwidget->setMaximumSize(QSize(600, 16777215));
-        widget_Rightwidget->setStyleSheet(QLatin1String("QWidget#widget_Rightwidget{  \n"
-"  border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183); \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
-"} "));
+        widget_Rightwidget->setStyleSheet(QStringLiteral(""));
         verticalLayout_2 = new QVBoxLayout(widget_Rightwidget);
         verticalLayout_2->setObjectName(QStringLiteral("verticalLayout_2"));
         groupBoxconfigure = new QGroupBox(widget_Rightwidget);
         groupBoxconfigure->setObjectName(QStringLiteral("groupBoxconfigure"));
         groupBoxconfigure->setMinimumSize(QSize(0, 220));
-        QFont font6;
-        font6.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font6.setBold(false);
-        font6.setItalic(false);
-        font6.setWeight(50);
-        groupBoxconfigure->setFont(font6);
-        groupBoxconfigure->setStyleSheet(QString::fromUtf8("QGroupBox\n"
-"{\n"
-"	border: 2px solid gray;\n"
-"	border-radius:15px;\n"
-"	margin-top:3ex;\n"
-"	font-family:\346\245\267\344\275\223;\n"
-"	font: 18px;\n"
-"} \n"
-"QGroupBox::title\n"
-"{\n"
-"	subcontrol-origin:margin;\n"
-"	subcontrol-position:top center;\n"
-"	padding:1px;\n"
-"}\n"
-"QGroupBox::enabled\n"
-"{\n"
-"	border: 2px solid gray;\n"
-"}\n"
-"QGroupBox::!enabled\n"
-"{\n"
-"	border: 1px solid gray;\n"
-"}"));
+        groupBoxconfigure->setFont(font2);
+        groupBoxconfigure->setStyleSheet(QStringLiteral(""));
         verticalLayout = new QVBoxLayout(groupBoxconfigure);
         verticalLayout->setSpacing(10);
         verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
@@ -4843,23 +4099,8 @@ public:
         checkBox_downTop->setObjectName(QStringLiteral("checkBox_downTop"));
         checkBox_downTop->setMinimumSize(QSize(70, 30));
         checkBox_downTop->setMaximumSize(QSize(100, 16777215));
-        checkBox_downTop->setFont(font4);
-        checkBox_downTop->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
-"    width: 16px;\n"
-"    height: 32px;\n"
-"}\n"
-"/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
-"    image: url(:/Picture/check_box_unchecked.png);\n"
-"}\n"
-"/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
-"    image: url(:/Picture/check-box-checked.png);\n"
-"}\n"
-"QCheckBox::indicator:enabled:unchecked:hover {\n"
-"        image: url(:/Picture/check_box_hove.png);\n"
-"}\n"
-""));
+        checkBox_downTop->setFont(font);
+        checkBox_downTop->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_2->addWidget(checkBox_downTop);
 
@@ -4867,22 +4108,8 @@ public:
         checkBox_downmind->setObjectName(QStringLiteral("checkBox_downmind"));
         checkBox_downmind->setMinimumSize(QSize(70, 30));
         checkBox_downmind->setMaximumSize(QSize(100, 16777215));
-        checkBox_downmind->setFont(font4);
-        checkBox_downmind->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
-"    width: 16px;\n"
-"    height: 32px;\n"
-"}\n"
-"/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
-"    image: url(:/Picture/check_box_unchecked.png);\n"
-"}\n"
-"/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
-"    image: url(:/Picture/check-box-checked.png);\n"
-"}\n"
-"QCheckBox::indicator:enabled:unchecked:hover {\n"
-"        image: url(:/Picture/check_box_hove.png);\n"
-"}"));
+        checkBox_downmind->setFont(font);
+        checkBox_downmind->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_2->addWidget(checkBox_downmind);
 
@@ -4890,23 +4117,8 @@ public:
         checkBox_downbottom->setObjectName(QStringLiteral("checkBox_downbottom"));
         checkBox_downbottom->setMinimumSize(QSize(70, 30));
         checkBox_downbottom->setMaximumSize(QSize(100, 16777215));
-        checkBox_downbottom->setFont(font4);
-        checkBox_downbottom->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
-"    width: 16px;\n"
-"    height: 32px;\n"
-"}\n"
-"/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
-"    image: url(:/Picture/check_box_unchecked.png);\n"
-"}\n"
-"/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
-"    image: url(:/Picture/check-box-checked.png);\n"
-"}\n"
-"QCheckBox::indicator:enabled:unchecked:hover {\n"
-"        image: url(:/Picture/check_box_hove.png);\n"
-"}\n"
-""));
+        checkBox_downbottom->setFont(font);
+        checkBox_downbottom->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_2->addWidget(checkBox_downbottom);
 
@@ -4914,58 +4126,17 @@ public:
         checkBox_downcustom->setObjectName(QStringLiteral("checkBox_downcustom"));
         checkBox_downcustom->setMinimumSize(QSize(70, 30));
         checkBox_downcustom->setMaximumSize(QSize(100, 16777215));
-        checkBox_downcustom->setFont(font4);
-        checkBox_downcustom->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
-"    width: 16px;\n"
-"    height: 32px;\n"
-"}\n"
-"/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
-"    image: url(:/Picture/check_box_unchecked.png);\n"
-"}\n"
-"/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
-"    image: url(:/Picture/check-box-checked.png);\n"
-"}\n"
-"QCheckBox::indicator:enabled:unchecked:hover {\n"
-"        image: url(:/Picture/check_box_hove.png);\n"
-"}\n"
-""));
+        checkBox_downcustom->setFont(font);
+        checkBox_downcustom->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_2->addWidget(checkBox_downcustom);
 
         spinBox_downValue = new QSpinBox(groupBoxconfigure);
         spinBox_downValue->setObjectName(QStringLiteral("spinBox_downValue"));
         spinBox_downValue->setMinimumSize(QSize(70, 30));
-        spinBox_downValue->setFont(font2);
-        spinBox_downValue->setStyleSheet(QString::fromUtf8("QSpinBox::up-button,QDoubleSpinBox::up-button,QSpinBox::up-button {\n"
-"	subcontrol-origin:border;\n"
-"    subcontrol-position:right;\n"
-" 	image: url(  :/Picture/cssdown.png);\n"
-"    width: 12px;\n"
-"    height: 20px;       \n"
-"}\n"
-"QSpinBox::down-button,QDoubleSpinBox::down-button,QSpinBox::down-button {\n"
-"	subcontrol-origin:border;\n"
-"    subcontrol-position:left;\n"
-" 	image: url( :/Picture/cssup.png);\n"
-"    width: 12px;\n"
-"    height: 20px;\n"
-"}\n"
-"QSpinBox,QDoubleSpinBox\n"
-"{\n"
-"    padding-top: 2px;\n"
-"    padding-bottom: 2px;\n"
-"	padding-left: 4px;\n"
-"    padding-right: 15px;\n"
-"	border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183);\n"
-"    border-radius: 3px;\n"
-"	selection-color: rgb(235,235,235);\n"
-"	selection-background-color: rgb(83,121,180);\n"
-"	font-family: \"\346\245\267\344\275\223\";\n"
-"	font-size: 20px;\n"
-"}"));
+        spinBox_downValue->setFont(font);
+        spinBox_downValue->setStyleSheet(QStringLiteral(""));
+        spinBox_downValue->setButtonSymbols(QAbstractSpinBox::NoButtons);
 
         horizontalLayout_2->addWidget(spinBox_downValue);
 
@@ -4978,7 +4149,7 @@ public:
         label_calibrationAarea->setObjectName(QStringLiteral("label_calibrationAarea"));
         label_calibrationAarea->setMinimumSize(QSize(70, 30));
         label_calibrationAarea->setMaximumSize(QSize(90, 16777215));
-        label_calibrationAarea->setFont(font4);
+        label_calibrationAarea->setFont(font);
         label_calibrationAarea->setAlignment(Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter);
 
         horizontalLayout_3->addWidget(label_calibrationAarea);
@@ -4987,55 +4158,8 @@ public:
         comboBox_calibrationAarea->setObjectName(QStringLiteral("comboBox_calibrationAarea"));
         comboBox_calibrationAarea->setMinimumSize(QSize(100, 30));
         comboBox_calibrationAarea->setMaximumSize(QSize(19999, 30));
-        QFont font7;
-        comboBox_calibrationAarea->setFont(font7);
-        comboBox_calibrationAarea->setStyleSheet(QString::fromUtf8("QComboBox{\n"
-"  color:#666666;\n"
-"  font-size:24px;\n"
-"  padding: 1px 15px 1px 3px;\n"
-"  border:1px solid rgba(150,150,150,1);\n"
-"  border-radius:5px 5px 0px 0px;\n"
-"}\n"
-" QComboBox::drop-down {\n"
-"      subcontrol-origin: padding;\n"
-"      subcontrol-position: top right;\n"
-"      width: 15px;\n"
-"      border:none;\n"
-"}\n"
-"QComboBox::down-arrow {\n"
-"      image: url(:/Picture/minus.png);\n"
-"  }\n"
-"QComboBox QAbstractItemView{\n"
-"	background:rgba(255,255,255,1);\n"
-"    border:1px solid rgba(150,150,150,1);\n"
-"    border-radius:0px 0px 5px 5px;\n"
-"	font-size:24px;\n"
-"    outline: 0px;  //\345\216\273\350\231\232\347\272\277\n"
-"}\n"
-"QComboBox QAbstractItemView::item{\n"
-"	height:36px;\n"
-"	color:#666666;\n"
-"	padding-left:9px;\n"
-"	background-color:#FFFFFF;\n"
-"}\n"
-"QComboBox QAbstractItemView::item:hover{ //\346\202\254\346\265\256\n"
-"  background-color:#409CE1;\n"
-"  color:#ffffff;\n"
-"}\n"
-"QComboBox QAbstractItemView::item:selected{//\351\200\211\344\270\255\n"
-"  background-color:#40"
-                        "9CE1;\n"
-"  color:#ffffff;\n"
-"}\n"
-"\n"
-"QComboBox:on { \n"
-"      padding-top: 3px;\n"
-"      padding-left: 4px;\n"
-"  }\n"
-"  QComboBox::down-arrow:on { \n"
-"      top: 1px;\n"
-"      left: 1px;\n"
-"}"));
+        comboBox_calibrationAarea->setFont(font);
+        comboBox_calibrationAarea->setStyleSheet(QStringLiteral(""));
         comboBox_calibrationAarea->setMaxVisibleItems(18);
 
         horizontalLayout_3->addWidget(comboBox_calibrationAarea);
@@ -5043,24 +4167,7 @@ public:
         toolButton_Backorigin = new QToolButton(groupBoxconfigure);
         toolButton_Backorigin->setObjectName(QStringLiteral("toolButton_Backorigin"));
         toolButton_Backorigin->setMinimumSize(QSize(80, 40));
-        toolButton_Backorigin->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_Backorigin{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 120px;  \n"
-"    height: 30px;  \n"
-"    padding:0 0px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_Backorigin:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_Backorigin:pressed{  \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"} "));
+        toolButton_Backorigin->setStyleSheet(QStringLiteral(""));
         toolButton_Backorigin->setIconSize(QSize(32, 32));
         toolButton_Backorigin->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
@@ -5072,29 +4179,8 @@ public:
         groupBox_throwtube = new QGroupBox(groupBoxconfigure);
         groupBox_throwtube->setObjectName(QStringLiteral("groupBox_throwtube"));
         groupBox_throwtube->setMinimumSize(QSize(0, 60));
-        groupBox_throwtube->setFont(font6);
-        groupBox_throwtube->setStyleSheet(QString::fromUtf8("QGroupBox\n"
-"{\n"
-"	border: 2px solid gray;\n"
-"	border-radius:15px;\n"
-"	margin-top:3ex;\n"
-"	font-family:\346\245\267\344\275\223;\n"
-"	font: 18px;\n"
-"} \n"
-"QGroupBox::title\n"
-"{\n"
-"	subcontrol-origin:margin;\n"
-"	subcontrol-position:top center;\n"
-"	padding:1px;\n"
-"}\n"
-"QGroupBox::enabled\n"
-"{\n"
-"	border: 2px solid gray;\n"
-"}\n"
-"QGroupBox::!enabled\n"
-"{\n"
-"	border: 1px solid gray;\n"
-"}"));
+        groupBox_throwtube->setFont(font2);
+        groupBox_throwtube->setStyleSheet(QStringLiteral(""));
         horizontalLayout_caseuse = new QHBoxLayout(groupBox_throwtube);
         horizontalLayout_caseuse->setSpacing(5);
         horizontalLayout_caseuse->setObjectName(QStringLiteral("horizontalLayout_caseuse"));
@@ -5110,44 +4196,18 @@ public:
         label_from->setObjectName(QStringLiteral("label_from"));
         label_from->setMinimumSize(QSize(16, 32));
         label_from->setMaximumSize(QSize(16, 32));
-        label_from->setFont(font4);
+        label_from->setFont(font);
 
         horizontalLayout_caseuse->addWidget(label_from);
 
         spinBox_from_tray = new QSpinBox(groupBox_throwtube);
         spinBox_from_tray->setObjectName(QStringLiteral("spinBox_from_tray"));
         spinBox_from_tray->setMinimumSize(QSize(0, 30));
-        spinBox_from_tray->setMaximumSize(QSize(60, 16777215));
-        spinBox_from_tray->setFont(font2);
-        spinBox_from_tray->setStyleSheet(QString::fromUtf8("QSpinBox::up-button,QDoubleSpinBox::up-button,QSpinBox::up-button {\n"
-"	subcontrol-origin:border;\n"
-"    subcontrol-position:right;\n"
-" 	image: url(  :/Picture/cssdown.png);\n"
-"    width: 12px;\n"
-"    height: 20px;       \n"
-"}\n"
-"QSpinBox::down-button,QDoubleSpinBox::down-button,QSpinBox::down-button {\n"
-"	subcontrol-origin:border;\n"
-"    subcontrol-position:left;\n"
-" 	image: url( :/Picture/cssup.png);\n"
-"    width: 12px;\n"
-"    height: 20px;\n"
-"}\n"
-"QSpinBox,QDoubleSpinBox\n"
-"{\n"
-"    padding-top: 2px;\n"
-"    padding-bottom: 2px;\n"
-"	padding-left: 4px;\n"
-"    padding-right: 15px;\n"
-"	border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183);\n"
-"    border-radius: 3px;\n"
-"	selection-color: rgb(235,235,235);\n"
-"	selection-background-color: rgb(83,121,180);\n"
-"	font-family: \"\346\245\267\344\275\223\";\n"
-"	font-size: 20px;\n"
-"}"));
+        spinBox_from_tray->setMaximumSize(QSize(70, 16777215));
+        spinBox_from_tray->setFont(font);
+        spinBox_from_tray->setStyleSheet(QStringLiteral(""));
         spinBox_from_tray->setAlignment(Qt::AlignCenter);
+        spinBox_from_tray->setButtonSymbols(QAbstractSpinBox::NoButtons);
         spinBox_from_tray->setMinimum(1);
         spinBox_from_tray->setMaximum(4);
 
@@ -5157,44 +4217,18 @@ public:
         label_to->setObjectName(QStringLiteral("label_to"));
         label_to->setMinimumSize(QSize(16, 32));
         label_to->setMaximumSize(QSize(16, 32));
-        label_to->setFont(font4);
+        label_to->setFont(font);
 
         horizontalLayout_caseuse->addWidget(label_to);
 
         spinBox_endtray = new QSpinBox(groupBox_throwtube);
         spinBox_endtray->setObjectName(QStringLiteral("spinBox_endtray"));
         spinBox_endtray->setMinimumSize(QSize(0, 30));
-        spinBox_endtray->setMaximumSize(QSize(60, 16777215));
-        spinBox_endtray->setFont(font2);
-        spinBox_endtray->setStyleSheet(QString::fromUtf8("QSpinBox::up-button,QDoubleSpinBox::up-button,QSpinBox::up-button {\n"
-"	subcontrol-origin:border;\n"
-"    subcontrol-position:right;\n"
-" 	image: url(  :/Picture/cssdown.png);\n"
-"    width: 12px;\n"
-"    height: 20px;       \n"
-"}\n"
-"QSpinBox::down-button,QDoubleSpinBox::down-button,QSpinBox::down-button {\n"
-"	subcontrol-origin:border;\n"
-"    subcontrol-position:left;\n"
-" 	image: url( :/Picture/cssup.png);\n"
-"    width: 12px;\n"
-"    height: 20px;\n"
-"}\n"
-"QSpinBox,QDoubleSpinBox\n"
-"{\n"
-"    padding-top: 2px;\n"
-"    padding-bottom: 2px;\n"
-"	padding-left: 4px;\n"
-"    padding-right: 15px;\n"
-"	border: 2px solid rgba(220,220,220);\n"
-"	background-color:rgba(188,187,183);\n"
-"    border-radius: 3px;\n"
-"	selection-color: rgb(235,235,235);\n"
-"	selection-background-color: rgb(83,121,180);\n"
-"	font-family: \"\346\245\267\344\275\223\";\n"
-"	font-size: 20px;\n"
-"}"));
+        spinBox_endtray->setMaximumSize(QSize(70, 16777215));
+        spinBox_endtray->setFont(font);
+        spinBox_endtray->setStyleSheet(QStringLiteral(""));
         spinBox_endtray->setAlignment(Qt::AlignCenter);
+        spinBox_endtray->setButtonSymbols(QAbstractSpinBox::NoButtons);
         spinBox_endtray->setMinimum(1);
         spinBox_endtray->setMaximum(4);
         spinBox_endtray->setValue(2);
@@ -5204,53 +4238,10 @@ public:
         pushButton_TrayHands_2 = new QPushButton(groupBox_throwtube);
         pushButton_TrayHands_2->setObjectName(QStringLiteral("pushButton_TrayHands_2"));
         pushButton_TrayHands_2->setMinimumSize(QSize(48, 32));
-        pushButton_TrayHands_2->setMaximumSize(QSize(48, 32));
-        pushButton_TrayHands_2->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_TrayHands_2{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 120px;  \n"
-"    height: 30px;  \n"
-"    padding:0 0px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QPushButton#pushButton_TrayHands_2:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QPushButton#pushButton_TrayHands_2:pressed{  \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}"));
+        pushButton_TrayHands_2->setMaximumSize(QSize(120, 32));
+        pushButton_TrayHands_2->setStyleSheet(QStringLiteral(""));
 
         horizontalLayout_caseuse->addWidget(pushButton_TrayHands_2);
-
-        pushButton_TrayHands = new QPushButton(groupBox_throwtube);
-        pushButton_TrayHands->setObjectName(QStringLiteral("pushButton_TrayHands"));
-        pushButton_TrayHands->setMinimumSize(QSize(130, 40));
-        pushButton_TrayHands->setMaximumSize(QSize(130, 16777215));
-        pushButton_TrayHands->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_TrayHands{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 120px;  \n"
-"    height: 30px;  \n"
-"    padding:0 0px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QPushButton#pushButton_TrayHands:hover{     \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QPushButton#pushButton_TrayHands:pressed{  \n"
-"   background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"} "));
-        pushButton_TrayHands->setIconSize(QSize(16, 16));
-
-        horizontalLayout_caseuse->addWidget(pushButton_TrayHands);
 
 
         verticalLayout->addWidget(groupBox_throwtube);
@@ -5261,7 +4252,7 @@ public:
         label_title = new QLabel(widget_Rightwidget);
         label_title->setObjectName(QStringLiteral("label_title"));
         label_title->setMinimumSize(QSize(0, 30));
-        label_title->setFont(font4);
+        label_title->setFont(font2);
         label_title->setAlignment(Qt::AlignCenter);
 
         verticalLayout_2->addWidget(label_title);
@@ -5269,7 +4260,7 @@ public:
         tableWidget_displayPos = new QTableWidget(widget_Rightwidget);
         tableWidget_displayPos->setObjectName(QStringLiteral("tableWidget_displayPos"));
         tableWidget_displayPos->setMaximumSize(QSize(430, 16777215));
-        tableWidget_displayPos->setFont(font1);
+        tableWidget_displayPos->setFont(font);
         tableWidget_displayPos->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
         verticalLayout_2->addWidget(tableWidget_displayPos);
@@ -5278,7 +4269,7 @@ public:
         label_movedPos->setObjectName(QStringLiteral("label_movedPos"));
         label_movedPos->setMinimumSize(QSize(0, 25));
         label_movedPos->setMaximumSize(QSize(16777215, 25));
-        label_movedPos->setFont(font4);
+        label_movedPos->setFont(font2);
 
         verticalLayout_2->addWidget(label_movedPos);
 
@@ -5695,12 +4686,12 @@ public:
         toolButton_Reagent_29->setText(QApplication::translate("CustomPlot", "RIS", nullptr));
         toolButton_Reagent_24->setText(QApplication::translate("CustomPlot", "RIS", nullptr));
         toolButton_Reagent_23->setText(QApplication::translate("CustomPlot", "COL", nullptr));
-        toolButton_video->setText(QApplication::translate("CustomPlot", "\344\277\241\346\201\257\345\275\225\345\205\245", nullptr));
+        toolButton_video->setText(QApplication::translate("CustomPlot", "\344\277\241\346\201\257\345\275\225\345\205\245\345\214\272", nullptr));
         groupBoxconfigure->setTitle(QApplication::translate("CustomPlot", "\346\240\241\345\207\206\350\256\276\347\275\256", nullptr));
         checkBox_downTop->setText(QApplication::translate("CustomPlot", "\351\241\266\351\203\250", nullptr));
         checkBox_downmind->setText(QApplication::translate("CustomPlot", "\344\270\255\351\203\250", nullptr));
         checkBox_downbottom->setText(QApplication::translate("CustomPlot", "\345\272\225\351\203\250", nullptr));
-        checkBox_downcustom->setText(QApplication::translate("CustomPlot", "\350\207\252\345\256\232\344\271\211\351\253\230\345\272\246", nullptr));
+        checkBox_downcustom->setText(QApplication::translate("CustomPlot", "\350\207\252\345\256\232\344\271\211", nullptr));
         spinBox_downValue->setSuffix(QApplication::translate("CustomPlot", "mm", nullptr));
         label_calibrationAarea->setText(QApplication::translate("CustomPlot", "\346\240\241\345\207\206\345\214\272\345\237\237:", nullptr));
         toolButton_Backorigin->setText(QApplication::translate("CustomPlot", "\345\244\215\344\275\215", nullptr));
@@ -5708,7 +4699,6 @@ public:
         label_from->setText(QApplication::translate("CustomPlot", "\344\273\216", nullptr));
         label_to->setText(QApplication::translate("CustomPlot", "\345\210\260", nullptr));
         pushButton_TrayHands_2->setText(QApplication::translate("CustomPlot", "\346\265\213\350\257\225", nullptr));
-        pushButton_TrayHands->setText(QApplication::translate("CustomPlot", "\346\265\213\350\257\225\346\241\210\344\276\213", nullptr));
         label_title->setText(QString());
         label_movedPos->setText(QString());
     } // retranslateUi

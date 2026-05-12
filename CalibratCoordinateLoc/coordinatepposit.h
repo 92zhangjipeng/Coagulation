@@ -2,10 +2,19 @@
 #define COORDINATEPPOSIT_H
 
 #include <QWidget>
+#include <QTabWidget>
+#include <QVBoxLayout>
+#include <QGridLayout>
+#include <QTableWidget>
+#include <QPushButton>
+#include <QSpinBox>
+#include "circlewidget.h"
 
 namespace Ui {
 class CoordinatepPosit;
 }
+
+class CustomTitleBar;
 
 class CoordinatepPosit : public QWidget
 {
@@ -15,32 +24,43 @@ public:
     explicit CoordinatepPosit(QWidget *parent = 0);
     ~CoordinatepPosit();
 
-
 protected:
     void resizeEvent(QResizeEvent *event) override;
+    void changeEvent(QEvent *event) override;
+
+private slots:
+    void onCloseRequested();
+    void onMinimizeRequested();
+    void onMaximizeRequested();
+    void onCircleClicked(int channelNumber);
+    void onHoleClicked(int plateNumber, int holeNumber);
+    void onTubeCoordinateChanged(int plateNumber, int row, int column, QTableWidget* table);
+
 private:
+    void setupTitleBar();
+    void setupTabWidget();
+    void applyMedicalStyle();
+    void updateTubeCoordinates(int plateNumber, QTableWidget* table);
+
+    // 创建各个标签页的方法声明
+    QWidget* createSpecialTab();
+    QWidget* createChannelTab();
+    QWidget* createTubeTab();
+    QWidget* createTubePlateTab(int plateNumber);
+    QWidget* createReagentTab();
+    QWidget* createBloodTab();
+
     Ui::CoordinatepPosit *ui;
+    CustomTitleBar *m_titleBar;
+    QTabWidget *m_tabWidget;
+    QVBoxLayout *m_mainLayout;
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // 试管坐标数据存储
+    QVector<QPointF> m_tubeCoordinates; // 存储240个试管的坐标
 
     QString styleSheet = R"(
         /* GroupBox 样式 */

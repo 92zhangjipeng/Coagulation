@@ -2,6 +2,8 @@
 #include "notifybarcode.h"
 #include "ui_notifybarcode.h"
 #include <QCloseEvent>
+#include <QMessageBox>
+#include <custom_style/custommessagebox.h>
 
 NotifyBarCode::NotifyBarCode(QWidget *parent) :
     QWidget(parent),
@@ -20,8 +22,10 @@ NotifyBarCode::NotifyBarCode(QWidget *parent) :
     QValidator *validator = new QRegExpValidator(rx, this);
     ui->lineEdit_barcode->setValidator(validator);
     ui->lineEdit_barcode->setAttribute(Qt::WA_InputMethodEnabled,false); //禁止输入法
-    delete validator;
-    validator = nullptr;
+
+    // 监听回车键（扫码枪通常以回车结束）
+    connect(ui->lineEdit_barcode, &QLineEdit::returnPressed,
+            this, &NotifyBarCode::onLineEditReturnPressed);
 }
 
 NotifyBarCode::~NotifyBarCode()
@@ -29,20 +33,40 @@ NotifyBarCode::~NotifyBarCode()
     delete ui;
 }
 
+
+void NotifyBarCode::onLineEditReturnPressed()
+{
+    QString barcode = ui->lineEdit_barcode->text();
+    if(!barcode.isEmpty() && !barcode.trimmed().isEmpty()) {
+        emit savebarcode(mrows, mcols, barcode);
+        close();
+    } else if(barcode.isEmpty()) {
+        CustomMessageBox::warning(this, "提示", "条形码不能为空！");
+    }
+}
+
 void NotifyBarCode::changerowAndCol(const int rows,const int Column,const QString changeData)
 {
+    Q_UNUSED(changeData);
     mrows = rows;
     mcols = Column;
-    ui->lineEdit_barcode->setText(changeData);
-    return;
+
+    // 清空并准备接收新条码
+    ui->lineEdit_barcode->clear();
+    ui->lineEdit_barcode->setFocus();
+    ui->lineEdit_barcode->setPlaceholderText("请扫描新的条形码");
 }
+
 void NotifyBarCode::on_toolButton_save_clicked()
 {
-    if(ui->lineEdit_barcode->text().isEmpty() || ui->lineEdit_barcode->text().isNull())
+    QString barcode = ui->lineEdit_barcode->text();
+    if(barcode.isEmpty() || barcode.trimmed().isEmpty())
     {
+        // 提示用户不能保存空条码
+        CustomMessageBox::warning(this, "提示", "条形码不能为空！");
         return;
     }
-    emit savebarcode(mrows,mcols,ui->lineEdit_barcode->text());
+    emit savebarcode(mrows, mcols, barcode);
     close();
 }
 

@@ -343,7 +343,7 @@ namespace QUIUtils
 									quint8 (&HandsinnerModule)[3],
 									bool brebackCatch);
 
-    //血样针参数
+    //样本针参数
     void _writeParaNumBloodOrder(QByteArray &buffer,
                                   quint16 cleanLinqueblood,
                                   quint16 suckppporprp,
@@ -481,16 +481,21 @@ namespace QUIUtils
     //试剂针清洗转转换称 微升量
     double reagent_pin_clean_deplete(int turn_);
 
-    //血样针清洗消耗清洗液
+    //样本针清洗消耗清洗液
     double bloody_pin_clean_deplete(int turn_);
 
+    /*
+     * 抓手在其它区域抓杯了 --弃杯动作
+     * @brief moveThrowCupCommands
+     * @param throwAxis
+     * @param downHeigh
+     * @return
+     */
+    QByteArrayList moveThrowCupCommands(const QPoint throwAxis,const int downHeigh);
 
 
-    //测试抓手抓取测试杯区试管准确度
-    void test_hands_catchtube_precise(QPoint form_axis, 
-									QPoint end_axis, 
-									int down_mm, 
-									QByteArrayList &directives_list);
+    //测试抓手抓取试杯区试管准确度
+    QByteArrayList testHandsCatchtubePrecise(QPoint formAxis, QPoint endAxis, int downMm );
 
     /// \brief 开关机灌注动作
     QByteArrayList perfusionAction(uint &back_leng,
@@ -500,15 +505,26 @@ namespace QUIUtils
     void allZAxisBackOrigin(QByteArrayList &ZbackOrigin,
 											quint8 hadsize);
 
-    //仪器复位==先速度模式复位原点==再位置模式到位置原点
-    void _equipmentbackoriginloc(QByteArrayList &_backOrigin);
-
     //灌注后清洗针
     void cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int reagent_total);
 
-    void _Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_, int down_);//定位原点下双针
+    //定位原点下双针
+    void _Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_, int down_);
 
-    //清洗血样针
+    //定位清洗孔位
+    QByteArrayList TargCleanLinqueHole(const quint8 indexPin, const int downHeigh, const QPoint axis, const bool isSucking);
+
+
+
+    /*
+     *  复位所有Z轴 --xy移动到原点 复位动作
+     * @brief QUIUtils::backZAxisandmoveOrigin
+     * @param cleanPos 移动到机器原点位置
+     * @return 复位命令字节数组列表
+     */
+    QByteArrayList backZAxisandmoveOrigin(const QPoint machineOriginAxis);
+
+    //清洗样本针
     void CleanBloodPinActionCommd(int HadPorjects, QByteArrayList &CleanActionarry);
 
     //清洗试剂针
@@ -665,7 +681,7 @@ namespace QUIUtils
 
     void _mapConsumablesName(quint8 index_, QString& out_);  //映射耗材名字
 
-    QByteArrayList _controltestbloodpindownheigh(int  index_,int down_mm); //控制血样针下针高度命令
+    QByteArrayList _controltestbloodpindownheigh(int  index_,int down_mm); //控制样本针下针高度命令
 
     QByteArrayList _controlReagpindownheih(int  index_,int down_mm);//控制试剂针下针高度命令
 
@@ -704,6 +720,20 @@ namespace QUIUtils
                                         const QPoint &PEHeighValAxis,
                                         const QPoint &PEMidValAxis,
                                         const QPoint &PELowValAxis);
+
+
+
+
+
+
+
+    ////////////////////////////// 输出 单条指令 //////////////////////////////////////////////////////////
+    QByteArray outPutxyMoveAxisComd(const QPoint axis,quint8 &index); //输出XY 要移动到指定位置的指令
+    QByteArray outPutBloodPinLocComd(const quint8  heighLoc,quint8 &index);       //输出样本针 的位置
+    QByteArray outPutReagentPinLocComd(const quint8  heighLoc,quint8 &index);     //输出试剂针的位置
+    QByteArray outPutHandsLocComd(const quint8 heighLoc,const bool isSuckingAirs,quint8 &index);  //抓手的位置
+    QByteArray outPutHandsReset(const quint8 speed,const bool isSuckingAirs,quint8 &index);//抓手复位
+
 }
 
 #endif // QUIUTILS_H

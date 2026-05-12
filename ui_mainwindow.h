@@ -353,7 +353,7 @@ public:
         tabWidget_Main->setTabletTracking(true);
         tabWidget_Main->setContextMenuPolicy(Qt::DefaultContextMenu);
         tabWidget_Main->setAutoFillBackground(false);
-        tabWidget_Main->setStyleSheet(QString::fromUtf8("border: 0px solid rgb(225, 225, 225);  \n"
+        tabWidget_Main->setStyleSheet(QString::fromUtf8("border: 0px solid #f0f7fc;  \n"
 "border-radius: 10px;  \n"
 "width: 80px;  \n"
 "height:60px;  \n"
@@ -366,6 +366,7 @@ public:
         tabWidget_Main->setTabsClosable(false);
         TestingSample = new QWidget();
         TestingSample->setObjectName(QStringLiteral("TestingSample"));
+        TestingSample->setStyleSheet(QStringLiteral("background-color: rgb(240, 247, 252);"));
         tabWidget_Main->addTab(TestingSample, QString());
 
         gridLayout_2->addWidget(tabWidget_Main, 2, 1, 1, 1);

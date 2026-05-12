@@ -51,6 +51,11 @@ public:
     int  getFilteringMode();
     void setFilteringMode(const int indexMode);
 
+    //试管盘管理
+    quint8  getTubeManager();
+    void    setTubeManager(const quint8 currentTray);
+
+
 
 
     /**  柱塞泵清洗时间
@@ -81,6 +86,9 @@ public:
     //测高下降的差值
     void   SetTestDifference(double UpOffsetmm);
     double GetTestDifference(void);
+
+    void   setRefBottomDistance(const double distance);
+    double getRefBottomDistance(void);
 
 
     //抓手在通道的下针高度
@@ -132,7 +140,7 @@ public:
     void SetFailedLinqueHigh(int highvalue);
     int  GetFailedLinqueHigh();
 
-    /*探测失败高度（清洗剂）血样针*/
+    /*探测失败高度（清洗剂）样本针*/
     void SetFailedCleanLinqueHigh(int highValue);
     int  GetFailedCleanLinqueHigh();
 
@@ -156,7 +164,7 @@ public:
     void    SetAbsorbWashingfluidX1(quint8 ul_value);
     quint8  GetAbsorbWashingfluidX1();
 
-    /*吸取清洗剂 ==清洗血样针*/
+    /*吸取清洗剂 ==清洗样本针*/
     void    SetAbsorbWashingfluidX2(int ul_value);
     int     GetAbsorbWashingfluidX2();
 
@@ -183,6 +191,19 @@ public:
     double getPEAddSuckRatio(void);
 
 
+
+
+
+
+    /*
+     * 粘附率
+     * @brief INI_File::setPrintAdhesion
+     * @param show
+     */
+    void setPrintAdhesion(const bool show);
+    bool getPrintAdhesion();
+
+
     //写入基础参数
     bool wConfigPara(const QString& keyValue, const QVariant& data);
     bool wBatchConfigPara(const QVariantMap& keyValues);
@@ -191,11 +212,19 @@ public:
     //读取基本参数
     QVariant rConfigPara(const QString& keyValue);
 
+
+
+
+
+
+
 private:
     QString m_qstrFileName;
     QSettings *m_psetting; 
-    const QString Instrument_parameters = "InstrumentParameters";
     QString m_Section_Key;
+    static const QString Instrument_parameters;
+    static const QString KEY_REF_BOTTOM_DISTANCE;
+    static const QString kPrintPara;
 
 };
 

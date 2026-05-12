@@ -692,7 +692,7 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,const quint8 ind
     StructInstance::getInstance()->config_testChn_test_reagent(openChn,index_reagent); //设置测试试剂
 
 
-    //如果清洗血样针的命令不为空==清洗双针
+    //如果清洗样本针的命令不为空==清洗双针
     bool alreadyCleanBloodpin = StructInstance::getInstance()->judge_alreadyCleanBloodpin(sampleId,indexActive);
     if(!alreadyCleanBloodpin)
     {

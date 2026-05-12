@@ -5,10 +5,8 @@
 #include <QWidget>
 #include <QMessageBox>
 #include "ini_file.h"
+#include "opencvFindRBC/customtitlebar.h"  // 添加自定义标题栏头文件
 
-#if _MSC_VER >= 1600
-#pragma execution_character_set("utf-8")
-#endif
 
 #define  PROJECT_1  "AA"
 #define  PROJECT_2  "ADP"
@@ -19,6 +17,7 @@
 class QMouseEvent;
 class QCloseEvent;
 class QKeyEvent;
+class QVBoxLayout;  // 添加布局头文件
 
 namespace Ui {
 class ConfigureProjectItem;
@@ -33,20 +32,23 @@ public:
     ~ConfigureProjectItem();
 
     void _initstyle();
-protected:
-	//拖拽窗口
-	void mousePressEvent(QMouseEvent *event);
-	void mouseMoveEvent(QMouseEvent *event);
 
-	void paintEvent(QPaintEvent *);
-	void closeEvent(QCloseEvent *event);
-	void keyPressEvent(QKeyEvent *event);
+protected:
+    void closeEvent(QCloseEvent *event);
+    void keyPressEvent(QKeyEvent *event);
+
 signals:
     void _setallsampletestproject(QString);
     void setsinglesampleproject(int,int,QString); //设置单个样本测试项目
+
 public:
     void Slot_ChangeSingleItem(int rows, int clos,bool signal); //修改全部、修改单个
+
 private slots:
+    // 标题栏槽函数
+    void onCloseRequested();
+    void onMinimizeRequested();
+    void onMaximizeRequested();
 
 private:
     bool SelectRadittom();
@@ -56,28 +58,30 @@ private:
     void RadioButtonAllNoChecked();
     void ShowTestGroupText(QStringList GroupReagent, QString & ShowText);
 
-   void  ClickCheckBox(bool pchecked);
-   void  CancelReagentGroup();
+    void ClickCheckBox(bool pchecked);
+    void CancelReagentGroup();
 
     void AddGroupReagentTest(); //++组
     void DeleteReagentGroup();  //--组
 
     void ConfigTestingReagnet(); //保存
+
+    void initTitleBar();  // 添加初始化标题栏函数
+
 private:
     Ui::ConfigureProjectItem *ui;
-	QColor bgmcColor;
-	QPoint mousePos;
-	QPoint windowsPos;
-	QPoint dPos;
-
+    QColor bgmcColor;
 
     QList<QRadioButton*> m_ptestingradioList;
-
     QList<QCheckBox*> m_checkBoxList;
 
     int m_rows = 0;
     int m_clos = 0;
     bool m_singleitem = false;
+
+    CustomTitleBar *m_titleBar;  // 添加自定义标题栏指针
+    QVBoxLayout *m_mainLayout;   // 主布局
+
     enum TableItemSels{Table_TestReagentroup,Table_CheckState};
 };
 

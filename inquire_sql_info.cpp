@@ -10,6 +10,11 @@
 #include "loginui.h"
 #include "globaldata.h"
 #include <operclass/fullyautomatedplatelets.h>
+#include <algorithm>
+#include <limits>
+#include <numeric>
+#include <custom_style/custommessagebox.h>
+#include "PrintReport/PrintTemplate.h"
 
 Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     QWidget(parent),
@@ -38,7 +43,7 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
         QLOG_WARN() << "QSS load error:" << stylespinBox.errorString();
     }
 
-    m_group = new QButtonGroup(this);
+    m_group = std::make_unique<QButtonGroup>(this);
     m_group->addButton(ui->checkBox_all,INQUIRE_ALL_SQL);
     m_group->addButton(ui->checkBox_today,INQUIRE_TODAY_SQL);
     m_group->addButton(ui->checkBox_this_month,INQUIRE_MONTH_SQL);
@@ -62,8 +67,9 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
 
     //初始化精确查找控件
     QStringList Agenum;
+    Agenum.reserve(120);
     for(int i = 0; i< 120;i++ )
-        Agenum.push_back(QString("%1").arg(i+1));
+        Agenum.push_back(QString::number(i+1));
     ui->comboBox_age->addItems(Agenum);
     ui->comboBox_age->setCurrentIndex(-1);
 
@@ -214,15 +220,15 @@ void Inquire_Sql_Info::initTableWidgetStyle()
                                                      "QHeaderView::section:last {"
                                                      "   border-right: 1px solid #3a3a3a;"
                                                      "}");
-    pinquireTable->setStyleSheet(TableWidgetCss);
-    pinquireTable->verticalScrollBar()->setStyleSheet(VScroBarCss); //垂直
+    pinquireTable->setStyleSheet(getTableWidgetStyle());
+    pinquireTable->verticalScrollBar()->setStyleSheet(getScrollBarStyle()); //垂直
     pinquireTable->horizontalScrollBar()->setStyleSheet("QScrollBar{background:transparent; height:8px;}"
          "QScrollBar::handle{background:lightgray; border:2px solid transparent; border-radius:2px;}"
          "QScrollBar::handle:hover{background:gray;}"
          "QScrollBar::sub-line{background:transparent;}"
          "QScrollBar::add-line{background:transparent;}");
 
-    connect(pinquireTable, SIGNAL(itemClicked(QTableWidgetItem *)), this, SLOT(SelectItem(QTableWidgetItem *)));
+    connect(pinquireTable, SIGNAL(itemClicked(QTableWidgetItem *)), this, SLOT(onSelectRowItem(QTableWidgetItem *)));
 	return;
 }
 
@@ -230,12 +236,17 @@ Inquire_Sql_Info::~Inquire_Sql_Info()
 {
 	if (m_threadInqure.isRunning()) {
 		m_threadInqure.quit();
-		m_threadInqure.wait();
+		m_threadInqure.wait(3000); // 添加超时机制
 	}
- 
-    if(mquiredataclass)
-        delete mquiredataclass;
-    mquiredataclass = nullptr;
+    
+    // 清理曲线标签对象 - 使用QCustomPlot的removeItem方法
+    for (QCPItemText* label : m_curveLabels) {
+        if (label && ui->Inquire_curve_1) {
+            ui->Inquire_curve_1->removeItem(label);
+        }
+    }
+    m_curveLabels.clear();
+    
     delete ui;
 }
 
@@ -273,6 +284,7 @@ void Inquire_Sql_Info::myMoveEvent(QMouseEvent *event)
 void Inquire_Sql_Info::creatCPGraph(QCustomPlot* pshowcurvedata)
 {
     QList<QCPGraph*> ReagCurveList;
+    ReagCurveList.reserve(5);
     m_showAACpgraph = pshowcurvedata->addGraph();
     ReagCurveList.push_back(m_showAACpgraph);
     m_showADPCpgraph = pshowcurvedata->addGraph();
@@ -284,34 +296,57 @@ void Inquire_Sql_Info::creatCPGraph(QCustomPlot* pshowcurvedata)
     m_showRISCpgraph = pshowcurvedata->addGraph();
     ReagCurveList.push_back(m_showRISCpgraph);
 
-    pshowcurvedata->legend->setVisible(true);
+    // 去掉图例显示
+    pshowcurvedata->legend->setVisible(false);
 
     int k = 0;
     QList<QPen>  curveColorList;
     QList<QString> curveNameList;
+    curveColorList.reserve(5);
+    curveNameList.reserve(5);
 
     curveColorList.append(QPen(GlobalData::customCurveColor(AA_REAGENT),2,Qt::SolidLine));
-    curveNameList.append("AA");
+    curveNameList.append(QStringLiteral("AA"));
     curveColorList.append(QPen(GlobalData::customCurveColor(ADP_REAGENT),2,Qt::SolidLine));
-    curveNameList.append("ADP");
+    curveNameList.append(QStringLiteral("ADP"));
     curveColorList.append(QPen(GlobalData::customCurveColor(EPI_REAGENT),2,Qt::SolidLine));
-    curveNameList.append("EPI");
+    curveNameList.append(QStringLiteral("EPI"));
     curveColorList.append(QPen(GlobalData::customCurveColor(COL_REAGENT),2,Qt::SolidLine));
-    curveNameList.append("COL");
+    curveNameList.append(QStringLiteral("COL"));
     curveColorList.append(QPen(GlobalData::customCurveColor(RIS_REAGENT),2,Qt::SolidLine));
-    curveNameList.append("RIS");
+    curveNameList.append(QStringLiteral("RIS"));
 
 
+    // 在曲线上添加项目名称标注
+    k = 0;
     for(QCPGraph* pdata : ReagCurveList)
     {
         pdata->setPen(curveColorList.at(k));
         pdata->setName(curveNameList.at(k));
         pdata->setLineStyle(QCPGraph::LineStyle::lsLine);
         pdata->setAntialiasedFill(true);//设置抗锯齿
+        
+        // 为每条曲线添加文本标注，标注在曲线上
+        QCPItemText *textLabel = new QCPItemText(pshowcurvedata);
+        textLabel->setPositionAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+        textLabel->position->setType(QCPItemPosition::ptPlotCoords);
+        
+        // 初始位置设置在曲线的中间位置（X=150），Y值设为0
+        // 当有实际数据时，标注会自动跟随曲线移动
+        textLabel->position->setCoords(150, 0);
+        
+        //textLabel->setText(curveNameList.at(k));
+        textLabel->setText("");
+        textLabel->setFont(QFont(font().family(), 10, QFont::Bold));
+        textLabel->setPen(QPen(curveColorList.at(k).color()));
+        textLabel->setBrush(QBrush(Qt::white));
+        textLabel->setPadding(QMargins(1, 1, 1, 1));
+        
+        // 存储标签对象以便后续管理
+        m_curveLabels.append(textLabel);
+        
         k++;
     }
-    pshowcurvedata->axisRect()->insetLayout()->setInsetAlignment(0,Qt::AlignTop|Qt::AlignRight);
-    pshowcurvedata->legend->setBrush(QColor(255,255,255,0));//设置图例背景
     pshowcurvedata->replot();
     return;
 }
@@ -349,9 +384,9 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     customPlot->xAxis->setLabelColor(QColor(Qt::red));
     customPlot->yAxis->setLabelColor(QColor(Qt::red));
 
-    // 设置X/Y轴刻度范围
+    // 设置X轴固定范围0-300，Y轴根据数据自动伸缩
     customPlot->xAxis->setRange(0, 300);
-    customPlot->yAxis->setRange(-20, 100);
+    // Y轴范围将在添加数据时自动调整
 
     //刻度设置优化
     QSharedPointer<QCPAxisTickerFixed> xTicker(new QCPAxisTickerFixed);
@@ -359,9 +394,8 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     xTicker->setTickCount(10);
     customPlot->xAxis->setTicker(xTicker);
 
-    QSharedPointer<QCPAxisTickerFixed> yTicker(new QCPAxisTickerFixed);
-    yTicker->setTickStep(12); // (-20到100共120单位，分10段)
-    yTicker->setTickCount(10);
+    // Y轴使用自动刻度，根据数据范围自动调整
+    QSharedPointer<QCPAxisTicker> yTicker(new QCPAxisTicker);
     customPlot->yAxis->setTicker(yTicker);
 
     //网格和零线设置
@@ -371,9 +405,9 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
 	customPlot->xAxis->grid()->setZeroLinePen(zeroLinePen);
 	customPlot->yAxis->grid()->setZeroLinePen(zeroLinePen);
 
-    customPlot->setInteractions(QCP::iRangeDrag|QCP::iRangeZoom|
+    /*customPlot->setInteractions(QCP::iRangeDrag|QCP::iRangeZoom|
                                 QCP::iSelectAxes |QCP::iSelectLegend |
-                                QCP::iSelectPlottables);
+                                QCP::iSelectPlottables);*/
 
     //关联选点信号
     connect(customPlot, SIGNAL(plottableClick(QCPAbstractPlottable*, int, QMouseEvent*)),
@@ -441,7 +475,6 @@ void Inquire_Sql_Info::RecvCurveData(const QVector<QString>& data)
 #endif
         addInquireCurvedata(valdataList, i + 1);
     }
-    ui->Inquire_curve_1->legend->setVisible(true);
     ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
     update();
     emit clickOutPdfFile(m_clickId);
@@ -449,7 +482,7 @@ void Inquire_Sql_Info::RecvCurveData(const QVector<QString>& data)
 }
 
 
-void Inquire_Sql_Info::SelectItem(QTableWidgetItem *item)
+void Inquire_Sql_Info::onSelectRowItem(QTableWidgetItem *item)
 {
     cleanPlogtandUpdate();
 
@@ -459,7 +492,7 @@ void Inquire_Sql_Info::SelectItem(QTableWidgetItem *item)
 		return;
     if(ptablewidget->item(selrows,0) == 0)
     {
-        QMessageBox::information(nullptr,tr("查询曲线失败"),tr("未查询到样本号"));
+        CustomMessageBox::warning(this,tr("查询曲线失败"),tr("未查询到样本号"));
         QLOG_DEBUG()<<"选中查看曲线失败,未查询到样本号"<< __FILEW__ << __LINE__<<endl;
         return;
     }
@@ -539,6 +572,13 @@ void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag
 
             if (!filteredPosx.isEmpty() && !filteredData.isEmpty()) {
                 graph->setData(filteredPosx, filteredData);
+                
+                // 自动调整Y轴范围以适应所有曲线数据
+                adjustYAxisRange();
+                
+                // 更新曲线标注位置
+                updateCurveLabelsPosition();
+                
                 ui->Inquire_curve_1->replot();
             }
         }
@@ -547,13 +587,20 @@ void Inquire_Sql_Info::addInquireCurvedata(QStringList dataList,quint8 indexReag
 
 void Inquire_Sql_Info::cleanPlogtandUpdate()
 {
-    m_showAACpgraph->data().data()->clear();
-    m_showADPCpgraph->data().data()->clear();
-    m_showEPICpgraph->data().data()->clear();
-    m_showCOLCpgraph->data().data()->clear();
-    m_showRISCpgraph->data().data()->clear();
-    ui->Inquire_curve_1->repaint();
-    ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
+    // 安全地清理曲线数据，检查指针是否为空
+    if (m_showAACpgraph) m_showAACpgraph->data().data()->clear();
+    if (m_showADPCpgraph) m_showADPCpgraph->data().data()->clear();
+    if (m_showEPICpgraph) m_showEPICpgraph->data().data()->clear();
+    if (m_showCOLCpgraph) m_showCOLCpgraph->data().data()->clear();
+    if (m_showRISCpgraph) m_showRISCpgraph->data().data()->clear();
+    
+    // 注意：曲线标签不应该在这里清理，它们应该在曲线创建时添加并保持显示
+    // 只在析构函数中清理曲线标签
+    
+    if (ui->Inquire_curve_1) {
+        ui->Inquire_curve_1->repaint();
+        ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
+    }
     update();
     return;
 }
@@ -562,49 +609,50 @@ void Inquire_Sql_Info::firstrunthread()
 {
     if(!mquiredataclass)
     {
-       mquiredataclass = new QueryDataThread();
+       mquiredataclass = std::make_unique<QueryDataThread>();
        mquiredataclass->moveToThread(&m_threadInqure);
        qRegisterMetaType<InqueryDatastu_t>("InqueryDatastu_t");
-       connect(mquiredataclass,&QueryDataThread::LoadInquierdata,this,&Inquire_Sql_Info::ViewLoadInquierdata);
+       connect(mquiredataclass.get(),&QueryDataThread::LoadInquierdata,this,&Inquire_Sql_Info::ViewLoadInquierdata);
 
-       connect(mquiredataclass,&QueryDataThread::clearTableWidget,this,[=](){
+       connect(mquiredataclass.get(),&QueryDataThread::clearTableWidget,this,[=](){
            cleanPlogtandUpdate();
            DeleteStuData();
            update();
        });
 
-       connect(mquiredataclass,&QueryDataThread::InquireEmpty,this,[=](){
-            QMessageBox::warning(nullptr,tr("查讯完成"),tr("查询结果为空!"));
+       connect(mquiredataclass.get(),&QueryDataThread::InquireEmpty,this,[=](){
+            CustomMessageBox::warning(nullptr,tr("查讯完成"),tr("查询结果为空!"));
             return;
        });
 
        connect(&m_threadInqure,&QThread::started,
-               mquiredataclass,&QueryDataThread::_startSycnData);
+               mquiredataclass.get(),&QueryDataThread::_startSycnData);
 
        connect(this,&Inquire_Sql_Info::FindModuleStyle,
-               mquiredataclass,&QueryDataThread::slotFindModuleStyle);
+               mquiredataclass.get(),&QueryDataThread::slotFindModuleStyle);
 
        connect(this,&Inquire_Sql_Info::FindspecifiedData,
-               mquiredataclass,&QueryDataThread::slotFindspecifiedData);
+               mquiredataclass.get(),&QueryDataThread::slotFindspecifiedData);
 
        connect(this,&Inquire_Sql_Info::Locatethelookup,
-               mquiredataclass,&QueryDataThread::slotLocatethelookup); //精确查找
+               mquiredataclass.get(),&QueryDataThread::slotLocatethelookup); //精确查找
 
        connect(this,&Inquire_Sql_Info::InquierCurveView,
-               mquiredataclass,
+               mquiredataclass.get(),
                &QueryDataThread::InquierCurveViewEnd);
 
-       connect(mquiredataclass,&QueryDataThread::sendCurveData,
+       connect(mquiredataclass.get(),&QueryDataThread::sendCurveData,
                 this,&Inquire_Sql_Info::RecvCurveData,
                 Qt::QueuedConnection);
 
        connect(this,&Inquire_Sql_Info::clickOutPdfFile,
-               mquiredataclass,
+               mquiredataclass.get(),
                &QueryDataThread::ObatinCreatPdfPara);
 
-       connect(mquiredataclass,&QueryDataThread::outPDFPara,this,[=](InqueryDatastu_t *pdata){
-           if(pdata)
-                insertparaTopdffile(pdata);
+       connect(mquiredataclass.get(),&QueryDataThread::outPDFPara,this,[=](InqueryDatastu_t *pdata){
+           if(pdata){
+                //insertparaTopdffile(pdata);
+           }
        });
 
        m_threadInqure.start();
@@ -628,7 +676,7 @@ void Inquire_Sql_Info::on_toolButton_OK_clicked()
 		}
 		else
 		{
-			QMessageBox::warning(nullptr, tr("提示"), tr("选择开始时间应小于(或等于)结束时间!"));
+            CustomMessageBox::warning(nullptr, tr("提示"), tr("选择开始时间应小于(或等于)结束时间!"));
 			return;
 		}
     }
@@ -708,7 +756,8 @@ void Inquire_Sql_Info::CheckWhetherTestOrNot(QString &ResultCheck)
         double addnum = 0.00;
         for(int i = 0; i < resultdata.size(); i++)
         {
-            QString data_ = QString(resultdata.at(i)).remove("%");
+            QString data_ = resultdata.at(i);
+            data_.remove('%');
             addnum += data_.toDouble();
         }
         bool qeuipzero =  qFuzzyIsNull(addnum);
@@ -756,8 +805,7 @@ void Inquire_Sql_Info::stats_today_reagent()
 {
     QVector<double> useed_reag;
     QDateTime current_date_time = QDateTime::currentDateTime();
-    QString today_ = QString("%1%2%3").arg(current_date_time.toString("yyyy")).arg(current_date_time.toString("MM")).
-        arg(current_date_time.toString("dd"));
+    QString today_ = current_date_time.toString("yyyyMMdd");
     QMap<quint8,int> use_reag;
     FullyAutomatedPlatelets::pinstancesqlData()->inquire_single_stas_total(today_,use_reag);
     auto it = use_reag.begin();
@@ -789,7 +837,7 @@ void Inquire_Sql_Info::stats_designate_reagent()
     int days = ui->dateEdit_begin->dateTime().daysTo(ui->dateEdit_end->dateTime());
     if(days < 0)
     {
-        QMessageBox::warning(nullptr,tr("提示"),tr("选择开始时间应小于(或等于)结束时间!"));
+        CustomMessageBox::warning(nullptr,tr("提示"),tr("选择开始时间应小于(或等于)结束时间!"));
         return;
     }
 
@@ -808,7 +856,7 @@ void Inquire_Sql_Info::stats_designate_reagent()
     }
     if(useed_reag_vec.size()%5 != 0)
     {
-        QMessageBox::information(nullptr,"指定统计查询失败","查询数据异常");
+        CustomMessageBox::warning(this,"指定统计查询失败","查询数据异常");
         return;
     }
     QVector<double> show_stats_vec;
@@ -839,7 +887,7 @@ void Inquire_Sql_Info::ViewLoadInquierdata(int numtotal, int n_ing,InqueryDatast
     ui->progressBarLoad->show();
     double ratio_ = n_ing*100/numtotal;
     ui->progressBarLoad->setValue(ratio_);
-    ui->progressBarLoad->setFormat(QString("当前查讯进度为:%1%").arg(QString::number(ratio_, 'f', 2)));
+    ui->progressBarLoad->setFormat(tr("当前查讯进度为:%1%").arg(ratio_, 0, 'f', 2));
     ui->progressBarLoad->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     if(numtotal == n_ing)
     {
@@ -902,7 +950,7 @@ void Inquire_Sql_Info::InsertOneRowsData(InqueryDatastu_t *pdata)
         auto iter = Sixtysecondsofdata.constBegin();
         while(iter != Sixtysecondsofdata.constEnd())
         {
-            InsertInqireResult(row,iter.key(), QString("%1 [60S]").arg(iter.value()));
+            InsertInqireResult(row,iter.key(), QStringLiteral("%1 [60S]").arg(iter.value()));
             iter++;
         }
 
@@ -919,7 +967,7 @@ void Inquire_Sql_Info::InsertOneRowsData(InqueryDatastu_t *pdata)
         iter = OneHundredEightysecondsofdata.constBegin();
         while(iter != OneHundredEightysecondsofdata.constEnd())
         {
-            InsertInqireResult(row,iter.key(), QString("%1 [180S]").arg(iter.value()));
+            InsertInqireResult(row,iter.key(), QStringLiteral("%1 [180S]").arg(iter.value()));
             iter++;
         }
 
@@ -936,7 +984,7 @@ void Inquire_Sql_Info::InsertOneRowsData(InqueryDatastu_t *pdata)
         iter = ThreeHundredsecondsofdata.constBegin();
         while(iter != ThreeHundredsecondsofdata.constEnd())
         {
-            InsertInqireResult(row,iter.key(), QString("%1 [300S]").arg(iter.value()));
+            InsertInqireResult(row,iter.key(), QStringLiteral("%1 [300S]").arg(iter.value()));
             iter++;
         }
 
@@ -953,7 +1001,7 @@ void Inquire_Sql_Info::InsertOneRowsData(InqueryDatastu_t *pdata)
         iter = Maxsecondsofdata.constBegin();
         while(iter != Maxsecondsofdata.constEnd())
         {
-            InsertInqireResult(row,iter.key(), QString("%1 [MAX]").arg(iter.value()));
+            InsertInqireResult(row,iter.key(), QStringLiteral("%1 [MAX]").arg(iter.value()));
             iter++;
         }
 
@@ -978,228 +1026,341 @@ void Inquire_Sql_Info::InsertOneRowsData(InqueryDatastu_t *pdata)
 }
 
 
-//输出PDF
-void Inquire_Sql_Info::insertparaTopdffile(InqueryDatastu_t *pdata)
-{
-    Printthereport *pwritepdf = FullyAutomatedPlatelets::pinstancePrintPdf();
 
-    pwritepdf->initpara();//清楚记录先
-
-    QString outprintIddate;
-    int  outprintId;
-    GlobalData::apartSampleId(QString::fromLocal8Bit(pdata->Sample_Num),outprintIddate,outprintId);
-    pwritepdf->_settingSampleId(QString::number(outprintId));
-
-    QPixmap curvePixmap = QPixmap::grabWidget(ui->Inquire_curve_1, ui->Inquire_curve_1->rect());
-    pwritepdf->_setpixmapcurve(curvePixmap);
-
-    pwritepdf->_setsamplename(QString::fromLocal8Bit(pdata->Sample_Name));
-
-    pwritepdf->_setsampleSex(QString::fromLocal8Bit(pdata->Sample_Sex));
-
-    pwritepdf->_setsampleBednum(QString::fromLocal8Bit(pdata->Sample_BedNum));
-
-    pwritepdf->_setsampleAges(QString::fromLocal8Bit(pdata->Sample_Age).toUInt());
-
-    pwritepdf->_setsampledepartment(QString::fromLocal8Bit(pdata->Sample_kebie));
-
-    pwritepdf->_setsampleBarcode(QString::fromLocal8Bit(pdata->BarCode));
-
-    pwritepdf->_setrefertithedoctor(QString::fromLocal8Bit(pdata->Sample_doctor));
-
-    pwritepdf->_setreviewdoctors(QString::fromLocal8Bit(pdata->Sample_doctor));//审核医生
-
-    QMap<quint8,QString> reagcurvedata;
-    reagcurvedata.clear();
-    if(QString::fromLocal8Bit(pdata->ReagAAresult).length() == 0 || QString::fromLocal8Bit(pdata->ReagAAresult) == "")
-    {
-        reagcurvedata.insert(AA_REAGENT,"0%,0%,0%,0%");
-    }
-    else
-        reagcurvedata.insert(AA_REAGENT,  QString::fromLocal8Bit(pdata->ReagAAresult));
-    if(QString::fromLocal8Bit(pdata->ReagADPresult).length() == 0 || QString::fromLocal8Bit(pdata->ReagADPresult) == "")
-    {
-        reagcurvedata.insert(ADP_REAGENT,"0%,0%,0%,0%");
-    }
-    else
-        reagcurvedata.insert(ADP_REAGENT,QString::fromLocal8Bit(pdata->ReagADPresult));
-    if(QString::fromLocal8Bit(pdata->ReagEPIresult).length() == 0 || QString::fromLocal8Bit(pdata->ReagEPIresult) == "")
-    {
-        reagcurvedata.insert(EPI_REAGENT,"0%,0%,0%,0%");
-    }
-    else
-        reagcurvedata.insert(EPI_REAGENT,QString::fromLocal8Bit(pdata->ReagEPIresult));
-    if(QString::fromLocal8Bit(pdata->ReagCOLresult).length() == 0 || QString::fromLocal8Bit(pdata->ReagCOLresult) == "")
-    {
-        reagcurvedata.insert(COL_REAGENT,"0%,0%,0%,0%");
-    }
-    else
-        reagcurvedata.insert(COL_REAGENT,QString::fromLocal8Bit(pdata->ReagCOLresult));
-
-    if(QString::fromLocal8Bit(pdata->ReagRISresult).length() == 0 || QString::fromLocal8Bit(pdata->ReagRISresult) == "")
-    {
-        reagcurvedata.insert(RIS_REAGENT,"0%,0%,0%,0%");
-    }
-    else
-        reagcurvedata.insert(RIS_REAGENT,QString::fromLocal8Bit(pdata->ReagRISresult));
-    QVariant curvedata; //申明通用数据对象
-    curvedata.setValue(reagcurvedata); //数据封装下
-    pwritepdf->_setTestCurvedata(curvedata);
-	if (pdata)
-		delete pdata;
-	pdata = nullptr;
-    return;
-}
 
 void Inquire_Sql_Info::on_toolButton_outPrint_clicked()
 {
-    emit _printoutresult();
-}
-
-
-void Inquire_Sql_Info::on_toolButton_creatPdf_clicked()
-{
-    QString sPath = QFileDialog::getSaveFileName(this, tr("另存为"), "/", tr("Text Files (*.pdf)"));
-    if(sPath.isEmpty()){
+    // 获取数据库实例
+   auto* dbInstance = FullyAutomatedPlatelets::pinstancesqlData();
+   if (!dbInstance) {
+       QLOG_ERROR() << "Database instance is null";
        return;
-    }
-    emit this->writepdfprint(sPath);
-    return;
+   }
+
+   // 创建打印窗口并设置自动删除
+   PrintTemplate *printWidget = new PrintTemplate(nullptr, dbInstance);
+   printWidget->setAttribute(Qt::WA_DeleteOnClose);
+
+   // 设置样本号
+   printWidget->setSampleId(m_clickId);
+
+   // 获取并设置粘附率显示选项
+   INI_File iniConfig;
+   bool showAdhesion = iniConfig.getPrintAdhesion();
+   printWidget->setShowAdhesionRate(showAdhesion);
+
+   // 可选：设置窗口标题
+   printWidget->setWindowTitle(QString("检验报告单 - %1").arg(m_clickId));
+
+   // 显示窗口
+   printWidget->show();
 }
 
 
 //初始化日期控件
 void Inquire_Sql_Info::initDateEditUI(QDateEdit*dateEdit,QWidget*parent)
 {
-       dateEdit->setAlignment(Qt::AlignCenter);
-       dateEdit->setCalendarPopup(true);
-       dateEdit->setDisplayFormat("yyyy-MM-dd");
-       dateEdit->setDate(QDate::currentDate());
-       QFont font("黑体", 14);
-       dateEdit->setFont(font);
-       dateEdit->setStyleSheet(QString("QDateEdit{background-color:qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, "
-                                       "stop:0 rgba(250, 250, 250, 255), "
-                                       "stop:0.5 rgba(240, 240, 240, 255), "
-                                       "stop:1 rgba(230, 230, 230, 255));"
-                                       "border: 1px solid rgb(200, 200, 200);"
-                                       "border-radius: 4px;"
-                                       "padding-left:%2px;}"
-                                       "QDateEdit::drop-down{width:%1px;border-image: url(:/Picture/minus.png);}")
-                                   .arg(35).arg(10));
-       dateEdit->installEventFilter(parent);
-       for(auto lineEdit:dateEdit->findChildren<QLineEdit*>())
+   dateEdit->setAlignment(Qt::AlignCenter);
+   dateEdit->setCalendarPopup(true);
+   dateEdit->setDisplayFormat("yyyy-MM-dd");
+   dateEdit->setDate(QDate::currentDate());
+   QFont font("黑体", 14);
+   dateEdit->setFont(font);
+   dateEdit->setStyleSheet(QString("QDateEdit{background-color:qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, "
+                                   "stop:0 rgba(250, 250, 250, 255), "
+                                   "stop:0.5 rgba(240, 240, 240, 255), "
+                                   "stop:1 rgba(230, 230, 230, 255));"
+                                   "border: 1px solid rgb(200, 200, 200);"
+                                   "border-radius: 4px;"
+                                   "padding-left:%2px;}"
+                                   "QDateEdit::drop-down{width:%1px;border-image: url(:/Picture/minus.png);}")
+                               .arg(35).arg(10));
+   dateEdit->installEventFilter(parent);
+   for(auto lineEdit:dateEdit->findChildren<QLineEdit*>())
+   {
+       if(lineEdit)
        {
-           if(lineEdit)
+           if(lineEdit->objectName() == "qt_spinbox_lineedit")
            {
-               if(lineEdit->objectName() == "qt_spinbox_lineedit")
-               {
-                   lineEdit->setReadOnly(true);
-                   lineEdit->setFont(font);
-                   lineEdit->setAlignment(Qt::AlignCenter);
-                   lineEdit->installEventFilter(parent);
-                   QLineEdit::connect(lineEdit,&QLineEdit::selectionChanged,[=]
-                                      {
-                                          lineEdit->deselect();
-                                      });
-               }
+               lineEdit->setReadOnly(true);
+               lineEdit->setFont(font);
+               lineEdit->setAlignment(Qt::AlignCenter);
+               lineEdit->installEventFilter(parent);
+               QLineEdit::connect(lineEdit,&QLineEdit::selectionChanged,[=]
+                                  {
+                                      lineEdit->deselect();
+                                  });
+           }
+           break;
+       }
+   }
+   QCalendarWidget * cale = dateEdit->calendarWidget();
+   cale->setMinimumSize(500,290);
+   cale->setFont(font);
+   cale->setStyleSheet(QString("QCalendarWidget QWidget#qt_calendar_navigationbar {%1 ;}"
+                               "QCalendarWidget QToolButton {%1;  %9; "
+                               "  height: %3px;  "
+                               "}"
+                               "QCalendarWidget QToolButton QMenu{height:400px;width:200px;background-color:#FFFFFF;border:1px solid #%1;}"
+                               "QCalendarWidget QToolButton#qt_calendar_monthbutton {"
+                               "  width: %10px;"
+                               "}"
+                               "QCalendarWidget QToolButton#qt_calendar_yearbutton {"
+                               "  width: %6px;"
+                               "}"
+                               "QCalendarWidget QToolButton#qt_calendar_prevmonth { margin-right:%7px;"
+                               "  width: %6px;"
+                               " icon-size: %4px, %4px;}"
+
+                               "QCalendarWidget QToolButton#qt_calendar_nextmonth { margin-left:%7px;"
+                               "  width: %6px;"
+                               " icon-size: %4px, %4px;}"
+
+                               "QCalendarWidget QMenu {%1;%9; "
+                               "    width: %5px;"
+                               "    left: %7px;"
+                               "}"
+                               "QCalendarWidget QMenu::item {%2;"
+                               "   background-color: transparent;"
+                               "   padding-top:%11px;"
+                               "   padding-bottom:%11px;"
+                               "   padding-left:%3px;"
+                               "   padding-right:%8px;"
+                               "}"
+                               "QCalendarWidget QMenu::item:selected {%2;"
+                               "   background-color: rgb(100, 180, 240);"
+                               "}"
+                               "QCalendarWidget QSpinBox { %1;%9; "
+                               "  width: %6px;"
+                               "    selection-background-color: rgb(16, 130, 220); "
+                               "    selection-color: rgb(255, 255, 255);}"
+                               "QCalendarWidget QSpinBox::up-button { subcontrol-origin: border;  subcontrol-position: top right;  width:%4px; }"
+                               "QCalendarWidget QSpinBox::down-button {subcontrol-origin: border; subcontrol-position: bottom right;  width:%4px;}"
+                               "QCalendarWidget QSpinBox::up-arrow { width:%4px;  height:%4px; }"
+                               "QCalendarWidget QSpinBox::down-arrow { width:%4px;  height:%4px; }"
+                               "QCalendarWidget QWidget {alternate-background-color: rgb(247, 247, 247); }"
+                               "QCalendarWidget QAbstractItemView:enabled { %2; "
+                               "    background-color:  rgb(255, 255, 255);  "
+                               "    selection-background-color: rgb(100, 180, 240); "
+                               "    selection-color: rgb(255, 255, 255); }"
+                               "QCalendarWidget QAbstractItemView:disabled { color: rgb(200, 200, 200); }")
+                           .arg("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(250, 250, 250, 255),  stop:0.5 rgba(240, 240, 240, 255), stop:1 rgba(230, 230, 230, 255))")
+                           .arg(QString("font: %1pt \"黑体\"; color: rgb(0, 0, 0)").arg(14))
+                           .arg(int(50))
+                           .arg(int(30))
+                           .arg(int(140))
+                           .arg(int(200))
+                           .arg(int(20))
+                           .arg(int(40))
+                           .arg(QString("font: %1pt \"黑体\"; color: rgb(0, 0, 0)").arg(18))
+                           .arg(int(80))
+                           .arg(int(5))
+                       ) ;
+   QSpinBox*yearEdit = 0;
+   QToolButton*yearButton = 0;
+   for(auto spinBox:cale->findChildren<QSpinBox*>())
+   {
+       if(spinBox)
+       {
+           if(spinBox->objectName() == "qt_calendar_yearedit")
+           {
+               yearEdit = spinBox;
+               yearEdit->setAlignment(Qt::AlignCenter);
                break;
            }
        }
-       QCalendarWidget * cale = dateEdit->calendarWidget();
-       cale->setMinimumSize(500,290);
-       cale->setFont(font);
-       cale->setStyleSheet(QString("QCalendarWidget QWidget#qt_calendar_navigationbar {%1 ;}"
-                                   "QCalendarWidget QToolButton {%1;  %9; "
-                                   "  height: %3px;  "
-                                   "}"
-                                   "QCalendarWidget QToolButton QMenu{height:400px;width:200px;background-color:#FFFFFF;border:1px solid #%1;}"
-                                   "QCalendarWidget QToolButton#qt_calendar_monthbutton {"
-                                   "  width: %10px;"
-                                   "}"
-                                   "QCalendarWidget QToolButton#qt_calendar_yearbutton {"
-                                   "  width: %6px;"
-                                   "}"
-                                   "QCalendarWidget QToolButton#qt_calendar_prevmonth { margin-right:%7px;"
-                                   "  width: %6px;"
-                                   " icon-size: %4px, %4px;}"
-
-                                   "QCalendarWidget QToolButton#qt_calendar_nextmonth { margin-left:%7px;"
-                                   "  width: %6px;"
-                                   " icon-size: %4px, %4px;}"
-
-                                   "QCalendarWidget QMenu {%1;%9; "
-                                   "    width: %5px;"
-                                   "    left: %7px;"
-                                   "}"
-                                   "QCalendarWidget QMenu::item {%2;"
-                                   "   background-color: transparent;"
-                                   "   padding-top:%11px;"
-                                   "   padding-bottom:%11px;"
-                                   "   padding-left:%3px;"
-                                   "   padding-right:%8px;"
-                                   "}"
-                                   "QCalendarWidget QMenu::item:selected {%2;"
-                                   "   background-color: rgb(100, 180, 240);"
-                                   "}"
-                                   "QCalendarWidget QSpinBox { %1;%9; "
-                                   "  width: %6px;"
-                                   "    selection-background-color: rgb(16, 130, 220); "
-                                   "    selection-color: rgb(255, 255, 255);}"
-                                   "QCalendarWidget QSpinBox::up-button { subcontrol-origin: border;  subcontrol-position: top right;  width:%4px; }"
-                                   "QCalendarWidget QSpinBox::down-button {subcontrol-origin: border; subcontrol-position: bottom right;  width:%4px;}"
-                                   "QCalendarWidget QSpinBox::up-arrow { width:%4px;  height:%4px; }"
-                                   "QCalendarWidget QSpinBox::down-arrow { width:%4px;  height:%4px; }"
-                                   "QCalendarWidget QWidget {alternate-background-color: rgb(247, 247, 247); }"
-                                   "QCalendarWidget QAbstractItemView:enabled { %2; "
-                                   "    background-color:  rgb(255, 255, 255);  "
-                                   "    selection-background-color: rgb(100, 180, 240); "
-                                   "    selection-color: rgb(255, 255, 255); }"
-                                   "QCalendarWidget QAbstractItemView:disabled { color: rgb(200, 200, 200); }")
-                               .arg("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(250, 250, 250, 255),  stop:0.5 rgba(240, 240, 240, 255), stop:1 rgba(230, 230, 230, 255))")
-                               .arg(QString("font: %1pt \"黑体\"; color: rgb(0, 0, 0)").arg(14))
-                               .arg(int(50))
-                               .arg(int(30))
-                               .arg(int(140))
-                               .arg(int(200))
-                               .arg(int(20))
-                               .arg(int(40))
-                               .arg(QString("font: %1pt \"黑体\"; color: rgb(0, 0, 0)").arg(18))
-                               .arg(int(80))
-                               .arg(int(5))
-                           ) ;
-       QSpinBox*yearEdit = 0;
-       QToolButton*yearButton = 0;
-       for(auto spinBox:cale->findChildren<QSpinBox*>())
+   }
+   for(auto btn:cale->findChildren<QToolButton*>())
+   {
+       if(btn)
        {
-           if(spinBox)
+           if(btn->objectName() == "qt_calendar_yearbutton")
            {
-               if(spinBox->objectName() == "qt_calendar_yearedit")
-               {
-                   yearEdit = spinBox;
-                   yearEdit->setAlignment(Qt::AlignCenter);
-                   break;
-               }
+               yearButton = btn;
+               break;
            }
-       }
-       for(auto btn:cale->findChildren<QToolButton*>())
-       {
-           if(btn)
-           {
-               if(btn->objectName() == "qt_calendar_yearbutton")
-               {
-                   yearButton = btn;
-                   break;
-               }
-           }
-       }
-       if(yearEdit != 0 && yearButton != 0)
-       {
-           QSpinBox::connect(yearEdit, &QSpinBox::editingFinished,[=]
-               {
-                   QTimer::singleShot(10,[=]{
-                       yearButton->setText(yearEdit->text());
-                   });
-               }
-           );
        }
    }
+   if(yearEdit != 0 && yearButton != 0)
+   {
+       QSpinBox::connect(yearEdit, &QSpinBox::editingFinished,[=]
+           {
+               QTimer::singleShot(10,[=]{
+                   yearButton->setText(yearEdit->text());
+               });
+           }
+       );
+   }
+}
+
+
+const QString& Inquire_Sql_Info::getScrollBarStyle()
+{
+    static const QString style = 
+        "QScrollBar:vertical {width: 18px; background: transparent; margin: 0px,0px,0px,0px; padding-top: 18px;padding-bottom: 18px;} "
+        "QScrollBar::handle:vertical {width: 18px; background: rgba(0,0,0,25%);border-radius: 4px;min-height: 20;}"
+        "QScrollBar::handle:vertical:hover {width: 8px;background: rgba(0,0,0,50%);border-radius: 4px; min-height: 20;}"
+        "QScrollBar::add-line:vertical {height: 18px;width: 18px;border-image: url(:/Picture/minus.png);subcontrol-position: bottom;}"
+        "QScrollBar::sub-line:vertical {height: 18px;width: 18px;border-image: url(:/Picture/Quality.png);subcontrol-position: top;}"
+        "QScrollBar::add-line:vertical:hover {height: 18px;width: 18px;border-image: url(:/Picture/minus.png);subcontrol-position: bottom;}"
+        "QScrollBar::sub-line:vertical:hover {height: 18px;width: 18px;border-image: url(:/Picture/Quality.png);subcontrol-position: top;}"
+        "QScrollBar::sub-page:vertical {background: rgb(178,180,180); border-radius: 0px;}"
+        "QScrollBar::add-page:vertical {background: rgb(178,180,180); border-radius: 0px;}";
+    return style;
+}
+
+const QString& Inquire_Sql_Info::getTableWidgetStyle()
+{
+    static const QString style = 
+        "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
+        "QTableWidget{border:1px solid #696969;}"
+        "QTableWidget::item:selected{background-color:rgb(139, 139, 122)}"
+        "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
+        "border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(188, 187, 186);"
+        "font: bold 1pt;padding:12px 0 0 10px}"
+        "QHeaderView::section,QTableCornerButton:section{ "
+        "padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); "
+        "border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; "
+        "background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }"
+        "QTableWidget{background-color:white;border:1px;}"
+        "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
+        "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
+    return style;
+}
+
+void Inquire_Sql_Info::adjustYAxisRange()
+{
+    if (!ui->Inquire_curve_1) {
+        return;
+    }
+
+    // 获取所有曲线的数据范围
+    double minY = std::numeric_limits<double>::max();
+    double maxY = std::numeric_limits<double>::lowest();
+    bool hasData = false;
+
+    // 检查所有曲线是否有数据
+    QList<QCPGraph*> graphs = {
+        m_showAACpgraph, m_showADPCpgraph, m_showEPICpgraph,
+        m_showCOLCpgraph, m_showRISCpgraph
+    };
+
+    for (QCPGraph* graph : graphs) {
+        if (graph && graph->dataCount() > 0) {
+            auto data = graph->data();
+            for (auto it = data->constBegin(); it != data->constEnd(); ++it) {
+				double yValue = (*it).value;   // it->value();
+                if (!std::isnan(yValue) && !std::isinf(yValue)) {
+                    minY = qMin(minY, yValue);
+                    maxY = qMax(maxY, yValue);
+                    hasData = true;
+                }
+            }
+        }
+    }
+
+    if (!hasData) {
+        // 如果没有数据，使用默认范围
+        ui->Inquire_curve_1->yAxis->setRange(-10, 100);
+        return;
+    }
+
+    // 添加一些边距，使曲线不会紧贴边界
+    double margin = (maxY - minY) * 0.1; // 10%的边距
+    if (margin < 1.0) margin = 5.0; // 最小边距
+    
+    minY -= margin;
+    maxY += margin;
+
+    // 确保范围合理
+    if (minY > maxY) {
+        std::swap(minY, maxY);
+    }
+    
+    if (maxY - minY < 1.0) {
+        minY -= 5.0;
+        maxY += 5.0;
+    }
+
+    // 设置Y轴范围
+    ui->Inquire_curve_1->yAxis->setRange(minY, maxY);
+}
+
+
+
+
+void Inquire_Sql_Info::updateCurveLabelsPosition()
+{
+    if (!ui->Inquire_curve_1 || m_curveLabels.isEmpty()) {
+        return;
+    }
+
+    // 定义曲线指针列表
+    QList<QCPGraph*> graphs = {
+        m_showAACpgraph, m_showADPCpgraph, m_showEPICpgraph,
+        m_showCOLCpgraph, m_showRISCpgraph
+    };
+
+    // 定义固定位置映射：曲线索引 -> X坐标位置
+    QMap<int, double> fixedPositions;
+    fixedPositions[0] = 30;  // AA -> 30秒
+    fixedPositions[1] = 60;  // ADP -> 60秒
+    fixedPositions[2] = 120; // EPI -> 120秒
+    fixedPositions[3] = 90;  // COL -> 90秒
+    fixedPositions[4] = 150; // RIS -> 150秒
+
+    // 更新每条曲线的标注位置
+    for (int i = 0; i < graphs.size() && i < m_curveLabels.size(); ++i) {
+        QCPGraph* graph = graphs.at(i);
+        QCPItemText* label = m_curveLabels.at(i);
+
+        if (!graph || !label) {
+            continue;
+        }
+
+        // 根据曲线是否有数据显示或隐藏名称
+        if (graph->dataCount() > 0) {
+            // 有数据时显示曲线名称
+            QString curveName = "";
+            switch (i) {
+                case 0: curveName = "AA"; break;
+                case 1: curveName = "ADP"; break;
+                case 2: curveName = "EPI"; break;
+                case 3: curveName = "COL"; break;
+                case 4: curveName = "RIS"; break;
+            }
+            label->setText(curveName);
+            label->setVisible(true); // 显示整个标签框
+
+            // 获取曲线的数据
+            auto data = graph->data();
+
+            // 找到固定位置对应的Y值
+            double targetX = fixedPositions.value(i, 150); // 默认150秒
+            double closestY = 0;
+            double minDistance = std::numeric_limits<double>::max();
+
+            for (auto it = data->constBegin(); it != data->constEnd(); ++it) {
+                double x = (*it).key;
+                double y = (*it).value;
+                double distance = std::abs(x - targetX);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestY = y;
+                }
+            }
+
+            // 设置标注位置在固定X位置
+            label->position->setCoords(targetX, closestY);
+        } else {
+            // 没有数据时隐藏整个标签框
+            label->setText("");
+            label->setVisible(false); // 隐藏整个标签框
+        }
+    }
+
+    ui->Inquire_curve_1->replot();
+}

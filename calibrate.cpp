@@ -1,6 +1,4 @@
-﻿#pragma execution_character_set("utf-8")
-
-#include "calibrate.h"
+﻿#include "calibrate.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDateTime>
@@ -24,6 +22,10 @@
 #include <custom_style/widgetdelegate.h>
 #include <custom_style/freezetablewidget.h>
 #include <operclass/fullyautomatedplatelets.h>
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
 
 Calibrate::Calibrate(QWidget *parent) :
     QWidget(parent),
@@ -259,8 +261,11 @@ void Calibrate::showContextpup(const QPoint &pos){
     m_clickViewSampleId = clickIdNum;
 
     if(mpdatawidget.isNull()){
-        mpdatawidget.reset(new CustomFixTableView());
-
+        mpdatawidget.reset(new CustomFixTableView(this));
+        if(mpdatawidget.isNull()) {
+           QLOG_ERROR() << "Failed to create CustomFixTableView" << endl;
+           return;
+        }
         connect(this, &Calibrate::hideCurveUi, mpdatawidget.data(),
                 &CustomFixTableView::hideWithAnimation);
     }
@@ -272,13 +277,15 @@ void Calibrate::showContextpup(const QPoint &pos){
 		QLOG_ERROR() << "选中样本未设置性别,查询对比值失败" << endl;
     }
 
-	QList<QString> hanSampleID;
-	hanSampleID.reserve(ptablewidget->rowCount());
-	for (int n = 0; n < ptablewidget->rowCount(); ++n) {
-		targetItem = ptablewidget->item(n, SAMPLEID);
-		if (targetItem && !targetItem->text().isEmpty())
-			hanSampleID.append(targetItem->text());
-	}
+    // 收集样本ID列表
+    QList<QString> hanSampleID;
+    hanSampleID.reserve(ptablewidget->rowCount());
+    for (int row = 0; row < ptablewidget->rowCount(); ++row) {
+        targetItem = ptablewidget->item(row, SAMPLEID);
+        if (targetItem && !targetItem->text().isEmpty()) {
+            hanSampleID.append(targetItem->text());
+        }
+    }
 
 
     mpdatawidget->setCheckBoxState(false, sampleSex,hanSampleID);

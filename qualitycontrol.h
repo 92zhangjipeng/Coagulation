@@ -2,15 +2,20 @@
 #define QUALITYCONTROL_H
 
 #include <QLabel>
-#include <QPushbutton>
+#include <QPushButton>
 #include <QWidget>
+#include <QTableWidget>
+#include <QFrame>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
 #include "customplot.h"
 #include "progressbar.h"
 #include "ini_file.h"
 #include "cglobal.h"
 #include "QSimpleLed.h"
 #include "loadequipmentpos.h"
-#include <QTableWidget>
 #include "dilag/tipcustomwidget.h"
 #include <custom_style/custombutton.h>
 #include <QMutexLocker>
@@ -23,12 +28,8 @@ typedef struct {
 } ReagentMapping;
 
 enum CleaningFluidDepleteType {
-	REAGENT_PIN = 0, BLOOD_PIN = 1, BOTH_PINS = 2
+    REAGENT_PIN = 0, BLOOD_PIN = 1, BOTH_PINS = 2
 };
-
-namespace Ui {
-class QualityControl;
-}
 
 class QualityControl : public QWidget
 {
@@ -83,9 +84,7 @@ signals:
     void    NoinitialCleaning();//开机清洗液不足未初始清洗
     void    consumablesLackPauses(const quint8 );
 
-    //void    _writemainboardloss(const QByteArray ,quint8); //试管耗材..减少写入主板
-
-public slots :
+public slots:
     void  tableItemRressed(QTableWidgetItem *ptablepressed);//显示试剂批号
 
     //修改耗材的整体警报限
@@ -105,12 +104,64 @@ public slots :
     //外部清洗液报警减少一
     void handleoutSideCleanDepleteOne();
 
+    // 获取UI控件指针（供外部访问）
+    QTableWidget* getReagentTable() const { return m_tableWidgetReagentStatus; }
+    customButton* getS1CleanLinque() const { return m_s1CleanLinque; }
+    customButton* getAAReagentLeft() const { return m_aaReagentLeft; }
+    customButton* getAAReagentRight() const { return m_aaReagentRight; }
+    customButton* getADPReagentLeft() const { return m_adpReagentLeft; }
+    customButton* getADPReagentRight() const { return m_adpReagentRight; }
+    customButton* getEPIReagentLeft() const { return m_epiReagentLeft; }
+    customButton* getEPIReagentRight() const { return m_epiReagentRight; }
+    customButton* getCOLReagentLeft() const { return m_colReagentLeft; }
+    customButton* getCOLReagentRight() const { return m_colReagentRight; }
+    customButton* getRISReagentLeft() const { return m_risReagentLeft; }
+    customButton* getRISReagentRight() const { return m_risReagentRight; }
+    QWidget* getTestCupe1() const { return m_testCupe1; }
+    QWidget* getTestCupe2() const { return m_testCupe2; }
+    QWidget* getTestCupe3() const { return m_testCupe3; }
+    QWidget* getTestCupe4() const { return m_testCupe4; }
 
 private slots:
-
     void slot_Timerout();
 
 private:
+    // UI控件成员变量（动态创建）
+    QWidget* m_cleanReagentArea;
+    QWidget* m_groupReagentArea;
+    QWidget* m_trayTestTube;
+    QFrame* m_frame1;
+    QFrame* m_frame2;
+    QFrame* m_frame3;
+    QFrame* m_frame4;
+    QLabel* m_testTubeTrayLabel1;
+    QLabel* m_testTubeTrayLabel2;
+    QLabel* m_testTubeTrayLabel3;
+    QLabel* m_testTubeTrayLabel4;
+    QFrame* m_testCupe1;
+    QFrame* m_testCupe2;
+    QFrame* m_testCupe3;
+    QFrame* m_testCupe4;
+    QToolButton* m_chaneTrayBtn1;
+    QToolButton* m_chaneTrayBtn2;
+    QToolButton* m_chaneTrayBtn3;
+    QToolButton* m_chaneTrayBtn4;
+    QTableWidget* m_tableWidgetReagentStatus;
+    customButton* m_s1CleanLinque;
+    customButton* m_aaReagentLeft;
+    customButton* m_aaReagentRight;
+    customButton* m_adpReagentLeft;
+    customButton* m_adpReagentRight;
+    customButton* m_epiReagentLeft;
+    customButton* m_epiReagentRight;
+    customButton* m_colReagentLeft;
+    customButton* m_colReagentRight;
+    customButton* m_risReagentLeft;
+    customButton* m_risReagentRight;
+
+    // 布局
+    QGridLayout* m_mainLayout;
+
     /**  填充耗材表
      * @brief FilltheConsumablesTable
      * @param ConsumablesTable
@@ -130,6 +181,9 @@ private:
     void TrayHadFreetube(quint8 indextray, bool &hadtube);   //试管盘试管有未用
 
     void  _initreagbottle(int w_,int h_); //初始化试剂瓶
+
+    // 设置测试杯容器边框
+    void setTestCupeBorder(QWidget* testCupe);
 
     void setReagentPara(quint8 index_,bool bsetAlarm,double valuedata); //设置值
 
@@ -153,6 +207,8 @@ private:
 
     void  gridLayoutTubeTray(QVector<QSimpleLed *> tubeVector , QWidget *container, int trayId); //初始化试管布局
 
+    void createVerticalLayout(QFrame* frame, QLabel* label, QWidget* testCupe, QToolButton* button, int frameHeight);
+
     //整个试管盘更换  true: OFF false:ON
     void  updatetrayAllTube(const QVector<QSimpleLed *>& ptubeTrayVec, const bool bused);
 
@@ -162,22 +218,25 @@ private:
     void updateCleaningFluidStatus(ConsumablesOper* consumables, double lastRatioPercent,
                                             quint16 updateratio);
 
+    // 创建UI控件的函数
+    void setupUI();
+    void setupStylesheets();
+    QToolButton* createTrayButton(QWidget* parent, const QString& text, const QString& objectName);
+
 public:
     void recv_updateTrayUsed(int IndexTray); //试管盘被拿起
 
     //清洗液消耗
-    //void consumeCleaningFluid(const quint8 kind_deplete);
     void consumeCleaningFluid(const CleaningFluidDepleteType depleteType);
 
     //消耗试剂量
     void consumeReagent(const quint8 reag_kind, const quint8 index_);
 
 private:
-    Ui::QualityControl *ui;
     QMutex m_mutex;  // 互斥锁成员
 
     static const QMap<quint8, QString> COLUMN_CONFIG_MAP;
-    static const QMap<int,quint8> ITEM_REAGENT_MAP; //试剂映射表格列
+    static const QMap<int,quint8> ITEM_REAGENT_MAP;
     static constexpr quint8 MAX_CONSUMABLE_VALUE = 255;  // 最大存储值
 
     QString mpathfile; //耗材配置文件
@@ -205,20 +264,18 @@ private:
 
     QString InitTalbe_css = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
                             "QTableWidget::item:selected{background-color:rgb(139, 139, 122)}"
-
                             "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
                             "border: 1px solid rgb(188, 187, 186);border-radius:1px; border-color: rgb(188, 187, 186);"
                             "font: bold 1pt;padding:12px 0 0 10px}"
-
-                            "QHeaderView::section,QTableCornerButton:section{ \
-                            padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); \
-                            border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; \
-                            background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }"
+                            "QHeaderView::section,QTableCornerButton:section{ "
+                            "padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); "
+                            "border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; "
+                            "background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }"
                             "QTableWidget{background-color:white;border: 1px;}"
-                            "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
-                            stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
-                            "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
-                            stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
+                            "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                            "stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
+                            "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                            "stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
 
 
 };

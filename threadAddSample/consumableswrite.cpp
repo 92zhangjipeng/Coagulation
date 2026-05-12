@@ -55,7 +55,7 @@ void ConsumablesWrite::handlcloseEquipmentconsumables()
     }
 
     QThread::msleep(100);
-    _shutdownWithError();
+    shutdownWithError();
     return;
 
 
@@ -179,10 +179,10 @@ void ConsumablesWrite::_insterSTUtudata(const QByteArray lossCleanarry,quint8 in
 }
 
 //统一关闭逻辑
-void ConsumablesWrite::_shutdownWithError()
+void ConsumablesWrite::shutdownWithError()
 {
     emit closeSerial();
-    emit _ShutdownApp();
+    emit shutdownApp();
 }
 // 专用充值状态判断函数
 bool ConsumablesWrite::isRechargeSuccessful(const CardAnalysisResult& result)
@@ -260,7 +260,7 @@ void ConsumablesWrite::_recvConsumableswriteState(QStringList recvdata_)
     // 基础校验
     if (recvdata_.size() < 13) {
         QLOG_ERROR() << "Invalid data format. Expected 13 elements, got" << recvdata_.size();
-        emit _shutdownWithError();
+        emit shutdownWithError();
         return;
     }
 
@@ -299,11 +299,11 @@ void ConsumablesWrite::_recvConsumableswriteState(QStringList recvdata_)
         } else {
             QLOG_ERROR() << "配置完成 | 串口状态:" << cglobal::gserialConnecStatus
                         << "| 剩余指令:" << mdataarry_.size() << endl;
-            _shutdownWithError();
+            shutdownWithError();
         }
     } else {
             QLOG_DEBUG() << "试剂配置未完成，执行关闭流程"<<endl;
-            _shutdownWithError();
+            shutdownWithError();
     }
     return;
 }

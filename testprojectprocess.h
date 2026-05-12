@@ -142,7 +142,7 @@ private:
     //收到试剂针移动到的位置 试剂减少耗材
     void FindSuckReagentAxis(QPoint moveingloc, const int &indexSuckReagent);
 
-    //更新测试界面试管颜色血样针吸吐样
+    //更新测试界面试管颜色样本针吸吐样
     void updatetubeColorState(const QStringList data);
 
     //更新空试管被抓走

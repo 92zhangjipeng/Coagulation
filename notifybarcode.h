@@ -21,9 +21,8 @@ protected:
 signals:
     void savebarcode(unsigned int row,quint8 cols,QString noityBarcode);
 private slots:
-
+    void onLineEditReturnPressed();
     void on_toolButton_save_clicked();
-
     void on_toolButton_cancel_clicked();
 
 private:

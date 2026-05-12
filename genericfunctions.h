@@ -10,7 +10,7 @@
 namespace GenericFunctions {
 
     /*
-     *查找数据库获取测试盘孔坐标(血样针相对于空测试管--坐标)
+     *查找数据库获取测试盘孔坐标(样本针相对于空测试管--坐标)
      */
     QPoint GetTestTrayLoaction_Bloodneedle(int Hole);
 

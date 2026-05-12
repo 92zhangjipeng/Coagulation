@@ -1,6 +1,20 @@
-﻿#ifndef OPENCVFINDHEIGH_H
+﻿/*
+ * opencvfindheigh.h - 测高系统摄像头图像采集模块头文件
+ *
+ * 类定义：opencvfindHeigh
+ * 功能：负责摄像头图像采集、旋转处理和保存
+ *
+ * 主要特性：
+ * - 摄像头设备查找和初始化
+ * - 图像采集和旋转处理
+ * - 图像保存和路径管理
+ * - 错误处理和重试机制
+ */
+
+#ifndef OPENCVFINDHEIGH_H
 #define OPENCVFINDHEIGH_H
 
+// Windows平台特定包含
 #ifdef Q_OS_WINDOWS
 #include <windows.h>
 #include <dshow.h>
@@ -8,104 +22,146 @@
 #pragma comment(lib, "ole32.lib")
 #endif
 
-
 #pragma execution_character_set("utf-8")
+
+// Qt核心库
 #include <QObject>
+#include <QMessageBox>
+#include <QRect>
+
+// OpenCV库
 #include <opencv2/core.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/highgui.hpp>
-#include <opencv2\imgproc\imgproc.hpp>
-#include <opencv2/imgproc/types_c.h>
-#include <opencv2/highgui/highgui_c.h>
-#include <QMessageBox>
-#include <io.h>
+#include <opencv2/imgproc.hpp>
+
+// 标准库
 #include <string>
-#include <QRect>
+#include <io.h>
+
+// 项目自定义头文件
 #include "correct_data.h"
 
-using namespace std;
-
+/*
+ * opencvfindHeigh类 - 测高系统摄像头图像采集模块
+ *
+ * 继承自QObject，支持Qt信号槽机制
+ * 负责管理摄像头设备、图像采集和处理流程
+ */
 class opencvfindHeigh : public QObject
 {
     Q_OBJECT
+
 public:
+    /*
+     * 构造函数
+     * @param parent 父对象指针
+     */
     explicit opencvfindHeigh(QObject *parent = nullptr);
+
+    /*
+     * 析构函数
+     */
     ~opencvfindHeigh();
 
-    // 将路径常量提取为静态成员，方便统一管理
-    static const QString DEFAULT_IMAGE_SUBDIR;
+    // 静态常量定义
+    static const QString DEFAULT_IMAGE_SUBDIR; ///< 默认图像存储子目录名称
 
+    /*
+     * 创建图像存储目录
+     * @return true-创建成功，false-创建失败
+     */
     bool createImageStorageDirectory();
+
+    /*
+     * 获取图像存储路径
+     * @return 图像存储路径字符串引用
+     */
     const QString& getImagePath() const { return m_imagePath; }
 
 public slots:
-   void Start();
-   void recvfindCameraIndexByDevicePath(const QString& devicePath);
-   void handleTriggerTestHeight();
+    /*
+     * 启动测高线程
+     */
+    void Start();
 
-   void handleRepPrpheight(const QString &numid,bool replflag);
+    /*
+     * 接收摄像头设备路径并设置索引
+     * @param devicePath 摄像头设备路径
+     */
+    void recvfindCameraIndexByDevicePath(const QString& devicePath);
+
+    /*
+     * 开始拍照测高 - 主处理函数
+     */
+    void handleTriggerTestHeight();
+
+    /*
+     * 处理PRP高度替换请求
+     * @param numid 替换ID
+     * @param replflag 是否替换标志
+     */
+    void handleRepPrpheight(const QString &numid, bool replflag);
 
 private:
-
-   int findCameraIndexByDevicePathWindows(const QString &targetDevicePath);
-
-   /*
-   * 图片旋转
-   */
-   bool pinwheel(const cv::Mat& inputImage, int degree, cv::Mat& outputImage);
-
-
-
-   /**  识别左侧的参照物
-    * @brief Extractthecolorblockontheleft
-    * @param img
-    * @param imgraito
-    * @return
-    */
-   bool Extractthecolorblockontheleft(cv::Mat img,double &imgraito);
-   bool ExtractColorBlockKmeans(cv::Mat img, double &ratio);
-
-   /** 识别红细胞高度
-    * @brief IdentifyRedBloodcellHeight
-    * @param img
-    */
-   bool IdentifyRBCHeight(cv::Mat img, double ratioimg, double &BloodHeigh);
-
-   void IdentifyTheTubes(cv::Mat img, cv::Mat &outTuberoi, cv::Rect &roiTube);
-
-    /**
-     * @brief inputImage  识别PRP
-     * @param imageOrinin
+    /*
+     * 根据设备路径查找摄像头索引（Windows平台）
+     * @param targetDevicePath 目标设备路径
+     * @return 摄像头索引，-1表示未找到
      */
-    bool opencvIdentifyPrp(cv::Mat &inputImage, double &outBottomBloodHeight,QString &outErr);
+    int findCameraIndexByDevicePathWindows(const QString &targetDevicePath);
 
-
-
+    /*
+     * 图像旋转函数
+     * @param inputImage 输入图像
+     * @param degree 旋转角度（度）
+     * @param outputImage 输出图像
+     * @return true-旋转成功，false-旋转失败
+     */
+    bool pinwheel(const cv::Mat& inputImage, int degree, cv::Mat& outputImage);
 
 signals:
-   void obtainPRPImage(const QString &pathImage);
+    /*
+     * 获取PRP图像信号
+     * @param pathImage 图像文件路径
+     */
+    void obtainPRPImage(const QString &pathImage);
 
-   void reOpencvImageTubePRP(const QString &reId,const QString &pathImage);
+    /*
+     * 重新打开PRP图像信号（替换模式）
+     * @param reId 替换ID
+     * @param pathImage 图像文件路径
+     */
+    void reOpencvImageTubePRP(const QString &reId, const QString &pathImage);
 
-   void Testheightfinish(const bool );
-   void FindFailed(QString,QString);
+    /*
+     * 测高完成信号
+     * @param success 是否成功完成
+     */
+    void Testheightfinish(const bool success);
 
-
+    /*
+     * 查找失败信号
+     * @param errorType 错误类型
+     * @param errorMessage 错误消息
+     */
+    void FindFailed(QString errorType, QString errorMessage);
 
 private:
-   QString m_imagePath;
+    // 图像存储路径
+    QString m_imagePath;
 
-   QString m_replaceid;
-   bool m_isreptestheigh;
+    // 替换相关变量
+    QString m_replaceid;      ///< 替换ID
+    bool m_isreptestheigh;    ///< 是否替换模式标志
 
-   //打开摄像头索引
-   int  m_openCameraPosition;
+    // 摄像头相关变量
+    int m_openCameraPosition; ///< 打开的摄像头索引
 
-
-   const int imageWidth =  480;
-   const int imageHeight = 640;
+    // 图像尺寸常量
+    const int imageWidth = 480;   ///< 图像宽度（像素）
+    const int imageHeight = 640;  ///< 图像高度（像素）
 };
 
 #endif // OPENCVFINDHEIGH_H

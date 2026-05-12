@@ -1,8 +1,11 @@
-﻿#pragma execution_character_set("utf-8")
-#include "fullyautomatedplatelets.h"
+﻿#include "fullyautomatedplatelets.h"
 #include <QDesktopWidget>
 #include "mainwindow.h"
 #include "operclass/ccreatedump.h"
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
 
 FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QApplication(argc, argv)
 {
@@ -21,8 +24,6 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
     pmainWindow->resize(availableScreenX,availableScreenY);
 
     _mcontroldimming = new controldimming(this);
-
-    _maboutequipment = new AboutMachine();
 
     _mreminderinfowidget = new Alarm();
 
@@ -58,8 +59,6 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 	_msqldata = new CustomCreatSql();
 
-    _mprintPdf =  new Printthereport();
-
     _ready = true;
 
      /*** 调光信号 **/
@@ -76,8 +75,8 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
 
 
     //主界面显示耗材余量
-   connect(minstrumentConsumables.data(),SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
-            pmainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
+   //connect(minstrumentConsumables.data(),SIGNAL(SynclimitAlarmtheMainInterface(QMap<quint8,quint8>)),
+           // pmainWindow,SLOT(DisplaysConsumablesRemaining(QMap<quint8,quint8>)));
 
    connect(_msuppilereminder,&instrumentAlarmPrompt::outSideCleanDepleteOne,
             minstrumentConsumables.data(),
@@ -135,24 +134,15 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
              Qt::QueuedConnection);
 
 
-    connect(minquireSqldata.data(),
-            &Inquire_Sql_Info::writepdfprint,
-            _mprintPdf,
-            &Printthereport::slotwritePdf);
 
-    connect(minquireSqldata.data(),
-            &Inquire_Sql_Info::_printoutresult,
-            _mprintPdf,
-            &Printthereport::slotprintoutresult);
 
-    _mprintPdf->_Start();
 
 }
 
 FullyAutomatedPlatelets::~FullyAutomatedPlatelets()
 {
     // 1. 断开所有信号槽连接
-    disconnectAllConnections();
+    //disconnectAllConnections();
 
     // 2. 停止所有运行的线程
     //stopAllThreads();
@@ -191,11 +181,6 @@ FullyAutomatedPlatelets::~FullyAutomatedPlatelets()
        QLOG_DEBUG() << "已析构设备配置界面";
    }
 
-   if (_maboutequipment) {
-       delete _maboutequipment;
-       _maboutequipment = nullptr;
-       QLOG_DEBUG() << "已析构关于设备界面";
-   }
 
    if (_mreminderinfowidget) {
        delete _mreminderinfowidget;
@@ -229,11 +214,7 @@ FullyAutomatedPlatelets::~FullyAutomatedPlatelets()
     QLOG_DEBUG() << "已析构仪器耗材管理";
   
 
-   if (_mprintPdf) {
-       delete _mprintPdf;
-       _mprintPdf = nullptr;
-       QLOG_DEBUG() << "已析构PDF打印组件";
-   }
+
 
    if (_mcontroldimming) {
        delete _mcontroldimming;
@@ -305,55 +286,47 @@ FullyAutomatedPlatelets::~FullyAutomatedPlatelets()
 
 void FullyAutomatedPlatelets::disconnectAllConnections()
 {
-    QLOG_DEBUG() << "开始断开所有信号槽连接";
+	QLOG_DEBUG() << "开始断开所有信号槽连接";
 
-    // 获取所有需要断开连接的对象
-    QVector<QObject*> objects = {
-        minstrumentConsumables.data(),
-        _mtestingwidget,
-        _mppatientinfo,
-        _msqldata,
-        _mpsreialport,
-        minquireSqldata.data(),
-        _mprintPdf,
-        _mpsetTestproject,
-        _maddtestsamplecase,
-        _mequipmentconfig,
-        _mpobtainModuledata,
-        _mcontroldimming,
-        _maboutequipment,
-        _mreminderinfowidget,
-        _msuppilereminder,
-        _mwritecommand,
-        _mpSingleactive,
-        _mLoadingLogfile,
-        _mAdjustthecoordinates,
-        _mparsemainboard,
-        pmainWindow
-    };
+	int totalDisconnections = 0;
 
-    int totalDisconnections = 0;
+	// 获取所有需要断开连接的对象（只检查指针有效性）
+	QList<QObject*> objects;
+	if (minstrumentConsumables) objects << minstrumentConsumables.data();
+	if (_mtestingwidget) objects << _mtestingwidget;
+	if (_mppatientinfo) objects << _mppatientinfo;
+	if (_msqldata) objects << _msqldata;
+	if (_mpsreialport) objects << _mpsreialport;
+	if (minquireSqldata) objects << minquireSqldata.data();
 
-    // 断开所有对象的连接
-    for (QObject* obj : objects) {
-        if (obj) {
-            int count = disconnect(obj, nullptr, nullptr, nullptr);
-            if (count > 0) {
-                QLOG_DEBUG() << "断开" << obj->metaObject()->className()
-                           << "对象的" << count << "个连接";
-                totalDisconnections += count;
-            }
-        }
-    }
+	if (_mpsetTestproject) objects << _mpsetTestproject;
+	if (_maddtestsamplecase) objects << _maddtestsamplecase;
+	if (_mequipmentconfig) objects << _mequipmentconfig;
+	if (_mpobtainModuledata) objects << _mpobtainModuledata;
+	if (_mcontroldimming) objects << _mcontroldimming;
 
-    // 断开与this对象相关的所有连接
-    int selfDisconnections = disconnect(this, nullptr, nullptr, nullptr);
-    if (selfDisconnections > 0) {
-        QLOG_DEBUG() << "断开当前对象的" << selfDisconnections << "个连接";
-        totalDisconnections += selfDisconnections;
-    }
+	if (_mreminderinfowidget) objects << _mreminderinfowidget;
+	if (_msuppilereminder) objects << _msuppilereminder;
+	if (_mwritecommand) objects << _mwritecommand;
+	if (_mpSingleactive) objects << _mpSingleactive;
+	if (_mLoadingLogfile) objects << _mLoadingLogfile;
+	if (_mAdjustthecoordinates) objects << _mAdjustthecoordinates;
+	if (_mparsemainboard) objects << _mparsemainboard;
+	if (pmainWindow) objects << pmainWindow;
 
-    QLOG_DEBUG() << "总共断开" << totalDisconnections << "个信号槽连接";
+	// 安全断开连接：不使用metaObject
+	for (QObject* obj : objects) {
+		if (obj && !obj->isWidgetType()) {  // 避免对已部分析构的widget调用metaObject
+											// 尝试断开所有连接，但不依赖metaObject
+											// 使用static_cast确保类型安全
+			totalDisconnections += QObject::disconnect(obj, nullptr, nullptr, nullptr);
+		}
+	}
+
+	// 断开当前对象的连接
+	totalDisconnections += QObject::disconnect(this, nullptr, nullptr, nullptr);
+
+	QLOG_DEBUG() << "总共断开" << totalDisconnections << "个信号槽连接";
 }
 
 
@@ -374,10 +347,7 @@ controldimming *FullyAutomatedPlatelets::pinstancedimming()
 }
 
 
-AboutMachine *FullyAutomatedPlatelets::paboutinstance()
-{
-    return instance()->_maboutequipment;
-}
+
 
 
 Alarm *FullyAutomatedPlatelets::pinstanceinfowidget()
@@ -466,7 +436,4 @@ Inquire_Sql_Info* FullyAutomatedPlatelets::pinstanceInquiredata()
     return instance()->minquireSqldata.data();
 }
 
-Printthereport* FullyAutomatedPlatelets::pinstancePrintPdf()
-{
-    return instance()->_mprintPdf;
-}
+

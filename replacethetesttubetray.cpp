@@ -11,6 +11,7 @@
 #include <cglobal.h>
 #include <QDateTime>
 #include <operclass/fullyautomatedplatelets.h>
+#include <custom_style/custommessagebox.h>
 
 
 ReplaceTheTestTubeTray::ReplaceTheTestTubeTray(quint8 indexEquip,QWidget *parent) :
@@ -358,7 +359,7 @@ void ReplaceTheTestTubeTray::sycntestingChannel(const QString &channle,bool addi
     if(addit && !ishand){
         addNewRow(channle,"待测");
     }else if(addit && ishand){
-        QMessageBox::warning(nullptr,"添加失败","已存在性能测试通道!");
+        CustomMessageBox::warning(nullptr,"添加失败","已存在性能测试通道!");
         return;
     }else if(!addit && ishand){
         removeDuplicateKeys(channle);

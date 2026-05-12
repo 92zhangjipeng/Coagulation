@@ -12,6 +12,7 @@
 #include <iostream>
 #include <map>
 #include <QMap>
+#include <memory>
 #include <QMetaType>
 #include <QVector>
 #include "cglobal.h"
@@ -24,9 +25,11 @@
 #include <QButtonGroup>
 #include <QPointer>
 #include <QComboBox>
+#include <QVBoxLayout>
 #include "correct_data.h"
 #include "custom_struct.h"
 #include "notifybarcode.h"
+#include "opencvFindRBC/customtitlebar.h"
 
 #include "threadAddSample/mythreadaddsample.h"
 
@@ -53,36 +56,32 @@ public:
     explicit Height_Data(QWidget *parent = 0);
     ~Height_Data();
 
-     void initcreat();
-     //补回用掉的血样孔
-     void Makeuptubenum(quint8);
-     //初始化下拉血样孔
-     void initNumAnaemiaHole();
+    void showCorrectDialog(unsigned int rows, int column, const QString& changeData);
 
-     //准备识别测高照片
-     void opencvFindImageLine(const QString &pathImage);
-     void reTestOpencvId(const QString& reIdsample, const QString &pathImage);
+    void initcreat();
+    //补回用掉的血样孔
+    void Makeuptubenum(quint8);
+    //初始化下拉血样孔
+    void initNumAnaemiaHole();
 
-     //取消任务返回试管孔号
-     void backcancelhole(const quint8 index);
+    //准备识别测高照片
+    void opencvFindImageLine(const QString &pathImage);
+    void reTestOpencvId(const QString& reIdsample, const QString &pathImage);
 
+    //取消任务返回试管孔号
+    void backcancelhole(const quint8 index);
 
-private:
-
-    void updateTableItem(const QString& id, double heightValue);
-    void handleSampleAddition(const double heightValue);
-    void showHoleWarning(const QStringList& holes);
-    void addNewSample(double value, const QStringList& holes);
-
-    //初始话测试显示界面
-    void initLoadOpencvTestImag();
-    void cleanupThread();
+    // 设置窗口标题
+    void setWindowTitle(const QString &title);
 
 protected:
-    void    closeEvent(QCloseEvent *event);
-    void    keyPressEvent(QKeyEvent *scanData);
-    void    resizeEvent(QResizeEvent* event);
-    bool    eventFilter(QObject *obj, QEvent *event);
+    // 重写窗口激活事件
+    void changeEvent(QEvent *event) override;
+    void closeEvent(QCloseEvent *event);
+    void resizeEvent(QResizeEvent* event);
+    void adjustTableColumnWidths();
+    bool eventFilter(QObject *obj, QEvent *event);
+    void showEvent(QShowEvent *event);
 
 signals:
     void sycnwaittestsampledata(QString samplename,
@@ -102,17 +101,16 @@ signals:
 
     void ReminderTextOut(quint8 ReminderKind,const QString dataStr); //提示文字界面信号
     void Taskconfigcloe();
-    void ReminderHole(int); //提示放置的孔
+    void reminderPPPandPRPputHole(const quint8); //提示放置的孔
+    void reminderPPPandPRPputHoleNotify(const quint8,const quint8);
     void myTextChangedSignal(const QString &oldText, const QString &newText);
 
 
 public slots:
-
-    void Slot_ConfigureData(unsigned int ,int ,QString);
-    void updateaddprogress(int index_, int _total);
+    void updateaddprogress(int index, int total);
     void slotupdatetestui(QList<quint8>marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
-    void SlotNotifyTestHeight(int,int,QString);
-    void ReminderPutBloodHole(int RichHolenum); //提醒放置的血样孔
+    void onNotifyTestHeight(int,int,QString);
+
     void slotsavebarcode(unsigned int row,quint8 cols,QString noityBarcode);
     //修改PPP孔号
     void selectPPPholeChange(const QString& index_);
@@ -129,8 +127,32 @@ private slots:
     void on_Sample_Data_tablewidget_customContextMenuRequested(const QPoint &);
     void AF_DATA_REQUEST(QVariant sampleiddata);
 
+    // 标题栏槽函数
+    void onCloseRequested();
+    void onMinimizeRequested();
+    void onMaximizeRequested();
+
+    void onDataConfigured(unsigned int row, int col, const QString& data);
+
 
 private:
+    void updateTableItem(const QString& id, double heightValue);
+    void handleSampleAddition(const double heightValue);
+    void showHoleWarning(const QStringList& holes);
+    void addwholeBloodSample(double value, const QStringList& holes);
+
+
+    void writeBarcodeToTable(const QString &barcode);
+
+    //初始话测试显示界面
+    void initLoadOpencvTestImag();
+    void cleanupThread();
+
+    //转换血浆模式高度
+    double switchWholeModeHeight(const double redBloodHeigh);
+
+    // 初始化自定义标题栏
+    void initCustomTitleBar();
 
     int addOneTestSample(const bool isWholeBloodMode, double testHeight,
                           const QStringList &availableHoles,
@@ -139,8 +161,7 @@ private:
     bool addCheckBoxToRow(QTableWidget *table, int row);
     bool addSampleIdToRow(QTableWidget *table, int row,
                           const QString &sampleId, bool isWholeBloodMode);
-    bool addHeightValueToRow(QTableWidget *table, int row,
-                             double heightValue, bool isInvalid);
+    bool addHeightValueToRow(QTableWidget *table, int row,double heightValue, bool isInvalid);
     bool addHoleSelectorToRow(QTableWidget *table, int row,
                               const QString &sampleId,
                               const QStringList &availableHoles,
@@ -153,11 +174,10 @@ private:
     double calculateHeightValue(bool isWholeBloodMode, double testHeight) const;
     int selectDefaultHole(const QStringList &availableHoles) const;
 
-
-
-
     //计算出下一个样本ID
     QString generateSampleId();
+    // 辅助函数：从表格获取指定日期的最大序号
+    int getMaxSequenceFromTable(const QString& date);
 
     //手动添加任务
     int  Addtasksmanually();
@@ -170,7 +190,7 @@ private:
     void handleEmptySelection();
     bool processSelectedSamples(const QList<int>& selectedRows);
     void cleanupAndClose();
-    void showReminder(const QString& title, const QString& message);
+
 
     //同步到数据结构中
     void sycnstudata(QList<int>,QTableWidget *TaskWidget );
@@ -187,6 +207,7 @@ private:
     bool repeatData(QString textChange); //重复样本名
 
     void InitTablewidget();
+    void updateVerticalHeaderRowNumbers();
 
     //设置列数据
     void SetColumnText(int row, int col, QString text);
@@ -194,13 +215,10 @@ private:
     //设置PRP下针高度
     void setHeightDataBackground(QTableWidgetItem *item, const QString &text);
 
-
-
     //item 是否为空
     bool validateTableItems(QTableWidget* taskWidget, const QList<int>& selectedRows);
 
     void DeleteAllItems(QTableWidget * table);
-
 
     bool SameSampleandtube(QList<int> TaskList, QTableWidget *TaskWidget);
     //反选
@@ -218,19 +236,24 @@ private:
     void handleProjectItemClick(int row, int col);
     void handleBarcodeClick(int row, int col);
 
-
     bool validateSampleUniqueness(const QString &sampleData);
     void updateCreationTimeMapping(unsigned int rows,const QString &newSampleData);
     void restoreOriginalValue(unsigned int rows, int cols);
-    void showErrorReminder(const QString &title, const QString &message);
 
+
+    // 医疗主题样式函数
+    QString getMedicalTableStyle() const;
+    QString getMedicalHeaderStyle() const;
+    QString getMedicalScrollBarStyle() const;
+    QString getMedicalComboxStyle() const;
 
 private:
     Ui::Height_Data *ui;
 
     QString m_OriginallyValue;//双击item的值
 
-    Correct_Data *m_correctdata = nullptr; //修改测高值、样本号
+    //修改测高值、样本号
+    QPointer<Correct_Data> m_correctdata;
 
     QPointer<NotifyBarCode> m_Notifycode; //手动修正条形码
 
@@ -240,47 +263,22 @@ private:
 
     QMap<QString,QString> m_sampleCreateTime;
 
-	QButtonGroup *mtestmodebox;
+    QButtonGroup *mtestmodebox;
 
     QString m_Barcodestr;   //扫码枪数据
 
-
-    QString blood_combox_css = "QComboBox{font-family:'楷体';font-size:20px;color: white;\
-                            background:qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:0,\
-                            stop:0 rgba(188,187,186,255), stop:1 rgba(188, 187, 186, 255));border:1px solid black;\
-                            color:black;margin:0px;border: 1px solid #f0ebeb;padding-left:10px;}"
-                            "QComboBox::drop-down{border:transparent;width:20px;height:40px}"
-                            "QComboBox::down-arrow{image:url(:/Picture/SetPng/commbox.png);}"
-                            "QComboBox QAbstractItemView::item{height:25px;}";
-
-
-    QString InitTalbe_css = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
-                            "QTableWidget::item:selected{background-color:rgb(139, 139, 122)}"
-
-                            "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
-                            "border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(188, 187, 186);"
-                            "font: bold 1pt;padding:12px 0 0 10px}"
-
-                            "QHeaderView::section,QTableCornerButton:section{ \
-                            padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); \
-                            border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; \
-                            background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }"
-                            "QTableWidget{background-color:white;border:none;}"
-                            "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
-                            stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
-                            "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
-                            stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
+    // 自定义标题栏
+    CustomTitleBar *m_titleBar;
 
     mythreadaddsample* m_threadaddsample = nullptr;
 
     QPointer<batchAddSample> m_batchaddTestnumSample;
 
-
     //识别PRP
     TestOpcv *m_testFindPrpHeigh = nullptr;
     QThread *m_workerThread = nullptr;
     QString m_repTestOpencvId;
-    bool m_isreplaceopencv= false;
+    bool m_isreplaceopencv = false;
 };
 
 #endif // HEIGHT_DATA_H

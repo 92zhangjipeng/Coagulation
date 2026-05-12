@@ -1,19 +1,16 @@
-﻿#pragma execution_character_set("utf-8")
-
-#include "mythreadaddsample.h"
-
+﻿#include "mythreadaddsample.h"
 #include <customcreatsql.h>
-
 #include <custom_struct.h>
-
 #include <QUIUtils.h>
-
 #include <mainwindow.h>
-
 #include <globaldata.h>
 #include <loadequipmentpos.h>
 
 #include <operclass/fullyautomatedplatelets.h>
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
 
 mythreadaddsample::mythreadaddsample(QObject *parent) : QObject(parent)
 {
@@ -22,6 +19,12 @@ mythreadaddsample::mythreadaddsample(QObject *parent) : QObject(parent)
     QObject::connect(&m_thread,&QThread::started,this,&mythreadaddsample::Tmain);
 
     m_totalnum = 0;
+    INI_File ini;
+    m_currentTray = ini.getTubeManager();
+    // 边界检查
+    if (m_currentTray < 0 || m_currentTray > 4) {
+        m_currentTray = 0;
+    }
 }
 
 mythreadaddsample::~mythreadaddsample()
@@ -30,6 +33,10 @@ mythreadaddsample::~mythreadaddsample()
         m_thread.quit();
         m_thread.wait();
     }
+
+    // 析构时保存进度
+    INI_File ini;
+    ini.setTubeManager(m_currentTray);
 }
 
 void mythreadaddsample::Tmain()
@@ -58,17 +65,17 @@ void  mythreadaddsample::waittestsampledata(QString samplename, QString savedtim
     waitTestSapleInfoStu->_barcode      = barcode_str;
     waitTestSapleInfoStu->_CurrRichHole = CurrRichHole;
     waitTestSapleInfoStu->_sampleid     = samplename;
-    if(insertWholeBloodMode)
-    {
-       double totalHeigh = INI_File().GetFixedHigh() + REFERENCE_TO_BOTTOM;
-	   double offsetmm = INI_File().GetTestDifference();
-       double PindownMM = std::abs(totalHeigh - bottomBloodHeight - offsetmm);
-       waitTestSapleInfoStu->_testheighvalue = PindownMM;
-    }
-    else
-    {
+//    if(insertWholeBloodMode)
+//    {
+//       double totalHeigh = INI_File().GetFixedHigh() + REFERENCE_TO_BOTTOM;
+//	   double offsetmm = INI_File().GetTestDifference();
+//       double PindownMM = std::abs(totalHeigh - bottomBloodHeight - offsetmm);
+//       waitTestSapleInfoStu->_testheighvalue = PindownMM;
+//    }
+//    else
+//    {
          waitTestSapleInfoStu->_testheighvalue = bottomBloodHeight;
-    }
+    //}
     waitTestSapleInfoStu->_testproject = project_;
     m_WaitTestStuList.append(waitTestSapleInfoStu);
 
@@ -85,18 +92,20 @@ void  mythreadaddsample::waittestsampledata(QString samplename, QString savedtim
 }
 
 
-void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
+void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int totalSample)
 {
 	//先获取SQL 试管状态
     QString sampledate;
-	QMap<quint8, bool > SQLTubeState;
-	SQLTubeState = FullyAutomatedPlatelets::pinstancesqlData()->BackEmptyTubeNumMap();
+    QMap<quint8, bool > SQLTubeState;
+    SQLTubeState = FullyAutomatedPlatelets::pinstancesqlData()->BackEmptyTubeNumMap();
 
     QList<EmptyTestTubeInfo* > _UpdateTubeState;
     _UpdateTubeState.clear();
 
     int index = 1,sampleId = 0 ;
 
+    //按所有试管盘用完再从试管1分配
+    //QMap<quint8, QList<quint8>> tubeFreeState = FullyAutomatedPlatelets::pinstancesqlData()->GetEmptyTubeMap();
 
 	auto iter = m_WaitTestStuList.begin();
 	while (iter != m_WaitTestStuList.end())
@@ -119,7 +128,7 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 		pSampleBasicInfo->CompleteAspirationState = NOT_ADD_SAMPLE;
 		pSampleBasicInfo->anemiaoffHandsAxis.setX(0);     //贫血抓手坐标
 		pSampleBasicInfo->anemiaoffHandsAxis.setY(0);
-		pSampleBasicInfo->bcleanbloody_state = false;     //清洗血样针状态
+        pSampleBasicInfo->bcleanbloody_state = false;     //清洗样本针状态
 		pSampleBasicInfo->bcleanDoublePin_state = false;  //清洗双针状态
 
 		pSampleBasicInfo->tadd_sample_active.clear();         //加样动作
@@ -137,7 +146,6 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
         pSampleBasicInfo->bhandsErr = false;
         pSampleBasicInfo->bgivesample = false;
         pSampleBasicInfo->bPendingtimeSample = false;
-
         pSampleBasicInfo->prePatchActions.clear();
 
 
@@ -149,12 +157,11 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 		quint8 anemia_suck_to_hole = 0;
 		quint8 bloody_suck_tohole = 0;
 		QList<quint8> mark_tube;
-		//inquire_test_free_tube_status(anemia_suck_to_hole);
 
-
+        //遍历返回空试管个数 获取第一个空试管孔号 -PPP
         out_reag_name = GlobalData::mapIndexReagentnames(ANEMIA);
-        //遍历返回空试管个数 获取第一个空试管孔号
         anemia_suck_to_hole = BackPutOutMinHoleEmptyHole(SQLTubeState);
+        //anemia_suck_to_hole = GetNextTube(tubeFreeState);
 
         EmptyTestTubeInfo *pAnemiaTestTubeState  = new EmptyTestTubeInfo;
         pAnemiaTestTubeState->IdSample = sampleId;
@@ -193,7 +200,9 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 		{
 			BLOODY_INFO Bloodydata;
             out_reag_name = GlobalData::mapIndexReagentnames(index_);
+            //PRP孔号
             bloody_suck_tohole = BackPutOutMinHoleEmptyHole(SQLTubeState);
+            //bloody_suck_tohole = GetNextTube(tubeFreeState);
 
             EmptyTestTubeInfo *pRichBloodTestTubeState  = new EmptyTestTubeInfo;
             pRichBloodTestTubeState->IdSample = sampleId;
@@ -221,6 +230,7 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
         QUIUtils::suckPPPEndSplitPPP(out_directives_anemia, AnaemiAaxis, AnaemiinEmptyAaxis);
 
         //PRP加样
+        QLOG_DEBUG()<<"样本ID"<<sampleId<<"吸PRP下降高度"<<data_stu->_testheighvalue;
         QUIUtils::SuckPRPandSpitoutPRP(out_directives_anemia,
                                        data_stu->_testheighvalue,
                                        suckbloodyAxis,
@@ -229,7 +239,7 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 
 		StructInstance::getInstance()->creataddSampleCommands(out_directives_anemia, pSampleBasicInfo);
 
-		//清洗血样针
+        //清洗样本针
 		QByteArrayList cleanbloodpin;
 		QUIUtils::CleanBloodPinActionCommd(total_test_project, cleanbloodpin);
 		StructInstance::getInstance()->creat_cleanBloodyPin(false, cleanbloodpin, pSampleBasicInfo);
@@ -252,13 +262,13 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
                                  data_stu->_testproject,
                                  data_stu->_barcode);
 
-        emit addprogress(index, total_);
+        emit addprogress(index, totalSample);
 
         emit updatetestui(mark_tube,
                            data_stu->_sampleid,
                            suckAenmia_hole,
                            index,
-                           total_);
+                           totalSample);
 
 		index++;
 		iter++;
@@ -286,7 +296,37 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int total_)
 	return;
 }
 
+quint8 mythreadaddsample::GetNextTube(QMap<quint8, QList<quint8>>& diskMap){
+    // 检查所有容器是否都为空
+    bool allEmpty = true;
+    for (quint8 disk = 1; disk <= 4; ++disk) {
+        if (!diskMap[disk].isEmpty()) {
+            allEmpty = false;
+            break;
+        }
+    }
 
+    if (allEmpty) return 255;// 255 表示没有试管了
+
+
+    // 如果当前容器为空，跳到下一个非空容器
+    while (diskMap[m_currentTray].isEmpty()) {
+        m_currentTray = (m_currentTray % 4) + 1;
+    }
+
+    // 取出试管
+    quint8 outTray = m_currentTray;
+    quint8 outTubeId = diskMap[m_currentTray].takeFirst();
+
+    //计算全局编号（容器1: 0-59, 容器2: 60-119, 容器3: 120-179, 容器4: 180-239）
+    quint8 nextTube = outTray * 60 + outTubeId;
+
+    //立即保存进度（保证断电不丢失）
+    INI_File ini;
+    ini.setTubeManager(m_currentTray);
+
+    return nextTube;
+}
 
 quint8 mythreadaddsample::BackPutOutMinHoleEmptyHole(QMap<quint8, bool >& EmptySQLTubeState)
 {

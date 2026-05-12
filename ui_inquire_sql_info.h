@@ -65,7 +65,6 @@ public:
     QLabel *label_Section;
     QWidget *widget;
     QGridLayout *gridLayout_3;
-    QToolButton *toolButton_creatPdf;
     QToolButton *toolButton_outPrint;
     QToolButton *toolButtonFindexatc;
     QWidget *widget_curve;
@@ -78,26 +77,26 @@ public:
         if (Inquire_Sql_Info->objectName().isEmpty())
             Inquire_Sql_Info->setObjectName(QStringLiteral("Inquire_Sql_Info"));
         Inquire_Sql_Info->resize(1658, 1126);
-        Inquire_Sql_Info->setStyleSheet(QLatin1String("QWidget#Inquire_Sql_Info{  \n"
-"    border: 2px solid  rgb(224, 224, 223);  \n"
-"	background-color:rgba(188,187,183);\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
+        Inquire_Sql_Info->setStyleSheet(QLatin1String("QWidget#Inquire_Sql_Info{\n"
+"    border: 2px solid  #A0C4E2;\n"
+"    background-color: #BCBBB7;\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    padding:0 0px;\n"
 "} "));
         gridLayout_2 = new QGridLayout(Inquire_Sql_Info);
         gridLayout_2->setObjectName(QStringLiteral("gridLayout_2"));
         widget_date_ = new QWidget(Inquire_Sql_Info);
         widget_date_->setObjectName(QStringLiteral("widget_date_"));
         widget_date_->setMaximumSize(QSize(16777215, 60));
-        widget_date_->setStyleSheet(QString::fromUtf8("QWidget#widget_date_{  \n"
-"    border: 1px solid rgb(220, 220, 220);  \n"
-"	background-color:  rgb(255, 255, 255);  \n"
-"    border-style: solid;  \n"
-"    border-radius:2px;  \n"
+        widget_date_->setStyleSheet(QString::fromUtf8("QWidget#widget_date_{\n"
+"    border: 1px solid #A0C4E2;\n"
+"    background-color: #BCBBB7;\n"
+"    border-style: solid;\n"
+"    border-radius:2px;\n"
 "    padding:0 0px;\n"
 "    font-family: \"\346\245\267\344\275\223\";\n"
-"    font-size: 20px  	\n"
+"    font-size: 20px\n"
 "} "));
         horizontalLayout = new QHBoxLayout(widget_date_);
         horizontalLayout->setSpacing(10);
@@ -110,16 +109,16 @@ public:
         font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
         font.setPointSize(16);
         checkBox_today->setFont(font);
-        checkBox_today->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
+        checkBox_today->setStyleSheet(QString::fromUtf8("QCheckBox::indicator {\n"
 "    width: 32px;\n"
 "    height: 32px;\n"
 "}\n"
 "/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
+"QCheckBox::indicator::unchecked {\n"
 "    image: url(:/Picture/check_box_unchecked.png);\n"
 "}\n"
 "/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
+"QCheckBox::indicator::checked {\n"
 "    image: url(:/Picture/check-box-checked.png);\n"
 "}\n"
 "QCheckBox::indicator:enabled:unchecked:hover {\n"
@@ -133,16 +132,16 @@ public:
         checkBox_this_month->setMinimumSize(QSize(0, 30));
         checkBox_this_month->setMaximumSize(QSize(200, 16777215));
         checkBox_this_month->setFont(font);
-        checkBox_this_month->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
+        checkBox_this_month->setStyleSheet(QString::fromUtf8("QCheckBox::indicator {\n"
 "    width: 32px;\n"
 "    height: 32px;\n"
 "}\n"
 "/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
+"QCheckBox::indicator::unchecked {\n"
 "    image: url(:/Picture/check_box_unchecked.png);\n"
 "}\n"
 "/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
+"QCheckBox::indicator::checked {\n"
 "    image: url(:/Picture/check-box-checked.png);\n"
 "}\n"
 "QCheckBox::indicator:enabled:unchecked:hover {\n"
@@ -156,16 +155,16 @@ public:
         checkBox_all->setMinimumSize(QSize(0, 30));
         checkBox_all->setMaximumSize(QSize(200, 16777215));
         checkBox_all->setFont(font);
-        checkBox_all->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
+        checkBox_all->setStyleSheet(QString::fromUtf8("QCheckBox::indicator {\n"
 "    width: 32px;\n"
 "    height: 32px;\n"
 "}\n"
 "/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
+"QCheckBox::indicator::unchecked {\n"
 "    image: url(:/Picture/check_box_unchecked.png);\n"
 "}\n"
 "/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
+"QCheckBox::indicator::checked {\n"
 "    image: url(:/Picture/check-box-checked.png);\n"
 "}\n"
 "QCheckBox::indicator:enabled:unchecked:hover {\n"
@@ -179,16 +178,16 @@ public:
         checkBox_select_time->setObjectName(QStringLiteral("checkBox_select_time"));
         checkBox_select_time->setMinimumSize(QSize(0, 30));
         checkBox_select_time->setFont(font);
-        checkBox_select_time->setStyleSheet(QString::fromUtf8("QCheckBox::indicator { \n"
+        checkBox_select_time->setStyleSheet(QString::fromUtf8("QCheckBox::indicator {\n"
 "    width: 32px;\n"
 "    height: 32px;\n"
 "}\n"
 "/*\346\234\252\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::unchecked {   \n"
+"QCheckBox::indicator::unchecked {\n"
 "    image: url(:/Picture/check_box_unchecked.png);\n"
 "}\n"
 "/*\351\200\211\344\270\255*/\n"
-"QCheckBox::indicator::checked { \n"
+"QCheckBox::indicator::checked {\n"
 "    image: url(:/Picture/check-box-checked.png);\n"
 "}\n"
 "QCheckBox::indicator:enabled:unchecked:hover {\n"
@@ -238,24 +237,23 @@ public:
         toolButton_OK->setObjectName(QStringLiteral("toolButton_OK"));
         toolButton_OK->setMinimumSize(QSize(200, 35));
         toolButton_OK->setMaximumSize(QSize(120, 30));
-        toolButton_OK->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_OK{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:23px;\n"
+        toolButton_OK->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_OK{\n"
+"    border: 1px solid #7AAEC4;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #3A7CA5, stop:1 #2C6E8F);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"        font-family:'\346\245\267\344\275\223';\n"
+"        font-size:23px;\n"
 "    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_OK:hover{     \n"
-"  \n"
-"	background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_OK:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+"}\n"
+"QToolButton#toolButton_OK:hover{\n"
+"        background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4C8EB5, stop:1 #3A7CA5);\n"
+"}\n"
+"QToolButton#toolButton_OK:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #2C5A73, stop:1 #1E4A60);\n"
 "}"));
         toolButton_OK->setIconSize(QSize(32, 32));
         toolButton_OK->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -265,24 +263,23 @@ public:
         toolButton_stats = new QToolButton(widget_date_);
         toolButton_stats->setObjectName(QStringLiteral("toolButton_stats"));
         toolButton_stats->setMinimumSize(QSize(80, 0));
-        toolButton_stats->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_stats{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:23px;\n"
+        toolButton_stats->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_stats{\n"
+"    border: 1px solid #7AAEC4;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #3A7CA5, stop:1 #2C6E8F);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"        font-family:'\346\245\267\344\275\223';\n"
+"        font-size:23px;\n"
 "    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_stats:hover{     \n"
-"  \n"
-"	background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_stats:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+"}\n"
+"QToolButton#toolButton_stats:hover{\n"
+"        background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4C8EB5, stop:1 #3A7CA5);\n"
+"}\n"
+"QToolButton#toolButton_stats:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #2C5A73, stop:1 #1E4A60);\n"
 "}"));
 
         horizontalLayout->addWidget(toolButton_stats);
@@ -294,7 +291,17 @@ public:
         tableWidget_SQL_Inquire->setObjectName(QStringLiteral("tableWidget_SQL_Inquire"));
         tableWidget_SQL_Inquire->setMinimumSize(QSize(1200, 350));
         tableWidget_SQL_Inquire->setMaximumSize(QSize(16777215, 199999));
-        tableWidget_SQL_Inquire->setStyleSheet(QStringLiteral(""));
+        tableWidget_SQL_Inquire->setStyleSheet(QString::fromUtf8("QTableWidget {\n"
+"    background-color: #BCBBB7;\n"
+"    alternate-background-color: #D0E4F0;\n"
+"    gridline-color: #A0C4E2;\n"
+"}\n"
+"QHeaderView::section {\n"
+"    background-color: #B8D9F0;\n"
+"    color: #1A3A4A;\n"
+"    font-family: '\346\245\267\344\275\223';\n"
+"    font-size: 14px;\n"
+"}"));
 
         gridLayout_2->addWidget(tableWidget_SQL_Inquire, 1, 0, 1, 2);
 
@@ -322,24 +329,25 @@ public:
         groupBox_Findexatc->setFont(font3);
         groupBox_Findexatc->setStyleSheet(QString::fromUtf8("QGroupBox\n"
 "{\n"
-"	border: 1px solid gray;\n"
-"	border-radius:10px;\n"
-"	margin-top:4ex;\n"
-"	font-family:\346\245\267\344\275\223;\n"
-"	font:bold 18px;\n"
-" \n"
-"} \n"
+"        border: 1px solid #A0C4E2;\n"
+"        border-radius:10px;\n"
+"        margin-top:4ex;\n"
+"        font-family:\346\245\267\344\275\223;\n"
+"        font:bold 18px;\n"
+"        color: #1A3A4A;\n"
+"\n"
+"}\n"
 "QGroupBox::title\n"
 "{\n"
-"	subcontrol-origin:margin;\n"
-"	subcontrol-position:top center;\n"
-"	padding:1px;\n"
+"        subcontrol-origin:margin;\n"
+"        subcontrol-position:top center;\n"
+"        padding:1px;\n"
 "}\n"
 "QGroupBox::enabled{\n"
-"	border: 3px solid gray;\n"
+"        border: 2px solid #A0C4E2;\n"
 "}\n"
 "QGroupBox::!enabled {\n"
-"	border: 1px solid gray;\n"
+"        border: 1px solid #A0C4E2;\n"
 "}\n"
 ""));
         groupBox_Findexatc->setAlignment(Qt::AlignCenter);
@@ -353,7 +361,21 @@ public:
         comboBox_sendingdoctor->setMaximumSize(QSize(16777215, 30));
         QFont font4;
         comboBox_sendingdoctor->setFont(font4);
-        comboBox_sendingdoctor->setStyleSheet(QStringLiteral(""));
+        comboBox_sendingdoctor->setStyleSheet(QLatin1String("QComboBox {\n"
+"    background-color: #BCBBB7;\n"
+"    border: 1px solid #A0C4E2;\n"
+"    border-radius: 5px;\n"
+"    padding: 2px;\n"
+"}\n"
+"QComboBox:hover {\n"
+"    border: 1px solid #3A7CA5;\n"
+"}\n"
+"QComboBox::drop-down {\n"
+"    border: none;\n"
+"}\n"
+"QComboBox::down-arrow {\n"
+"    image: none;\n"
+"}"));
 
         gridLayout->addWidget(comboBox_sendingdoctor, 1, 1, 1, 1);
 
@@ -376,7 +398,15 @@ public:
         font5.setItalic(false);
         font5.setWeight(50);
         lineEdit_bednum->setFont(font5);
-        lineEdit_bednum->setStyleSheet(QStringLiteral(""));
+        lineEdit_bednum->setStyleSheet(QLatin1String("QLineEdit {\n"
+"    background-color: #E6F2F9;\n"
+"    border: 1px solid #A0C4E2;\n"
+"    border-radius: 5px;\n"
+"    padding: 2px;\n"
+"}\n"
+"QLineEdit:focus {\n"
+"    border: 1px solid #3A7CA5;\n"
+"}"));
 
         gridLayout->addWidget(lineEdit_bednum, 6, 1, 1, 1);
 
@@ -403,8 +433,20 @@ public:
         QFont font6;
         font6.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
         spinBox_label_Sample->setFont(font6);
-        spinBox_label_Sample->setStyleSheet(QStringLiteral(""));
+        spinBox_label_Sample->setStyleSheet(QLatin1String("QSpinBox {\n"
+"    background-color: #E6F2F9;\n"
+"    border: 1px solid #A0C4E2;\n"
+"    border-radius: 5px;\n"
+"    padding: 2px;\n"
+"}\n"
+"QSpinBox:focus {\n"
+"    border: 1px solid #3A7CA5;\n"
+"}\n"
+"QSpinBox::up-button, QSpinBox::down-button {\n"
+"    width: 16px;\n"
+"}"));
         spinBox_label_Sample->setAlignment(Qt::AlignCenter);
+        spinBox_label_Sample->setButtonSymbols(QAbstractSpinBox::NoButtons);
         spinBox_label_Sample->setMinimum(1);
         spinBox_label_Sample->setMaximum(999999);
 
@@ -415,7 +457,21 @@ public:
         comboBox_Section->setMinimumSize(QSize(0, 30));
         comboBox_Section->setMaximumSize(QSize(16777215, 30));
         comboBox_Section->setFont(font4);
-        comboBox_Section->setStyleSheet(QStringLiteral(""));
+        comboBox_Section->setStyleSheet(QLatin1String("QComboBox {\n"
+"    background-color: #E6F2F9;\n"
+"    border: 1px solid #A0C4E2;\n"
+"    border-radius: 5px;\n"
+"    padding: 2px;\n"
+"}\n"
+"QComboBox:hover {\n"
+"    border: 1px solid #3A7CA5;\n"
+"}\n"
+"QComboBox::drop-down {\n"
+"    border: none;\n"
+"}\n"
+"QComboBox::down-arrow {\n"
+"    image: none;\n"
+"}"));
 
         gridLayout->addWidget(comboBox_Section, 4, 1, 1, 1);
 
@@ -424,7 +480,21 @@ public:
         comboBox_age->setMinimumSize(QSize(0, 30));
         comboBox_age->setMaximumSize(QSize(16777215, 30));
         comboBox_age->setFont(font4);
-        comboBox_age->setStyleSheet(QStringLiteral(""));
+        comboBox_age->setStyleSheet(QLatin1String("QComboBox {\n"
+"    background-color: #E6F2F9;\n"
+"    border: 1px solid #A0C4E2;\n"
+"    border-radius: 5px;\n"
+"    padding: 2px;\n"
+"}\n"
+"QComboBox:hover {\n"
+"    border: 1px solid #3A7CA5;\n"
+"}\n"
+"QComboBox::drop-down {\n"
+"    border: none;\n"
+"}\n"
+"QComboBox::down-arrow {\n"
+"    image: none;\n"
+"}"));
         comboBox_age->setIconSize(QSize(16, 16));
 
         gridLayout->addWidget(comboBox_age, 3, 1, 1, 1);
@@ -442,7 +512,15 @@ public:
         lineEdit_Name->setMinimumSize(QSize(0, 30));
         lineEdit_Name->setMaximumSize(QSize(16777215, 30));
         lineEdit_Name->setFont(font5);
-        lineEdit_Name->setStyleSheet(QStringLiteral(""));
+        lineEdit_Name->setStyleSheet(QLatin1String("QLineEdit {\n"
+"    background-color: #E6F2F9;\n"
+"    border: 1px solid #A0C4E2;\n"
+"    border-radius: 5px;\n"
+"    padding: 2px;\n"
+"}\n"
+"QLineEdit:focus {\n"
+"    border: 1px solid #3A7CA5;\n"
+"}"));
         lineEdit_Name->setFrame(true);
 
         gridLayout->addWidget(lineEdit_Name, 2, 1, 1, 1);
@@ -468,52 +546,26 @@ public:
         widget->setMaximumSize(QSize(16777215, 160));
         gridLayout_3 = new QGridLayout(widget);
         gridLayout_3->setObjectName(QStringLiteral("gridLayout_3"));
-        toolButton_creatPdf = new QToolButton(widget);
-        toolButton_creatPdf->setObjectName(QStringLiteral("toolButton_creatPdf"));
-        toolButton_creatPdf->setMinimumSize(QSize(80, 30));
-        toolButton_creatPdf->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_creatPdf{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:23px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_creatPdf:hover{     \n"
-"  \n"
-"	background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_creatPdf:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}"));
-
-        gridLayout_3->addWidget(toolButton_creatPdf, 2, 0, 1, 1);
-
         toolButton_outPrint = new QToolButton(widget);
         toolButton_outPrint->setObjectName(QStringLiteral("toolButton_outPrint"));
         toolButton_outPrint->setMinimumSize(QSize(80, 30));
-        toolButton_outPrint->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_outPrint{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:23px;\n"
+        toolButton_outPrint->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_outPrint{\n"
+"    border: 1px solid #7AAEC4;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #3A7CA5, stop:1 #2C6E8F);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"        font-family:'\346\245\267\344\275\223';\n"
+"        font-size:23px;\n"
 "    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_outPrint:hover{     \n"
-"  \n"
-"	background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_outPrint:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+"}\n"
+"QToolButton#toolButton_outPrint:hover{\n"
+"        background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4C8EB5, stop:1 #3A7CA5);\n"
+"}\n"
+"QToolButton#toolButton_outPrint:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #2C5A73, stop:1 #1E4A60);\n"
 "}"));
 
         gridLayout_3->addWidget(toolButton_outPrint, 0, 1, 1, 1);
@@ -521,24 +573,23 @@ public:
         toolButtonFindexatc = new QToolButton(widget);
         toolButtonFindexatc->setObjectName(QStringLiteral("toolButtonFindexatc"));
         toolButtonFindexatc->setMinimumSize(QSize(80, 30));
-        toolButtonFindexatc->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonFindexatc{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:23px;\n"
+        toolButtonFindexatc->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonFindexatc{\n"
+"    border: 1px solid #7AAEC4;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #3A7CA5, stop:1 #2C6E8F);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"        font-family:'\346\245\267\344\275\223';\n"
+"        font-size:23px;\n"
 "    color:white;\n"
-"}  \n"
-"QToolButton#toolButtonFindexatc:hover{     \n"
-"  \n"
-"	background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButtonFindexatc:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+"}\n"
+"QToolButton#toolButtonFindexatc:hover{\n"
+"        background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4C8EB5, stop:1 #3A7CA5);\n"
+"}\n"
+"QToolButton#toolButtonFindexatc:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #2C5A73, stop:1 #1E4A60);\n"
 "}"));
         toolButtonFindexatc->setIconSize(QSize(32, 32));
         toolButtonFindexatc->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -555,22 +606,22 @@ public:
         widget_curve->setObjectName(QStringLiteral("widget_curve"));
         widget_curve->setMinimumSize(QSize(800, 350));
         widget_curve->setMaximumSize(QSize(16777215, 350));
-        widget_curve->setStyleSheet(QLatin1String("QWidget#widget_curve{  \n"
-"    border: 1px solid  rgb(224, 224, 223);  \n"
-"	background-color:rgba(188,187,183);\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;   	\n"
+        widget_curve->setStyleSheet(QLatin1String("QWidget#widget_curve{\n"
+"    border: 1px solid #A0C4E2;\n"
+"        background-color:#BCBBB7;\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    padding:0 0px;\n"
 "}"));
         horizontalLayout_3 = new QHBoxLayout(widget_curve);
         horizontalLayout_3->setObjectName(QStringLiteral("horizontalLayout_3"));
         Inquire_curve_1 = new QCustomPlot(widget_curve);
         Inquire_curve_1->setObjectName(QStringLiteral("Inquire_curve_1"));
         Inquire_curve_1->setMinimumSize(QSize(0, 0));
-        Inquire_curve_1->setStyleSheet(QLatin1String("border: 1px solid  rgb(224, 224, 223);  \n"
-"background-color:rgba(188,187,183);\n"
-"border-style: solid;  \n"
-"border-radius:10px;  \n"
+        Inquire_curve_1->setStyleSheet(QLatin1String("border: 1px solid #A0C4E2;\n"
+"background-color:#BCBBB7;\n"
+"border-style: solid;\n"
+"border-radius:10px;\n"
 "padding:0 0px; "));
 
         horizontalLayout_3->addWidget(Inquire_curve_1);
@@ -579,10 +630,10 @@ public:
         widget_sats_curve->setObjectName(QStringLiteral("widget_sats_curve"));
         widget_sats_curve->setMinimumSize(QSize(450, 0));
         widget_sats_curve->setMaximumSize(QSize(450, 16777215));
-        widget_sats_curve->setStyleSheet(QLatin1String("border: 1px solid  rgb(224, 224, 223);  \n"
-"background-color:rgba(188,187,183);\n"
-"border-style: solid;  \n"
-"border-radius:10px;  \n"
+        widget_sats_curve->setStyleSheet(QLatin1String("border: 1px solid #A0C4E2;\n"
+"background-color:#B8D9F0;\n"
+"border-style: solid;\n"
+"border-radius:10px;\n"
 "padding:0 0px; "));
 
         horizontalLayout_3->addWidget(widget_sats_curve);
@@ -614,8 +665,7 @@ public:
         label_Sample->setText(QApplication::translate("Inquire_Sql_Info", "\346\240\267\346\234\254\345\217\267:", nullptr));
         label_Name->setText(QApplication::translate("Inquire_Sql_Info", "\346\202\243\350\200\205\345\247\223\345\220\215:", nullptr));
         label_Section->setText(QApplication::translate("Inquire_Sql_Info", "\347\247\221\345\210\253:", nullptr));
-        toolButton_creatPdf->setText(QApplication::translate("Inquire_Sql_Info", "\350\276\223\345\207\272PDF", nullptr));
-        toolButton_outPrint->setText(QApplication::translate("Inquire_Sql_Info", "\346\211\223\345\215\260", nullptr));
+        toolButton_outPrint->setText(QApplication::translate("Inquire_Sql_Info", "\360\237\226\250\357\270\217 \346\211\223\345\215\260\346\212\245\345\221\212", nullptr));
         toolButtonFindexatc->setText(QApplication::translate("Inquire_Sql_Info", "\347\262\276\347\241\256\346\237\245\346\211\276", nullptr));
     } // retranslateUi
 

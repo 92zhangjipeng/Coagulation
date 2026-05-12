@@ -3,21 +3,24 @@
 # Project created by QtCreator 2019-12-06T11:20:49
 #
 #-------------------------------------------------
-QT      += core gui
-QT      += concurrent
-QT      += serialport serialbus
-QT      += widgets printsupport
-QT      += multimedia
-QT      += multimediawidgets
-QT      += sql
-QT      += network
-QT      += core gui opengl
-QT      += printsupport
 
-CONFIG  += c++14
+# ========== Qt 模块配置 ==========
+QT += core gui
+QT += concurrent
+QT += serialport serialbus
+QT += widgets printsupport
+QT += multimedia
+QT += multimediawidgets
+QT += sql
+QT += network
+QT += opengl          # 将 opengl 单独列出，避免重复 core/gui
+# QT += core gui opengl   # 已合并到上面，删除重复
+# QT += printsupport      # 重复，已在第7行添加
 
+# ========== 编译配置 ==========
+CONFIG += c++14
 
-
+# ========== 调试信息生成 ==========
 QMAKE_LFLAGS_RELEASE += /MAP
 QMAKE_CFLAGS_RELEASE += /Zi
 QMAKE_LFLAGS_RELEASE += /debug /opt:ref
@@ -25,97 +28,106 @@ QMAKE_LFLAGS_RELEASE += /debug /opt:ref
 QMAKE_CXXFLAGS_RELEASE += $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
 QMAKE_LFLAGS_RELEASE += $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO
 
-
+# 调试符号和优化设置
 QMAKE_CFLAGS_RELEASE += -g
 QMAKE_CXXFLAGS_RELEASE += -g
-#禁止优化
 QMAKE_CFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_LFLAGS_RELEASE = -mthreads -W
+
+# ========== 链接库 ==========
 LIBS += -lDbgHelp
-#加上下面两行，否则用vs调试时，提示“未找到xxx.exe"
+# LIBS += -lDbgHelp   # 重复，已注释
+
+# ========== 编译器额外调试选项 ==========
 QMAKE_CXXFLAGS += -g
 QMAKE_CFLAGS += -g
 
+# ========== MSVC 特定设置 ==========
 msvc {
-    QMAKE_LFLAGS +=/HEAP:"100000000"",4096"
+    QMAKE_LFLAGS += /HEAP:"100000000"",4096"
 }
 
-
-
-
-#链接DbgHelp库
-#LIBS += -lDbgHelp
-#Release版也将生成“.pdb”后缀的调试信息文件
-#QMAKE_LFLAGS_RELEASE = /INCREMENTAL:NO /DEBUG
-
-#QMAKE_LFLAGS += /ignore:4099
-
+# ========== 第三方库包含 ==========
 include(./QsLog/QsLog.pri)
 
+# ========== 编码设置（统一使用 UTF-8）==========
 QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8 /utf-8
-LIBS    +=-lopengl32 -lglu32
-LIBS    += -lsetupapi -lcfgmgr32
+# msvc:QMAKE_CXXFLAGS += -source-charset:utf-8   # 重复，已注释
 
-msvc:QMAKE_CXXFLAGS += -source-charset:utf-8
+# ========== 系统库链接 ==========
+LIBS += -lopengl32 -lglu32
+LIBS += -lsetupapi -lcfgmgr32
+LIBS += -lQt5Multimedia -lQt5MultimediaWidgets
+
+# ========== Qt 版本判断 ==========
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+# ========== 应用程序配置 ==========
 RC_ICONS = logo.ico
+TARGET = Coagulation
+TEMPLATE = app
 
-TARGET    = Coagulation
-TEMPLATE  = app
-DEFINES  += QT_MESSAGELOGCONTEXT
+# ========== 预处理器定义 ==========
+DEFINES += QT_MESSAGELOGCONTEXT
+DEFINES += QT_DEPRECATED_WARNINGS
+# DEFINES += QT_MESSAGELOGCONTEXT   # 重复，已注释
 
+# ========== 第三方库路径 ==========
 LIBS += "C:\qtproject\Coagulation\libusb.a"
 
-# MSVC编译器特定设置
-msvc {
-    QMAKE_CXXFLAGS += /utf-8
-    # 或者
-    QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8
-}
+# MSVC 编码设置（备用，已注释）
+# msvc {
+#     QMAKE_CXXFLAGS += /utf-8
+#     QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8
+# }
 
-#LIBS += -LC:\qtproject\Coagulation\vsdll\ -lTaskDispose#
-#LIBS += -LC:\qtproject\Coagulation\vsdll\ -lFloorPlanofInterface
+# ========== 自定义 DLL 链接 ==========
 LIBS += -LC:\qtproject\Coagulation\vsdll\ -lUsbCodeDispose
-
 LIBS += -LC:\qtproject\Coagulation\vsdll\ -lMachineTaskAssignment
+# LIBS += -LC:\qtproject\Coagulation\vsdll\ -lTaskDispose#     # 未使用，已注释
+# LIBS += -LC:\qtproject\Coagulation\vsdll\ -lFloorPlanofInterface  # 未使用，已注释
 
-INCLUDEPATH +=  C:\opencv3.4.1\opencv\build\include\
-                C:\opencv3.4.1\opencv\build\include\opencv2
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_calib3d453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_core453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_dnn453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_features2d453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_flann453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_gapi453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_highgui453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_imgcodecs453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_imgproc453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_ml453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_objdetect453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_photo453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_stitching453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_ts453.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_video453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_videoio453.dll.a
+# ========== OpenCV 配置 ==========
+INCLUDEPATH += \
+    C:\opencv3.4.1\opencv\build\include\
+    C:\opencv3.4.1\opencv\build\include\opencv2
+
+LIBS += \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_calib3d453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_core453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_dnn453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_features2d453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_flann453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_gapi453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_highgui453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_imgcodecs453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_imgproc453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_ml453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_objdetect453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_photo453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_stitching453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_ts453.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_video453.dll.a \
+    C:\opencv3.4.1\opencv\building\lib\libopencv_videoio453.dll.a
 
 LIBS += -lwinmm
 
+# ========== suoweidll 动态库链接 ==========
+win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release/ -lsuoweidll
+else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/debug/ -lsuoweidll
+else:unix: LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/ -lsuoweidll
 
-# The following define makes your compiler emit warnings if you use
-# any feature of Qt which has been marked as deprecated (the exact warnings
-# depend on your compiler). Please consult the documentation of the
-# deprecated API in order to know how to port your code away from it.
-DEFINES += QT_DEPRECATED_WARNINGS
-DEFINES += QT_MESSAGELOGCONTEXT
+INCLUDEPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
+DEPENDPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
 
-# You can also make your code fail to compile if you use deprecated APIs.
-# In order to do so, uncomment the following line.
-# You can also select to disable deprecated APIs only up to a certain version of Qt.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+# ========== 禁用严格字符串检查（解决 MSVC 编码警告）==========
+win32: QMAKE_CXXFLAGS_RELEASE -= -Zc:strictStrings
+win32: QMAKE_CFLAGS_RELEASE -= -Zc:strictStrings
+win32: QMAKE_CFLAGS -= -Zc:strictStrings
+win32: QMAKE_CXXFLAGS -= -Zc:strictStrings
 
-
+# ========== 源文件 ==========
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
@@ -244,7 +256,7 @@ SOURCES += \
     Machinewidget/bloodpinparaset.cpp \
     custom_style/frozentablewidget.cpp \
     dilag/customfixtableview.cpp \
-    custom_style/customtablemodel.cpp \
+#    custom_style/customtablemodel.cpp \
     SerialPortException.cpp \
     dilag/custompppvalue.cpp \
     CalibratCoordinateLoc/coordinatepposit.cpp \
@@ -252,8 +264,18 @@ SOURCES += \
     suoweiFileManager/filemanager.cpp \
     customTitleui/framelesswidgethelper.cpp \
     suoweiFileManager/hospitalreportprinter.cpp \
-    datalprocessor.cpp
+    datalprocessor.cpp \
+    verifycoordinates.cpp \
+    styledcomparisondialog.cpp \
+    camerawindow.cpp \
+    opencvFindRBC/customtitlebar.cpp \
+    opencvFindRBC/industrialimagegallery.cpp \
+    CalibratCoordinateLoc/circlewidget.cpp \
+    PrintReport/printtemplate.cpp \
+    PrintReport/aggregationanalyzer.cpp \
+    custom_style/custommessagebox.cpp
 
+# ========== 头文件 ==========
 HEADERS += \
     mainwindow.h \
     dosometingthread.h \
@@ -384,8 +406,8 @@ HEADERS += \
     Machinewidget/bloodpinparaset.h \
     custom_style/frozentablewidget.h \
     dilag/customfixtableview.h \
-    custom_style/customtablemodel.h \
-    custom_style/animationprocessbar.h \
+    #custom_style/customtablemodel.h \
+    # custom_style/animationprocessbar.h \   # 重复，已注释（第514行附近）
     SerialPortException.h \
     dilag/custompppvalue.h \
     aligndelegate.h \
@@ -394,8 +416,18 @@ HEADERS += \
     suoweiFileManager/filemanager.h \
     customTitleui/framelesswidgethelper.h \
     suoweiFileManager/hospitalreportprinter.h \
-    datalprocessor.h
+    datalprocessor.h \
+    verifycoordinates.h \
+    styledcomparisondialog.h \
+    camerawindow.h \
+    opencvFindRBC/customtitlebar.h \
+    opencvFindRBC/industrialimagegallery.h \
+    CalibratCoordinateLoc/circlewidget.h \
+    PrintReport/printtemplate.h \
+    PrintReport/aggregationanalyzer.h \
+    custom_style/custommessagebox.h
 
+# ========== UI 文件 ==========
 FORMS += \
     mainwindow.ui \
     patient.ui \
@@ -436,7 +468,7 @@ FORMS += \
     custom_style/custombutton.ui \
     custom_style/customprogresscontrols.ui \
     dilag/testopcv.ui \
-    replacethetesttubetray.ui \
+    # replacethetesttubetray.ui \   # 重复，已注释（第573行附近）
     dilag/batchaddsample.ui \
     dilag/pedata.ui \
     Machinewidget/bloodpinparaset.ui \
@@ -444,21 +476,6 @@ FORMS += \
     dilag/custompppvalue.ui \
     CalibratCoordinateLoc/coordinatepposit.ui
 
+# ========== 资源文件 ==========
 RESOURCES += \
     picture.qrc
-
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release/ -lsuoweidll
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/debug/ -lsuoweidll
-else:unix: LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/ -lsuoweidll
-
-INCLUDEPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
-DEPENDPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
-
-
-
-win32: QMAKE_CXXFLAGS_RELEASE -= -Zc:strictStrings
-win32: QMAKE_CFLAGS_RELEASE -= -Zc:strictStrings
-win32: QMAKE_CFLAGS -= -Zc:strictStrings
-win32: QMAKE_CXXFLAGS -= -Zc:strictStrings
-
-

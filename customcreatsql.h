@@ -92,22 +92,76 @@ struct PETestEntry {
     QString TestRatioM;
     QString TestRatioL;
 
-	PETestEntry() = default;
+    PETestEntry() = default;
 
-	// 必须的构造函数
+    // 必须的构造函数
     PETestEntry(const QString& id, int channel, const QString& ratioH,const QString& ratioM,const QString& ratioL)
         : PEid(id), TestCannel(channel), TestRatioH(ratioH), TestRatioM(ratioM), TestRatioL(ratioL) {}
 };
 struct QueryResult {
 
-	QueryResult() = default;
+    QueryResult() = default;
 
     bool success = false;
     PETestEntry entry;
     QString errorMessage;
 
-	QueryResult(bool s) : success(s) {}
+    QueryResult(bool s) : success(s) {}
 };
+
+
+
+
+
+// 字段索引结构体
+struct FieldIndices {
+    int sampleId = -1;
+    int dateSample = -1;
+    int sampleNum = -1;
+    int addSampleTime = -1;
+    int age = -1;
+    int barcode = -1;
+    int bedNumber = -1;
+    int department = -1;
+    int diagnosis = -1;
+    int hospitalization = -1;
+    int inspectionTime = -1;
+    int medicalExaminer = -1;
+    int referDoctor = -1;
+    int remark = -1;
+    int reviewDoctors = -1;
+    int sampleName = -1;
+    int sex = -1;
+    int submissionTime = -1;
+    int wardCode = -1;
+    int aa = -1;
+    int adp = -1;
+    int epi = -1;
+    int col = -1;
+    int ris = -1;
+
+    bool isValid() const {
+        return sampleId != -1 && dateSample != -1 && sampleNum != -1;
+    }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 class CustomCreatSql : public QObject
 {
@@ -118,6 +172,10 @@ public:
 
 private:
     bool connectMyDB(QSqlDatabase &database,const QString dataPathDb);
+
+    FieldIndices buildFieldIndices(const QSqlRecord& record) const;
+    QSharedPointer<PatientInformationStu> createPatientInfoFast(
+        QSqlQuery& query, const FieldIndices& indices);
 
 public:
     /**
@@ -234,7 +292,15 @@ public:
      * @param val
      * @return
      */
-    bool  updateTestResultTable(QString id, QString updateKey, QString val);
+    bool updateTestResultTable(QString id, QString updateKey, QString val);
+
+
+    bool updateAnalysisResults(const QString idnum,const QString key,
+                                const double AUC,
+                                const double MaxSlope,
+                                const double TMA,
+                                const double Lag,
+                                const double Adhesionrate);
 
 
     /**  遍历找当天的最大号样本
@@ -313,11 +379,16 @@ public:
     */
     int inquire_test_free_tube_status(quint8 &back_first_free_loc);
 
-	//查询空试管剩余个数
-	quint8  BackEmptyTubeNum();
-	QMap<quint8, bool> BackEmptyTubeNumMap();
+    //查询空试管剩余个数
+    quint8  BackEmptyTubeNum();
+    QMap<quint8, bool> BackEmptyTubeNumMap();
 
-	quint8 BackFirstEmptyHole();
+    /** 每个试管盘的未使用状态
+     * @brief GetEmptyTubeMap
+     * @return
+     */
+    QMap<quint8, QList<quint8>> GetEmptyTubeMap();
+
 
 
     //更新试杯状态
@@ -373,7 +444,7 @@ public:
 
     void	_updateReferenceValue(QString key_,QString updatekey_,QString data_);
 
-    void    _obtainPersondata_(QString key_, QString &outMandata_,QString& outWomandata_);
+    void    obtainPersondata(QString key_, QString &outMandata_,QString& outWomandata_);
 
     void    initReerenceTable();
 
@@ -421,6 +492,9 @@ public:
 
     /* 初始化配置机器试管孔状态(如果测试表格不存在创建初始化全部已丢杯)*/
     void  Initial_configurationEmptyTube();
+
+    // 获取试剂映射表
+    const QVector<QPair<QString, int>>& getReagentMap() const { return REAGENT_MAP; }
 public:
 
     /**

@@ -267,8 +267,10 @@ void sycn_testdat_index_reag(QVector<double> &sycndata, chntest_reagdata testchn
      }
 }
 
-void StructInstance::root_getinitvaluedata(const quint8 finishChn,quint8 index_reag,quint16 &AnaemiaInitValue,
-                                               QVector<double> &TestedDatamap,quint8 &suckanemia,quint8 &suckbloody)
+void StructInstance::root_getinitvaluedata(const quint8 finishChn,quint8 index_reag,
+                                           quint16 &AnaemiaInitValue,
+                                           QVector<double> &TestedDatamap,
+                                           quint8 &suckanemia,quint8 &suckbloody)
 {
     auto it = find_if(m_testChnStructvec_.begin(),m_testChnStructvec_.end(),
                       finder_Chn(finishChn));
@@ -341,8 +343,8 @@ void StructInstance::_Clearinvalidcommands(DATASAMPLESTRUCT *psanlpeinfo) {
 
     // 清洗双针命令校验
     CleanContainer(psanlpeinfo->clean_reag_blood_pin, "清洗双针命令数据");
-    // 洗血样针命令校验
-    CleanContainer(psanlpeinfo->clean_blood_pin, "清洗血样针命令数据");
+    // 洗样本针命令校验
+    CleanContainer(psanlpeinfo->clean_blood_pin, "清洗样本针命令数据");
     // 加样动作校验
     CleanContainer(psanlpeinfo->tadd_sample_active, "加样动作命令数据");
     // 抓贫血动作校验
@@ -550,17 +552,6 @@ void StructInstance::_safeDelReagentData(chntest_reagdata* pdelchndata)
     }
 
     pdelchndata->clear();
-
-//    auto it = pdelchndata->begin();
-//    while (it != pdelchndata->end())
-//    {
-//        if (*it != nullptr) {
-//            delete *it;
-//            *it = nullptr;
-//        }
-//        it++;
-//    }
-//    pdelchndata->erase(std::remove(pdelchndata->begin(), pdelchndata->end(), nullptr), pdelchndata->end());
     return;
 }
 
@@ -1693,7 +1684,7 @@ void StructInstance::send_CleanbloodyPinActive(const int sampleID, QByteArrayLis
 
     const auto *itSample = rfindIdSample(sampleID);
     if(itSample == nullptr){
-        QLOG_DEBUG()<<"样本"<< sampleID<<"清洗血样针失败,查找样本结构失败";
+        QLOG_DEBUG()<<"样本"<< sampleID<<"清洗样本针失败,查找样本结构失败";
     }
     senddata.reserve(itSample->clean_blood_pin.size());
     for(auto& pcleanblood : itSample->clean_blood_pin){
@@ -1852,7 +1843,7 @@ bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample
     bool bfinished = false;
     auto *sampleinfo = wfindIdSample(loseFocusSample);
     if(!sampleinfo){
-        QLOG_DEBUG()<<"样本ID"<< loseFocusSample <<"未找到洗血样针信息"<<__LINE__<<endl;
+        QLOG_DEBUG()<<"样本ID"<< loseFocusSample <<"未找到洗样本针信息"<<__LINE__<<endl;
         return bfinished;
     }
 
@@ -1860,7 +1851,7 @@ bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample
                                     sampleinfo->clean_blood_pin.end(),recv_index(index_num));
 
     if(cleanBloodNeedle == sampleinfo->clean_blood_pin.end() || *cleanBloodNeedle == nullptr){
-        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"未找到洗血样针命令编号:"<<index_num<<endl;
+        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"未找到洗样本针命令编号:"<<index_num<<endl;
         return bfinished;
     }
 
@@ -1873,7 +1864,7 @@ bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample
 		bfinished = true;
         sampleinfo->bcleanDoublePin_state = true;
         sampleinfo->bcleanbloody_state = true;
-        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"洗血样针指令完成标志设为true"<<endl;
+        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"洗样本针指令完成标志设为true"<<endl;
 	}
 	else {
 		bfinished = false;

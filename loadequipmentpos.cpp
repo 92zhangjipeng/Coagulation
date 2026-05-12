@@ -4,25 +4,24 @@
 #include "globaldata.h"
 #include "quiutils.h"
 #include "warn_interface.h"
+#include "verifycoordinates.h"
 #include <unordered_map>
 #include <QDesktopWidget>
 #include <functional>
-#include <unordered_map>
 #include <QFile>
 #include <QTextStream>
 #include <array>
 
 SingletonAxis *SingletonAxis::g_pSingletonAxis = new (std::nothrow) SingletonAxis;
 EquipmentAXIS_ *SingletonAxis::g_pEquipAxiaspos = NULL;
+std::mutex SingletonAxis::m_mutex;
+
 
 
 //试剂耗材信息
 ConsumablesOper *ConsumablesOper::g_pConsumable = nullptr /*new (std::nothrow) ConsumablesOper*/;
 equipmentConsumablesVec *ConsumablesOper::g_pVecReagentInfo = nullptr;
 std::mutex ConsumablesOper::m_instanceMutex;
-
-
-
 
 
 SingletonAxis *SingletonAxis::GetInstance()
@@ -34,9 +33,13 @@ SingletonAxis *SingletonAxis::GetInstance()
 
 EquipmentAXIS_ *SingletonAxis::GetpStruct()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (g_pEquipAxiaspos == nullptr)
     {
-        g_pEquipAxiaspos = new EquipmentAXIS_;
+        g_pEquipAxiaspos = new (std::nothrow) EquipmentAXIS_;
+        if (!g_pEquipAxiaspos) {
+            QLOG_ERROR() << "Failed to allocate memory for EquipmentAXIS";
+        }
     }
     return g_pEquipAxiaspos;
 }
@@ -45,9 +48,16 @@ EquipmentAXIS_ *SingletonAxis::GetpStruct()
 
 void SingletonAxis::deleteInstance()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     if(g_pSingletonAxis){
         delete g_pSingletonAxis;
         g_pSingletonAxis = NULL;
+    }
+
+    if (g_pEquipAxiaspos) {
+        delete g_pEquipAxiaspos;
+        g_pEquipAxiaspos = NULL;
     }
 }
 
@@ -102,49 +112,65 @@ void SingletonAxis::throwTubeHolePos(bool bWrite, QPoint &pos)
 
 void SingletonAxis::cleanZoneAxisPos(bool bWrite,int indexNedl,QPoint &pos)
 {
-    EquipmentAXIS_* axisData = GetpStruct(); // 改为指针
+    EquipmentAXIS_* axisData = GetpStruct();
+    if (!axisData) {
+        return;
+    }
 
-    // 使用lambda延迟获取指针，避免静态初始化问题
-    static auto getMotorMap = [axisData]() {
-        std::unordered_map<int, QPoint*> map;
-        map[MOTOR_BLOOD_INDEX] = &axisData->cleanZoneoffsetBlodNedl;
-        map[MOTOR_REAGNET_INDEX] = &axisData->cleanZoneoffsetRegNedl;
-        return map;
+    // 获取目标指针的lambda
+    auto getTargetPoint = [&]() -> QPoint* {
+        switch (indexNedl) {
+        case MOTOR_BLOOD_INDEX:
+            return &axisData->cleanZoneoffsetBlodNedl;
+        case MOTOR_REAGNET_INDEX:
+            return &axisData->cleanZoneoffsetRegNedl;
+        default:
+            QLOG_WARN() << "Invalid needle index:" << indexNedl;
+            return nullptr;
+        }
     };
 
-    static const auto motorMap = getMotorMap();
+    QPoint* targetPoint = getTargetPoint();
+    if (!targetPoint) {
+        return;
+    }
 
-    auto it = motorMap.find(indexNedl);
-    if (it != motorMap.end()) {
-        if (bWrite) {
-            *(it->second) = pos;
-        } else {
-            pos = *(it->second);
-        }
+    if (bWrite) {
+        *targetPoint = pos;
+    } else {
+        pos = *targetPoint;
     }
 }
 
 bool SingletonAxis::ismoveXYsuckReagent(const QPoint &locpos){
+    if (!g_pEquipAxiaspos) {
+        return false;
+    }
     auto &container = g_pEquipAxiaspos->reagentZoneAxispos;
     auto findIt = std::find_if(container.cbegin(), container.cend(),
             [&locpos](const REAGENTZONEAXIS_ *item) {
                 Q_ASSERT_X(item != nullptr, "findReagentIndex", "Null item in reagent position container");
-                return item->Axispos == locpos;
+                return item && item->Axispos == locpos;
             });
     if(findIt == container.cend()){
-        //QLOG_ERROR() << "试剂针移动影射试剂索引无效(非试剂区坐标)" ;
         return false;
     }
     return true;
 }
 
+
 quint8 SingletonAxis::outPutLossReagentIndex(const QPoint &locpos)
 {
+    if (!g_pEquipAxiaspos) {
+        QLOG_ERROR() << "Equipment axis data not initialized";
+        return 255;
+    }
+
     auto &container = g_pEquipAxiaspos->reagentZoneAxispos;
     auto findIt = std::find_if(container.cbegin(), container.cend(),
             [&locpos](const REAGENTZONEAXIS_ *item) {
-				Q_ASSERT_X(item != nullptr, "findReagentIndex", "Null item in reagent position container");
-                return item->Axispos == locpos;
+                Q_ASSERT_X(item != nullptr, "findReagentIndex", "Null item in reagent position container");
+                return item && item->Axispos == locpos;
             });
     if(findIt == container.cend()){
         QLOG_ERROR() << "试剂针移动影射试剂索引无效(非试剂区坐标)" ;
@@ -155,74 +181,87 @@ quint8 SingletonAxis::outPutLossReagentIndex(const QPoint &locpos)
 
 void SingletonAxis::reagetZoneAxisPos(bool bWrite, quint8 indexReag, QPoint &pos)
 {
+    if (!g_pEquipAxiaspos) {
+        QLOG_ERROR() << "Equipment axis data not initialized";
+        pos = QPoint(0, 0);
+        return;
+    }
+
     auto &container = g_pEquipAxiaspos->reagentZoneAxispos;
 
     auto findIt = std::find_if(container.begin(), container.end(),
             [indexReag](const REAGENTZONEAXIS_ *item) {
-                return item->index == indexReag;
+                return item && item->index == indexReag;
             });
 
     if (bWrite) {
         if (findIt != container.end()) {
-            // 存在则直接更新
             (*findIt)->Axispos = pos;
-            (*findIt)->reagname.clear(); // 明确清空而非赋空字符串
+            (*findIt)->reagname.clear();
         } else {
-            // 不存在则创建新项（使用智能指针避免内存泄漏）
             auto newItem = std::make_unique<REAGENTZONEAXIS_>();
             newItem->index = indexReag;
             newItem->Axispos = pos;
             newItem->reagname.clear();
-            container.append(newItem.release()); // 假设容器管理原始指针
+            container.append(newItem.release());
         }
     } else {
-        // 读取时直接赋值或保持pos不变
         if (findIt != container.end()) {
             pos = (*findIt)->Axispos;
+        } else {
+            QLOG_WARN() << "Reagent zone not found for index:" << indexReag;
+            pos = QPoint(0, 0);
         }
-        // 未找到时返回错误状态或默认值（根据需求）
     }
 	return;
 }
 
-void SingletonAxis::chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,QPoint &pos)
+void SingletonAxis::chnZoneAxisPos(bool bWrite, quint8 numChn, quint8 offsetNeedle , QPoint &pos)
 {
     auto axisData = GetpStruct();
-    if (!axisData) return;
+    if (!axisData) {
+        pos = QPoint(0, 0);
+        return;
+    }
 
     auto& axisPoints = axisData->pchnAxisPoint;
-    // 查找匹配项
-    ChnAxis_* foundItem = nullptr;
-    for (auto* item : axisPoints) {
-        if (item && item->indexChn == numChn && item->offsetNeedle == OffsetNedl) {
-            foundItem = item;
-            break;
-        }
-    }
+
+    // 使用std::find_if查找，更简洁
+    auto it = std::find_if(axisPoints.begin(), axisPoints.end(),
+        [numChn, offsetNeedle](const ChnAxis_* item) {
+            return item && item->indexChn == numChn && item->offsetNeedle == offsetNeedle;
+        });
 
     if (bWrite) {
-        if (foundItem) {
-            foundItem->axisPos = pos;
-        } else {
-            ChnAxis_* pchnStu = new ChnAxis_;
-            pchnStu->indexChn = numChn;
-            pchnStu->offsetNeedle = OffsetNedl;
-            pchnStu->axisPos = pos;
-            axisPoints.push_back(pchnStu);
-        }
-    } else if (foundItem) {
-        pos = foundItem->axisPos;
-    }
-	return;
+       if (it != axisPoints.end()) {
+           // 更新已存在的项
+           (*it)->axisPos = pos;
+       } else {
+           // 创建新项
+           auto* newItem = new ChnAxis_{numChn, offsetNeedle, pos};  // 使用初始化列表
+           axisPoints.push_back(newItem);
+       }
+   } else {
+       // 读取模式
+       if (it != axisPoints.end()) {
+           pos = (*it)->axisPos;
+       } else {
+           QLOG_WARN() << "Channel zone not found for channel:" << numChn
+                      << "offset:" << offsetNeedle;
+           pos = QPoint(0, 0);
+       }
+   }
 }
 
 void SingletonAxis::bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos)
 {
     auto axisData = GetpStruct();
-    if (!axisData) return;
+    if (!axisData) {
+        pos = QPoint(0, 0);
+        return;
+    }
 
     auto& bloodSampleList = axisData->bloodSampleAxisPos;
-    // 查找现有记录
     auto it = std::find_if(bloodSampleList.begin(), bloodSampleList.end(),
         [numhole](SAMPLEBLOODZONEAXISPOS_* item) {
             return item != nullptr && item->index == numhole;
@@ -239,6 +278,9 @@ void SingletonAxis::bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos)
         }
     } else if (it != bloodSampleList.end()) {
         pos = (*it)->axisPos;
+    } else {
+        QLOG_WARN() << "Blood sample zone not found for index:" << numhole;
+        pos = QPoint(0, 0);
     }
 }
 
@@ -274,15 +316,21 @@ quint8 SingletonAxis::witchoneindexTary(const quint8 indextube)
     return indextube >= 240 ? 0 : (indextube / 60) + 1;
 }
 
+
 quint8 SingletonAxis::testTaryZoneAxisPos(bool bWrite,quint8 numhole,quint8 indexNeedle,QPoint &pos)
 {
+    auto axisData = GetpStruct();
+    if (!axisData) {
+        pos = QPoint(0, 0);
+        return 0;
+    }
+
     if (bWrite) {
         WriteEmptyTube_Coordinate(numhole, indexNeedle, pos);
         return witchoneindexTary(numhole);
     }
 
-    // 读取操作
-    auto& tubeList = GetpStruct()->testTubeZoneAxisPos;
+    auto& tubeList = axisData->testTubeZoneAxisPos;
     auto it = std::find_if(tubeList.constBegin(), tubeList.constEnd(),
             [=](TRYTHECUPAXIS_* item) {
                 return item && item->offsetNeedle == indexNeedle && item->numTube == numhole;
@@ -292,13 +340,16 @@ quint8 SingletonAxis::testTaryZoneAxisPos(bool bWrite,quint8 numhole,quint8 inde
         pos = (*it)->axisPos;
         return (*it)->indexTray;
     }
+
+    QLOG_WARN() << "Test tube zone not found for tube:" << numhole << "needle:" << indexNeedle;
+    pos = QPoint(0, 0);
     return 0;
 }
 
 
 
 //修改坐标
-void SingletonAxis::oper_OriginAxis(bool bNotif_x,int posValue)
+void SingletonAxis::operOriginAxis(bool bNotif_x,int posValue)
 {
     auto axisData = GetpStruct();
     if (!axisData) return;
@@ -339,6 +390,8 @@ void SingletonAxis::oper_CleanZonePos(bool bNotif_x,int indexNedl,int posValue)
 		targetPoint->setY(posValue);
 	} 
 }
+
+
 // 修改试剂区位置
 void SingletonAxis::oper_ReagentZonePos(bool bNotif_x,quint8 indexReag,quint16 posValue)
 {
@@ -370,21 +423,23 @@ void SingletonAxis::oper_ReagentZonePos(bool bNotif_x,quint8 indexReag,quint16 p
 
 void SingletonAxis::oper_TestChnZoneAxispos(bool isXAxis, quint8 numChn, quint8 offsetNedl, quint16 posValue)
 {
+    if (!g_pEquipAxiaspos) {
+        QLOG_ERROR() << "Equipment axis data not initialized";
+        return;
+    }
+
     auto& points = g_pEquipAxiaspos->pchnAxisPoint;
 
-    // 使用STL算法查找匹配项 [[2, 3]]
     auto it = std::find_if(points.begin(), points.end(),
             [numChn, offsetNedl](const ChnAxis_* entry) {
-                return entry->indexChn == numChn && entry->offsetNeedle == offsetNedl;
+                return entry && entry->indexChn == numChn && entry->offsetNeedle == offsetNedl;
             });
 
    if (it != points.end()) {
-            // 更新现有项的坐标
             isXAxis ? (*it)->axisPos.setX(posValue) : (*it)->axisPos.setY(posValue);
     } 
    else 
    {
-        // 创建新对象并初始化 [[5]]
         auto* newEntry = new ChnAxis_{ numChn, offsetNedl, QPoint(isXAxis ? posValue : 0, isXAxis ? 0 : posValue)
         };
         points.push_back(newEntry);
@@ -662,14 +717,23 @@ REAGENTZONEAXIS_* parseReagentLine(const QString& line, int lineNumber)
     }
 
     REAGENTZONEAXIS_* reagent = new REAGENTZONEAXIS_();
-    try {
-        reagent->index = static_cast<quint8>(fields[0].toUInt());
-        reagent->reagname = fields[1].replace("\"\"", "\""); // 处理转义引号
-        reagent->Axispos.setX(fields[2].toInt());
-        reagent->Axispos.setY(fields[3].toInt());
-    } catch (...) {
+    bool ok = false;
+
+    bool indexOk = false;
+    reagent->index = static_cast<quint8>(fields[0].toUInt(&indexOk));
+    if (!indexOk) {
         delete reagent;
-        throw;
+        throw std::runtime_error(QString("Invalid reagent index at line %1").arg(lineNumber).toStdString());
+    }
+
+    reagent->reagname = fields[1].replace("\"\"", "\"");
+
+    bool xOk = false, yOk = false;
+    reagent->Axispos.setX(fields[2].toInt(&xOk));
+    reagent->Axispos.setY(fields[3].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete reagent;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return reagent;
@@ -683,14 +747,21 @@ ChnAxis_* parseChannelLine(const QString& line, int lineNumber)
     }
 
     ChnAxis_* channel = new ChnAxis_();
-    try {
-        channel->indexChn = static_cast<quint8>(fields[0].toUInt());
-        channel->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
-        channel->axisPos.setX(fields[2].toInt());
-        channel->axisPos.setY(fields[3].toInt());
-    } catch (...) {
+    bool indexOk = false, offsetOk = false;
+    channel->indexChn = static_cast<quint8>(fields[0].toUInt(&indexOk));
+    channel->offsetNeedle = static_cast<quint8>(fields[1].toUInt(&offsetOk));
+
+    if (!indexOk || !offsetOk) {
         delete channel;
-        throw;
+        throw std::runtime_error(QString("Invalid channel data at line %1").arg(lineNumber).toStdString());
+    }
+
+    bool xOk = false, yOk = false;
+    channel->axisPos.setX(fields[2].toInt(&xOk));
+    channel->axisPos.setY(fields[3].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete channel;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return channel;
@@ -704,15 +775,23 @@ TRYTHECUPAXIS_* parseTestTubeLine(const QString& line, int lineNumber)
     }
 
     TRYTHECUPAXIS_* tube = new TRYTHECUPAXIS_();
-    try {
-        tube->numTube = static_cast<quint8>(fields[0].toUInt());
-        tube->offsetNeedle = static_cast<quint8>(fields[1].toUInt());
-        tube->indexTray = static_cast<quint8>(fields[2].toUInt());
-        tube->axisPos.setX(fields[3].toInt());
-        tube->axisPos.setY(fields[4].toInt());
-    } catch (...) {
+
+    bool numTubeOk = false, offsetOk = false, trayOk = false;
+    tube->numTube = static_cast<quint8>(fields[0].toUInt(&numTubeOk));
+    tube->offsetNeedle = static_cast<quint8>(fields[1].toUInt(&offsetOk));
+    tube->indexTray = static_cast<quint8>(fields[2].toUInt(&trayOk));
+
+    if (!numTubeOk || !offsetOk || !trayOk) {
         delete tube;
-        throw;
+        throw std::runtime_error(QString("Invalid test tube data at line %1").arg(lineNumber).toStdString());
+    }
+
+    bool xOk = false, yOk = false;
+    tube->axisPos.setX(fields[3].toInt(&xOk));
+    tube->axisPos.setY(fields[4].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete tube;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return tube;
@@ -728,13 +807,20 @@ SAMPLEBLOODZONEAXISPOS_* parseBloodLine(const QString& line, int lineNumber)
     }
 
     SAMPLEBLOODZONEAXISPOS_* blood = new SAMPLEBLOODZONEAXISPOS_();
-    try {
-        blood->index = static_cast<quint8>(fields[0].toUInt());
-        blood->axisPos.setX(fields[1].toInt());
-        blood->axisPos.setY(fields[2].toInt());
-    } catch (...) {
+
+    bool indexOk = false;
+    blood->index = static_cast<quint8>(fields[0].toUInt(&indexOk));
+    if (!indexOk) {
         delete blood;
-        throw;
+        throw std::runtime_error(QString("Invalid blood sample index at line %1").arg(lineNumber).toStdString());
+    }
+
+    bool xOk = false, yOk = false;
+    blood->axisPos.setX(fields[1].toInt(&xOk));
+    blood->axisPos.setY(fields[2].toInt(&yOk));
+    if (!xOk || !yOk) {
+        delete blood;
+        throw std::runtime_error(QString("Invalid coordinate values at line %1").arg(lineNumber).toStdString());
     }
 
     return blood;
@@ -1174,11 +1260,6 @@ void ConsumablesOper::updateReplaceLocRatio(bool isWrite, quint8 indexReag,quint
     return;
 }
 
-
-
-
-
-
 void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &ReagentTol)
 {
     if (!g_pVecReagentInfo || g_pVecReagentInfo->isEmpty()) {
@@ -1186,20 +1267,21 @@ void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &R
         return;
     }
 
-    if(g_pVecReagentInfo->isEmpty()) return;
     auto iter = g_pVecReagentInfo->begin();
     while(iter != g_pVecReagentInfo->end()){
         REAGENT_CONSUMABLES_ *psingleReagent = *iter;
-        if(psingleReagent->indexReag == indexReag)
+        if(psingleReagent && psingleReagent->indexReag == indexReag)
         {
             if(bwrite == WRITE_OPERAT)
                 psingleReagent->SingleBottleCapacity = ReagentTol;
             else
                 ReagentTol = psingleReagent->SingleBottleCapacity;
-            break;
+            return;
         }
         iter++;
     }
+
+    QLOG_WARN() << "未找到索引为" << indexReag << "的试剂信息";
     return;
 }
 
@@ -1297,7 +1379,7 @@ loadEquipmentPos::loadEquipmentPos(QObject *parent) : QObject(parent)
     mwriteAxismap.clear();
     m_axiswriteequipment.clear();
     m_bReadorWrite = false;
-    mcreatSetType = false;
+    m_creatSetType = false;
     m_bParafileExit = false;
     m_ParaFilePath = "";
     mserialname = "";
@@ -1495,12 +1577,12 @@ void  loadEquipmentPos::parsingReceivedMessages(const QStringList ArryRecvdata)
 
     if(MAIN_CONTROL == HexSlaveAddr && HexFuncCode == MAINBOARD_PARA_FUNCT)
     {
-        _equipmentParaParsing(HexCmdNum,ArryRecvdata); //解析仪器参数
+        equipmentParaParsing(HexCmdNum,ArryRecvdata); //解析仪器参数
     }
     else if(MAIN_CONTROL == HexSlaveAddr && MAINBOARD_FUNCTIONCODE == HexFuncCode)
     {
-        _mainbordParadata(HexCmdNum,ArryRecvdata);
-        //QLOG_DEBUG() << "int解析收到主板数据"<<ArryRecvdata <<"编号:"<<HexCmdNum << endl;
+        mainbordParadata(HexCmdNum,ArryRecvdata);
+
     }
     return;
 }
@@ -1522,7 +1604,6 @@ void loadEquipmentPos::RecvSuippleNextStep(const bool bRead,
     } else{
         _writeFinish(finished);
         _sendWriteAxisOrder(nextSend);
-        //QLOG_DEBUG()<<"初始化写入耗材AA 数量=0"<<endl;
     }
     return;
 }
@@ -1562,8 +1643,7 @@ void loadEquipmentPos::RecvSuippleNextStepOnlyRatio(const bool bRead,quint8 fini
     return;
 }
 
-
-void loadEquipmentPos::_mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata)
+void loadEquipmentPos::mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata)
 {
     // 输入数据校验
     if(ArryRecvdata.size() < 13) {
@@ -1705,7 +1785,7 @@ void loadEquipmentPos::_mainbordParadata(quint8 indexReagent, const QStringList 
     return;
 }
 
-void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList ArryRecvdata )
+void loadEquipmentPos::equipmentParaParsing(quint8 index_ , const QStringList ArryRecvdata )
 {
     using HandlerFunction = std::function<void(const QStringList&)>;
     std::unordered_map<quint8, HandlerFunction> handlerMap = {
@@ -1716,21 +1796,21 @@ void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList A
         {BlOODPINPARADATA, [&](const QStringList& data) { recvBloodPinq16data(data); }},
         {REAGENT_CAPACITY, [&](const QStringList& data) { recvReagentCapacity(data); }},
         {AXIS_ORIGIN_X, [&](const QStringList& data) { recvOrininAxis(data); }},
-        {AXIS_ORIGIN_Y, [&](const QStringList& data) { _recvOrininAxisY(data); }},
-        {AXIS_CHN1_5_X, [&](const QStringList& data) { _recvChnoffsetReagpinXI_V(data); }},
-        {AXIS_CHN1_5_Y, [&](const QStringList& data) { _recvChnoffsetReagpinYI_V(data); }},
-        {AXIS_CHN6_10_X, [&](const QStringList& data) { _recvChnoffsetReagpinXIV_X(data); }},
-        {AXIS_CHN6_10_Y, [&](const QStringList& data) { _recvChnoffsetReagpinYIV_X(data); }},
-        {AXIS_CHN11_12_X, [&](const QStringList& data) { _recvChnoffsetReagpinXXI_XII(data); }},
-        {AXIS_CHN11_12_Y, [&](const QStringList& data) { _recvChnoffsetReagpinYXI_XII(data); }},
-        {AXIS_CHN4_8_HANDSX, [&](const QStringList& data) { _recvHandChnVI_IIIV_X(data); }},
-        {AXIS_CHN4_8_HANDSY, [&](const QStringList& data) { _recvHandChnVI_IIIV_Y(data); }},
-        {AXIS_CHN9_12_HANDSX, [&](const QStringList& data) { _recvHandsChnX_XIII_X(data); }},
-        {AXIS_CHN9_12_HANDSY, [&](const QStringList& data) { _recvHandsChnX_XIII_Y(data); }},
-        {AXIS_TRAY_OFFSET_BLOODPINX, [&](const QStringList& data) { _recvTraytubeoffsetbloodpin_x(data); }},
-        {AXIS_TRAY_OFFSET_BLOODPINY, [&](const QStringList& data) { _recvTraytubeoffsetbloodpin_y(data); }},
-        {AXIS_TRAY_OFFSET_HANDSX, [&](const QStringList& data) { _recvTraytubeoffsetHands_x(data); }},
-        {AXIS_TRAY_OFFSET_HANDSY, [&](const QStringList& data) { _recvTraytubeoffsetHands_y(data); }},
+        {AXIS_ORIGIN_Y, [&](const QStringList& data) { recvOrininAxisY(data); }},
+        {AXIS_CHN1_5_X, [&](const QStringList& data) { recvChnoffsetReagpinXI_V(data); }},
+        {AXIS_CHN1_5_Y, [&](const QStringList& data) { recvChnoffsetReagpinYI_V(data); }},
+        {AXIS_CHN6_10_X, [&](const QStringList& data) { recvChnoffsetReagpinXIV_X(data); }},
+        {AXIS_CHN6_10_Y, [&](const QStringList& data) { recvChnoffsetReagpinYIV_X(data); }},
+        {AXIS_CHN11_12_X, [&](const QStringList& data) { recvChnoffsetReagpinXXI_XII(data); }},
+        {AXIS_CHN11_12_Y, [&](const QStringList& data) { recvChnoffsetReagpinYXI_XII(data); }},
+        {AXIS_CHN4_8_HANDSX, [&](const QStringList& data) { recvHandChnVI_IIIV_X(data); }},
+        {AXIS_CHN4_8_HANDSY, [&](const QStringList& data) { recvHandChnVI_IIIV_Y(data); }},
+        {AXIS_CHN9_12_HANDSX, [&](const QStringList& data) { recvHandsChnX_XIII_X(data); }},
+        {AXIS_CHN9_12_HANDSY, [&](const QStringList& data) { recvHandsChnX_XIII_Y(data); }},
+        {AXIS_TRAY_OFFSET_BLOODPINX, [&](const QStringList& data) { recvTraytubeoffsetbloodpin_x(data); }},
+        {AXIS_TRAY_OFFSET_BLOODPINY, [&](const QStringList& data) { recvTraytubeoffsetbloodpin_y(data); }},
+        {AXIS_TRAY_OFFSET_HANDSX, [&](const QStringList& data) { recvTraytubeoffsetHands_x(data); }},
+        {AXIS_TRAY_OFFSET_HANDSY, [&](const QStringList& data) { recvTraytubeoffsetHands_y(data); }},
         {BLOODPINPARAOTHERDATA, [&](const QStringList& data) { recvBloodOtherdataAll(data); }},
         {PARAREAGENTPINDATA_I, [&](const QStringList& data) { recvReagentData(data); }},
         {PARAREAGENTPINDATA_II, [&](const QStringList& data) { recvReagentDataOther(data); }},
@@ -1748,6 +1828,10 @@ void loadEquipmentPos::_equipmentParaParsing(quint8 index_ , const QStringList A
     }
     return;
 }
+
+
+
+
 
 //读设备参数
 void loadEquipmentPos::handleReadDevicePara(const QStringList hexArray)
@@ -1797,7 +1881,7 @@ void loadEquipmentPos::handleReadDevicePara(const QStringList hexArray)
     Q_EMIT progresstotal(mwriteAxismap.size());
 
     //已读取到仪器类型--读取仪器内保存的坐标
-    Q_EMIT  _whiletoReadEquipPosAixs(hexParaState,showText);
+    Q_EMIT  equipmentHadPosAixs(hexParaState,showText);
 
     GroupReadParaCommder(EQUIPMENTPARA_I); //开始读取参数
 
@@ -1806,23 +1890,36 @@ void loadEquipmentPos::handleReadDevicePara(const QStringList hexArray)
 
 void loadEquipmentPos::recvEquipmentKind(const QStringList hexArry)
 {
-    const quint8 hexparastate = hexArry.at(5).toUInt(nullptr, HEX_SWITCH);
-    if(NOESETQUIPMENT == hexparastate && !mcreatSetType) {
-        mcreatSetType = true; //只提示一次设置仪器类型
-        m_bReadorWrite = true; //未读取到仪器类型 接下来是写参数
-        emit setEquipmentIndex();
-        QLOG_WARN()<<"未配置仪器类型!"<<endl;
-
-    } else if(m_bReadorWrite && mcreatSetType) {
-
-        QLOG_DEBUG()<<"开始写初始坐标..."<<endl;
-        _sendWriteAxisOrder(EQUIPMENTPARA_I);
-
-    } else if(!m_bReadorWrite && !mcreatSetType){
-         handleReadDevicePara(hexArry);
+    // 参数有效性检查
+    if (hexArry.size() <= 5) {
+        QLOG_WARN() << "recvEquipmentKind: hexArry size invalid, size=" << hexArry.size();
+        return;
     }
-    return;
+
+    const quint8 hexParaState = hexArry.at(5).toUInt(nullptr, HEX_SWITCH);
+
+    // 未配置仪器类型
+    if (hexParaState == NOESETQUIPMENT && !m_creatSetType) {
+        m_creatSetType = true;           // 只提示一次设置仪器类型
+		m_bReadorWrite = true;            // 未读取到仪器类型，接下来是写参数
+
+        emit setEquipmentIndex();
+        QLOG_WARN() << "未配置仪器类型!";
+        return;
+    }
+
+    // 已配置仪器类型，根据读写标志处理
+    if (m_bReadorWrite && m_creatSetType) {
+        QLOG_DEBUG() << "开始写初始坐标...";
+        _sendWriteAxisOrder(EQUIPMENTPARA_I);
+    }
+    else if (!m_bReadorWrite && !m_creatSetType) {
+        QLOG_DEBUG() << "开始读初始坐标...";
+        handleReadDevicePara(hexArry);
+    }
 }
+
+
 
 
 void loadEquipmentPos::groupReagentinfo(bool bread)
@@ -2189,7 +2286,7 @@ void loadEquipmentPos::recvReagentLimit(const QStringList hexArry)
     }
 }
 
-//接收血样针参数
+//接收样本针参数
 void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
 {
      if(!m_bReadorWrite)
@@ -2199,13 +2296,13 @@ void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
           QString hexstr;
           hexstr = hexArry[6] + hexArry[5];
           quint16 q16cleanbloodauckmm = hexstr.toUInt(&ok,HEX_SWITCH);
-          QLOG_DEBUG()<<"读清洗血样针的清洗液量:"<<q16cleanbloodauckmm;
+          QLOG_DEBUG()<<"读清洗样本针的清洗液量:"<<q16cleanbloodauckmm;
           ini.SetAbsorbWashingfluidX2(q16cleanbloodauckmm);
 
 
           hexstr = hexArry[8] + hexArry[7];
           quint16 q16suckPPPPRPmm = hexstr.toUInt(&ok,HEX_SWITCH);
-          QLOG_DEBUG()<<"读吸样本单位量"<<q16suckPPPPRPmm;
+          QLOG_DEBUG()<<"读吸PPP/RPP样本单位量"<<q16suckPPPPRPmm;
           ini.SetLearnSamplevolume(q16suckPPPPRPmm);
 
 
@@ -2298,29 +2395,41 @@ void loadEquipmentPos::recvReagentCapacity(const QStringList hexArry)
 }
 
 
+// 提取公共解析函数
+bool parsePositions(const QStringList& hexArry, int* outData, int count) {
+    constexpr int DATA_START = 5;
+    bool ok = true;
+
+    for (int n = 0; n < count; ++n) {
+        QString hexstr = hexArry[DATA_START + 2 * n + 1] + hexArry[DATA_START + 2 * n];
+        outData[n] = hexstr.toInt(&ok, 16);
+        if (!ok) return false;
+    }
+    return true;
+}
+
+
+//读取到的坐标 原点-清洗区样本针-清洗区试剂针-试剂区-丢杯(x)
 void loadEquipmentPos::recvOrininAxis(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
-        QString hexstr;
-        bool ok;
-        const quint8 indexbyte = 5;
-        int *recvdata = new int[5]{};
-
-        for(int n = 0; n < indexbyte; n++){
-            hexstr = hexArry[2 * n + indexbyte + 1] + hexArry[2 * n + indexbyte];
-            recvdata[n] = hexstr.toInt(&ok,HEX_SWITCH);
+        std::array<int, 5> recvdata{};
+        if (!parsePositions(hexArry, recvdata.data(), 5)) {
+            QLOG_ERROR() << "Failed to parse X axis positions";
+            return;
         }
 
-        SingletonAxis::GetInstance()->oper_OriginAxis(NOTIFY_XPOINT,recvdata[0]);
-        SingletonAxis::GetInstance()->oper_CleanZonePos(NOTIFY_XPOINT,MOTOR_BLOOD_INDEX,recvdata[1]);
-        SingletonAxis::GetInstance()->oper_CleanZonePos(NOTIFY_XPOINT,MOTOR_REAGNET_INDEX,recvdata[2]);
-        SingletonAxis::GetInstance()->oper_ReagentZonePos(NOTIFY_XPOINT,0,recvdata[3]);
-        SingletonAxis::GetInstance()->oper_ThrowTubeHolePos(NOTIFY_XPOINT,recvdata[4]);
-        QLOG_INFO()<<"[读取]<=="<<"原点x:"<<recvdata[0]
-					<<"清洗血样针x:"<<recvdata[1]<<"清洗试剂针x:"<<recvdata[2]
-                   <<"试剂区x:"<<recvdata[3]<<"弃杯x:"<<recvdata[4]<<endl;
-        delete []recvdata;
+        auto* axis = SingletonAxis::GetInstance();
+        if (!axis) {
+            QLOG_ERROR() << "SingletonAxis instanceX is null";
+            return;
+        }
+        axis->operOriginAxis(NOTIFY_XPOINT, recvdata[0]);
+        axis->oper_CleanZonePos(NOTIFY_XPOINT, MOTOR_BLOOD_INDEX, recvdata[1]);
+        axis->oper_CleanZonePos(NOTIFY_XPOINT, MOTOR_REAGNET_INDEX, recvdata[2]);
+        axis->oper_ReagentZonePos(NOTIFY_XPOINT, 0, recvdata[3]);
+        axis->oper_ThrowTubeHolePos(NOTIFY_XPOINT, recvdata[4]);
 
         completeddel(AXIS_ORIGIN_X);
         GroupReadParaCommder(AXIS_ORIGIN_Y);
@@ -2328,36 +2437,29 @@ void loadEquipmentPos::recvOrininAxis(const QStringList hexArry)
         _writeFinish(AXIS_ORIGIN_X);
         _sendWriteAxisOrder(AXIS_ORIGIN_Y);
     }
-    return;
 }
 
-void loadEquipmentPos::_recvOrininAxisY(const QStringList hexArry)
+
+//读取到的坐标 原点-清洗区样本针-清洗区试剂针-试剂区-丢杯(y)
+void loadEquipmentPos::recvOrininAxisY(const QStringList hexArry)
 {
-    constexpr int MIN_HEX_SIZE = 15; // 确保至少15个元素
-    if (hexArry.size() < MIN_HEX_SIZE) {
-        QLOG_ERROR() << "Invalid hex data size:" << hexArry.size();
-        return;
-    }
     if(!m_bReadorWrite){
-        QString hexstr;
-        bool ok;
-        const quint8 indexbyte = 5;
-        int *recvdata = new int[5]{};
 
-        for(int n = 0; n < indexbyte; n++){
-            hexstr = hexArry[2 * n + indexbyte + 1] + hexArry[2 * n + indexbyte];
-            recvdata[n] = hexstr.toInt(&ok,HEX_SWITCH);
+        std::array<int, 5> recvdata{};
+        if (!parsePositions(hexArry, recvdata.data(), 5)) {
+            QLOG_ERROR() << "Failed to parse Y axis positions";
+            return;
         }
-
         auto* axisInstance = SingletonAxis::GetInstance();
-        axisInstance->oper_OriginAxis(NOTIFY_YPOINT,recvdata[0]);
+        if (!axisInstance) {
+            QLOG_ERROR() << "SingletonAxis instanceY is null";
+            return;
+        }
+        axisInstance->operOriginAxis(NOTIFY_YPOINT,recvdata[0]);
         axisInstance->oper_CleanZonePos(NOTIFY_YPOINT,MOTOR_BLOOD_INDEX,recvdata[1]);
         axisInstance->oper_CleanZonePos(NOTIFY_YPOINT,MOTOR_REAGNET_INDEX,recvdata[2]);
         axisInstance->oper_ReagentZonePos(NOTIFY_YPOINT,0,recvdata[3]);
         axisInstance->oper_ThrowTubeHolePos(NOTIFY_YPOINT,recvdata[4]);
-        QLOG_INFO()<<"[读取]<=="<<"原点y:"<<recvdata[0]<<"清洗血样针y:"<<recvdata[1]<<"清洗试剂针y:"<<recvdata[2]
-                   <<"试剂区y:"<<recvdata[3]<<"弃杯y:"<<recvdata[4]<<endl;
-        delete []recvdata;
 
         QPoint firstReagentaxis(0,0);
         axisInstance->reagetZoneAxisPos(READ_OPERRAT, 0, firstReagentaxis);
@@ -2365,14 +2467,9 @@ void loadEquipmentPos::_recvOrininAxisY(const QStringList hexArry)
         //生成其它试剂位坐标
         QMap<quint8,QPoint> reagentPoints;
         QUIUtils::CreatReagArsOtherAxis(firstReagentaxis,reagentPoints);
-
-
-        auto iter = reagentPoints.begin();
-        while(iter != reagentPoints.end()){
-            quint8 holekey = iter.key();
-            QPoint holeval = iter.value();
-			axisInstance->reagetZoneAxisPos(WRITE_OPERAT,holekey,holeval);
-            iter++;
+        for (auto iter = reagentPoints.begin(); iter != reagentPoints.end(); ++iter) {
+            QPoint reagentHole = iter.value();
+            axisInstance->reagetZoneAxisPos(WRITE_OPERAT, iter.key(), reagentHole);
         }
 
         completeddel(AXIS_ORIGIN_Y);
@@ -2385,7 +2482,9 @@ void loadEquipmentPos::_recvOrininAxisY(const QStringList hexArry)
 }
 
 
-void loadEquipmentPos::_recvChnoffsetReagpinXI_V(const QStringList hexArry)
+
+//读取到的坐标 通道 1 - 5的(试剂针X)
+void loadEquipmentPos::recvChnoffsetReagpinXI_V(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
@@ -2397,8 +2496,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXI_V(const QStringList hexArry)
         for(int n = 0; n < indexbyte; n++){
             hexstr = hexArry[2 * n + indexbyte + 1] + hexArry[2 * n + indexbyte];
             recvdata[n] = hexstr.toInt(&ok,HEX_SWITCH);
-            axisInstance->oper_TestChnZoneAxispos(NOTIFY_XPOINT,n,MOTOR_REAGNET_INDEX,recvdata[n]);
-            QLOG_INFO()<<"通道"<<n+1<<"offset试剂针X坐标:["<<recvdata[n]<<"]";
+            axisInstance->oper_TestChnZoneAxispos(NOTIFY_XPOINT,n,
+                                                  MOTOR_REAGNET_INDEX,recvdata[n]);
         }
         delete []recvdata;
 
@@ -2412,7 +2511,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXI_V(const QStringList hexArry)
     }
 
 }
-void loadEquipmentPos::_recvChnoffsetReagpinYI_V(const QStringList hexArry)
+//读取到的坐标 通道 1 - 5的(试剂针Y)
+void loadEquipmentPos::recvChnoffsetReagpinYI_V(const QStringList hexArry)
 {
     if(!m_bReadorWrite)
     {
@@ -2425,7 +2525,6 @@ void loadEquipmentPos::_recvChnoffsetReagpinYI_V(const QStringList hexArry)
             hexstr = hexArry[2 * n + indexbyte + 1] + hexArry[2 * n + indexbyte];
             recvdata[n] = hexstr.toInt(&ok,HEX_SWITCH);
             axisInstance->oper_TestChnZoneAxispos(NOTIFY_YPOINT,n,MOTOR_REAGNET_INDEX,recvdata[n]);
-            QLOG_INFO()<<"通道"<<n+1<<"offset试剂针Y坐标:["<<recvdata[n]<<"]";
         }
         delete []recvdata;
 
@@ -2438,7 +2537,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinYI_V(const QStringList hexArry)
     return;
 }
 
-void loadEquipmentPos::_recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata)
+//读取到的坐标 通道 5 - 10的(试剂针X)
+void loadEquipmentPos::recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
@@ -2450,7 +2550,6 @@ void loadEquipmentPos::_recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata
 			QString hexstr = ArryRecvdata[2 * n + indexbyte + 1] + ArryRecvdata[2 * n + indexbyte];
             recvdata[n] = hexstr.toInt(&ok,HEX_SWITCH);
             axisInstance->oper_TestChnZoneAxispos(NOTIFY_XPOINT,n + 5,MOTOR_REAGNET_INDEX,recvdata[n]);
-            QLOG_INFO()<<"通道offset试剂针"<<n+1<<"x:"<<recvdata[n];
         }
         delete []recvdata;
 
@@ -2464,7 +2563,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata
         _sendWriteAxisOrder(AXIS_CHN6_10_Y);
     }
 }
-void loadEquipmentPos::_recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata)
+//读取到的坐标 通道 5 - 10的(试剂针Y)
+void loadEquipmentPos::recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
@@ -2477,7 +2577,7 @@ void loadEquipmentPos::_recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata
             hexstr = ArryRecvdata[2 * n + indexbyte + 1] + ArryRecvdata[2 * n + indexbyte];
             recvdata[n] = hexstr.toInt(&ok,HEX_SWITCH);
             axisInstance->oper_TestChnZoneAxispos(NOTIFY_YPOINT,n + 5,MOTOR_REAGNET_INDEX,recvdata[n]);
-            QLOG_INFO()<<"通道offset试剂针"<<n+1<<"y:"<<recvdata[n];
+
         }
         delete []recvdata;
 
@@ -2491,16 +2591,19 @@ void loadEquipmentPos::_recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata
     }
 }
 
-void loadEquipmentPos::_recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvdata)
+//读取到的坐标 通道 10 - 11的(试剂针X 索引从0开始) + 通道 0 1 2的 （抓手X）
+void loadEquipmentPos::recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
-        QMap<quint8,quint16> data_;
-        Translation_conversion(ArryRecvdata,data_);
-        SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,10,MOTOR_REAGNET_INDEX,data_[0]);
-        SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,11,MOTOR_REAGNET_INDEX,data_[1]);
-        for(int i = 0 ;i< 3 ;i++)
-            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i,MOTOR_HANDS_INDEX,data_[i+2]);
+        QMap<quint8,quint16> data;
+        Translation_conversion(ArryRecvdata,data);
+        SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,10,MOTOR_REAGNET_INDEX,data[0]);
+        SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,11,MOTOR_REAGNET_INDEX,data[1]);
+
+        for(int i = 0 ;i< 3 ;i++){
+            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i,MOTOR_HANDS_INDEX,data[i+2]);
+        }
 
         completeddel(AXIS_CHN11_12_X);
         GroupReadParaCommder(AXIS_CHN11_12_Y);
@@ -2511,7 +2614,8 @@ void loadEquipmentPos::_recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvda
         _sendWriteAxisOrder(AXIS_CHN11_12_Y);
     }
 }
-void loadEquipmentPos::_recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvdata)
+//读取到的坐标 通道 10 - 11的(试剂针Y 索引从0开始) + 通道 0 1 2的 （抓手Y）
+void loadEquipmentPos::recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
@@ -2520,8 +2624,11 @@ void loadEquipmentPos::_recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvda
 
         SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,10,MOTOR_REAGNET_INDEX,data_[0]);
         SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,11,MOTOR_REAGNET_INDEX,data_[1]);
-        for(int i = 0 ;i< 3 ;i++)
+
+        for(int i = 0 ;i< 3 ;i++){
             SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i,MOTOR_HANDS_INDEX,data_[i+2]);
+
+        }
         completeddel(AXIS_CHN11_12_Y);
         GroupReadParaCommder(AXIS_CHN4_8_HANDSX);
     }
@@ -2532,14 +2639,16 @@ void loadEquipmentPos::_recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvda
     }
 }
 
-void loadEquipmentPos::_recvHandChnVI_IIIV_X(const QStringList ArryRecvdata)
+//读取到的坐标 通道 3-8 (抓手X）
+void loadEquipmentPos::recvHandChnVI_IIIV_X(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
-        QMap<quint8,quint16> data_;
-        Translation_conversion(ArryRecvdata,data_);
-        for(int i = 0 ;i< 5 ; i++)
-            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i+3,MOTOR_HANDS_INDEX,data_[i]);
+        QMap<quint8,quint16> data;
+        Translation_conversion(ArryRecvdata,data);
+        for(int i = 0 ;i< 5 ; i++){
+            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i+3,MOTOR_HANDS_INDEX,data[i]);
+        }
         completeddel(AXIS_CHN4_8_HANDSX);
         GroupReadParaCommder(AXIS_CHN4_8_HANDSY);
     }
@@ -2548,16 +2657,18 @@ void loadEquipmentPos::_recvHandChnVI_IIIV_X(const QStringList ArryRecvdata)
         _writeFinish(AXIS_CHN4_8_HANDSX);
         _sendWriteAxisOrder(AXIS_CHN4_8_HANDSY);
     }
-
 }
-void loadEquipmentPos::_recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata)
+
+//读取到的坐标 通道 3-8 (抓手Y）
+void loadEquipmentPos::recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
-        QMap<quint8,quint16> data_;
-        Translation_conversion(ArryRecvdata,data_);
-        for(int i = 0 ;i< 5 ; i++)
-            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i+3,MOTOR_HANDS_INDEX,data_[i]);
+        QMap<quint8,quint16> data;
+        Translation_conversion(ArryRecvdata,data);
+        for(int i = 0 ;i< 5 ; i++){
+            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i+3,MOTOR_HANDS_INDEX,data[i]);
+        }
         completeddel(AXIS_CHN4_8_HANDSY);
         GroupReadParaCommder(AXIS_CHN9_12_HANDSX);
     }
@@ -2568,16 +2679,24 @@ void loadEquipmentPos::_recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata)
     }
 }
 
-void loadEquipmentPos::_recvHandsChnX_XIII_X(const QStringList ArryRecvdata)
+
+//读取到的坐标 通道 8-12 （抓手X) 和 血样本区的坐标x
+void loadEquipmentPos::recvHandsChnX_XIII_X(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
-        QMap<quint8,quint16> data_;
-        Translation_conversion(ArryRecvdata,data_);
-        for(int i = 0 ;i< 4 ; i++) //8 -12通道
-            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i+8,MOTOR_HANDS_INDEX,data_[i]);
-        SingletonAxis::GetInstance()->oper_bloodSampleZonePos(NOTIFY_XPOINT,0,data_[4]);
-        //QLOG_DEBUG()<<"读取到血样区坐标x:"<<data_[4];
+        QMap<quint8,quint16> data;
+        Translation_conversion(ArryRecvdata,data);
+        for(int i = 0 ;i< 4 ; i++){
+            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_XPOINT,i + 8,
+                                                                  MOTOR_HANDS_INDEX,data[i]);
+
+        }
+
+        SingletonAxis::GetInstance()->oper_bloodSampleZonePos(NOTIFY_XPOINT, 0, data[4]);
+
+
+
         completeddel(AXIS_CHN9_12_HANDSX);
         GroupReadParaCommder(AXIS_CHN9_12_HANDSY);
     }
@@ -2587,16 +2706,19 @@ void loadEquipmentPos::_recvHandsChnX_XIII_X(const QStringList ArryRecvdata)
         _sendWriteAxisOrder(AXIS_CHN9_12_HANDSY);
     }
 }
-void loadEquipmentPos::_recvHandsChnX_XIII_Y(const QStringList ArryRecvdata)
+
+//读取到的坐标 通道 8-12 （抓手y) 和 血样本区的坐标y
+void loadEquipmentPos::recvHandsChnX_XIII_Y(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
-        QMap<quint8,quint16> data_;
-        Translation_conversion(ArryRecvdata,data_);
-        for(int i = 0 ;i< 4 ; i++)
-            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i+8,MOTOR_HANDS_INDEX,data_[i]);
-        SingletonAxis::GetInstance()->oper_bloodSampleZonePos(NOTIFY_YPOINT,0,data_[4]);
-        //QLOG_DEBUG()<<"读取到血样区坐标y:"<<data_[4];
+        QMap<quint8,quint16> data;
+        Translation_conversion(ArryRecvdata,data);
+        for(int i = 0 ;i< 4 ; i++){
+            SingletonAxis::GetInstance()->oper_TestChnZoneAxispos(NOTIFY_YPOINT,i + 8,
+                                                                  MOTOR_HANDS_INDEX,data[i]);
+        }
+        SingletonAxis::GetInstance()->oper_bloodSampleZonePos(NOTIFY_YPOINT,0,data[4]);
 
 
         //生成血样区其它坐标
@@ -2612,10 +2734,8 @@ void loadEquipmentPos::_recvHandsChnX_XIII_Y(const QStringList ArryRecvdata)
            quint8 holeIndex = iter.key();
            QPoint holeAxis = iter.value();
            SingletonAxis::GetInstance()->bloodSampleZonePos(WRITE_OPERAT,holeIndex,holeAxis);
-            //QLOG_DEBUG()<<"生成所有血样孔坐标n=:"<<holeIndex<<"pos="<<holeAxis;
            iter++;
         }
-        //QLOG_DEBUG()<<"生成所有血样孔坐标完成类型:"<<equipmenttype<<endl;
 
         completeddel(AXIS_CHN9_12_HANDSY);
         GroupReadParaCommder(AXIS_TRAY_OFFSET_BLOODPINX);
@@ -2627,15 +2747,20 @@ void loadEquipmentPos::_recvHandsChnX_XIII_Y(const QStringList ArryRecvdata)
     }
 }
 
-void loadEquipmentPos::_recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvdata)
+//试管盘1-4 样本针X 和 使馆盘抓手X
+void loadEquipmentPos::recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
-        QMap<quint8,quint16> data_;
-        Translation_conversion(ArryRecvdata,data_);
+        QMap<quint8,quint16> data;
+        Translation_conversion(ArryRecvdata,data);
         for(int i = 0 ;i< 4 ; i++)
-            SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,i+(i*59),MOTOR_BLOOD_INDEX,data_[i]);
-        SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,0,MOTOR_HANDS_INDEX,data_[4]);
+        {
+            SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,i + (i * 59),
+                                                               MOTOR_BLOOD_INDEX,data[i]);
+        }
+
+        SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_XPOINT,0,MOTOR_HANDS_INDEX,data[4]);
 
         completeddel(AXIS_TRAY_OFFSET_BLOODPINX);
         GroupReadParaCommder(AXIS_TRAY_OFFSET_BLOODPINY);
@@ -2646,7 +2771,8 @@ void loadEquipmentPos::_recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvd
         _sendWriteAxisOrder(AXIS_TRAY_OFFSET_BLOODPINY);
     }
 }
-void loadEquipmentPos::_recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvdata)
+
+void loadEquipmentPos::recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
@@ -2656,7 +2782,7 @@ void loadEquipmentPos::_recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvd
             SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_YPOINT,i+(i*59),MOTOR_BLOOD_INDEX,data_[i]);
         SingletonAxis::GetInstance()->oper_TestTrayZonaPos(NOTIFY_YPOINT,0,MOTOR_HANDS_INDEX,data_[4]);
 
-        //读取生成血样针offset试管盘坐标
+        //读取生成样本针offset试管盘坐标
         uint spaceTube = 150;
         int numtray = 0;
         quint8 equipmenttype = 0;
@@ -2679,12 +2805,12 @@ void loadEquipmentPos::_recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvd
                     tsetTubehole.setX(trayholeAxis.x() + L*spaceTube);
                     tsetTubehole.setY(trayholeAxis.y() + R*spaceTube);
                     SingletonAxis::GetInstance()->testTaryZoneAxisPos(WRITE_OPERAT, keyhole, MOTOR_BLOOD_INDEX, tsetTubehole);
-                    //QLOG_DEBUG() << "血样针offset试管盘" << keyhole << "坐标=" << tsetTubehole;
+                    //QLOG_DEBUG() << "样本针offset试管盘" << keyhole << "坐标=" << tsetTubehole;
                     keyhole++;
                 }
             }
         }
-        QLOG_DEBUG()<<"读取生成试管区血样针完成";
+        QLOG_DEBUG()<<"读取生成试管区样本针完成";
 
         completeddel(AXIS_TRAY_OFFSET_BLOODPINY);
         GroupReadParaCommder(AXIS_TRAY_OFFSET_HANDSX);
@@ -2696,7 +2822,7 @@ void loadEquipmentPos::_recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvd
     }
 }
 
-void  loadEquipmentPos::_recvTraytubeoffsetHands_x(const QStringList ArryRecvdata)
+void  loadEquipmentPos::recvTraytubeoffsetHands_x(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
@@ -2715,7 +2841,7 @@ void  loadEquipmentPos::_recvTraytubeoffsetHands_x(const QStringList ArryRecvdat
     }
 }
 
-void  loadEquipmentPos::_recvTraytubeoffsetHands_y(const QStringList ArryRecvdata)
+void  loadEquipmentPos::recvTraytubeoffsetHands_y(const QStringList ArryRecvdata)
 {
     if(!m_bReadorWrite)
     {
@@ -2753,7 +2879,7 @@ void  loadEquipmentPos::_recvTraytubeoffsetHands_y(const QStringList ArryRecvdat
             }
         }
 
-        QLOG_DEBUG()<<"读取生成试管区血样针完成 nexstep 读AA";
+        QLOG_DEBUG()<<"读取生成试管区样本针完成 nexstep 读AA";
 
         completeddel(AXIS_TRAY_OFFSET_HANDSY);
         GroupReadParaCommder(BLOODPINPARAOTHERDATA);
@@ -2773,7 +2899,7 @@ void loadEquipmentPos::recvBloodOtherdataAll(const QStringList hexArry)
 
         bool ok;
         QString hexstr;
-        hexstr = hexArry[5]; //血样针下降高度
+        hexstr = hexArry[5]; //样本针下降高度
         quint8 bloodNeedleDownHeigh = hexstr.toUInt(&ok,HEX_SWITCH);
         ini.SetEmptyTubeDownHigh(bloodNeedleDownHeigh);
 
@@ -3052,24 +3178,22 @@ void loadEquipmentPos::recveModuleDataPressure(const QStringList& hexArry){
     }
 }
 
+
+
+
+
 /////////////////////////////写坐标参数--start////////////////////////////////////
-void loadEquipmentPos::writeEquipmenttyped(const quint8 &index_,bool _ExitParaFile,QString _ParaPath)
+void loadEquipmentPos::onconfiguredModel(const quint8 &index, bool bParaFile, QString bparaPath)
 {
-	quint8 indexEquip = index_;
-    SingletonAxis::GetInstance()->equipmentKind(WRITE_OPERAT, indexEquip);
+    // 1. 设置设备类型
+	quint8 kindType = index;
+    SingletonAxis::GetInstance()->equipmentKind(WRITE_OPERAT, kindType);
 
-    initOriginAxis(index_);
-    initCleanLinqueoffsetBloodPin(index_);
-    initCleanLinqueoffsetReagentPin(index_);
-    initReagentHoleAxis(index_);
-    initThrowCupsAxis(index_);
-    initReagentPinOffsetChn(index_);
-    initHandsoffsetChn(index_);
-    initBloodZoneAxisPos(index_);
-    initTrayTubeOffsetHands(index_);
-    initTrayTubeOffsetBloodPin(index_);
+    // 2. 初始化所有坐标参数 创建写入校验坐标
+    initializeAllCoordinates(index);
+    QLOG_DEBUG() << "默认初始坐标写入内存完成" << __FILE__ << __LINE__;
 
-    QLOG_DEBUG()<<"默认初始坐标写入内存完成"<<__FILE__<<__LINE__<<endl;
+
 
     _obatinwriteOrder();
 
@@ -3077,13 +3201,13 @@ void loadEquipmentPos::writeEquipmenttyped(const quint8 &index_,bool _ExitParaFi
     initOrderNumI();
 
     //写抓手参数信息 0x02
-	initWriteHandsParaII(_ExitParaFile,_ParaPath);
+    initWriteHandsParaII(bParaFile,bparaPath);
 
-    //0x04 写血样针参数
-    _initwriteBloodPinParaX(_ExitParaFile,_ParaPath);
+    //0x04 写样本针参数
+    _initwriteBloodPinParaX(bParaFile,bparaPath);
 
-    //0x16 写血样针其它参数
-    _initwriteBloodpinotherPara(_ExitParaFile,_ParaPath);
+    //0x16 写样本针其它参数
+    _initwriteBloodpinotherPara(bParaFile,bparaPath);
 
     //写试剂针参数0x17 - 0x18 -0x19
     initwritereagentParaDataI();
@@ -3091,14 +3215,125 @@ void loadEquipmentPos::writeEquipmenttyped(const quint8 &index_,bool _ExitParaFi
     //初始化写主板试剂信息到仪器
     initwriteMainReagNum();
 
-    emit this->progresstotal(m_axiswriteequipment.size());//写入总条数
+    //写入总条数
+    Q_EMIT progresstotal(m_axiswriteequipment.size());
     QLOG_DEBUG() <<"写配置条数"<< m_axiswriteequipment.size()<<endl;
 
-	QByteArray writedata_;
-	QUIUtils::WriteEquipmentType(index_, EQUIPMENT_TYPED, writedata_);
-    handlewritedataToEquip(writedata_);
+    QByteArray writedata;
+    QUIUtils::WriteEquipmentType(index, EQUIPMENT_TYPED, writedata);
+    handlewritedataToEquip(writedata);
     return;
 }
+
+
+void loadEquipmentPos::initializeAllCoordinates(quint8 index){
+
+    // 原点坐标
+    QPoint originAxis = initOriginAxis(index);
+    // 清洗位置偏移
+    QPoint cleanZoneBloodPin = initCleanLinqueoffsetBloodPin(index);
+    QPoint cleanZoneReagentPin = initCleanLinqueoffsetReagentPin(index);
+    // 孔位坐标
+    QPoint reagentHoleAxis = initReagentHoleAxis(index);
+    QPoint throwCupsAxis = initThrowCupsAxis(index);
+    QPoint bloodZoneAxis = initBloodZoneAxisPos(index);
+    // 通道移量
+    QMap<quint8, QPoint> reagentPinOffsetChn = initReagentPinOffsetChn(index);
+    QMap<quint8, QPoint> handsOffsetChn = initHandsoffsetChn(index);
+    // 试管盘偏移
+    QMap<quint8, QPoint> trayTubeOffsetHands = initTrayTubeOffsetHands(index);
+    QMap<quint8, QPoint> trayTubeOffsetBloodPin = initTrayTubeOffsetBloodPin(index);
+
+    //coordinateVerification 坐标校验
+    saveCoordinateVerification(index, originAxis, cleanZoneBloodPin, cleanZoneReagentPin,
+                                reagentHoleAxis, throwCupsAxis, bloodZoneAxis,
+                                reagentPinOffsetChn, handsOffsetChn,
+                                trayTubeOffsetHands, trayTubeOffsetBloodPin);
+}
+
+bool loadEquipmentPos::saveCoordinateVerification(quint8 equipmentType,
+                                                 const QPoint& originAxis,
+                                                 const QPoint& cleanZoneBloodPin,
+                                                 const QPoint& cleanZoneReagentPin,
+                                                 const QPoint& reagentHoleAxis,
+                                                 const QPoint& throwCupsAxis,
+                                                 const QPoint& bloodZoneAxis,
+                                                 const QMap<quint8, QPoint>& reagentPinOffsetChn,
+                                                 const QMap<quint8, QPoint>& handsOffsetChn,
+                                                 const QMap<quint8, QPoint>& trayTubeOffsetHands,
+                                                 const QMap<quint8, QPoint>& trayTubeOffsetBloodPin)
+{
+    QString equipmentName;
+    switch (equipmentType) {
+        case KS600: equipmentName = "KS600"; break;
+        case KS800: equipmentName = "KS800"; break;
+        case KS1200: equipmentName = "KS1200"; break;
+        default: equipmentName = "Unknown"; break;
+    }
+
+    QString configDir = QCoreApplication::applicationDirPath();
+    QDir dir;
+    if (!dir.exists(configDir)) {
+        dir.mkpath(configDir);
+    }
+
+    QString fileName = QString("%1coordinateVerification.txt")
+        .arg(equipmentName);
+
+    QString filePath = configDir + "/" + fileName;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QLOG_ERROR() << "无法打开文件:" << filePath;
+        return false;
+    }
+
+    QTextStream out(&file);
+    out.setCodec("UTF-8");
+
+    out << "# Coordinate Initialization Verification\n";
+    out << "# Equipment Type: " << equipmentName << "\n";
+    out << "# Generated: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n\n";
+
+    out << "# === Basic Coordinates ===\n";
+    out << "OriginAxis=" << originAxis.x() << "," << originAxis.y() << "\n";
+    out << "CleanZone(Blood)=" << cleanZoneBloodPin.x() << "," << cleanZoneBloodPin.y() << "\n";
+    out << "CleanZone(Reagent)=" << cleanZoneReagentPin.x() << "," << cleanZoneReagentPin.y() << "\n";
+    out << "ReagentHole=" << reagentHoleAxis.x() << "," << reagentHoleAxis.y() << "\n";
+    out << "ThrowCups=" << throwCupsAxis.x() << "," << throwCupsAxis.y() << "\n";
+    out << "BloodZone=" << bloodZoneAxis.x() << "," << bloodZoneAxis.y() << "\n\n";
+
+    out << "# === Reagent Pin Offset Channel ===\n";
+    for (auto it = reagentPinOffsetChn.constBegin(); it != reagentPinOffsetChn.constEnd(); ++it) {
+        out << "ReagentChn_" << it.key() << "=" << it.value().x() << "," << it.value().y() << "\n";
+    }
+    out << "\n";
+
+    out << "# === Hands Offset Channel ===\n";
+    for (auto it = handsOffsetChn.constBegin(); it != handsOffsetChn.constEnd(); ++it) {
+        out << "HandsChn_" << it.key() << "=" << it.value().x() << "," << it.value().y() << "\n";
+    }
+    out << "\n";
+
+    out << "# === Tray Tube Offset (Hands) ===\n";
+    for (auto it = trayTubeOffsetHands.constBegin(); it != trayTubeOffsetHands.constEnd(); ++it) {
+        out << "TrayHands_" << it.key() << "=" << it.value().x() << "," << it.value().y() << "\n";
+    }
+    out << "\n";
+
+    out << "# === Tray Tube Offset (BloodPin) ===\n";
+    for (auto it = trayTubeOffsetBloodPin.constBegin(); it != trayTubeOffsetBloodPin.constEnd(); ++it) {
+        out << "TrayBloodPin_" << it.key() << "=" << it.value().x() << "," << it.value().y() << "\n";
+    }
+
+    file.close();
+
+    QLOG_INFO() << "坐标校验文件已保存:" << filePath;
+    return true;
+}
+
+
+
 
 void loadEquipmentPos::_obatinwriteOrder()
 {
@@ -3122,20 +3357,10 @@ void loadEquipmentPos::_obatinwriteOrder()
 
 void loadEquipmentPos::configAxisPoint(QPoint &input,uint x_,uint y_)
 {
-    input.setX(x_);
-    input.setY(y_);
+    input = QPoint(static_cast<int>(x_), static_cast<int>(y_));
 }
-void loadEquipmentPos::LoadCoordinateData(QString filePath, QString keydata_x, QString keydata_y, QPoint& outdata)
-{
-    QSettings *configIniWrite = new QSettings(filePath, QSettings::IniFormat);
-    configIniWrite->setIniCodec("UTF8");
-    quint16 AxisPos_x = configIniWrite->value(keydata_x).toInt();
-    quint16 AxisPos_y = configIniWrite->value(keydata_y).toInt();
-    outdata.setX( AxisPos_x);
-    outdata.setY(AxisPos_y );
-    delete configIniWrite;
-    return;
-}
+
+
 
 void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key ,quint8& outdata)
 {
@@ -3148,6 +3373,7 @@ void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key
     delete configIniWrite;
     return;
 }
+
 void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key ,quint16& outdata)
 {
     QSettings *configIniWrite = new QSettings(filePath, QSettings::IniFormat);
@@ -3159,6 +3385,8 @@ void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key
     delete configIniWrite;
     return;
 }
+
+
 void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key ,bool& outdata)
 {
     QSettings *configIniWrite = new QSettings(filePath, QSettings::IniFormat);
@@ -3170,6 +3398,7 @@ void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key
     delete configIniWrite;
     return;
 }
+
 void loadEquipmentPos::loadParaData(bool _bexit, QString filePath,  QString _key ,double& outdata)
 {
     QSettings *configIniWrite = new QSettings(filePath, QSettings::IniFormat);
@@ -3206,292 +3435,378 @@ void loadEquipmentPos::loadParaData(bool isexit, QString filePath, QString key, 
 
 QPoint loadEquipmentPos::initOriginAxis(const quint8 &indexEquipment)
 {
-     QPoint originAxis(0,0); //原点坐标
-     int originx = 0,originy = 0;
-     switch (indexEquipment) {
-         case KS600:
-             originx = 122;
-             originy = 101;
-         break;
-         case KS800:
-             originx = 122;
-             originy = 101;
-         break;
-         case KS1200:
-            originx = 101;
-            originy = 106;
-         break;
-         default:
-             break;
-     }
-     configAxisPoint(originAxis, originx, originy);
-     SingletonAxis::GetInstance()->originPos(WRITE_OPERAT, originAxis);
-     return originAxis;
+    // 使用静态映射表
+    static const std::unordered_map<quint8, std::pair<int, int>> originMap = {
+        {KS600,  {122, 101}},
+        {KS800,  {122, 101}},
+        {KS1200, {101, 106}}
+    };
+
+    // 查找并获取坐标，默认(0,0)
+    auto it = originMap.find(indexEquipment);
+    int originX = 0, originY = 0;
+    if (it != originMap.end()) {
+        originX = it->second.first;
+        originY = it->second.second;
+    }
+
+    QPoint originAxis(originX, originY);
+    configAxisPoint(originAxis, originX, originY);
+    SingletonAxis::GetInstance()->originPos(WRITE_OPERAT, originAxis);
+    return originAxis;
 }
 
+
+
+//清洗液offset样本针
 QPoint loadEquipmentPos::initCleanLinqueoffsetBloodPin(const quint8 &indexEquipment)
 {
-    QPoint cleanZoneoffsetBloodPin(0,0);//清洗液offset血样针
-    switch(indexEquipment) {
-        case KS600:  configAxisPoint(cleanZoneoffsetBloodPin,250,634);  break;
-        case KS800:  configAxisPoint(cleanZoneoffsetBloodPin,250,634);  break;
-        case KS1200: configAxisPoint(cleanZoneoffsetBloodPin,230,634);  break;
-        default:break;
-    }
-    SingletonAxis::GetInstance()->cleanZoneAxisPos(WRITE_OPERAT,MOTOR_BLOOD_INDEX,cleanZoneoffsetBloodPin);
-    return cleanZoneoffsetBloodPin;
+    static const std::unordered_map<quint8, std::pair<int, int>> CONFIGS = {
+        {KS600, {250, 634}},
+        {KS800, {250, 634}},
+        {KS1200, {230, 634}}
+    };
+
+    auto it = CONFIGS.find(indexEquipment);
+    QPoint cleanZoneoffsetBloodPin(0, 0);
+
+    if (it != CONFIGS.end()) {
+           configAxisPoint(cleanZoneoffsetBloodPin, it->second.first, it->second.second);
+   } else {
+       QLOG_WARN() << "Unknown equipment type:" << indexEquipment;
+   }
+
+   SingletonAxis::GetInstance()->cleanZoneAxisPos(WRITE_OPERAT, MOTOR_BLOOD_INDEX, cleanZoneoffsetBloodPin);
+   return cleanZoneoffsetBloodPin;
 }
 
+
+//清洗液offset试剂针
 QPoint loadEquipmentPos::initCleanLinqueoffsetReagentPin(const quint8 &indexEquipment)
 {
-    QPoint cleanZoneoffsetKttsPin(0,0);//清洗液offset试剂针
-    switch(indexEquipment)
-    {
-        case KS600:  configAxisPoint(cleanZoneoffsetKttsPin,250,850);  break;
-        case KS800:  configAxisPoint(cleanZoneoffsetKttsPin,250,850);  break;
-        case KS1200: configAxisPoint(cleanZoneoffsetKttsPin,230,850);  break;
-        default:break;
+    static const std::unordered_map<quint8, std::pair<int, int>> CONFIGS = {
+        {KS600, {250, 850}},
+        {KS800, {250, 850}},
+        {KS1200, {230, 850}}
+    };
+
+    auto it = CONFIGS.find(indexEquipment);
+    QPoint cleanZoneoffsetKttsPin(0, 0);
+
+    if (it != CONFIGS.end()) {
+           configAxisPoint(cleanZoneoffsetKttsPin, it->second.first, it->second.second);
+    } else {
+       QLOG_WARN() << "Unknown equipment type:" << indexEquipment;
     }
+
     SingletonAxis::GetInstance()->cleanZoneAxisPos(WRITE_OPERAT,MOTOR_REAGNET_INDEX,cleanZoneoffsetKttsPin);
     return cleanZoneoffsetKttsPin;
 }
 
+
+//初始化弃杯孔坐标
 QPoint loadEquipmentPos::initThrowCupsAxis(const quint8 &indexEquipment)
 {
-    QPoint throwsTubePos(0,0);
-    switch(indexEquipment)
-    {
-        case KS600:  configAxisPoint(throwsTubePos,5270,330);  break;
-        case KS800:  configAxisPoint(throwsTubePos,5270,330);  break;
-        case KS1200: configAxisPoint(throwsTubePos,5245,335);  break;
-        default:break;
+    static const std::unordered_map<quint8, std::pair<int, int>> CONFIGS = {
+        {KS600, {5270, 330}},
+        {KS800, {5270, 330}},
+        {KS1200, {5245, 335}}
+    };
+
+    auto it = CONFIGS.find(indexEquipment);
+    QPoint throwHoleAxis(0, 0);
+
+    if (it != CONFIGS.end()) {
+           configAxisPoint(throwHoleAxis, it->second.first, it->second.second);
+    } else {
+       QLOG_WARN() << "Unknown equipment type (configAxisPoint):" << indexEquipment;
     }
-    SingletonAxis::GetInstance()->throwTubeHolePos(WRITE_OPERAT,throwsTubePos);
-    return throwsTubePos;
+    SingletonAxis::GetInstance()->throwTubeHolePos(WRITE_OPERAT,throwHoleAxis);
+    return throwHoleAxis;
 }
 
+//初始试剂区坐标
 QPoint loadEquipmentPos::initReagentHoleAxis(const quint8 &indexEquipment)
 {
-    QMap<quint8,QPoint> ReagentZoneOffsetKitsPin;//试剂区到试剂针坐标
-    ReagentZoneOffsetKitsPin.clear();
-    QPoint firstReagentZone(0,0);
-    switch(indexEquipment)
-    {
-        case KS600:  configAxisPoint(firstReagentZone,125,1355);  break;
-        case KS800:  configAxisPoint(firstReagentZone,125,1355);  break;
-        case KS1200: configAxisPoint(firstReagentZone,105,1365);  break;
-        default:break;
-    }
-    QUIUtils::CreatReagArsOtherAxis(firstReagentZone,ReagentZoneOffsetKitsPin);
-    auto itmap = ReagentZoneOffsetKitsPin.begin();
-    while(itmap != ReagentZoneOffsetKitsPin.end())
-    {
-        SingletonAxis::GetInstance()->reagetZoneAxisPos(WRITE_OPERAT,itmap.key(),itmap.value());
-        itmap++;
-    }
-    return firstReagentZone;
+    // 1. 直接初始化firstReagentZone，避免默认构造后再赋值
+   QPoint firstReagentZone = [indexEquipment]() {
+       switch(indexEquipment)
+       {
+           case KS600:  return QPoint(125, 1355);
+           case KS800:  return QPoint(125, 1355);
+           case KS1200: return QPoint(105, 1365);
+           default:     return QPoint(0, 0);
+       }
+   }();
+
+   // 2. 使用范围for循环，更简洁
+   QMap<quint8, QPoint> reagentZoneOffsetKitsPin;
+   QUIUtils::CreatReagArsOtherAxis(firstReagentZone, reagentZoneOffsetKitsPin);
+
+   for (auto it = reagentZoneOffsetKitsPin.constBegin();
+   it != reagentZoneOffsetKitsPin.constEnd();
+	   ++it) {
+	   QPoint pos = it.value();
+	   SingletonAxis::GetInstance()->reagetZoneAxisPos(WRITE_OPERAT, it.key(), pos);
+   }
+
+   return firstReagentZone;
 }
 
-void loadEquipmentPos::initHandsoffsetChn(const quint8 &indexEquipment)
+
+//初始化通道offset抓手
+QMap<quint8, QPoint> loadEquipmentPos::initHandsoffsetChn(const quint8 &indexEquipment)
 {
-    QMap<quint8,QPoint> chnoffsetHands;
-    chnoffsetHands.clear();
-    QPoint firstHoleAxis(0,0);
-    QPoint otherChnAxispos(0,0);
-    const int chnnum = (indexEquipment + 1) * 4;
-    switch(indexEquipment)
-    {
-        case KS600:  configAxisPoint(firstHoleAxis,2313,332);  break;
-        case KS800:  configAxisPoint(firstHoleAxis,885,338);  break;
-        case KS1200: configAxisPoint(firstHoleAxis,885,338);  break;
-        default:break;
-    }
+    QMap<quint8,QPoint> chnOffsetHands;
 
-    for(int n = 0 ; n < chnnum; n++)
-    {
-        otherChnAxispos.setX(firstHoleAxis.x() + n*350);
-        otherChnAxispos.setY(firstHoleAxis.y());
-        chnoffsetHands.insert(n,otherChnAxispos);
-    }
+    // 1. 确定起始点坐标
+   const QPoint firstHoleAxis = [indexEquipment]() -> QPoint {
+       switch(indexEquipment)
+       {
+           case KS600:  return QPoint(2313, 332);
+           case KS800:  return QPoint(885, 338);
+           case KS1200: return QPoint(885, 338);
+           default:     return QPoint(0, 0);
+       }
+   }();
 
+   // 2. 计算通道数量
+   const int chnNum = (indexEquipment + 1) * 4;
 
-    auto itmap = chnoffsetHands.begin();
-    while(itmap != chnoffsetHands.end())
-    {
-        SingletonAxis::GetInstance()->chnZoneAxisPos(WRITE_OPERAT,itmap.key(),MOTOR_HANDS_INDEX,itmap.value());
-        itmap++;
-    }
-    return;
+   // 3. 生成所有通道坐标
+   for (int n = 0; n < chnNum; ++n)
+   {
+       const QPoint channelPos(firstHoleAxis.x() + n * 350, firstHoleAxis.y());
+       chnOffsetHands.insert(n, channelPos);
+   }
+
+   // 4. 设置轴位置
+   if (!chnOffsetHands.isEmpty())
+   {
+      auto* axisInstance = SingletonAxis::GetInstance();
+      for (auto it = chnOffsetHands.constBegin(); it != chnOffsetHands.constEnd(); ++it)
+      {
+		  QPoint pos = it.value();
+          axisInstance->chnZoneAxisPos(WRITE_OPERAT, it.key(), MOTOR_HANDS_INDEX, pos);
+      }
+   }
+
+   return chnOffsetHands;
 }
 
-void loadEquipmentPos::initReagentPinOffsetChn(const quint8 &indexEquipment)
+//初始化通道offset试剂针
+QMap<quint8, QPoint> loadEquipmentPos::initReagentPinOffsetChn(const quint8 &indexEquipment)
 {
-    QMap<quint8,QPoint> chnoffsetReagentPin;
-    chnoffsetReagentPin.clear();
-    QPoint firstHoleAxis(0,0);
-    QPoint otherChnAxispos(0,0);
-    const int chnnum = (indexEquipment + 1) * 4;
+   QMap<quint8, QPoint> chnOffsetReagentPin;
+    // 1. 确定起始点坐标
+   const QPoint firstHoleAxis = [indexEquipment]() -> QPoint {
+       switch(indexEquipment)
+       {
+           case KS600:  return QPoint(2309, 100);
+           case KS800:  return QPoint(2309, 100);
+           case KS1200: return QPoint(885, 100);
+           default:     return QPoint(0, 0);
+       }
+   }();
 
-    switch(indexEquipment)
-    {
-        case KS600:  configAxisPoint(firstHoleAxis,2309,100);  break;
-        case KS800:  configAxisPoint(firstHoleAxis,2309,100);  break;
-        case KS1200: configAxisPoint(firstHoleAxis,885,100);  break;
-        default:break;
-    }
+   // 2. 计算通道数量
+   const int chnNum = (indexEquipment + 1) * 4;
 
-    for(int n = 0 ; n < chnnum; n++)
-    {
-        otherChnAxispos.setX(firstHoleAxis.x() + n*350);
-        otherChnAxispos.setY(firstHoleAxis.y());
-        chnoffsetReagentPin.insert(n,otherChnAxispos);
-    }
+   // 3. 生成所有通道坐标并设置轴位置
+   auto* axisInstance = SingletonAxis::GetInstance();
 
-    auto itmap = chnoffsetReagentPin.begin();
-    while(itmap != chnoffsetReagentPin.end())
-    {
-        SingletonAxis::GetInstance()->chnZoneAxisPos(WRITE_OPERAT,itmap.key(),MOTOR_REAGNET_INDEX,itmap.value());
-        itmap++;
-    }
-    return;
+   for (int n = 0; n < chnNum; ++n)
+   {
+       // 直接构造QPoint，避免先默认构造再赋值
+       const QPoint channelPos(firstHoleAxis.x() + n * 350, firstHoleAxis.y());
+       chnOffsetReagentPin.insert(n, channelPos);
+
+       // 传递副本（因为函数参数是非const引用）
+       QPoint pos = channelPos;
+       axisInstance->chnZoneAxisPos(WRITE_OPERAT, n, MOTOR_REAGNET_INDEX, pos);
+   }
+
+   return chnOffsetReagentPin;
 }
 
-void loadEquipmentPos::initBloodZoneAxisPos(const quint8 &indexEquipment)
+
+//初始化血样区坐标
+QPoint loadEquipmentPos::initBloodZoneAxisPos(const quint8 &indexEquipment)
 {
-    QMap<quint8,QPoint> BloodZoneAxis;
-    BloodZoneAxis.clear();
-    QPoint firstBloodZone(0,0);
+    // 1. 定义设备配置结构体
+    struct EquipmentConfig {
+        QPoint firstPos;
+        int equipType;
+    };
 
-    switch(indexEquipment)
-    {
-        case KS600:
-            configAxisPoint(firstBloodZone,1600,2500);
-            QUIUtils::creatBloodSampleAxis(KS600, firstBloodZone,BloodZoneAxis);
-        break;
-        case KS800:
-            configAxisPoint(firstBloodZone,893,2483);
-            QUIUtils::creatBloodSampleAxis(KS800, firstBloodZone,BloodZoneAxis);
-        break;
-        case KS1200:
-            configAxisPoint(firstBloodZone,880,2500);
-            QUIUtils::creatBloodSampleAxis(KS1200, firstBloodZone,BloodZoneAxis);
-        break;
-        default:break;
+    // 2. 使用查找表
+    static const QMap<quint8, EquipmentConfig> configs = {
+        {KS600,  {QPoint(1600, 2500), KS600}},
+        {KS800,  {QPoint(893, 2483),  KS800}},
+        {KS1200, {QPoint(880, 2500),  KS1200}}
+    };
+
+    // 3. 查找配置
+    auto it = configs.find(indexEquipment);
+    if (it == configs.end()) {
+        QLOG_WARN() << "Unknown equipment type for blood zone:" << indexEquipment;
+        return QPoint(0, 0);
     }
-    auto itmap = BloodZoneAxis.begin();
-    while(itmap != BloodZoneAxis.end())
+
+    const QPoint& firstBloodZone = it->firstPos;
+    const int equipType = it->equipType;
+
+    // 4. 生成血样区坐标
+    QMap<quint8, QPoint> bloodZoneAxis;
+    QUIUtils::creatBloodSampleAxis(equipType, firstBloodZone, bloodZoneAxis);
+
+    // 5. 设置轴位置
+    if (!bloodZoneAxis.isEmpty())
     {
-        SingletonAxis::GetInstance()->bloodSampleZonePos(WRITE_OPERAT,itmap.key(),itmap.value());
-        itmap++;
+        auto* axisInstance = SingletonAxis::GetInstance();
+        for (auto itMap = bloodZoneAxis.constBegin(); itMap != bloodZoneAxis.constEnd(); ++itMap)
+        {
+            // 传递副本（如果bloodSampleZonePos参数是非const引用）
+            QPoint pos = itMap.value();
+            axisInstance->bloodSampleZonePos(WRITE_OPERAT, itMap.key(), pos);
+        }
     }
-    return;
+
+    return firstBloodZone;
 }
 
-void loadEquipmentPos::initTrayTubeOffsetHands(const quint8 &indexEquipment)
+
+QMap<quint8,QPoint> loadEquipmentPos::initTrayTubeOffsetHands(const quint8 &indexEquipment)
 {
-    QPoint firstAxispos[4]{};
-    int traynum = 0;
-    switch(indexEquipment)
-    {
-        case KS600:  traynum = 2; break;
-        case KS800:  traynum = 3; break;
-        case KS1200: traynum = 4; break;
-        default: break;
-    }
+    // 1. 设备配置结构体
+    struct EquipmentConfig {
+        int trayNum;                    // 托盘数量
+        std::vector<QPoint> firstPos;   // 每个托盘的起始坐标
+    };
 
-    switch(indexEquipment)
-    {
-        case KS600:
+    // 2. 使用查找表配置不同设备
+   static const QMap<quint8, EquipmentConfig> configs = {
+       {KS600,  {2, {QPoint(1545, 952), QPoint(3152, 952)}}},
+       {KS800,  {3, {QPoint(895, 1059), QPoint(2097, 1057), QPoint(3293, 1055)}}},
+       {KS1200, {4, {QPoint(880, 958), QPoint(2083, 956), QPoint(3284, 956), QPoint(4489, 954)}}}
+   };
 
-            configAxisPoint(firstAxispos[0],1545,952);
-            configAxisPoint(firstAxispos[1],3152,952);
-        break;
-        case KS800:
-            configAxisPoint(firstAxispos[0],895,1059);
-            configAxisPoint(firstAxispos[1],2097,1057);
-            configAxisPoint(firstAxispos[2],3293,1055);
-        break;
-        case KS1200:
-            configAxisPoint(firstAxispos[0],880,958);
-            configAxisPoint(firstAxispos[1],2083,956);
-            configAxisPoint(firstAxispos[2],3284,956);
-            configAxisPoint(firstAxispos[3],4489,954);
-        break;
-        default:break;
-    }
+   // 3. 查找配置
+   auto it = configs.find(indexEquipment);
+   if (it == configs.end()) {
+       QLOG_WARN() << "Unknown equipment type for tray tube offset:" << indexEquipment;
+       return QMap<quint8, QPoint>();
+   }
 
-	//QLOG_DEBUG() << "发散设置抓手试管 头坐标" << firstAxispos[0] << firstAxispos[1] << firstAxispos[2] << firstAxispos[3];
-	quint8 keyhole = 0;
-    const uint spaceTube = 150; //内部试管横/纵向间距相同
-	QPoint tsetTubehole(0,0);
-	for (int t = 0; t < traynum; t++)
-	{
-		for (int R = 0; R < 10; R++)
-		{
-			for (int L = 0; L < 6; L++)
-			{
-				tsetTubehole.setX(firstAxispos[t].x() + L*spaceTube);
-				tsetTubehole.setY(firstAxispos[t].y() + R*spaceTube);
-				SingletonAxis::GetInstance()->testTaryZoneAxisPos(WRITE_OPERAT, keyhole, MOTOR_HANDS_INDEX, tsetTubehole);
-                //QLOG_DEBUG() << "抓手offset试管盘" << keyhole <<"坐标="<< tsetTubehole;
-				keyhole++;
-			}
-		}
-	}
-    return;
+   const auto& config = it.value();
+   const int trayNum = config.trayNum;
+   const auto& firstAxisPos = config.firstPos;
+
+   // 4. 常量定义
+   constexpr int SPACE_TUBE = 150;     // 内部试管横/纵向间距相同
+   constexpr int ROWS_PER_TRAY = 10;   // 每个托盘行数
+   constexpr int COLS_PER_TRAY = 6;    // 每个托盘列数
+
+   // 5. 生成所有孔位坐标
+   quint8 keyHole = 0;
+   auto* axisInstance = SingletonAxis::GetInstance();
+
+   QMap<quint8,QPoint> outTubeHoleFrisrAxis;
+   outTubeHoleFrisrAxis.clear();
+   for (int tray = 0; tray < trayNum; ++tray)
+   {
+       const int baseX = firstAxisPos[tray].x();
+       const int baseY = firstAxisPos[tray].y();
+       outTubeHoleFrisrAxis.insert(tray,QPoint(baseX,baseY));
+
+       for (int row = 0; row < ROWS_PER_TRAY; ++row)
+       {
+           const int yPos = baseY + row * SPACE_TUBE;
+
+           for (int col = 0; col < COLS_PER_TRAY; ++col)
+           {
+               const QPoint tubePos(baseX + col * SPACE_TUBE, yPos);
+
+               // 传递副本（如果函数参数是非const引用）
+               QPoint pos = tubePos;
+               axisInstance->testTaryZoneAxisPos(WRITE_OPERAT, keyHole, MOTOR_HANDS_INDEX, pos);
+
+               ++keyHole;
+           }
+       }
+   }
+   return outTubeHoleFrisrAxis;
 }
 
-void loadEquipmentPos::initTrayTubeOffsetBloodPin(const quint8 &indexEquipment)
+QMap<quint8, QPoint> loadEquipmentPos::initTrayTubeOffsetBloodPin(const quint8 &indexEquipment)
 {
-	int traytTestNum = 0;
-    QPoint firstAxispos[4]{};
-    switch(indexEquipment)
-    {
-        case KS600: traytTestNum = 2; break;
-        case KS800: traytTestNum = 3; break;
-        case KS1200: traytTestNum = 4; break;
-        default: break;
+
+    // 1. 设备配置结构体
+    struct EquipmentConfig {
+        int trayNum;                    // 托盘数量
+        std::vector<QPoint> firstPos;   // 每个托盘的起始坐标
+    };
+
+    // 2. 使用查找表配置不同设备
+    static const QMap<quint8, EquipmentConfig> configs = {
+        {KS600,  {2, {QPoint(1543, 500), QPoint(3150, 500)}}},
+        {KS800,  {3, {QPoint(895, 580), QPoint(2097, 580), QPoint(3295, 570)}}},
+        {KS1200, {4, {QPoint(875, 494), QPoint(2080, 494), QPoint(3285, 495), QPoint(4485, 488)}}}
+    };
+
+    // 3. 查找配置
+    auto it = configs.find(indexEquipment);
+    if (it == configs.end()) {
+        QLOG_WARN() << "Unknown equipment type for tray tube blood pin:" << indexEquipment;
+        return QMap<quint8, QPoint>();
     }
 
-    switch(indexEquipment)
+    const auto& config = it.value();
+    const int trayNum = config.trayNum;
+    const auto& firstAxisPos = config.firstPos;
+
+    // 4. 常量定义
+    constexpr int SPACE_TUBE = 150;     // 内部试管横/纵向间距相同
+    constexpr int ROWS_PER_TRAY = 10;   // 每个托盘行数
+    constexpr int COLS_PER_TRAY = 6;    // 每个托盘列数
+
+    // 5. 生成所有孔位坐标并设置
+    quint8 keyHole = 0;
+    auto* axisInstance = SingletonAxis::GetInstance();
+
+    QMap<quint8,QPoint> outTubeHoleFrisrAxis;
+    outTubeHoleFrisrAxis.clear();
+
+    for (int tray = 0; tray < trayNum; ++tray)
     {
-        case KS600:
-            configAxisPoint(firstAxispos[0],1543,500);
-            configAxisPoint(firstAxispos[1],3150,500);
-        break;
-        case KS800:
-            configAxisPoint(firstAxispos[0],895,580);
-            configAxisPoint(firstAxispos[1],2097,580);
-            configAxisPoint(firstAxispos[2],3295,570);
-        break;
-        case KS1200:
-            configAxisPoint(firstAxispos[0],875,494);
-            configAxisPoint(firstAxispos[1],2080,494);
-            configAxisPoint(firstAxispos[2],3285,495);
-            configAxisPoint(firstAxispos[3],4485,488);
-        break;
-        default:break;
+        const int baseX = firstAxisPos[tray].x();
+        const int baseY = firstAxisPos[tray].y();
+        outTubeHoleFrisrAxis.insert(tray,QPoint(baseX,baseY));
+
+        for (int row = 0; row < ROWS_PER_TRAY; ++row)
+        {
+            const int yPos = baseY + row * SPACE_TUBE;
+
+            for (int col = 0; col < COLS_PER_TRAY; ++col)
+            {
+                const QPoint tubePos(baseX + col * SPACE_TUBE, yPos);
+
+                // 传递副本（如果函数参数是非const引用）
+                QPoint pos = tubePos;
+                axisInstance->testTaryZoneAxisPos(WRITE_OPERAT, keyHole, MOTOR_BLOOD_INDEX, pos);
+
+                ++keyHole;
+            }
+        }
     }
 
-	quint8 keyhole = 0;
-	const uint spaceTube = 150; //内部试管横 纵向间距相同
-	QPoint tsetTubehole(0, 0);
-	for (int t = 0; t < traytTestNum; t++)
-	{
-		for (int R = 0; R < 10; R++)
-		{
-			for (int L = 0; L < 6; L++)
-			{
-				tsetTubehole.setX(firstAxispos[t].x() + L*spaceTube);
-				tsetTubehole.setY(firstAxispos[t].y() + R*spaceTube);
-				SingletonAxis::GetInstance()->testTaryZoneAxisPos(WRITE_OPERAT, keyhole, MOTOR_BLOOD_INDEX, tsetTubehole);
-                //QLOG_DEBUG() << "血样针offset试管盘" << keyhole << "坐标=" << tsetTubehole;
-				keyhole++;
-			}
-		}
-	}
-	return;
+    return outTubeHoleFrisrAxis;
 }
+
+
+
+
+
 
 void loadEquipmentPos::initOrderNumI()
 {
@@ -3562,7 +3877,7 @@ void loadEquipmentPos::initWriteHandsParaII(bool _bexit, QString _path)
      return;
 }
 
- //写血样针参数
+ //写样本针参数
 void loadEquipmentPos::_initwriteBloodPinParaX(bool _bexit,QString _path)
 {
     static const QString basickey = "InstrumentParameters";

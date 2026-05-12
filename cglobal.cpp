@@ -27,10 +27,7 @@ QString cglobal::g_UserName_str ="";
 QColor cglobal::g_LineColor(13, 23, 114);           //最外圈线的颜色
 //QColor cglobal::g_OuterRingColor(6, 28, 102,226);    //最外外环颜色
 QColor cglobal::g_OuterRingColor(6, 28, 102,140);
-//QColor  cglobal::g_SamllBgmColor(125,125,128);	 //内圆颜色--初始状态底色
-
-QColor cglobal::g_ReminderBloodHoleColor(238,10,10,200);
-
+QColor cglobal::g_ReminderBloodHoleColor(255, 255, 100, 200); //柔和亮黄
 QColor  cglobal::g_SamllBgmColor(188,187,183);       //内圆颜色--初始状态底色未使用
 
 QColor  cglobal::g_InnerRing_Checked(250, 128 ,114);  //空试管选中颜色 250,128,114

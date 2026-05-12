@@ -158,7 +158,7 @@ void Printthereport::insertReferenceValues(QPainter *painter, const QPoint &bott
     }
 
     // 计算参考值显示区域
-    const int xOffset = 6;  // 参考值列的偏移量（假设在表格的第7列）
+    const int xOffset = 6;  // 参考值列的异常提醒量（假设在表格的第7列）
     const QPoint topLeft(
         bottomPos.x() + xOffset * itemWidth,
         bottomPos.y() - itemHeight
@@ -202,7 +202,7 @@ void Printthereport::insertwriteoffset(QPainter *painter, const QPoint &bottomPo
    }
 
    // 计算偏移指示器显示区域（通常在第5列）
-   const int columnOffset = 4;  // 偏移列索引
+   const int columnOffset = 4;  // 异常提醒列索引
    const QPoint topLeft(
        bottomPos.x() + columnOffset * itemWidth,
        bottomPos.y() - itemHeight
@@ -288,7 +288,7 @@ void Printthereport::insertwriteoffset(QPainter *painter, const QPoint &bottomPo
 void Printthereport::slotprintoutresult()
 {
     QPrinter printer(QPrinter::HighResolution);
-    printer.setPageSize(QPagedPaintDevice::A4);
+    printer.setPageSize(QPagedPaintDevice::A5);
     printer.setResolution(300);
     printer.setPageMargins(QMarginsF(30,30,30,30));
     QPrintDialog dialog(&printer, nullptr);
@@ -311,7 +311,7 @@ void Printthereport::printDocument(QPrinter *printer)
     const QString hospitalName = "hospital_name";
     QString titleHospital = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword(hospitalName);
 
-    int spacing_ = 30;
+    int spacing_ = 20;
 
     QPainter *pPainter = new QPainter(printer);
     //pPainter->begin(printer);
@@ -321,15 +321,15 @@ void Printthereport::printDocument(QPrinter *printer)
     QFont font_title;
     pPainter->setPen(Qt::black);
     pPainter->setFont(font_title);
-    font_title.setPointSize(16);
+    font_title.setPointSize(14);
     //标题
-    int title_heigh = 100;
+    int title_heigh = 80;
     pPainter->drawText(QRect(spacing_,spacing_,nPDFWidth,title_heigh),Qt::AlignCenter,QString("%1血小板聚集测试报告").arg(titleHospital));
 
     //打印时间
     font_title.setPointSize(6);
     pPainter->setFont(font_title);
-    int printTimeHeigh = 40;
+    int printTimeHeigh = 30;
     QString dateTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
     pPainter->drawText(QRect(spacing_,title_heigh+spacing_,nPDFWidth,printTimeHeigh),Qt::AlignRight, QString("打印时间:%1").arg(dateTime));
 
@@ -342,7 +342,7 @@ void Printthereport::printDocument(QPrinter *printer)
     //信息内容
     int topinfoy = title_heigh + printTimeHeigh + spacing_+ linewidth*3 + 5;
     int infoWidth = nPDFWidth/5;
-    int infoHeight = 80; //信息高度
+    int infoHeight = 60; //信息高度（A5纸张较小，减小高度）
     font_title.setPointSize(8);
     pPainter->setFont(font_title);
 
@@ -393,7 +393,7 @@ void Printthereport::printDocument(QPrinter *printer)
     font_title.setPointSize(12);
     font_title.setBold(true);
     pPainter->setFont(font_title);
-    int text_height = 100;
+    int text_height = 80;
     QPoint text_topleft(spacing_,endLine_.y());
     QPoint text_bottomRigh(nPDFWidth, endLine_.y() + text_height);
     pPainter->drawText(QRect(text_topleft,text_bottomRigh),Qt::AlignVCenter|Qt::AlignLeft,"测试结果");
@@ -403,7 +403,7 @@ void Printthereport::printDocument(QPrinter *printer)
     font_title.setPointSize(8);
     pPainter->setFont(font_title);
     QStringList ItemResultView;
-    ItemResultView<<"测试项目"<<"60S"<<"180S"<<"300S"<<"Max"<<"偏移"<<"单位"<<"参考值";
+    ItemResultView<<"测试项目"<<"60S"<<"180S"<<"300S"<<"Max"<<"异常提醒"<<"单位"<<"参考值";
     int itemWidth = nPDFWidth/ItemResultView.size();
     int itemHeight = 100;
     for(int n = 0; n < ItemResultView.size();n++ )
@@ -416,8 +416,7 @@ void Printthereport::printDocument(QPrinter *printer)
         pPainter->drawText(QRect(itemtopleft,itembottomRight),Qt::AlignVCenter|Qt::AlignLeft,resultitem);
     }
 
-    bool mansex = false;
-    (m_sampleSex == "男")? mansex = true : mansex = false;
+    bool mansex = (m_sampleSex == "男");
 
     QMap<quint8,QStringList> resultdata;
     resultdata.clear();
@@ -452,7 +451,7 @@ void Printthereport::printDocument(QPrinter *printer)
         QString keyUnit ="";
         syncReferenceValue(it.key(),mansex,maxVal,minVal,keyUnit);
 
-        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,outPutMax,minVal,maxVal); //偏移
+        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,outPutMax,minVal,maxVal); //异常提醒
         intsertwriteunit(pPainter,bottomy,itemWidth,itemHeight,keyUnit); //单位
         insertReferenceValues(pPainter,bottomy,itemWidth,itemHeight,minVal,maxVal);//参考值
 
@@ -487,13 +486,13 @@ void Printthereport::printDocument(QPrinter *printer)
 
     QPoint topleftremarkText(spacing_,endLine_.y());
     QPoint bottomrightremarkheightText(nPDFWidth,endLine_.y()+itemHeight);
-    pPainter->drawText(QRect(topleftremarkText,bottomrightremarkheightText),Qt::AlignVCenter|Qt::AlignLeft,"备注:");
+    //pPainter->drawText(QRect(topleftremarkText,bottomrightremarkheightText),Qt::AlignVCenter|Qt::AlignLeft,"备注:");
 
     //int remark_height = nPDFHeight - bottomrightremarkheightText.y();
-    QPoint topleftremark(spacing_,bottomrightremarkheightText.y());
-    QPoint bottomrightremarkheight(nPDFWidth,nPDFHeight);
+    //QPoint topleftremark(spacing_,bottomrightremarkheightText.y());
+    //QPoint bottomrightremarkheight(nPDFWidth,nPDFHeight);
 
-    pPainter->drawText(QRect(topleftremark,bottomrightremarkheight),Qt::AlignVCenter|Qt::AlignLeft|Qt::AlignTop,"医生备注标签提示信息或者其它");
+    //pPainter->drawText(QRect(topleftremark,bottomrightremarkheight),Qt::AlignVCenter|Qt::AlignLeft|Qt::AlignTop,"医生备注标签提示信息或者其它");
 
 
     pPainter->restore();
@@ -516,12 +515,12 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     QString titleHospital = FullyAutomatedPlatelets::pinstancesqlData()->FindPassword("hospital_name");
 
     QPdfWriter *pWriter = new QPdfWriter(&pdfFile);
-    pWriter->setPageSize(QPagedPaintDevice::A4);
+    pWriter->setPageSize(QPagedPaintDevice::A5);
 
-    const int kPageMargin  = 20; // 统一边距
-    const int kTitleFontSize = 16;    // 标题字体
-    const int kSmallFontSize = 6;     // 小号字体
-    const int kBodyFontSize = 8;      // 正文字体
+    const int kPageMargin  = 15; // 统一边距（A5纸张较小，减小边距）
+    const int kTitleFontSize = 14;    // 标题字体（A5纸张较小，减小字体）
+    const int kSmallFontSize = 6;     // 小号字体（A5纸张较小，减小字体）
+    const int kBodyFontSize = 8;      // 正文字体（A5纸张较小，减小字体）
 
     pWriter->setResolution(300);//设置分辨率 屏幕分辨率 打印机分辨率 高分辨率
     pWriter->setPageMargins(QMarginsF(kPageMargin,kPageMargin,
@@ -537,7 +536,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     pPainter->setFont(font_title);
     font_title.setPointSize(kTitleFontSize);
     //标题
-    const int kTitleHeight  = 100;
+    const int kTitleHeight  = 80;
     pPainter->drawText(QRect(kPageMargin,kPageMargin,nPDFWidth,kTitleHeight ),Qt::AlignCenter,
                        QString("%1血小板聚集测试报告").arg(titleHospital));
 
@@ -560,7 +559,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     //信息内容
     int topinfoy = kTitleHeight  + printTimeHeigh + kPageMargin+ kLineWidth *3 + 5;
     int infoWidth = nPDFWidth/5;
-    const int infoHeight = 80; //信息高度
+    const int infoHeight = 60; //信息高度（A5纸张较小，减小高度）
     font_title.setPointSize(kBodyFontSize);
     pPainter->setFont(font_title);
 
@@ -611,7 +610,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     font_title.setPointSize(12);
     font_title.setBold(true);
     pPainter->setFont(font_title);
-    int text_height = 100;
+    int text_height = 80;
     QPoint text_topleft(kPageMargin,endLine_.y());
     QPoint text_bottomRigh(nPDFWidth, endLine_.y() + text_height);
     pPainter->drawText(QRect(text_topleft,text_bottomRigh),Qt::AlignVCenter|Qt::AlignLeft,"测试结果");
@@ -621,7 +620,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     font_title.setPointSize(8);
     pPainter->setFont(font_title);
     QStringList ItemResultView;
-    ItemResultView<<"测试项目"<<"60S"<<"180S"<<"300S"<<"Max"<<"偏移"<<"单位"<<"参考值";
+    ItemResultView<<"测试项目"<<"60S"<<"180S"<<"300S"<<"Max"<<"异常提醒"<<"单位"<<"参考值";
     int itemWidth = nPDFWidth/ItemResultView.size();
     int itemHeight = 100;
     for(int n = 0; n < ItemResultView.size();n++ )
@@ -668,7 +667,7 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
         syncReferenceValue(it.key(),mansex,maxVal,minVal,keyUnit);
 
 
-        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,outPutMax,minVal,maxVal); //偏移
+        insertwriteoffset(pPainter,bottomy,itemWidth,itemHeight,outPutMax,minVal,maxVal); //异常提醒
 
         intsertwriteunit(pPainter,bottomy,itemWidth,itemHeight,keyUnit); //单位
         insertReferenceValues(pPainter,bottomy,itemWidth,itemHeight,minVal,maxVal);//参考值
@@ -704,13 +703,13 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
 
     QPoint topleftremarkText(kPageMargin,endLine_.y());
     QPoint bottomrightremarkheightText(nPDFWidth,endLine_.y()+itemHeight);
-    pPainter->drawText(QRect(topleftremarkText,bottomrightremarkheightText),Qt::AlignVCenter|Qt::AlignLeft,"备注:");
+    //pPainter->drawText(QRect(topleftremarkText,bottomrightremarkheightText),Qt::AlignVCenter|Qt::AlignLeft,"备注:");
 
     //int remark_height = nPDFHeight - bottomrightremarkheightText.y();
-    QPoint topleftremark(kPageMargin,bottomrightremarkheightText.y());
-    QPoint bottomrightremarkheight(nPDFWidth,nPDFHeight);
+    //QPoint topleftremark(kPageMargin,bottomrightremarkheightText.y());
+    //QPoint bottomrightremarkheight(nPDFWidth,nPDFHeight);
 
-    pPainter->drawText(QRect(topleftremark,bottomrightremarkheight),Qt::AlignVCenter|Qt::AlignLeft|Qt::AlignTop,"医生备注标签提示信息或者其它");
+   // pPainter->drawText(QRect(topleftremark,bottomrightremarkheight),Qt::AlignVCenter|Qt::AlignLeft|Qt::AlignTop,"医生备注标签提示信息或者其它");
 
     delete pPainter;
     delete pWriter;

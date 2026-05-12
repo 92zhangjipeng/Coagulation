@@ -204,7 +204,7 @@ QByteArrayList TubeContinueDoing::creatAnaemiaCommand()
     double   proportionalValue   = INI_File().GetPPPConversionScale();/*转换比例*/
 
     //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
-    QPoint BloodAreaPos(0,0); //血样针到血样区的坐标
+    QPoint BloodAreaPos(0,0); //样本针到血样区的坐标
     SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,ui->spinBox_Hole->value(),BloodAreaPos);
 
 
@@ -216,7 +216,7 @@ QByteArrayList TubeContinueDoing::creatAnaemiaCommand()
     EncodedArray = Testing::m_TaskDll->BigBenActive(true, BIG_BEN_INHALE_ARI,conde_num,DIS_WASHES_PUMPS,0); //true 吸 false 吐
     mStarArry.push_back(EncodedArray);
 
-    /*下血样针液面探测吸贫血*/
+    /*下样本针液面探测吸贫血*/
     EncodedArray = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorBlood,LeveldetectionFailed,TRAY_BLOOD,
                                                                   conde_num,true,LeveldetectionFailed,false,GRIPPERNORMAL);
     mStarArry.push_back(EncodedArray);
@@ -230,7 +230,7 @@ QByteArrayList TubeContinueDoing::creatAnaemiaCommand()
     mStarArry.push_back(EncodedArray);
 
     //吐PPP 到试管
-    int emptyAreaDownmm = INI_File().GetEmptyTubeDownHigh();                /*血样针在空试管区下降高度*/
+    int emptyAreaDownmm = INI_File().GetEmptyTubeDownHigh();/*样本针在空试管区下降高度*/
 
     QPoint EmptytubeAreaPos(0,0);
     SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,ui->spinBox_emptyHole->value(),MOTOR_BLOOD_INDEX,EmptytubeAreaPos);
@@ -279,11 +279,11 @@ void TubeContinueDoing::on_toolButton_cruveCreat_clicked()
     quint8   conde_num                   =  mStarArry.size() % 255;
     int      LeveldetectionFailed        =  INI_File().GetFailedLinqueHigh(); /*液面探测失败下降高度*/
     double   proportionalValue           =  INI_File().GetPPPConversionScale();  /*转换比例*/
-    int      down_spit                   =  INI_File().GetEmptyTubeDownHigh();   /*血样针在空试管区下降高度*/
+    int      down_spit                   =  INI_File().GetEmptyTubeDownHigh();   /*样本针在空试管区下降高度*/
 
     QPoint spit_pos(0,0);
 
-    //血样针到血样区的坐标
+    //样本针到血样区的坐标
     QPoint suck_pos(0,0);
     SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,suck_hole,suck_pos);
 
@@ -305,7 +305,7 @@ void TubeContinueDoing::on_toolButton_cruveCreat_clicked()
 
         mStarArry.push_back(Testing::m_TaskDll->BigBenActive(true, BIG_BEN_INHALE_ARI,conde_num,DIS_WASHES_PUMPS,0));//吸一段空气true 吸 false 吐
 
-        /*下血样针液面探测吸贫血*/
+        /*下样本针液面探测吸贫血*/
         mStarArry.push_back(Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorBlood,LeveldetectionFailed,TRAY_BLOOD,
                                                                            conde_num,true,LeveldetectionFailed,false,GRIPPERNORMAL));
 

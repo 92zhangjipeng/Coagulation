@@ -36,7 +36,7 @@
 
 
 #define FOCUS_ADDING_SAMPLE          1  //聚焦样本执行 吸样动作
-#define FOCUS_CLEAN_BLOODPIN         17 //聚焦样本执行 清洗血样针
+#define FOCUS_CLEAN_BLOODPIN         17 //聚焦样本执行 清洗样本针
 #define FOCUS_CLIP_ANEMIA_TO_CHN     3  //夹贫血到测试通道
 #define FOCUS_THORW_ANEMIA           4  //丟在测试通道中的贫血
 
@@ -225,7 +225,7 @@ typedef struct DataSampleStruct
     quint8  spitanaemia_hole = 0;         //在试管区吐PPP孔号
     QPoint  spitanaemia_axis{0,0};
     QPoint  anemiaoffHandsAxis{0,0};     //贫血抓手坐标
-    bool    bcleanbloody_state = false;     //清洗血样针状态
+    bool    bcleanbloody_state = false;     //清洗样本针状态
     bool    bcleanDoublePin_state = false;  //清洗双针状态
 
     bool    bhandsErr = false;    //抓手异常
@@ -237,7 +237,7 @@ typedef struct DataSampleStruct
     // 容器成员（直接默认构造，避免冗余操作）
     QVector<BLOODY_INFO> bloody_tube;
     tSingleActive_list   clean_reag_blood_pin;       //清洗双针
-    tSingleActive_list   clean_blood_pin;            //清洗血样针
+    tSingleActive_list   clean_blood_pin;            //清洗样本针
     tSingleActive_list   tadd_sample_active;         //加样动作
 
 

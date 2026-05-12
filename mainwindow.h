@@ -111,7 +111,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void    init_style_all();
+    void    initStyleAll();
     void    ChannelValueshow(QStringList moduleData) override;
     void    displayPara(int Indexmodul, const double tempvalve) override;
     void    PromptInfo(const quint8 Index, const QString ReminderStr, const quint8 iActive) override;
@@ -175,6 +175,7 @@ private:
     void initProgressBar(const QString &title, bool isModal,bool ishow);
     void begingTesting(); //开始测试
     void creatbeginreadmodule();//构建并开始读取模组数据
+
 
 
     //提供一个切换监听状态的方法 断开USB监听
@@ -406,7 +407,7 @@ signals:
     void OpenInstrumentCamera(const quint8);
 	void findCameraIndexByDevicePath(const QString& );
 
-    //触发到测高开始解析图片
+    //触发到测高开始拍照
     void triggerTestHeight();
 
     //所有样本测试完成曲线界面复原
@@ -495,7 +496,7 @@ private:
     //USB监听
     QScopedPointer<USBListener> m_USBListener;
 
-
+    QPointer<AboutMachine> m_aboutMachine; //关于
 
     QPointer<Testing> mptesting; //测试界面
     QPointer<GraphPlot> m_graphplot; //测试曲线

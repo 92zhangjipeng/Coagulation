@@ -200,7 +200,7 @@ public:
     void setupOneReagentsIsComplete(const QString SampleId, quint8 index_reag, const bool &testErr);
 
 
-    //获取血样针清洗状态
+    //获取样本针清洗状态
     bool judge_alreadyCleanBloodpin(const int sampleId, quint8 indexActive);
 
     //是否有待测试剂
@@ -413,7 +413,7 @@ public:
      bool isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double,int loseFocusSample);
 
 
-    /******************** 清洗血样针 *********************************/
+    /******************** 清洗样本针 *********************************/
     void creat_cleanBloodyPin(bool bcleanDoublePin, QByteArrayList allcommand, DATASAMPLESTRUCT *&psampleinfo);
     void send_CleanbloodyPinActive(const int sampleID, QByteArrayList &senddata);  //清洗开始
     bool recv_cleanbloodPin(const int index_num, int loseFocusSample); //清洗血样

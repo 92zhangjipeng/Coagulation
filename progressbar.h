@@ -75,6 +75,9 @@ private slots:
 protected:
     void paintEvent(QPaintEvent *event);
 
+    //画阴影背景
+    void drawShadowBackground(QPainter& p, const QRectF& baseRect);
+
     //画基础图形
     void drawBase(QPainter& p, const QRectF& baseRect, const QRectF &innerRect);
 

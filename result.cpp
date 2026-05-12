@@ -1,11 +1,11 @@
-﻿#pragma execution_character_set("utf-8")
-
-#include "result.h"
+﻿#include "result.h"
 #include "ui_result.h"
-#include <QMessageBox>
 #include <QPainter>
 #include <QPrinterInfo>
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
 
 Result::Result(QWidget *parent) :
     QWidget(parent),

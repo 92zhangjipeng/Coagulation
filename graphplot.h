@@ -1,11 +1,13 @@
 ﻿#ifndef GRAPHPLOT_H
 #define GRAPHPLOT_H
 
-
 #include <QWidget>
+#include <array>
+#include <functional>
 #include "qcustomplot.h"
 #include "cglobal.h"
 #include "testing.h"
+
 
 namespace Ui {
 class GraphPlot;
@@ -27,27 +29,56 @@ private:
 
     QCustomPlot* GetCurvepWidget(int indexChn);
 
-    void    _initCreatCurveWidget(QCustomPlot* pPlotWidget, int indexchn);
+    void    initializeCurveWidget(QCustomPlot* plotWidget, int channelIndex);
 
-    void    notifyplotname(quint8 indexchn, QCustomPlot* pPlotWidget,QString dada);
+    void    updatePlotTitle(quint8 channelIndex, QCustomPlot* plotWidget, QString title);
 
-    void    DrawCurvePoint(quint8 indexChn,QVector<double> , QVector<double> );//绘制曲线
+    void    drawCurvePoint(quint8 channelIndex, QVector<double> xData, QVector<double> yData); //绘制曲线
 
     void    InitChart();
 
-    void    resetvect(const int& Chn,const int& reagentNum);
+    void    resetVectorData(const int& channel, const int& reagentNumber);
 
-    void    CleanCruve(quint8 indexChannel);
+    void    clearCurve(quint8 channelIndex);
 
-    double  get_mean(QVector<double> in); //求均值
+    double  calculateMean(const QVector<double>& inputData); //求均值
 
 
     double  calculateProgress(int channel, int reagent) const;
 
-    void    save_test_data_to_sqllite(const quint8 indexChannel, const quint8 reagents, int finishsampleid);
+    /*
+     * 单个试剂测试完成后数据存入SQL
+     * @brief saveTestDataToSqllite
+     * @param indexChannel
+     * @param reagents
+     * @param finishsampleid
+     */
+    void saveTestDataToSqllite(const quint8 indexChannel, const quint8 reagents, int finishsampleid);
+
+private:
+    using AnalyzerFunc = std::function<void(const QString id,const QVector<double>&)>;
+
+    void analyzeAAAndSave(const QString id, const QVector<double>& data);
+    void analyzeADPAndSave(const QString id,const QVector<double>& data);
+    void analyzeEPIAndSave(const QString id,const QVector<double>& data);
+    void analyzeCOLAndSave(const QString id,const QVector<double>& data);
+    void analyzeRISAndSave(const QString id,const QVector<double>& data);
 
 protected:
     virtual void    resizeEvent(QResizeEvent *event) override;
+
+private:
+    // 布局计算辅助函数
+    struct LayoutConfig {
+        int columns;
+        int rows;
+        int curveWidth;
+        int curveHeight;
+    };
+
+    LayoutConfig calculateLayout(quint8 equipmentKind, int availableWidth, int availableHeight) const;
+    void positionWidgetsInGrid(const LayoutConfig& config, quint8 equipmentKind);
+    void adjustWidgetSizes(const LayoutConfig& config, quint8 equipmentKind);
 
 signals:
     void    DrawProgressbar(quint8 index, double proportion);              //绘制测试通道进度
@@ -73,14 +104,24 @@ private:
 
     QList<QWidget* > m_pchnWidgetList;
 
-    QVector<double> mTestDataX[MACHINE_SETTING_CHANNEL][REAGENT_TOTAL];
-    QVector<double> mTestDataY[MACHINE_SETTING_CHANNEL][REAGENT_TOTAL];
+    // 缓存机制：存储通道索引到QCustomPlot的映射，避免重复查找
+    mutable QHash<int, QCustomPlot*> m_plotCache;
 
-    QVector<double> mCurvePlote_x[MACHINE_SETTING_CHANNEL][REAGENT_TOTAL];
-    QVector<double> mCurvePlote_y[MACHINE_SETTING_CHANNEL][REAGENT_TOTAL];
+    // 预定义常量以提高可读性和维护性
+    static constexpr int MAX_CHANNELS = 12;
+    static constexpr int MAX_REAGENTS = 5;
 
+    // 布局常量
+    static constexpr int HORIZONTAL_SPACING = 5;
+    static constexpr int VERTICAL_SPACING = 5;
+    static constexpr int DEFAULT_COLUMNS = 4;
 
+    // 使用std::array替代原始数组，提供更好的类型安全性和内存管理
+    std::array<std::array<QVector<double>, MAX_REAGENTS>, MAX_CHANNELS> mTestDataX;
+    std::array<std::array<QVector<double>, MAX_REAGENTS>, MAX_CHANNELS> mTestDataY;
 
+    std::array<std::array<QVector<double>, MAX_REAGENTS>, MAX_CHANNELS> mCurvePlote_x;
+    std::array<std::array<QVector<double>, MAX_REAGENTS>, MAX_CHANNELS> mCurvePlote_y;
 
     int  mcuteNumData;
     bool mbaverage;

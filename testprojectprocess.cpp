@@ -18,9 +18,9 @@
 std::mutex TestProjectProcess::s_actionMutex;
 
 const QHash<int, QString> TestProjectProcess::s_cleanActionMap = {
-    {WASH_BLLODSAMPLE_NEDDLES, "清洗血样针"},
+    {WASH_BLLODSAMPLE_NEDDLES, "清洗样本针"},
     {WASH_REAGENT_NEDDLES,     "清洗试剂针"},
-    {WASH_DOUBLE_NEDDLES,      "清洗血样针和试剂针"},
+    {WASH_DOUBLE_NEDDLES,      "清洗样本针和试剂针"},
     {THROW_CUPS_END,           "丟杯"}
 };
 
@@ -480,7 +480,7 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
 
      if(remaining  == ALL_SAMPLE_TESTED){
          QLOG_DEBUG()<<"放弃样本后,测试列表为空!";
-         FullyAutomatedPlatelets::pinstanceTesting()->AllSampleTested();
+         FullyAutomatedPlatelets::pinstanceTesting()->allSampleTested();
          instance->delalltaskinfo(false); //删除所有样本信息
          instance->setemptynull();
      }
@@ -738,11 +738,11 @@ void TestProjectProcess::getFreeTimeTestChn()
         writeCommandHeader(instance->sendPPP2ChannelHeanderCommand(m_focus_sample_id,false),
                     tr("吸PPP试管到测试通道首命令"),DELAY_TIMENUM);
     } else {
-        QLOG_DEBUG()<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<"加样后无测试通道==>清洗血样针";
+        QLOG_DEBUG()<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<"加样后无测试通道==>清洗样本针";
         instance->write_focusSampleActive(m_focus_sample_id,FOCUS_CLEAN_BLOODPIN);
         QByteArrayList write_data_;
         instance->send_CleanbloodyPinActive(m_focus_sample_id,write_data_);
-        sendInstructionsWithDelay(write_data_,DELAY_TIMENUM,"洗血样针");
+        sendInstructionsWithDelay(write_data_,DELAY_TIMENUM,"洗样本针");
         FullyAutomatedPlatelets::pinstanceinstrument()->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE,1);
     }
     return;
@@ -1230,7 +1230,7 @@ void TestProjectProcess::updatetubeColorState(const QStringList data)
     }
     else
     {
-        QLOG_DEBUG()<<"血样针在血样区吸样孔号"<<backHole<<endl;
+        QLOG_DEBUG()<<"样本针在血样区吸样孔号"<<backHole<<endl;
     }
     return;
 }
@@ -1324,7 +1324,7 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
     StructInstance::getInstance()->SampleTotal(remaining );
 
     if(remaining  == ALL_SAMPLE_TESTED){
-        FullyAutomatedPlatelets::pinstanceTesting()->AllSampleTested();
+        FullyAutomatedPlatelets::pinstanceTesting()->allSampleTested();
 
         instance->delalltaskinfo(false); //删除所有样本信息
 

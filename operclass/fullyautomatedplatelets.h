@@ -4,7 +4,6 @@
 
 #include <QApplication>
 #include <QAbstractItemView>
-#include <aboutmachine.h>
 #include <alarm.h>
 #include <qualitycontrol.h>
 #include <suoweiserialport.h>
@@ -40,8 +39,6 @@ public:
 
     static controldimming *pinstancedimming();
 
-    static AboutMachine *paboutinstance();
-
     static Alarm *pinstanceinfowidget();
 
     static QualityControl *pinstanceinstrument();
@@ -76,7 +73,7 @@ public:
 
     static Inquire_Sql_Info* pinstanceInquiredata();
 
-    static Printthereport* pinstancePrintPdf();
+
 
 private:
 
@@ -85,8 +82,6 @@ private:
 	CustomCreatSql* _msqldata;
 
     controldimming *_mcontroldimming; //控温调光
-
-    AboutMachine *_maboutequipment; //仪器关于信息
 
     Alarm *_mreminderinfowidget; //仪器信息提示
 
@@ -122,8 +117,6 @@ private:
     Monitor_TrayTest* _mpobtainModuledata; //模组数据调光 调速
 
     MachineSetting *_mequipmentconfig; //仪器设置
-
-    Printthereport *_mprintPdf;
 
     bool _ready;
     void disconnectAllConnections();

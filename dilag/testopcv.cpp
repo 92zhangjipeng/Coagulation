@@ -55,10 +55,12 @@ TestOpcv::TestOpcv(QWidget *parent) :
     }
 }
 
+
 TestOpcv::~TestOpcv()
 {
     delete ui;
 }
+
 
 void debugImshow(std::string name,Mat & image){
     cv::namedWindow(name, cv::WINDOW_NORMAL);
@@ -171,6 +173,47 @@ Rect TestOpcv::findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upp
     return boundingRect(*largestContour);
 }
 
+Rect TestOpcv::findReferenceObjectRectDualColor(Mat& image, Scalar lowerBound1, Scalar upperBound1, Scalar lowerBound2, Scalar upperBound2)
+{
+    Mat hsv, mask1, mask2, mask;
+    cvtColor(image, hsv, COLOR_BGR2HSV);
+    inRange(hsv, lowerBound1, upperBound1, mask1);
+    inRange(hsv, lowerBound2, upperBound2, mask2);
+    mask = mask1 | mask2;
+
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(mask, mask, MORPH_CLOSE, kernel);
+    morphologyEx(mask, mask, MORPH_OPEN, kernel);
+
+    vector<vector<Point>> contours;
+    findContours(mask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+    if (contours.empty()) {
+        return Rect(0, 0, 0, 0);
+    }
+
+    auto largestContour = max_element(contours.begin(), contours.end(),
+        [](const vector<Point>& a, const vector<Point>& b) {
+            return contourArea(a) < contourArea(b);
+        });
+
+    return boundingRect(*largestContour);
+}
+
+Mat TestOpcv::findReferenceObjectDualColor(Mat& image, Scalar lowerBound1, Scalar upperBound1, Scalar lowerBound2, Scalar upperBound2) {
+    Mat hsv, mask1, mask2, mask;
+    cvtColor(image, hsv, COLOR_BGR2HSV);
+    inRange(hsv, lowerBound1, upperBound1, mask1);
+    inRange(hsv, lowerBound2, upperBound2, mask2);
+    mask = mask1 | mask2;
+
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(mask, mask, MORPH_CLOSE, kernel);
+    morphologyEx(mask, mask, MORPH_OPEN, kernel);
+
+    return mask;
+}
+
 double TestOpcv::calculateReferenceToBottomDistance(const Rect& referenceRect)
 {
     double referenceTopToImageBottom = imageOrinin.rows - referenceRect.y;
@@ -184,16 +227,24 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
         return;
     }
 
-    redBloodCellHeightMm = rbcHeightPixels / pixelToMmRatio;
-    referenceToBottomDistance = INI_File().GetFixedHigh();
+    auto &ini = INI_File();
+    //redBloodCellHeightMm = rbcHeightPixels / pixelToMmRatio; //红细胞高度
+    referenceToBottomDistance = ini.GetFixedHigh(); //参照物top到针高度
+    double safetyMargin = ini.GetTestDifference();  //偏移高度
+    double rotb  =   ini.getRefBottomDistance();   //参照物到底部距离
 
+    //  红细胞top与参照物top像素差（实际偏差像素）  = 红细胞TOP像素 - 参照物TOP像素
     double interfaceToReferenceTopPixels = interfaceY - referenceObjectRect.y;
+    //像素差实际高度mm(像素/比列) （实际偏差高度）
     double interfaceToReferenceTopMm = interfaceToReferenceTopPixels / pixelToMmRatio;
+    QLOG_DEBUG()<<"（实际偏差高度）"<<interfaceToReferenceTopMm;
 
-    double safetyMargin = 0.0;
-    double totalDropDistance = referenceToBottomDistance + interfaceToReferenceTopMm;
-    maxNeedleDropHeight = totalDropDistance - safetyMargin;
-    maxNeedleDropHeight = max(0.0, maxNeedleDropHeight);
+    //针到参照物top的高度mm + （实际偏差高度）
+    double totalDropDistance = rotb - interfaceToReferenceTopMm - RAISETHERULER; //输出血样高度
+    redBloodCellHeightMm = max(0.0, totalDropDistance);
+    redBloodCellHeightMm = round(redBloodCellHeightMm * 100) / 100; //保留2位小数
+
+    maxNeedleDropHeight = referenceToBottomDistance + rotb - redBloodCellHeightMm - safetyMargin + RAISETHERULER;
 
     QLOG_DEBUG() << "计算参数:";
     QLOG_DEBUG() << "红细胞高度像素: " << rbcHeightPixels << "px";
@@ -206,12 +257,6 @@ void TestOpcv::calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels
     QLOG_DEBUG() << "参照物到针底部距离: " << referenceToBottomDistance << "mm";
     QLOG_DEBUG() << "下针最大下降高度: " << maxNeedleDropHeight << "mm"<<endl;
 }
-
-
-
-
-
-
 
 
 
@@ -243,6 +288,7 @@ double TestOpcv::calculatePixelToCmRatio(Mat& referenceMask, double realHeightCm
     Rect boundingRect = cv::boundingRect(*largestContour);
     double pixelHeight = boundingRect.height;
 
+    //QLOG_DEBUG()<<"宽度转换成像素比"<<boundingRect.width / 5;
     return pixelHeight / realHeightCm;
 }
 
@@ -276,35 +322,42 @@ void TestOpcv::markResultsOnOriginalImage(Mat& originalImage, const Point& inter
 {
      Mat overlay = originalImage.clone();
 
+     // 1. 绘制液面水平线（血浆-红细胞分界面）
      if (interfacePoint.y >= 0 && interfacePoint.y < originalImage.rows) {
-         Rect rbcRegion(0, interfacePoint.y, originalImage.cols, rbcHeight);
-         rectangle(overlay, rbcRegion, Scalar(0, 0, 255), -1);
-         double alpha = 0.3;
-         addWeighted(overlay, alpha, originalImage, 1 - alpha, 0, originalImage);
-         rectangle(originalImage, rbcRegion, Scalar(0, 0, 200), 2);
+
+         line(originalImage, Point(0, interfacePoint.y),
+         Point(originalImage.cols, interfacePoint.y), Scalar(255, 0, 0), 2);   // 蓝色线
      }
 
      if (referenceRect.width > 0 && referenceRect.height > 0) {
          rectangle(originalImage, referenceRect, Scalar(0, 255, 0), 3);
-         putText(originalImage, "Reference Object",
+
+         // 在参照物顶部增加一条水平线（与矩形框上边缘重合，但单独绘制以示强调）
+         line(originalImage, Point(0, referenceRect.y),
+                Point(originalImage.cols , referenceRect.y), Scalar(0, 255, 0), 2);
+
+         putText(originalImage, "Reference",
                  Point(referenceRect.x, referenceRect.y - 10),
                  FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 255, 0), 2);
      }
 
      if (interfacePoint.y >= 0 && interfacePoint.y < originalImage.rows) {
-         line(originalImage, Point(0, interfacePoint.y),
-              Point(originalImage.cols, interfacePoint.y), Scalar(255, 0, 0), 2);
-         circle(originalImage, Point(originalImage.cols / 2, interfacePoint.y),
-                10, Scalar(255, 0, 0), -1);
+
+        int fontFace = FONT_HERSHEY_SIMPLEX;
+        double fontScale = 0.7;
+        int thickness = 2;
+        putText(originalImage, "RBC Interface",
+                        Point(10, interfacePoint.y - 20), fontFace, fontScale,
+                        Scalar(255, 0, 0), thickness);
      }
 
-     int fontFace = FONT_HERSHEY_SIMPLEX;
-     double fontScale = 0.7;
-     int thickness = 2;
+//     int fontFace = FONT_HERSHEY_SIMPLEX;
+//     double fontScale = 0.7;
+//     int thickness = 2;
 
-     putText(originalImage, "Plasma-RBC Interface",
-             Point(10, interfacePoint.y - 20), fontFace, fontScale,
-             Scalar(255, 0, 0), thickness);
+//     putText(originalImage, "RBC Interface",
+//             Point(10, interfacePoint.y - 20), fontFace, fontScale,
+//             Scalar(255, 0, 0), thickness);
 }
 
 void TestOpcv::displayResults(const double& khemolysisIndex)
@@ -319,7 +372,6 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
    displayImage(resultImage, ui->label_showimage);
 
 
-
    QString infoText = QString(
            "<div style='color: black;'>"
            "检测完成:<br>"
@@ -327,15 +379,15 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
            "红细胞topY坐标: %2 像素<br>"
            "红细胞高度: %3 像素 (%4 mm)<br>"
            "图例比: %5 像素/毫米<br>"
-           "血样针下降触碰到红细胞高度: %6 mm<br>"
-           "血样针物理原点高度距离: %7 mm"
+           "样本针下降触碰到红细胞高度: %6 mm<br>"
+           "样本针物理原点高度距离: %7 mm"
            "</div>")
            .arg(khemolysisIndex)
            .arg(detectedInterface.y)
            .arg(redBloodCellHeight)
            .arg(redBloodCellHeightMm, 0, 'f', 2)
            .arg(pixelToMmRatio)
-           .arg(maxNeedleDropHeight, 0, 'f', 1)
+           .arg(maxNeedleDropHeight, 0, 'f', 2)
            .arg(INI_File().GetFixedHigh(), 0, 'f', 1);
 
    // 如果识别到的颜色类型是黑色，添加红色警告文字
@@ -344,37 +396,13 @@ void TestOpcv::displayResults(const double& khemolysisIndex)
    }
 
    QString redBloodCellHeightMmstr = QString("%1").arg(redBloodCellHeightMm, 0, 'f', 2);
-   emit imageoutResult(redBloodCellHeightMmstr);
+   emit imageoutResult(redBloodCellHeightMmstr); // 显示血的距离、和下针的高度
 
    // 启用富文本显示
    ui->label_ratio->setTextFormat(Qt::RichText);
    ui->label_ratio->setText(infoText);
    ui->label_ratio->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -429,7 +457,7 @@ Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
         if (rect.y > gray.rows * 0.7 && rect.width > gray.cols * 0.3) {
             whiteBottomY = max(whiteBottomY, rect.y);
             whiteGrooveRect = rect;
-            rectangle(result, rect, Scalar(255, 0, 0), 2);
+            //rectangle(result, rect, Scalar(255, 0, 0), 2);
         }
     }
 
@@ -620,34 +648,6 @@ Mat TestOpcv::  findTubeByMultiFeatures(Mat& inputImage) {
 
     return croppedImage;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1017,8 +1017,6 @@ MaxRectInfo TestOpcv::getMaxRectangleInfo(const BoundingRectResult& result)
 
 
 
-
-
 void TestOpcv::trayfindImg()
 {
     if (imageOrinin.empty()) {
@@ -1039,17 +1037,22 @@ void TestOpcv::trayfindImg()
         QLOG_DEBUG() << "检测到暗色环境，启用暗色优化模式";
     }
 
-    Scalar lowerBlue = Scalar(100, 50, 50);
-    Scalar upperBlue = Scalar(140, 255, 255);
+	// 第一个颜色范围: hsv(208, 69%, 68%) -> H:104, S:176, V:173//原来的蓝色
+    Scalar lowerColor1 = Scalar(94, 100, 100);
+    Scalar upperColor1 = Scalar(114, 255, 255);
 
-    // 查找参照物矩形框
-    referenceObjectRect = findReferenceObjectRect(image, lowerBlue, upperBlue);
+    // 第二个颜色范围: hsv(187, 64%, 74%) -> H:93, S:163, V:189 (±10范围)
+    Scalar lowerColor2 = Scalar(83, 100, 100);
+    Scalar upperColor2 = Scalar(103, 255, 255);
+
+    // 查找参照物矩形框（同时检测两个颜色）
+    referenceObjectRect = findReferenceObjectRectDualColor(image, lowerColor1, upperColor1, lowerColor2, upperColor2);
     if (referenceObjectRect.width == 0 || referenceObjectRect.height == 0) {
         QMessageBox::warning(this, "提示", "未找到参照物");
         return;
     }
 
-    Mat referenceMask = findReferenceObject(image, lowerBlue, upperBlue);
+    Mat referenceMask = findReferenceObjectDualColor(image, lowerColor1, upperColor1, lowerColor2, upperColor2);
     if (countNonZero(referenceMask) == 0) {
         QMessageBox::warning(this, "提示", "未找到参照物");
         return;
@@ -1057,7 +1060,7 @@ void TestOpcv::trayfindImg()
 
     double realHeightCm = REFERENCE_HEIGHT;
     pixelToMmRatio = calculatePixelToCmRatio(referenceMask, realHeightCm);
-    QLOG_DEBUG() << "像素到毫米的比例:" << pixelToMmRatio << "像素/毫米";
+    QLOG_DEBUG() << "像素到毫米的比例(高转换):" << pixelToMmRatio << "像素/毫米";
 
     int grooveWidth = 180;
     Mat grooveRegion = extractGrooveRegion(image, referenceMask, grooveWidth);

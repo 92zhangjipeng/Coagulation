@@ -13,13 +13,11 @@
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
-#include <QtWidgets/QGridLayout>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
+#include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QTableWidget>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
@@ -31,11 +29,6 @@ class Ui_ConfigureProjectItem
 {
 public:
     QVBoxLayout *verticalLayout_3;
-    QWidget *widget_title;
-    QHBoxLayout *horizontalLayout_title;
-    QLabel *label_Image;
-    QLabel *label_title;
-    QPushButton *pushButton_Close;
     QWidget *widgetFucn;
     QHBoxLayout *horizontalLayout;
     QGroupBox *groupBox_group;
@@ -47,219 +40,307 @@ public:
     QRadioButton *radioButton_RIS;
     QTableWidget *tableWidget_group;
     QWidget *widget_btn;
-    QGridLayout *gridLayout_2;
-    QToolButton *toolButtonCancel;
+    QHBoxLayout *horizontalLayout_btn;
+    QSpacerItem *horizontalSpacer_left;
     QToolButton *toolButtonSaved;
+    QToolButton *toolButtonCancel;
     QToolButton *toolButton_addtable;
     QToolButton *toolButton_LossGroup;
+    QSpacerItem *horizontalSpacer_right;
 
     void setupUi(QWidget *ConfigureProjectItem)
     {
         if (ConfigureProjectItem->objectName().isEmpty())
             ConfigureProjectItem->setObjectName(QStringLiteral("ConfigureProjectItem"));
         ConfigureProjectItem->setWindowModality(Qt::ApplicationModal);
-        ConfigureProjectItem->resize(600, 362);
-        ConfigureProjectItem->setMinimumSize(QSize(310, 320));
-        ConfigureProjectItem->setMaximumSize(QSize(600, 999999));
+        ConfigureProjectItem->resize(600, 420);
+        ConfigureProjectItem->setMinimumSize(QSize(550, 380));
+        ConfigureProjectItem->setMaximumSize(QSize(600, 500));
+        ConfigureProjectItem->setStyleSheet(QString::fromUtf8("\n"
+"/* \345\205\250\345\261\200\346\240\267\345\274\217 - \345\214\273\347\226\227\346\265\205\350\223\235\350\211\262\347\263\273 */\n"
+"QWidget#ConfigureProjectItem {\n"
+"    background-color: #E8F4F8;\n"
+"}\n"
+"\n"
+"/* \346\240\207\351\242\230\346\240\217\346\240\267\345\274\217 */\n"
+"QWidget#widget_title {\n"
+"    background-color: #5FA8D3;\n"
+"    border: none;\n"
+"    border-top-left-radius: 8px;\n"
+"    border-top-right-radius: 8px;\n"
+"    min-height: 40px;\n"
+"    max-height: 40px;\n"
+"}\n"
+"\n"
+"QLabel#label_title {\n"
+"    color: white;\n"
+"    font: bold 16px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    background: transparent;\n"
+"    border: none;\n"
+"}\n"
+"\n"
+"QPushButton#pushButton_Close {\n"
+"    background: transparent;\n"
+"    border: none;\n"
+"    border-radius: 4px;\n"
+"}\n"
+"\n"
+"QPushButton#pushButton_Close:hover {\n"
+"    background-color: rgba(255, 255, 255, 0.2);\n"
+"    border-radius: 4px;\n"
+"}\n"
+"\n"
+"/* GroupBox \346\240\267\345\274\217"
+                        " */\n"
+"QGroupBox#groupBox_group {\n"
+"    border: 2px solid #AACDE2;\n"
+"    border-radius: 10px;\n"
+"    margin-top: 2ex;\n"
+"    font: bold 14px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    color: #005A8C;\n"
+"    background-color: rgba(240, 249, 255, 0.6);\n"
+"}\n"
+"\n"
+"QGroupBox#groupBox_group::title {\n"
+"    subcontrol-origin: margin;\n"
+"    subcontrol-position: top center;\n"
+"    padding: 0 8px;\n"
+"    color: #0077B6;\n"
+"}\n"
+"\n"
+"/* RadioButton \346\240\267\345\274\217 - \345\214\273\347\226\227\346\265\205\350\223\235\351\243\216\346\240\274 */\n"
+"QRadioButton {\n"
+"    font: 14px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    color: #1A4D6B;\n"
+"    spacing: 8px;\n"
+"}\n"
+"\n"
+"QRadioButton::indicator {\n"
+"    width: 20px;\n"
+"    height: 20px;\n"
+"    border-radius: 10px;\n"
+"}\n"
+"\n"
+"QRadioButton::indicator:unchecked {\n"
+"    background-color: #FFFFFF;\n"
+"    border: 1.5px solid #AACDE2;\n"
+"    border-"
+                        "radius: 10px;\n"
+"}\n"
+"\n"
+"QRadioButton::indicator:unchecked:hover {\n"
+"    border: 1.5px solid #5FA8D3;\n"
+"    background-color: #F0F9FF;\n"
+"}\n"
+"\n"
+"QRadioButton::indicator:checked {\n"
+"    background-color: #5FA8D3;\n"
+"    border: 1.5px solid #5FA8D3;\n"
+"    border-radius: 10px;\n"
+"}\n"
+"\n"
+"QRadioButton::indicator:checked:after {\n"
+"    content: '\342\227\217';\n"
+"    color: white;\n"
+"    font-size: 12px;\n"
+"    display: block;\n"
+"    text-align: center;\n"
+"    line-height: 17px;\n"
+"}\n"
+"\n"
+"QRadioButton::indicator:checked:hover {\n"
+"    background-color: #3A86A8;\n"
+"    border: 1.5px solid #3A86A8;\n"
+"}\n"
+"\n"
+"/* \350\241\250\346\240\274\346\240\267\345\274\217 */\n"
+"QTableWidget#tableWidget_group {\n"
+"    border: 1px solid #B8D9E6;\n"
+"    background-color: #FFFFFF;\n"
+"    border-style: solid;\n"
+"    border-radius: 8px;\n"
+"    padding: 0px;\n"
+"    alternate-background-color: #F2F9FC;\n"
+"    gridline-color: #C8E0F0;\n"
+"}\n"
+"\n"
+"QTableWidget#tableWidget_group::item:hover"
+                        " {\n"
+"    background-color: #D9F0F8;\n"
+"}\n"
+"\n"
+"QTableWidget#tableWidget_group::item:selected {\n"
+"    background-color: #2C7DA0;\n"
+"    color: white;\n"
+"}\n"
+"\n"
+"/* \350\241\250\345\244\264\346\240\267\345\274\217 */\n"
+"QHeaderView::section {\n"
+"    background-color: #5FA8D3;\n"
+"    color: white;\n"
+"    padding: 8px;\n"
+"    border: none;\n"
+"    border-right: 1px solid #3A86A8;\n"
+"    font-weight: bold;\n"
+"    font-size: 13px;\n"
+"}\n"
+"\n"
+"QHeaderView::section:last {\n"
+"    border-right: none;\n"
+"}\n"
+"\n"
+"/* \350\241\250\346\240\274\345\206\205 CheckBox \346\240\267\345\274\217 */\n"
+"QCheckBox {\n"
+"    font: 12px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    color: #1A4D6B;\n"
+"    spacing: 8px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator {\n"
+"    width: 20px;\n"
+"    height: 20px;\n"
+"    border-radius: 4px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:unchecked {\n"
+"    background-color: #FFFFFF;\n"
+"    border: 1.5px solid #AACDE2;\n"
+"}\n"
+"\n"
+"QCheckBo"
+                        "x::indicator:unchecked:hover {\n"
+"    border: 1.5px solid #5FA8D3;\n"
+"    background-color: #F0F9FF;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked {\n"
+"    background-color: #5FA8D3;\n"
+"    border: 1.5px solid #5FA8D3;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked:after {\n"
+"    content: '\342\234\223';\n"
+"    color: white;\n"
+"    font-size: 14px;\n"
+"    font-weight: bold;\n"
+"    display: block;\n"
+"    text-align: center;\n"
+"    line-height: 18px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked:hover {\n"
+"    background-color: #3A86A8;\n"
+"    border: 1.5px solid #3A86A8;\n"
+"}\n"
+"\n"
+"/* \345\272\225\351\203\250\346\214\211\351\222\256\345\256\271\345\231\250 */\n"
+"QWidget#widget_btn {\n"
+"    background-color: transparent;\n"
+"}\n"
+"\n"
+"/* QToolButton \346\240\267\345\274\217 - \345\214\273\347\226\227\346\265\205\350\223\235 */\n"
+"QToolButton {\n"
+"    border: 1px solid #5FA8D3;\n"
+"    background-color: #5FA8D3;\n"
+"    border-radius: 8px;\n"
+"    padding: 0 15px;\n"
+"    font: 14px '\345\276\256\350"
+                        "\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    color: white;\n"
+"    min-width: 100px;\n"
+"    min-height: 32px;\n"
+"}\n"
+"\n"
+"QToolButton:hover {\n"
+"    background-color: #3A86A8;\n"
+"    border: 1px solid #3A86A8;\n"
+"}\n"
+"\n"
+"QToolButton:pressed {\n"
+"    background-color: #2C6D8A;\n"
+"    border: 1px solid #2C6D8A;\n"
+"}\n"
+"\n"
+"QToolButton:disabled {\n"
+"    background-color: #B0D4E8;\n"
+"    border: 1px solid #B0D4E8;\n"
+"    color: #6A8EAE;\n"
+"}\n"
+"\n"
+"/* \346\273\232\345\212\250\346\235\241\346\240\267\345\274\217 */\n"
+"QScrollBar:vertical {\n"
+"    background: #E0F0F8;\n"
+"    width: 8px;\n"
+"    border-radius: 4px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:vertical {\n"
+"    background: #5FA8D3;\n"
+"    border-radius: 4px;\n"
+"    min-height: 20px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:vertical:hover {\n"
+"    background: #3A86A8;\n"
+"}\n"
+"\n"
+"QScrollBar:horizontal {\n"
+"    background: #E0F0F8;\n"
+"    height: 8px;\n"
+"    border-radius: 4px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:"
+                        "horizontal {\n"
+"    background: #5FA8D3;\n"
+"    border-radius: 4px;\n"
+"    min-width: 20px;\n"
+"}\n"
+"\n"
+"QScrollBar::handle:horizontal:hover {\n"
+"    background: #3A86A8;\n"
+"}\n"
+"   "));
         verticalLayout_3 = new QVBoxLayout(ConfigureProjectItem);
         verticalLayout_3->setSpacing(5);
         verticalLayout_3->setObjectName(QStringLiteral("verticalLayout_3"));
-        verticalLayout_3->setContentsMargins(1, 0, 1, 10);
-        widget_title = new QWidget(ConfigureProjectItem);
-        widget_title->setObjectName(QStringLiteral("widget_title"));
-        widget_title->setMinimumSize(QSize(0, 35));
-        widget_title->setMaximumSize(QSize(16777215, 35));
-        widget_title->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border: 1px solid rgba(220,220,220);"));
-        horizontalLayout_title = new QHBoxLayout(widget_title);
-        horizontalLayout_title->setSpacing(0);
-        horizontalLayout_title->setObjectName(QStringLiteral("horizontalLayout_title"));
-        horizontalLayout_title->setContentsMargins(1, 0, 0, 0);
-        label_Image = new QLabel(widget_title);
-        label_Image->setObjectName(QStringLiteral("label_Image"));
-        label_Image->setMaximumSize(QSize(32, 32));
-        label_Image->setStyleSheet(QLatin1String("border-style: flat;\n"
-""));
-        label_Image->setPixmap(QPixmap(QString::fromUtf8(":/Picture/suowei.png")));
-        label_Image->setScaledContents(false);
-
-        horizontalLayout_title->addWidget(label_Image);
-
-        label_title = new QLabel(widget_title);
-        label_title->setObjectName(QStringLiteral("label_title"));
-        QFont font;
-        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font.setPointSize(14);
-        label_title->setFont(font);
-        label_title->setStyleSheet(QLatin1String("border-style: flat;\n"
-"background: transparent;\n"
-""));
-
-        horizontalLayout_title->addWidget(label_title);
-
-        pushButton_Close = new QPushButton(widget_title);
-        pushButton_Close->setObjectName(QStringLiteral("pushButton_Close"));
-        pushButton_Close->setMaximumSize(QSize(32, 32));
-        pushButton_Close->setStyleSheet(QLatin1String("\n"
-"	border-style: flat;\n"
-"	background: transparent;\n"
-""));
-        QIcon icon;
-        icon.addFile(QString::fromUtf8(":/Picture/icon_title/\345\205\263\351\227\255.png"), QSize(), QIcon::Normal, QIcon::Off);
-        pushButton_Close->setIcon(icon);
-        pushButton_Close->setIconSize(QSize(32, 32));
-
-        horizontalLayout_title->addWidget(pushButton_Close);
-
-
-        verticalLayout_3->addWidget(widget_title);
-
+        verticalLayout_3->setContentsMargins(0, 0, 0, 5);
         widgetFucn = new QWidget(ConfigureProjectItem);
         widgetFucn->setObjectName(QStringLiteral("widgetFucn"));
         horizontalLayout = new QHBoxLayout(widgetFucn);
         horizontalLayout->setSpacing(10);
         horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
-        horizontalLayout->setContentsMargins(1, 0, 1, 0);
+        horizontalLayout->setContentsMargins(10, 10, 10, 5);
         groupBox_group = new QGroupBox(widgetFucn);
         groupBox_group->setObjectName(QStringLiteral("groupBox_group"));
-        groupBox_group->setMinimumSize(QSize(120, 0));
-        groupBox_group->setMaximumSize(QSize(130, 400));
-        QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font1.setBold(true);
-        font1.setItalic(false);
-        font1.setWeight(75);
-        groupBox_group->setFont(font1);
-        groupBox_group->setStyleSheet(QString::fromUtf8("QGroupBox{\n"
-"	border: 1px solid gray;\n"
-"	border-radius:15px;\n"
-"	margin-top:2ex;\n"
-"	font-family:\346\245\267\344\275\223;\n"
-"	font: bold 15px;\n"
-"} \n"
-"QGroupBox::title{\n"
-"	subcontrol-origin: margin;\n"
-"	subcontrol-position:top center;\n"
-"	padding: 2px;\n"
-"}\n"
-"QGroupBox::enabled{\n"
-"	border: 1px solid gray;\n"
-"}\n"
-"QGroupBox::!enabled{\n"
-"	border: 1px solid gray;\n"
-"}\n"
-"\n"
-""));
-        groupBox_group->setCheckable(false);
-        groupBox_group->setChecked(false);
+        groupBox_group->setMinimumSize(QSize(140, 0));
+        groupBox_group->setMaximumSize(QSize(160, 400));
         verticalLayout = new QVBoxLayout(groupBox_group);
-        verticalLayout->setSpacing(10);
+        verticalLayout->setSpacing(12);
         verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
-        verticalLayout->setContentsMargins(20, 5, 10, 5);
+        verticalLayout->setContentsMargins(20, 15, 10, 15);
         radioButton_AA = new QRadioButton(groupBox_group);
         radioButton_AA->setObjectName(QStringLiteral("radioButton_AA"));
-        QFont font2;
-        font2.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        radioButton_AA->setFont(font2);
-        radioButton_AA->setStyleSheet(QString::fromUtf8("/*\345\215\225\351\200\211\346\241\206\346\234\252\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::unchecked { \n"
-"    image: url(:/Picture/icon_radio_button_uncheck.png);\n"
-"}\n"
-"/*\345\215\225\351\200\211\346\241\206\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::checked { \n"
-"    image: url(:/Picture/icon_radio_button_checked.png);\n"
-"}\n"
-"/*RadioButton\345\222\214checkbox\345\255\227\344\275\223\345\222\214\351\227\264\350\267\235\350\256\276\347\275\256*/\n"
-"QRadioButton ,QCheckBox{\n"
-"    spacing: 5px;\n"
-"    font-size: 16px;\n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"}"));
 
         verticalLayout->addWidget(radioButton_AA);
 
         radioButton_ADP = new QRadioButton(groupBox_group);
         radioButton_ADP->setObjectName(QStringLiteral("radioButton_ADP"));
-        radioButton_ADP->setFont(font2);
-        radioButton_ADP->setStyleSheet(QString::fromUtf8("/*\345\215\225\351\200\211\346\241\206\346\234\252\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::unchecked {\n"
-"     \n"
-"    image: url(:/Picture/icon_radio_button_uncheck.png);\n"
-"}\n"
-"/*\345\215\225\351\200\211\346\241\206\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::checked { \n"
-"    image: url(:/Picture/icon_radio_button_checked.png);\n"
-"}\n"
-"/*RadioButton\345\222\214checkbox\345\255\227\344\275\223\345\222\214\351\227\264\350\267\235\350\256\276\347\275\256*/\n"
-"QRadioButton ,QCheckBox{\n"
-"    spacing: 5px;\n"
-"    font-size: 16px;\n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"}"));
 
         verticalLayout->addWidget(radioButton_ADP);
 
         radioButton_EPI = new QRadioButton(groupBox_group);
         radioButton_EPI->setObjectName(QStringLiteral("radioButton_EPI"));
-        radioButton_EPI->setFont(font2);
-        radioButton_EPI->setStyleSheet(QString::fromUtf8("/*\345\215\225\351\200\211\346\241\206\346\234\252\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::unchecked {\n"
-"     \n"
-"    image: url(:/Picture/icon_radio_button_uncheck.png);\n"
-"}\n"
-"/*\345\215\225\351\200\211\346\241\206\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::checked { \n"
-"    image: url(:/Picture/icon_radio_button_checked.png);\n"
-"}\n"
-"/*RadioButton\345\222\214checkbox\345\255\227\344\275\223\345\222\214\351\227\264\350\267\235\350\256\276\347\275\256*/\n"
-"QRadioButton ,QCheckBox{\n"
-"    spacing: 5px;\n"
-"    font-size: 16px;\n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"}"));
 
         verticalLayout->addWidget(radioButton_EPI);
 
         radioButton_COL = new QRadioButton(groupBox_group);
         radioButton_COL->setObjectName(QStringLiteral("radioButton_COL"));
-        radioButton_COL->setFont(font2);
-        radioButton_COL->setStyleSheet(QString::fromUtf8("/*\345\215\225\351\200\211\346\241\206\346\234\252\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::unchecked {\n"
-"     \n"
-"    image: url(:/Picture/icon_radio_button_uncheck.png);\n"
-"}\n"
-"/*\345\215\225\351\200\211\346\241\206\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::checked { \n"
-"    image: url(:/Picture/icon_radio_button_checked.png);\n"
-"}\n"
-"/*RadioButton\345\222\214checkbox\345\255\227\344\275\223\345\222\214\351\227\264\350\267\235\350\256\276\347\275\256*/\n"
-"QRadioButton ,QCheckBox{\n"
-"    spacing: 5px;\n"
-"    font-size: 16px;\n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"}"));
 
         verticalLayout->addWidget(radioButton_COL);
 
         radioButton_RIS = new QRadioButton(groupBox_group);
         radioButton_RIS->setObjectName(QStringLiteral("radioButton_RIS"));
-        radioButton_RIS->setFont(font2);
-        radioButton_RIS->setStyleSheet(QString::fromUtf8("/*\345\215\225\351\200\211\346\241\206\346\234\252\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::unchecked {\n"
-"     \n"
-"    image: url(:/Picture/icon_radio_button_uncheck.png);\n"
-"}\n"
-"/*\345\215\225\351\200\211\346\241\206\351\200\211\344\270\255\346\240\267\345\274\217*/\n"
-"QRadioButton::indicator::checked { \n"
-"    image: url(:/Picture/icon_radio_button_checked.png);\n"
-"}\n"
-"/*RadioButton\345\222\214checkbox\345\255\227\344\275\223\345\222\214\351\227\264\350\267\235\350\256\276\347\275\256*/\n"
-"QRadioButton ,QCheckBox{\n"
-"    spacing: 5px;\n"
-"    font-size: 16px;\n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"}"));
 
         verticalLayout->addWidget(radioButton_RIS);
 
@@ -268,19 +349,12 @@ public:
 
         tableWidget_group = new QTableWidget(widgetFucn);
         tableWidget_group->setObjectName(QStringLiteral("tableWidget_group"));
-        tableWidget_group->setMinimumSize(QSize(300, 220));
+        tableWidget_group->setMinimumSize(QSize(350, 250));
         tableWidget_group->setMaximumSize(QSize(9999, 400));
-        QFont font3;
-        font3.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
-        font3.setPointSize(12);
-        tableWidget_group->setFont(font3);
-        tableWidget_group->setStyleSheet(QLatin1String("QTableWidget#tableWidget_group{  \n"
-"    border: 1px solid #C0C0C0;  \n"
-"	background-color: rgb(230, 230, 230);  \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    padding:0 0px;  	\n"
-"} "));
+        QFont font;
+        font.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
+        font.setPointSize(12);
+        tableWidget_group->setFont(font);
 
         horizontalLayout->addWidget(tableWidget_group);
 
@@ -289,127 +363,51 @@ public:
 
         widget_btn = new QWidget(ConfigureProjectItem);
         widget_btn->setObjectName(QStringLiteral("widget_btn"));
-        widget_btn->setMinimumSize(QSize(0, 70));
-        widget_btn->setMaximumSize(QSize(16777215, 90));
-        gridLayout_2 = new QGridLayout(widget_btn);
-        gridLayout_2->setSpacing(5);
-        gridLayout_2->setObjectName(QStringLiteral("gridLayout_2"));
-        gridLayout_2->setContentsMargins(0, 0, 0, 0);
-        toolButtonCancel = new QToolButton(widget_btn);
-        toolButtonCancel->setObjectName(QStringLiteral("toolButtonCancel"));
-        toolButtonCancel->setMinimumSize(QSize(130, 35));
-        toolButtonCancel->setMaximumSize(QSize(130, 35));
-        toolButtonCancel->setFont(font2);
-        toolButtonCancel->setStyleSheet(QString::fromUtf8(" QToolButton#toolButtonCancel{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButtonCancel:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButtonCancel:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}\n"
-"\n"
-""));
-        toolButtonCancel->setIconSize(QSize(16, 16));
-        toolButtonCancel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        widget_btn->setMinimumSize(QSize(0, 60));
+        widget_btn->setMaximumSize(QSize(16777215, 70));
+        horizontalLayout_btn = new QHBoxLayout(widget_btn);
+        horizontalLayout_btn->setSpacing(15);
+        horizontalLayout_btn->setObjectName(QStringLiteral("horizontalLayout_btn"));
+        horizontalLayout_btn->setContentsMargins(15, 5, 15, 5);
+        horizontalSpacer_left = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
 
-        gridLayout_2->addWidget(toolButtonCancel, 0, 1, 1, 1);
+        horizontalLayout_btn->addItem(horizontalSpacer_left);
 
         toolButtonSaved = new QToolButton(widget_btn);
         toolButtonSaved->setObjectName(QStringLiteral("toolButtonSaved"));
-        toolButtonSaved->setMinimumSize(QSize(130, 35));
-        toolButtonSaved->setMaximumSize(QSize(130, 35));
-        toolButtonSaved->setFont(font2);
-        toolButtonSaved->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonSaved{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButtonSaved:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButtonSaved:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}\n"
-"\n"
-""));
+        toolButtonSaved->setMinimumSize(QSize(132, 34));
+        toolButtonSaved->setMaximumSize(QSize(120, 40));
         toolButtonSaved->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
-        gridLayout_2->addWidget(toolButtonSaved, 0, 0, 1, 1);
+        horizontalLayout_btn->addWidget(toolButtonSaved);
+
+        toolButtonCancel = new QToolButton(widget_btn);
+        toolButtonCancel->setObjectName(QStringLiteral("toolButtonCancel"));
+        toolButtonCancel->setMinimumSize(QSize(132, 34));
+        toolButtonCancel->setMaximumSize(QSize(120, 40));
+        toolButtonCancel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+
+        horizontalLayout_btn->addWidget(toolButtonCancel);
 
         toolButton_addtable = new QToolButton(widget_btn);
         toolButton_addtable->setObjectName(QStringLiteral("toolButton_addtable"));
-        toolButton_addtable->setMinimumSize(QSize(130, 35));
-        toolButton_addtable->setMaximumSize(QSize(130, 35));
-        toolButton_addtable->setFont(font2);
-        toolButton_addtable->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_addtable{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_addtable:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_addtable:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}\n"
-"\n"
-""));
-        toolButton_addtable->setIconSize(QSize(32, 32));
+        toolButton_addtable->setMinimumSize(QSize(132, 34));
+        toolButton_addtable->setMaximumSize(QSize(120, 40));
         toolButton_addtable->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
-        gridLayout_2->addWidget(toolButton_addtable, 0, 2, 1, 1);
+        horizontalLayout_btn->addWidget(toolButton_addtable);
 
         toolButton_LossGroup = new QToolButton(widget_btn);
         toolButton_LossGroup->setObjectName(QStringLiteral("toolButton_LossGroup"));
-        toolButton_LossGroup->setMinimumSize(QSize(130, 35));
-        toolButton_LossGroup->setMaximumSize(QSize(130, 35));
-        toolButton_LossGroup->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_LossGroup{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_LossGroup:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_LossGroup:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}\n"
-"\n"
-""));
+        toolButton_LossGroup->setMinimumSize(QSize(132, 34));
+        toolButton_LossGroup->setMaximumSize(QSize(120, 40));
+        toolButton_LossGroup->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
-        gridLayout_2->addWidget(toolButton_LossGroup, 0, 3, 1, 1);
+        horizontalLayout_btn->addWidget(toolButton_LossGroup);
+
+        horizontalSpacer_right = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        horizontalLayout_btn->addItem(horizontalSpacer_right);
 
 
         verticalLayout_3->addWidget(widget_btn);
@@ -423,17 +421,14 @@ public:
     void retranslateUi(QWidget *ConfigureProjectItem)
     {
         ConfigureProjectItem->setWindowTitle(QApplication::translate("ConfigureProjectItem", "\351\205\215\347\275\256\351\241\271\347\233\256", nullptr));
-        label_Image->setText(QString());
-        label_title->setText(QString());
-        pushButton_Close->setText(QString());
-        groupBox_group->setTitle(QString());
-        radioButton_AA->setText(QString());
-        radioButton_ADP->setText(QString());
-        radioButton_EPI->setText(QString());
-        radioButton_COL->setText(QString());
-        radioButton_RIS->setText(QString());
-        toolButtonCancel->setText(QApplication::translate("ConfigureProjectItem", "\351\200\200\345\207\272", nullptr));
+        groupBox_group->setTitle(QApplication::translate("ConfigureProjectItem", "\346\265\213\350\257\225\351\241\271\347\233\256", nullptr));
+        radioButton_AA->setText(QApplication::translate("ConfigureProjectItem", "AA", nullptr));
+        radioButton_ADP->setText(QApplication::translate("ConfigureProjectItem", "ADP", nullptr));
+        radioButton_EPI->setText(QApplication::translate("ConfigureProjectItem", "EPI", nullptr));
+        radioButton_COL->setText(QApplication::translate("ConfigureProjectItem", "COL", nullptr));
+        radioButton_RIS->setText(QApplication::translate("ConfigureProjectItem", "RIS", nullptr));
         toolButtonSaved->setText(QApplication::translate("ConfigureProjectItem", "\347\241\256\345\256\232", nullptr));
+        toolButtonCancel->setText(QApplication::translate("ConfigureProjectItem", "\345\217\226\346\266\210", nullptr));
         toolButton_addtable->setText(QApplication::translate("ConfigureProjectItem", "\346\267\273\345\212\240\347\273\204\345\220\210", nullptr));
         toolButton_LossGroup->setText(QApplication::translate("ConfigureProjectItem", "\345\210\240\351\231\244\347\273\204\345\220\210", nullptr));
     } // retranslateUi

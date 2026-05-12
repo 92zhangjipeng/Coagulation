@@ -25,17 +25,59 @@ GlobalData::GlobalData()
 
 
 
-void  GlobalData::QCommboxSheet(QComboBox *pcommbox)
+void GlobalData::QCommboxSheet(QComboBox *pcommbox)
 {
-    QString css_ = "QComboBox{border-radius:5px; padding:2px 4px; font: 19 17pt '楷体'; border: 2px solid rgba(220,220,220);background-color:rgba(188,187,183);}"
-                           "QComboBox::drop-down {subcontrol-origin: padding;subcontrol-position: top right;width: 15px; border:none;}"
-                           "QComboBox::down-arrow {height:35px; width:30px; image: url(:/Picture/minus.png);}"
-                           "QComboBox QAbstractItemView{background:rgba(255,255,255,1);border:1px solid rgba(150,150,150,1);border-radius:0px 0px 5px 5px;font: 24px; font-family: 楷体;outline: 0px;}"
-                           "QComboBox QAbstractItemView::item{ height:35px; color:#666666; padding-left:9px; background-color:#FFFFFF;}"
-                           "QComboBox QAbstractItemView::item:hover{background-color:#409CE1;color:#ffffff;}"
-                           "QComboBox QAbstractItemView::item:selected{background-color:#409CE1;color:#ffffff;}"
-                           "QComboBox:on { padding-top: 3px;padding-left: 3px;}"
-                           "QComboBox::down-arrow:on {top: 1px;left:3px;}";
+    QString css_ = "QComboBox{"
+                   "   border-radius:6px;"
+                   "   padding:4px 8px;"
+                   "   font:14px '微软雅黑', '楷体';"
+                   "   border:1px solid #AACDE2;"
+                   "   background-color:#FFFFFF;"
+                   "   color:#1A4D6B;"
+                   "}"
+                   "QComboBox::drop-down {"
+                   "   subcontrol-origin:padding;"
+                   "   subcontrol-position:top right;"
+                   "   width:20px;"
+                   "   border-left:1px solid #AACDE2;"
+                   "}"
+                   "QComboBox::down-arrow {"
+                   "   image:url(:/Picture/minus.png);"
+                   "   width:12px;"
+                   "   height:12px;"
+                   "}"
+                   "QComboBox QAbstractItemView{"
+                   "   background:#FFFFFF;"
+                   "   border:1px solid #AACDE2;"
+                   "   border-radius:6px;"
+                   "   font:12px '微软雅黑', '楷体';"
+                   "   outline:0px;"
+                   "}"
+                   "QComboBox QAbstractItemView::item{"
+                   "   height:32px;"
+                   "   color:#1A4D6B;"
+                   "   padding-left:9px;"
+                   "   background-color:#FFFFFF;"
+                   "}"
+                   "QComboBox QAbstractItemView::item:hover{"
+                   "   background-color:#5FA8D3;"
+                   "   color:#ffffff;"
+                   "}"
+                   "QComboBox QAbstractItemView::item:selected{"
+                   "   background-color:#2C7DA0;"
+                   "   color:#ffffff;"
+                   "}"
+                   "QComboBox:on {"
+                   "   padding-top:2px;"
+                   "   padding-left:6px;"
+                   "}"
+                   "QComboBox::down-arrow:on {"
+                   "   top:1px;"
+                   "   left:2px;"
+                   "}"
+                   "QComboBox:focus {"
+                   "   border:2px solid #5FA8D3;"
+                   "}";
     pcommbox->setStyleSheet(css_);
     pcommbox->update();
     return;
@@ -44,65 +86,139 @@ void  GlobalData::QCommboxSheet(QComboBox *pcommbox)
 void GlobalData::QLableSheet(QLabel *plable){
     plable->setStyleSheet(
         "QLabel {"
-        "   background-color: qradialgradient(cx:0.5, cy:0.5, radius: 0.6,"
-        "       fx:0.5, fy:0.5, stop:0 #FFFFFF, stop:1 #F5F5F5);"
-        "   border: 3px solid qconicalgradient(cx:0.5, cy:0.5, angle:90,"
-        "       stop:0 #4CAF50, stop:0.5 #2196F3, stop:1 #2196F3);"
-        "   border-radius: 15px;"
-        "   padding: 15px;"
-        "   color: #212121;"
-        "   font: bold 14px '楷体';"
-        "   min-width: 100px;"
-        "   min-height: 20px;"
+        "   background-color: #F0F9FF;"
+        "   border: 1px solid #AACDE2;"
+        "   border-radius: 8px;"
+        "   padding: 8px 12px;"
+        "   color: #1A4D6B;"
+        "   font: 12px '微软雅黑', '楷体';"
+        "   min-width: 80px;"
+        "   min-height: 24px;"
         "}"
         "QLabel:hover {"
-        "   border: 3px solid #2196F3;"
-        "   box-shadow: 0 0 15px rgba(33,150,243,0.3);"
-        "}"
-        "QLabel:pressed {"
-        "   background-color: #E0E0E0;"
+        "   border: 1px solid #5FA8D3;"
+        "   background-color: #E8F4F8;"
         "}"
     );
 }
 
 void GlobalData::QLineEditSheet(QLineEdit *PLineEdit)
 {
-    QString  css_ = "QLineEdit:hover {border: 1px solid #298DFF;border-radius: 3px;background-color: #F2F2F2;color: "
-                    "#298DFF;selection-background-color: #298DFF;selection-color: #F2F2F2;}"
-                    "QLineEdit[echoMode = '2'] { lineedit-password-character: 9679;lineedit-password-mask-delay: 2000;}"
-                    "QLineEdit{border: 1px solid #298DFF;background-color: #F2F2F2;}"
-                    "QLineEdit:disabled {border: 1px solid #CDCDCD;background-color: #CDCDCD;color: #B4B4B4; }"
-                    "QLineEdit:read-only { background-color: #CDCDCD;color: #F2F2F2;}";
+    QString css_ = "QLineEdit{"
+                   "   border: 1px solid #AACDE2;"
+                   "   background-color: #FFFFFF;"
+                   "   border-radius: 6px;"
+                   "   padding: 5px 8px;"
+                   "   font: 12px '微软雅黑', '楷体';"
+                   "   color: #1A4D6B;"
+                   "   selection-background-color: #5FA8D3;"
+                   "   selection-color: #FFFFFF;"
+                   "}"
+                   "QLineEdit:hover {"
+                   "   border: 1px solid #5FA8D3;"
+                   "}"
+                   "QLineEdit:focus {"
+                   "   border: 2px solid #5FA8D3;"
+                   "}"
+                   "QLineEdit:disabled {"
+                   "   background-color: #E8F0F5;"
+                   "   border: 1px solid #C8E0F0;"
+                   "   color: #6A8EAE;"
+                   "}"
+                   "QLineEdit:read-only {"
+                   "   background-color: #E8F0F5;"
+                   "   color: #6A8EAE;"
+                   "}";
     PLineEdit->setStyleSheet(css_);
-    PLineEdit->update();                                                                                                                                                                                                                                                                                                                                                   "QLineEdit:disabled {border: 1px solid #CDCDCD;background-color: #CDCDCD;color: #B4B4B4;}QLineEdit:read-only { /* QLineEdit在只读时的状态 */background-color: #CDCDCD;color: #F2F2F2;}";
+    PLineEdit->update();
 }
 
-
-void GlobalData::QCheckboxSheet(QCheckBox *pbox,const QString name)
+void GlobalData::QCheckboxSheet(QCheckBox *pbox, const QString name)
 {
-   QString css_ = "QCheckBox::indicator {width:32px; height: 32px;}"
-                  "QCheckBox::indicator::unchecked {image: url(:/Picture/check_box_unchecked.png);width:32px;height: 32px;}"
-                  "QCheckBox::indicator::checked {image: url(:/Picture/check-box-checked.png);width:32px;height: 32px;}"
-                  "QCheckBox::indicator:enabled:unchecked:hover {image: url(:/Picture/check_box_hove.png);width:32px;height: 32px;}";
-   pbox->setStyleSheet(css_);
-   pbox->setText(name);
-   pbox->update();
-   return;
-}
-
-void GlobalData::QCheckboxSheetChnstate(QCheckBox *pbox,const QString name)
-{
-    QString css_ ="QCheckBox::indicator {width: 64px; height: 64px;color: rgb(0, 0, 0);}"
-                  "QCheckBox::indicator:unchecked {image: url(:/Picture/SetPng/closechannel.png);width: 64px; height: 64px;}"
-                  "QCheckBox::indicator:checked {image: url(:/Picture/SetPng/openchannel.png);width: 64px; height: 64px;}";
-
+    QString css_ = "QCheckBox {"
+                   "   font: 12px '微软雅黑', '楷体';"
+                   "   color: #1A4D6B;"
+                   "   spacing: 8px;"
+                   "}"
+                   "QCheckBox::indicator {"
+                   "   width: 24px;"
+                   "   height: 24px;"
+                   "   border-radius: 5px;"
+                   "}"
+                   "QCheckBox::indicator:unchecked {"
+                   "   background-color: #FFFFFF;"
+                   "   border: 1.5px solid #AACDE2;"
+                   "}"
+                   "QCheckBox::indicator:unchecked:hover {"
+                   "   border: 1.5px solid #5FA8D3;"
+                   "   background-color: #F0F9FF;"
+                   "}"
+                   "QCheckBox::indicator:checked {"
+                   "   background-color: #5FA8D3;"
+                   "   border: 1.5px solid #5FA8D3;"
+                   "}"
+                   "QCheckBox::indicator:checked:after {"
+                   "   content: '✓';"
+                   "   color: white;"
+                   "   font-size: 16px;"
+                   "   font-weight: bold;"
+                   "   display: block;"
+                   "   text-align: center;"
+                   "   line-height: 22px;"
+                   "}"
+                   "QCheckBox::indicator:checked:hover {"
+                   "   background-color: #3A86A8;"
+                   "   border: 1.5px solid #3A86A8;"
+                   "}"
+                   "QCheckBox::indicator:checked:disabled {"
+                   "   background-color: #C8E0F0;"
+                   "   border: 1.5px solid #C8E0F0;"
+                   "}"
+                   "QCheckBox::indicator:checked:disabled:after {"
+                   "   color: #FFFFFF;"
+                   "}"
+                   "QCheckBox::indicator:unchecked:disabled {"
+                   "   background-color: #F0F0F0;"
+                   "   border: 1.5px solid #D0D0D0;"
+                   "}";
     pbox->setStyleSheet(css_);
     pbox->setText(name);
     pbox->update();
     return;
 }
 
-void GlobalData::mainseledview(QToolButton *ptoolbtn,bool checked)
+void GlobalData::QCheckboxSheetChnstate(QCheckBox *pbox, const QString name)
+{
+    QString css_ = "QCheckBox {"
+               "   font: 14px '微软雅黑', '楷体';"
+               "   color: #1A4D6B;"
+               "   spacing: 12px;"
+               "}"
+               "QCheckBox::indicator {"
+               "   width: 48px;"
+               "   height: 48px;"
+               "}"
+               "QCheckBox::indicator:unchecked {"
+               "   image: url(:/Picture/SetPng/closechannel.png);"
+               "}"
+               "QCheckBox::indicator:checked {"
+               "   image: url(:/Picture/SetPng/openchannel.png);"
+               "}"
+               "QCheckBox::indicator:unchecked:hover {"
+               "   image: url(:/Picture/SetPng/closechannel.png);"
+               "   opacity: 0.8;"
+               "}"
+               "QCheckBox::indicator:checked:hover {"
+               "   image: url(:/Picture/SetPng/openchannel.png);"
+               "   opacity: 0.8;"
+               "}";
+    pbox->setStyleSheet(css_);
+    pbox->setText(name);
+    pbox->update();
+    return;
+}
+
+void GlobalData::mainseledview(QToolButton *ptoolbtn, bool checked)
 {
     QString Css_;
     if(checked)
@@ -127,113 +243,99 @@ QColor GlobalData::customCurveColor(quint8 indexReag)
     QColor customColor;
     switch(indexReag)
     {
-        case AA_REAGENT:  
-            customColor.setRgb(86,147,198,255);
-		break;
-        case ADP_REAGENT: 
-            customColor.setRgb(114,106,176,255);
-		break;
-        case EPI_REAGENT: 
-            customColor.setRgb(234,42,42,255);
-		break;
-        case COL_REAGENT: 
-            customColor.setRgb(147,153,156,255);
-		break;
-        case RIS_REAGENT: 
-            customColor.setRgb(188, 143, 143,255);
-		break;
+        case AA_REAGENT:
+            customColor.setRgb(86, 147, 198, 255);   // 医疗蓝
+            break;
+        case ADP_REAGENT:
+            customColor.setRgb(114, 106, 176, 255);  // 紫罗兰
+            break;
+        case EPI_REAGENT:
+            customColor.setRgb(234, 42, 42, 255);    // 警示红
+            break;
+        case COL_REAGENT:
+            customColor.setRgb(147, 153, 156, 255);  // 中性灰
+            break;
+        case RIS_REAGENT:
+            customColor.setRgb(95, 168, 211, 255);   // 医疗浅蓝
+            break;
         default:
-            customColor.setRgb(0,0,0,0);
-        break;
+            customColor.setRgb(0, 0, 0, 0);
+            break;
     }
     return customColor;
 }
 
-
-void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget,const QString TableName,
-                                        const QStringList itemHeand,const QStringList itemRows,bool binsertRows)
+void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget, const QString TableName,
+                                        const QStringList itemHeand, const QStringList itemRows, bool binsertRows)
 {
-    CustomTableWidget->setMouseTracking(true);  //设置鼠标追踪
-    CustomTableWidget->setSelectionBehavior(QAbstractItemView::SelectItems); //整行选中的方式
-    CustomTableWidget->setEditTriggers(QAbstractItemView::CurrentChanged); //禁止编辑
-
+    CustomTableWidget->setMouseTracking(true);
+    CustomTableWidget->setSelectionBehavior(QAbstractItemView::SelectItems);
+    CustomTableWidget->setEditTriggers(QAbstractItemView::CurrentChanged);
 
     QFont cellFont;
-    cellFont.setPointSize(11); // 设置较大的字号
+    cellFont.setPointSize(11);
     cellFont.setBold(false);
     CustomTableWidget->horizontalHeader()->setFont(cellFont);
 
-    //表列随着表格变化而自适应变化++
     CustomTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    CustomTableWidget->setAlternatingRowColors(true); //隔行换色
-
-    //点击表时不对表头行光亮（获取焦点)
+    CustomTableWidget->setAlternatingRowColors(true);
     CustomTableWidget->horizontalHeader()->setHighlightSections(false);
 
-    //设置表头字体加粗
     QFont headerFont = CustomTableWidget->horizontalHeader()->font();
     headerFont.setBold(true);
-    headerFont.setPointSize(12); // 增大表头字号
+    headerFont.setPointSize(12);
     CustomTableWidget->horizontalHeader()->setFont(headerFont);
-    CustomTableWidget->verticalHeader()->setHidden(true);       //隐藏行号列
+    CustomTableWidget->verticalHeader()->setHidden(true);
     CustomTableWidget->setWindowTitle(TableName);
 
-    //表头
     int leng_ = itemHeand.size();
     CustomTableWidget->setColumnCount(leng_);
     CustomTableWidget->setHorizontalHeaderLabels(itemHeand);
     CustomTableWidget->verticalHeader()->setVisible(false);
-    CustomTableWidget->verticalHeader()->setDefaultSectionSize(35); //默认行高
+    CustomTableWidget->verticalHeader()->setDefaultSectionSize(35);
 
-    //表行
     if(binsertRows)
     {
         int totalRows = itemRows.size();
         CustomTableWidget->setRowCount(totalRows);
         CustomTableWidget->verticalHeader()->setVisible(false);
-        CustomTableWidget->verticalHeader()->setDefaultSectionSize(35); //默认行高
+        CustomTableWidget->verticalHeader()->setDefaultSectionSize(35);
     }
 
-    // 设置表头样式 - 更美观
+    // 医疗浅蓝风格表头样式
     CustomTableWidget->horizontalHeader()->setStyleSheet(
         "QHeaderView::section {"
-        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+        "   background-color: #5FA8D3;"
         "   color: white;"
         "   padding: 8px;"
-        "   border: 1px solid #3a3a3a;"
+        "   border: none;"
+        "   border-right: 1px solid #3A86A8;"
         "   font-weight: bold;"
-        "   font-size: 12pt;"  // 增大表头字号
-        "}"
-        "QHeaderView::section:first {"
-        "   border-left: 1px solid #3a3a3a;"
+        "   font-size: 12px;"
         "}"
         "QHeaderView::section:last {"
-        "   border-right: 1px solid #3a3a3a;"
+        "   border-right: none;"
         "}"
     );
 
-
-    QString cssTable = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
-                       "QTableWidget::item:selected{background-color:rgb(139, 139, 122)}"
-
-                       "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
-                       "border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(0, 0, 0);"
-                       "font: bold 1pt; padding:12px 0 0 10px}"
-
-                       "QHeaderView::section,QTableCornerButton:section{padding:3px; margin:0px; color:rgba(188, 187, 186, 255); "
-                       "border:1px solid rgba(188, 187, 186, 255); border-left-width:0px; border-right-width:1px; border-top-width:0px; "
-                       "border-bottom-width:1px; background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252);}"
-
-                       "QTableWidget{background-color: white; border: 1px; border-color: rgb(0, 0, 0);}"
-
-                       "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,stop:0 rgba(188, 187, 186, 255), "
-                       "stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
-
-                       "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,stop:0 rgba(188, 187, 186, 255), "
-                       "stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
+    QString cssTable = "QTableWidget{"
+                       "   background-color: #FFFFFF;"
+                       "   alternate-background-color: #F2F9FC;"
+                       "   gridline-color: #C8E0F0;"
+                       "   border: 1px solid #B8D9E6;"
+                       "}"
+                       "QTableWidget::item:hover{"
+                       "   background-color: #D9F0F8;"
+                       "}"
+                       "QTableWidget::item:selected{"
+                       "   background-color: #2C7DA0;"
+                       "   color: white;"
+                       "}"
+                       "QTableCornerButton::section{"
+                       "   background-color: #5FA8D3;"
+                       "   border: none;"
+                       "}";
     CustomTableWidget->setStyleSheet(cssTable);
-    // 设置代理以实现编辑时文字居中
     CustomTableWidget->setItemDelegate(new AlignDelegate(CustomTableWidget));
     CustomTableWidget->update();
     return;
@@ -1025,19 +1127,22 @@ QString GlobalData::groupDateAndID(const QString date, const int idnum)
     return outputSampleid;
 }
 
-void GlobalData::vectorconversionString(QVector<double> curvepoint,QString &curvepos)
+void GlobalData::vectorconversionString(const QVector<double> curvepoint, QString& curvepos)
 {
-    int size_len = curvepoint.size();
-    for(int n = 0; n < size_len; n++)
-    {
-        double _data = curvepoint.at(n);
-        QString _data_precision = QString::number(_data, 'f', 4);
-        if(n + 1 != size_len)
-            curvepos = curvepos + QString("%1,").arg(_data_precision);
-        else
-            curvepos = curvepos + QString("%1").arg(_data_precision);
+    curvepos.clear();  // 清空输出字符串
+
+    const int size_len = curvepoint.size();
+    if (size_len == 0) return;
+
+    // 预分配内存，避免多次重新分配
+    curvepos.reserve(size_len * 10);  // 估算每个数字约10个字符
+
+    for (int n = 0; n < size_len; ++n) {
+        if (n != 0) {
+            curvepos.append(',');
+        }
+        curvepos.append(QString::number(curvepoint.at(n), 'f', 4));
     }
-    return;
 }
 
 

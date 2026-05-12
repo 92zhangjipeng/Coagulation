@@ -33,6 +33,7 @@ using namespace cv;
 using namespace std;
 
 
+
 // 二值化参数结构体
 struct BinaryParameters {
     // 红色参数
@@ -144,20 +145,14 @@ private:
    Mat      findReferenceObject(Mat& image, Scalar lowerBound, Scalar upperBound);
    double   calculatePixelToCmRatio(Mat& referenceMask, double realHeightCm);
    Mat      extractGrooveRegion(Mat& image, Mat& referenceMask, int grooveWidth);
-
-
-
-
-
-
-
-
    Mat      findTubeByMultiFeatures(Mat& inputImage);
 
    // 在原图中标记结果
    void     markResultsOnOriginalImage(Mat& originalImage, const Point& interfacePoint, int rbcHeight, const Rect& referenceRect);
    void     displayResults(const double &khemolysisIndex);
    Rect     findReferenceObjectRect(Mat& image, Scalar lowerBound, Scalar upperBound);
+   Rect     findReferenceObjectRectDualColor(Mat& image, Scalar lowerBound1, Scalar upperBound1, Scalar lowerBound2, Scalar upperBound2);
+   Mat      findReferenceObjectDualColor(Mat& image, Scalar lowerBound1, Scalar upperBound1, Scalar lowerBound2, Scalar upperBound2);
 
    // 计算实际高度和下针深度
    void     calculateNeedleDropParameters(int interfaceY, int rbcHeightPixels, double pixelToMmRatio);
