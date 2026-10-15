@@ -3,128 +3,191 @@
 # Project created by QtCreator 2019-12-06T11:20:49
 #
 #-------------------------------------------------
-QT      += core gui
-QT      += concurrent
-QT      += serialport serialbus
-QT      += widgets printsupport
-QT      += multimedia
-QT      += multimediawidgets
-QT      += sql
-QT      += network
-QT      += core gui opengl
-QT      += printsupport
 
-CONFIG  += c++14
+# ========== Qt 模块配置 ==========
+QT += core gui
+QT += concurrent
+QT += serialport serialbus
+QT += widgets printsupport
+QT += multimedia
+QT += multimediawidgets
+QT += sql
+QT += network
+QT += opengl          # 将 opengl 单独列出，避免重复 core/gui
+# QT += core gui opengl   # 已合并到上面，删除重复
+# QT += printsupport      # 重复，已在第7行添加
 
+# ========== 编译配置 ==========
+CONFIG += c++14
 
-
-QMAKE_LFLAGS_RELEASE += /MAP
-QMAKE_CFLAGS_RELEASE += /Zi
-QMAKE_LFLAGS_RELEASE += /debug /opt:ref
-
-QMAKE_CXXFLAGS_RELEASE += $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
-QMAKE_LFLAGS_RELEASE += $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO
-
-
-QMAKE_CFLAGS_RELEASE += -g
-QMAKE_CXXFLAGS_RELEASE += -g
-#禁止优化
-QMAKE_CFLAGS_RELEASE -= -O2
-QMAKE_CXXFLAGS_RELEASE -= -O2
-QMAKE_LFLAGS_RELEASE = -mthreads -W
-LIBS += -lDbgHelp
-#加上下面两行，否则用vs调试时，提示“未找到xxx.exe"
-QMAKE_CXXFLAGS += -g
-QMAKE_CFLAGS += -g
-
+# ========== 调试信息生成（MSVC Release）==========
 msvc {
-    QMAKE_LFLAGS +=/HEAP:"100000000"",4096"
+    QMAKE_LFLAGS_RELEASE += /MAP
+    QMAKE_CFLAGS_RELEASE += /Zi
+    QMAKE_LFLAGS_RELEASE += /debug /opt:ref
+    QMAKE_CXXFLAGS_RELEASE += $$QMAKE_CFLAGS_RELEASE_WITH_DEBUGINFO
+    QMAKE_LFLAGS_RELEASE += $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO
+    QMAKE_CFLAGS_RELEASE -= -O2
+    QMAKE_CXXFLAGS_RELEASE -= -O2
+} else {
+    # MinGW
+    QMAKE_LFLAGS_RELEASE += -mthreads
+    QMAKE_CXXFLAGS += -Wno-unknown-pragmas
 }
 
+# ========== 链接库 ==========
+LIBS += -lDbgHelp
 
+# ========== 编译器额外调试选项 ==========
 
+# DEFINES += BLOOD_STATIC   # blood_analyzer 未接入工程，暂不启用
 
-#链接DbgHelp库
-#LIBS += -lDbgHelp
-#Release版也将生成“.pdb”后缀的调试信息文件
-#QMAKE_LFLAGS_RELEASE = /INCREMENTAL:NO /DEBUG
+# ========== MSVC 特定设置 ==========
+msvc {
+    QMAKE_LFLAGS += /HEAP:"100000000"",4096"
+}
 
-#QMAKE_LFLAGS += /ignore:4099
-
+# ========== 第三方库包含 ==========
 include(./QsLog/QsLog.pri)
 
-QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8 /utf-8
-LIBS    +=-lopengl32 -lglu32
-LIBS    += -lsetupapi -lcfgmgr32
+# ========== 编码设置 ==========
+# 本机 MSVC 14.00.23026（2015 RTM）不支持 /utf-8、/source-charset
+# 这些开关会被当成未知选项忽略，反而容易让 UTF-8 中文注释触发 C1071
+# 如已安装 VS2015 Update 2+，可自行打开下面开关
+# msvc {
+#     QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8 /utf-8
+# }
 
-msvc:QMAKE_CXXFLAGS += -source-charset:utf-8
+# ========== 系统库链接 ==========
+LIBS += -lopengl32 -lglu32
+LIBS += -lsetupapi -lcfgmgr32
+LIBS += -lQt5Multimedia -lQt5MultimediaWidgets
+
+# ========== Qt 版本判断 ==========
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-RC_ICONS = logo.ico
+# ========== 应用程序配置 ==========
+RC_ICONS = Picture/logo.ico
+TARGET = Coagulation
+TEMPLATE = app
 
-TARGET    = Coagulation
-TEMPLATE  = app
-DEFINES  += QT_MESSAGELOGCONTEXT
+# ========== 预处理器定义 ==========
+DEFINES += QT_MESSAGELOGCONTEXT
+DEFINES += QT_DEPRECATED_WARNINGS
+# DEFINES += QT_MESSAGELOGCONTEXT   # 重复，已注释
 
-LIBS += "C:\qtproject\Coagulation\libusb.a"
+# ========== 第三方库路径 ==========
+# 使用工程相对路径，避免依赖本机 C:\qtproject 绝对路径
+msvc: LIBS += $$PWD/libusb.lib
+!msvc: LIBS += $$PWD/libusb.a
 
-# MSVC编译器特定设置
+# MSVC 编码设置（备用，已注释）
+# msvc {
+#     QMAKE_CXXFLAGS += /utf-8
+#     QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8
+# }
+
+
+
+# 指定库文件目录，并链接 QZXing3 库
+# $$PWD 代表项目文件所在目录
+LIBS += -L$$PWD/lib -L$$PWD/includeZXing -L$$PWD/release -lQZXing3
+
+# 使用生成二维码功能需要加这一句
+DEFINES += ENABLE_ENCODER_GENERIC
+
+
+
+# ========== 自定义 DLL 链接 ==========
+# UsbCodeDispose：由 C:\USBdispose\UsbCodeDispose 用 MSVC2015 x64 编译，产物在 deps/UsbCodeDispose
+# 勿使用 vsdll 下 MinGW 版 UsbCodeDispose.dll（会导致“无法定位程序输入点”）
+INCLUDEPATH += $$PWD/deps/UsbCodeDispose/include
+CONFIG(debug, debug|release) {
+    LIBS += -L$$PWD/deps/UsbCodeDispose/lib/debug -lUsbCodeDispose
+    USBCODEDISPOSE_DLL = $$PWD/deps/UsbCodeDispose/bin/debug/UsbCodeDispose.dll
+} else {
+    LIBS += -L$$PWD/deps/UsbCodeDispose/lib/release -lUsbCodeDispose
+    USBCODEDISPOSE_DLL = $$PWD/deps/UsbCodeDispose/bin/release/UsbCodeDispose.dll
+}
+win32 {
+    # 编译后把 DLL 拷到输出目录，避免跑起来又加载到错误版本
+    QMAKE_POST_LINK += $$quote(cmd /c copy /y \"$$shell_path($$USBCODEDISPOSE_DLL)\" \"$$shell_path($$OUT_PWD)\\\") $$escape_expand(\\n\\t)
+}
+LIBS += -L$$PWD -L$$PWD/vsdll -lMachineTaskAssignment
+# LIBS += -L$$PWD/vsdll -lTaskDispose#     # 未使用，已注释
+# LIBS += -L$$PWD/vsdll -lFloorPlanofInterface  # 未使用，已注释
+
+# ========== OpenCV 配置 ==========
+INCLUDEPATH += \
+    C:\opencv3.4.1\opencv\build\include\
+    C:\opencv3.4.1\opencv\build\include\opencv2
+
+# MSVC x64 使用官方预编译 world 库；MinGW 仍用 building 下的 .dll.a
 msvc {
-    QMAKE_CXXFLAGS += /utf-8
-    # 或者
-    QMAKE_CXXFLAGS += /source-charset:utf-8 /execution-charset:utf-8
+    CONFIG(debug, debug|release) {
+        LIBS += -LC:\opencv3.4.1\opencv\build\x64\vc14\lib -lopencv_world453d
+    } else {
+        LIBS += -LC:\opencv3.4.1\opencv\build\x64\vc14\lib -lopencv_world453
+    }
+} else {
+    LIBS += \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_calib3d453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_core453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_dnn453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_features2d453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_flann453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_gapi453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_highgui453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_imgcodecs453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_imgproc453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_ml453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_objdetect453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_photo453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_stitching453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_ts453.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_video453.dll.a \
+        C:\opencv3.4.1\opencv\building\lib\libopencv_videoio453.dll.a
 }
 
-#LIBS += -LC:\qtproject\Coagulation\vsdll\ -lTaskDispose#
-#LIBS += -LC:\qtproject\Coagulation\vsdll\ -lFloorPlanofInterface
-LIBS += -LC:\qtproject\Coagulation\vsdll\ -lUsbCodeDispose
+# ========== bloodlayer 血液分层识别库（太原 testOpencv C API）==========
+INCLUDEPATH += $$PWD/thirdparty/bloodlayer/include
+LIBS += -L$$PWD/thirdparty/bloodlayer/lib -lbloodlayer
+win32 {
+    CONFIG(debug, debug|release) {
+        BLOODLAYER_OUT = $$OUT_PWD/debug
+    } else {
+        BLOODLAYER_OUT = $$OUT_PWD/release
+    }
+    BLOODLAYER_BIN = $$PWD/thirdparty/bloodlayer/bin
+    QMAKE_POST_LINK += $$quote(cmd /c copy /y $$shell_path($$BLOODLAYER_BIN/bloodlayer.dll) $$shell_path($$BLOODLAYER_OUT) $$escape_expand(\\n\\t))
+    QMAKE_POST_LINK += $$quote(cmd /c copy /y $$shell_path($$BLOODLAYER_BIN/opencv_world3416.dll) $$shell_path($$BLOODLAYER_OUT) $$escape_expand(\\n\\t))
+}
 
-LIBS += -LC:\qtproject\Coagulation\vsdll\ -lMachineTaskAssignment
+LIBS += -lwinmm -ladvapi32
 
-INCLUDEPATH +=  C:\opencv3.4.1\opencv\build\include\
-                C:\opencv3.4.1\opencv\build\include\opencv2
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_calib3d453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_core453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_dnn453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_features2d453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_flann453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_gapi453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_highgui453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_imgcodecs453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_imgproc453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_ml453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_objdetect453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_photo453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_stitching453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_ts453.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_video453.dll.a
-LIBS +=C:\opencv3.4.1\opencv\building\lib\libopencv_videoio453.dll.a
+# ========== suoweidll 动态库链接 ==========
+# 优先工程目录内的 import lib；兼容旧的旁路 build 目录
+win32: LIBS += -L$$PWD -lsuoweidll
+win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release/ -lsuoweidll
+else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/debug/ -lsuoweidll
 
-LIBS += -lwinmm
+INCLUDEPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
+DEPENDPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
 
+# ========== 禁用严格字符串检查（解决 MSVC 编码警告）==========
+win32: QMAKE_CXXFLAGS_RELEASE -= -Zc:strictStrings
+win32: QMAKE_CFLAGS_RELEASE -= -Zc:strictStrings
+win32: QMAKE_CFLAGS -= -Zc:strictStrings
+win32: QMAKE_CXXFLAGS -= -Zc:strictStrings
 
-# The following define makes your compiler emit warnings if you use
-# any feature of Qt which has been marked as deprecated (the exact warnings
-# depend on your compiler). Please consult the documentation of the
-# deprecated API in order to know how to port your code away from it.
-DEFINES += QT_DEPRECATED_WARNINGS
-DEFINES += QT_MESSAGELOGCONTEXT
-
-# You can also make your code fail to compile if you use deprecated APIs.
-# In order to do so, uncomment the following line.
-# You can also select to disable deprecated APIs only up to a certain version of Qt.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
-
-
+# ========== 源文件 ==========
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    dosometingthread.cpp \
     qcustomplot.cpp \
     QRoundProgressBar.cpp \
     patient.cpp \
     qualitycontrol.cpp \
-    cuestomtabstyle.cpp \
     calibrate.cpp \
     graphplot.cpp \
     result.cpp \
@@ -132,19 +195,19 @@ SOURCES += \
     delegate.cpp \
     aboutmachine.cpp \
     machinesetting.cpp \
+    machinesetting_gripperair.cpp \
     json.cpp \
     analyticaljson.cpp \
     loginui.cpp \
     addusername.cpp \
     alarm.cpp \
     customplot.cpp \
+    holegridwidget.cpp \
     plotwidget.cpp \
     crc/JQChecksum.cpp \
     cglobal.cpp \
     customcreatsql.cpp \
     customhighdata.cpp \
-    infovirtual.cpp \
-    threadinfovirtualbasic.cpp \
     inquire_sql_info.cpp \
     ringsmapprogressbar.cpp \
     test_module_class.cpp \
@@ -194,20 +257,17 @@ SOURCES += \
     QSimpleLed.cpp \
     mycustomcurve.cpp \
     notifybarcode.cpp \
-    singletoncase.cpp \
     opencvfindheigh.cpp \
     threadremindertsettube.cpp \
     transformeddata.cpp \
     loadequipmentpos.cpp \
     treezetablewidget.cpp \
     commandexceptional.cpp \
-    operregistry.cpp \
     testprojectprocess.cpp \
     structinstance.cpp \
     ccrashstack.cpp \
     timerthread.cpp \
     custombars.cpp \
-    controlmodulfucn_.cpp \
     controlthemoduletemp.cpp \
     vWaterProgressBar.cpp \
     dilag/loginmaininterface.cpp \
@@ -235,6 +295,7 @@ SOURCES += \
     InquireDataClass/querydatathread.cpp \
     custom_style/customprogresscontrols.cpp \
     dilag/testopcv.cpp \
+    # dilag/bloodlayerdetector.cpp \  # 已改接 thirdparty/bloodlayer C API
     SqlOperator/sqloperator.cpp \
     dilag/batchaddsample.cpp \
     Custommovements/performanceverification.cpp \
@@ -244,7 +305,7 @@ SOURCES += \
     Machinewidget/bloodpinparaset.cpp \
     custom_style/frozentablewidget.cpp \
     dilag/customfixtableview.cpp \
-    custom_style/customtablemodel.cpp \
+#    custom_style/customtablemodel.cpp \
     SerialPortException.cpp \
     dilag/custompppvalue.cpp \
     CalibratCoordinateLoc/coordinatepposit.cpp \
@@ -252,17 +313,33 @@ SOURCES += \
     suoweiFileManager/filemanager.cpp \
     customTitleui/framelesswidgethelper.cpp \
     suoweiFileManager/hospitalreportprinter.cpp \
-    datalprocessor.cpp
+    datalprocessor.cpp \
+    verifycoordinates.cpp \
+    styledcomparisondialog.cpp \
+    camerawindow.cpp \
+    opencvFindRBC/customtitlebar.cpp \
+    CalibratCoordinateLoc/circlewidget.cpp \
+    PrintReport/printtemplate.cpp \
+    PrintReport/aggregationanalyzer.cpp \
+    custom_style/custommessagebox.cpp \
+    Custommovements/customChartWidget/medicalchartwidget.cpp \
+    LIS/lisapiservice.cpp \
+    pumppositionmanager.cpp \
+    dilag/parameterdialog.cpp \
+    LIS/curveimagegenerator.cpp \
+    dilag/creatreagentcurve.cpp \
+    qrcodereader.cpp
+    # ========== LIS系统相关文件 ==========
 
+# ========== 头文件 ==========
 HEADERS += \
     mainwindow.h \
-    dosometingthread.h \
     qcustomplot.h \
     QRoundProgressBar.h \
     patient.h \
     qualitycontrol.h \
-    cuestomtabstyle.h \
     calibrate.h \
+    pairframetablewidget.h \
     graphplot.h \
     result.h \
     testing.h \
@@ -275,15 +352,12 @@ HEADERS += \
     addusername.h \
     alarm.h \
     customplot.h \
+    holegridwidget.h \
     plotwidget.h \
     crc/JQChecksum.h \
-    crc/vld.h \
-    crc/vld_def.h \
     cglobal.h \
     customcreatsql.h \
     customhighdata.h \
-    infovirtual.h \
-    threadinfovirtualbasic.h \
     inquire_sql_info.h \
     custom_struct.h \
     ringsmapprogressbar.h \
@@ -305,7 +379,6 @@ HEADERS += \
     tubemappintpostable.h \
     sendusbcommand.h \
     sampledataprocess.h \
-    crc/dummy.h \
     pmessagebox.h \
     canceltaskconfigure.h \
     suoweiserialport.h \
@@ -336,14 +409,12 @@ HEADERS += \
     QSimpleLed.h \
     mycustomcurve.h \
     notifybarcode.h \
-    singletoncase.h \
     opencvfindheigh.h \
     threadremindertsettube.h \
     transformeddata.h \
     loadequipmentpos.h \
     treezetablewidget.h \
     commandexceptional.h \
-    operregistry.h \
     testprojectprocess.h \
     structinstance.h \
     ccrashstack.h \
@@ -375,6 +446,8 @@ HEADERS += \
     InquireDataClass/querydatathread.h \
     custom_style/customprogresscontrols.h \
     dilag/testopcv.h \
+    # dilag/bloodlayerdetector.h \  # 已改接 thirdparty/bloodlayer C API
+    thirdparty/bloodlayer/include/bloodlayer_api.h \
     SqlOperator/sqloperator.h \
     dilag/batchaddsample.h \
     Custommovements/performanceverification.h \
@@ -384,8 +457,7 @@ HEADERS += \
     Machinewidget/bloodpinparaset.h \
     custom_style/frozentablewidget.h \
     dilag/customfixtableview.h \
-    custom_style/customtablemodel.h \
-    custom_style/animationprocessbar.h \
+    #custom_style/customtablemodel.h \
     SerialPortException.h \
     dilag/custompppvalue.h \
     aligndelegate.h \
@@ -394,8 +466,25 @@ HEADERS += \
     suoweiFileManager/filemanager.h \
     customTitleui/framelesswidgethelper.h \
     suoweiFileManager/hospitalreportprinter.h \
-    datalprocessor.h
+    datalprocessor.h \
+    verifycoordinates.h \
+    styledcomparisondialog.h \
+    camerawindow.h \
+    opencvFindRBC/customtitlebar.h \
+    CalibratCoordinateLoc/circlewidget.h \
+    PrintReport/printtemplate.h \
+    PrintReport/aggregationanalyzer.h \
+    custom_style/custommessagebox.h \
+    Custommovements/customChartWidget/medicalchartwidget.h \
+    LIS/lisapiservice.h \
+    pumppositionmanager.h \
+    dilag/parameterdialog.h \
+    LIS/curveimagegenerator.h \
+    dilag/creatreagentcurve.h \
+    qrcodereader.h
+# ========== LIS系统相关文件 ==========
 
+# ========== UI 文件 ==========
 FORMS += \
     mainwindow.ui \
     patient.ui \
@@ -436,7 +525,7 @@ FORMS += \
     custom_style/custombutton.ui \
     custom_style/customprogresscontrols.ui \
     dilag/testopcv.ui \
-    replacethetesttubetray.ui \
+    # replacethetesttubetray.ui \   # 重复，已注释（第573行附近）
     dilag/batchaddsample.ui \
     dilag/pedata.ui \
     Machinewidget/bloodpinparaset.ui \
@@ -444,21 +533,9 @@ FORMS += \
     dilag/custompppvalue.ui \
     CalibratCoordinateLoc/coordinatepposit.ui
 
+# ========== 资源文件 ==========
 RESOURCES += \
     picture.qrc
 
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release/ -lsuoweidll
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/debug/ -lsuoweidll
-else:unix: LIBS += -L$$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/ -lsuoweidll
-
-INCLUDEPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
-DEPENDPATH += $$PWD/../build-suoweidll-Desktop_Qt_5_10_0_MSVC2015_64bit-Release/release
-
-
-
-win32: QMAKE_CXXFLAGS_RELEASE -= -Zc:strictStrings
-win32: QMAKE_CFLAGS_RELEASE -= -Zc:strictStrings
-win32: QMAKE_CFLAGS -= -Zc:strictStrings
-win32: QMAKE_CXXFLAGS -= -Zc:strictStrings
-
-
+DISTFILES += \
+    LIS/LIS系统对接文档.md

@@ -5,6 +5,16 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QHeaderView>
+#include <QHideEvent>
+#include <QKeyEvent>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
+#include <QBoxLayout>
+#include <QLabel>
+#include <QSizePolicy>
+#include <QScrollArea>
+#include <QFrame>
 #include <QFileDialog>
 #include <QEasingCurve>
 #include "loginui.h"
@@ -15,8 +25,6 @@
 #include "globaldata.h"
 #include "warn_interface.h"
 #include <operclass/fullyautomatedplatelets.h>
-
-
 bool subDevListSort(const QCheckBox* contorl_1, const QCheckBox* contorl_2)
 {
     QString num_statr = contorl_1->text();
@@ -34,6 +42,123 @@ bool SmalltoLarge(ChannelvaluePanel *pBeginCotl,ChannelvaluePanel *pendCotl)
     int index_e = QUIUtils::StringFindintnum(objectIndex_e);
     return (index_s < index_e);
 }
+
+namespace {
+
+QString channelModuleHeaderStyle()
+{
+    return QStringLiteral(
+        "QLabel#channelModuleHeader {"
+        "  color: #2C5F8A;"
+        "  font-family: 'Microsoft YaHei';"
+        "  font-size: 13px;"
+        "  font-weight: 600;"
+        "  padding: 2px 4px;"
+        "  background: transparent;"
+        "}");
+}
+
+QString channelModuleCardStyle()
+{
+    return QStringLiteral(
+        "QWidget[channelRowCard=\"true\"] {"
+        "  background-color: #FFFFFF;"
+        "  border: 1px solid #C5DCE8;"
+        "  border-radius: 10px;"
+        "}");
+}
+
+QString channelValuePageHintStyle()
+{
+    return QStringLiteral(
+        "QLabel#channelValuePageHint {"
+        "  color: #4A7FA3;"
+        "  font-family: 'Microsoft YaHei';"
+        "  font-size: 12px;"
+        "  padding: 8px 12px;"
+        "  background-color: #F2F9FC;"
+        "  border: 1px solid #C8E0F0;"
+        "  border-radius: 8px;"
+        "}");
+}
+
+QList<QWidget *> takeChildWidgets(QLayout *layout)
+{
+    QList<QWidget *> widgets;
+    if (!layout) {
+        return widgets;
+    }
+    while (QLayoutItem *item = layout->takeAt(0)) {
+        if (QWidget *w = item->widget()) {
+            widgets.append(w);
+        }
+        delete item;
+    }
+    return widgets;
+}
+
+void polishChannelPanelsRow(QHBoxLayout *row, const QList<QWidget *> &panels)
+{
+    row->setSpacing(10);
+    row->setContentsMargins(0, 0, 0, 0);
+    for (QWidget *panel : panels) {
+        panel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        panel->setMinimumSize(140, 150);
+        panel->setMaximumHeight(QWIDGETSIZE_MAX);
+        row->addWidget(panel, 1);
+    }
+}
+
+void wrapModuleRowWithHeader(QWidget *moduleWidget, const QString &headerText)
+{
+    if (!moduleWidget || moduleWidget->property("channelRowPolished").toBool()) {
+        return;
+    }
+
+    QLayout *layout = moduleWidget->layout();
+    QList<QWidget *> panels;
+    if (auto *hBox = qobject_cast<QHBoxLayout *>(layout)) {
+        panels = takeChildWidgets(hBox);
+        delete hBox;
+    } else if (auto *grid = qobject_cast<QGridLayout *>(layout)) {
+        const QList<ChannelvaluePanel *> channelPanels =
+                moduleWidget->findChildren<ChannelvaluePanel *>();
+        panels.reserve(channelPanels.size());
+        for (ChannelvaluePanel *panel : channelPanels) {
+            panels.append(panel);
+        }
+        std::sort(panels.begin(), panels.end(), [](const QWidget *a, const QWidget *b) {
+            return QUIUtils::StringFindintnum(a->objectName())
+                    < QUIUtils::StringFindintnum(b->objectName());
+        });
+        while (QLayoutItem *item = grid->takeAt(0)) {
+            delete item;
+        }
+        delete grid;
+    } else {
+        return;
+    }
+
+    moduleWidget->setProperty("channelRowCard", true);
+    moduleWidget->setStyleSheet(channelModuleCardStyle());
+
+    auto *vBox = new QVBoxLayout(moduleWidget);
+    vBox->setContentsMargins(12, 10, 12, 12);
+    vBox->setSpacing(8);
+
+    QLabel *header = new QLabel(headerText, moduleWidget);
+    header->setObjectName(QStringLiteral("channelModuleHeader"));
+    header->setStyleSheet(channelModuleHeaderStyle());
+    vBox->addWidget(header);
+
+    auto *row = new QHBoxLayout();
+    polishChannelPanelsRow(row, panels);
+    vBox->addLayout(row, 1);
+
+    moduleWidget->setProperty("channelRowPolished", true);
+}
+
+} // namespace
 
 
 
@@ -58,7 +183,7 @@ MachineSetting::MachineSetting(QWidget *parent) :
 
     ui->checkBox_Recapture->hide();
     //ui->groupBox_setfile->hide();
-    //ui->pushButton_backsetting->hide();
+    ui->pushButton_backsetting->hide();
 
     initshowPPPinit();
 }
@@ -155,6 +280,7 @@ void MachineSetting::_initpara()
     ui->widget_valuediaplay->hide();
 
     Instrument_configuration_channel_display(m_typedequipment); //仪器配置通道显示
+    initChannelValueDisplayUi();
 
     ChannelSettingStatus(); /*设置通道状态信号*/
 
@@ -208,6 +334,166 @@ void MachineSetting::_initpara()
 }
 
 
+void MachineSetting::initChannelValueDisplayUi()
+{
+    if (ui->ChannelVale_display->property("channelValueUiPolished").toBool()) {
+        return;
+    }
+
+    ui->ChannelVale_display->setStyleSheet(QStringLiteral(
+        "QWidget#ChannelVale_display {"
+        "  border: none;"
+        "  background-color: #E8F4F8;"
+        "  border-radius: 10px;"
+        "}"));
+
+    if (auto *grid = qobject_cast<QGridLayout *>(ui->ChannelVale_display->layout())) {
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+
+        struct GridCell {
+            int row = 0;
+            int col = 0;
+            int rowSpan = 1;
+            int colSpan = 1;
+            QWidget *widget = nullptr;
+        };
+        QVector<GridCell> cells;
+        const int itemCount = grid->count();
+        cells.reserve(itemCount);
+        for (int i = 0; i < itemCount; ++i) {
+            int row = 0;
+            int col = 0;
+            int rowSpan = 1;
+            int colSpan = 1;
+            grid->getItemPosition(i, &row, &col, &rowSpan, &colSpan);
+            QLayoutItem *item = grid->itemAt(i);
+            if (!item) {
+                continue;
+            }
+            QWidget *w = item->widget();
+            if (!w || w == ui->widget_valuediaplay) {
+                continue;
+            }
+            GridCell cell;
+            cell.row = row;
+            cell.col = col;
+            cell.rowSpan = rowSpan;
+            cell.colSpan = colSpan;
+            cell.widget = w;
+            cells.append(cell);
+        }
+        while (grid->count() > 0) {
+            delete grid->takeAt(0);
+        }
+
+        QLabel *hint = new QLabel(
+            tr("实时显示各通道检测读数。登入维护后，请从左侧「通道调光」页调整转速、LED 并写入调光值。"),
+            ui->ChannelVale_display);
+        hint->setObjectName(QStringLiteral("channelValuePageHint"));
+        hint->setWordWrap(true);
+        hint->setStyleSheet(channelValuePageHintStyle());
+        grid->addWidget(hint, 0, 0);
+
+        for (const GridCell &cell : cells) {
+            grid->addWidget(cell.widget, cell.row + 1, cell.col, cell.rowSpan, cell.colSpan);
+        }
+        grid->setRowStretch(0, 0);
+        grid->setRowStretch(1, 1);
+        grid->setRowStretch(2, 1);
+        grid->setRowStretch(3, 1);
+    }
+
+    wrapModuleRowWithHeader(ui->widget_showModule1th, tr("模组 1 · 通道 1 – 4"));
+    wrapModuleRowWithHeader(ui->widget_showModule2th, tr("模组 2 · 通道 5 – 8"));
+    wrapModuleRowWithHeader(ui->widget_showModule3th, tr("模组 3 · 通道 9 – 12"));
+
+    ui->label_displayReminder->setStyleSheet(QStringLiteral(
+        "color: #2C5F8A; font-family: 'Microsoft YaHei'; font-size: 12px;"));
+    ui->label_displayReminder->setMinimumHeight(32);
+
+    setupChannelDimmingMaintenanceTab();
+
+    ui->ChannelVale_display->setProperty("channelValueUiPolished", true);
+    refreshChannelValuePageLayout();
+}
+
+void MachineSetting::setupChannelDimmingMaintenanceTab()
+{
+    if (m_channelDimmingConfigTabIndex >= 0) {
+        return;
+    }
+
+    if (ui->widget_valuediaplay->parentWidget() == ui->ChannelVale_display) {
+        if (auto *grid = qobject_cast<QGridLayout *>(ui->ChannelVale_display->layout())) {
+            grid->removeWidget(ui->widget_valuediaplay);
+        }
+    }
+
+    ui->widget_valuediaplay->setStyleSheet(QStringLiteral(
+        "QWidget#widget_valuediaplay {"
+        "  background-color: #FFFFFF;"
+        "  border: none;"
+        "  border-radius: 8px;"
+        "}"));
+    ui->widget_valuediaplay->setMaximumHeight(QWIDGETSIZE_MAX);
+    ui->widget_valuediaplay->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    ui->verticalLayout_4->setSpacing(10);
+    ui->verticalLayout_4->setContentsMargins(8, 8, 8, 8);
+    ui->verticalLayout_4->setStretch(0, 1);
+    ui->verticalLayout_4->setStretch(1, 0);
+
+    if (!ui->widget_valuediaplay->findChild<QScrollArea *>(QStringLiteral("channelDimmingTableScroll"))) {
+        ui->verticalLayout_4->removeWidget(ui->tableWidget_controlChn);
+        auto *scroll = new QScrollArea(ui->widget_valuediaplay);
+        scroll->setObjectName(QStringLiteral("channelDimmingTableScroll"));
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scroll->setStyleSheet(QStringLiteral("QScrollArea { background: transparent; border: none; }"));
+        scroll->setWidget(ui->tableWidget_controlChn);
+        ui->verticalLayout_4->insertWidget(0, scroll, 1);
+    }
+    ui->tableWidget_controlChn->setMinimumHeight(360);
+    ui->tableWidget_controlChn->verticalHeader()->setDefaultSectionSize(36);
+
+    ui->widget_bottom->setMaximumHeight(QWIDGETSIZE_MAX);
+    ui->widget_bottom->setMinimumHeight(44);
+    if (auto *bar = ui->widget_bottom->layout()) {
+        bar->setContentsMargins(4, 4, 4, 4);
+    }
+
+    auto *host = new QWidget();
+    host->setObjectName(QStringLiteral("tab_channelDimmingHost"));
+    auto *hostLayout = new QVBoxLayout(host);
+    hostLayout->setContentsMargins(6, 6, 6, 6);
+    hostLayout->setSpacing(0);
+    ui->widget_valuediaplay->setParent(host);
+    hostLayout->addWidget(ui->widget_valuediaplay, 1);
+
+    m_channelDimmingConfigTabIndex = ui->tabWidget_config->addTab(host, tr("通道调光"));
+    ui->widget_valuediaplay->show();
+}
+
+void MachineSetting::refreshChannelValuePageLayout()
+{
+    QWidget *const moduleRows[] = {
+        ui->widget_showModule1th,
+        ui->widget_showModule2th,
+        ui->widget_showModule3th
+    };
+    for (QWidget *moduleRow : moduleRows) {
+        if (!moduleRow || !moduleRow->isVisible()) {
+            continue;
+        }
+        moduleRow->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        moduleRow->setMaximumHeight(QWIDGETSIZE_MAX);
+        moduleRow->setMinimumHeight(170);
+    }
+}
+
 void MachineSetting::initSheet()
 {
 
@@ -225,8 +511,6 @@ void MachineSetting::initSheet()
          {ui->pushButton_maintenance,tr("登录维护(F4)")},
          {ui->pushButtonBloodPinParasave,tr("写入血样针参数")},
          {ui->pushButton_saved,tr("保存试剂针参数")},
-         {ui->pushButtonopenSuck,tr("打开负压")},
-         {ui->pushButtonsplitAirs,tr("关闭负压")},
          {ui->pushButton_Adjustcoordinates,tr("校准坐标")},
          {ui->pushButtonHandsParaSave,tr("保存抓手参数")},
          {ui->pushButtonsavedimming,tr("写入调光值")}
@@ -322,7 +606,7 @@ void MachineSetting::initSheet()
         pspinBox->setStyleSheet(m_setspinBoxQss);
     }
 
-
+    setupGripperVacuumSimpleUi();
 
     QFile styleDoublespinBox(":/Picture/SetPng/wholedoubleSpinBox.qss");
     if(styleDoublespinBox.open(QIODevice::ReadOnly)) {
@@ -340,6 +624,7 @@ void MachineSetting::initSheet()
             ui->doubleSpinBoxAddRatio,
             ui->FixedHighvalue,
             ui->OffsetTestHeightValue,
+            ui->doubleSpinBoxBottomHeigh,
             ui->doubleSpinBox_AA_Ratio,
             ui->doubleSpinBox_ADP_Ratio,
             ui->doubleSpinBox_ADR_Ratio,
@@ -368,7 +653,8 @@ void MachineSetting::initSheet()
 
     GlobalData::QCheckboxSheet(ui->UseBarCode,tr("扫描条形码"));
     GlobalData::QCheckboxSheet(ui->checkBox_UesSecondReagentHole,tr("启用预留试剂位置"));
-    GlobalData::QCheckboxSheet(ui->checkBox_catchcups,tr("初始清空试杯"));
+    GlobalData::QCheckboxSheet(ui->checkBox_catchcups,
+                                 tr("开机全通道清空试杯(维护)；不勾选则调光时按通道自动清理"));
 
     QVector<QCheckBox*> checkboxList = {
                     ui->Channel_State_1,
@@ -484,8 +770,7 @@ void MachineSetting::intsignalsMable()
 
 void MachineSetting::engineerLogin(bool makesure)
 {
-    (makesure)? ui->widget_valuediaplay->show():
-            ui->widget_valuediaplay->hide();
+    Q_UNUSED(makesure);
     update();
     return;
 }
@@ -496,6 +781,36 @@ void MachineSetting::showEvent(QShowEvent* event)
 {
     this->setAttribute(Qt::WA_Mapped);
     QWidget::showEvent(event);
+    reloadMaintenanceParamsFromIni();
+    if (ui->lineEdit_maintenance->isVisible()) {
+        ui->lineEdit_maintenance->setFocus(Qt::OtherFocusReason);
+    }
+}
+
+void MachineSetting::hideEvent(QHideEvent *event)
+{
+    cancelGripperAirDetect();
+    QWidget::hideEvent(event);
+}
+
+void MachineSetting::keyPressEvent(QKeyEvent *event)
+{
+    const bool enterKey = (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter);
+    if (enterKey && ui->lineEdit_maintenance->isVisible()
+            && !ui->lineEdit_maintenance->hasFocus()) {
+        ui->pushButton_maintenance->click();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
+void MachineSetting::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::ActivationChange && m_titleBar) {
+        m_titleBar->setActive(isActiveWindow());
+    }
+    QWidget::changeEvent(event);
 }
 
 void MachineSetting::operNotifyModuleTEMP(int moduleIndex, double value)
@@ -571,8 +886,14 @@ void MachineSetting::Instrument_configuration_channel_display(const quint8 equip
     std::sort(m_displayChannelwidget.begin(), m_displayChannelwidget.end(), SmalltoLarge);
 
     for (const auto &displaydchannel : m_displayChannelwidget) {
-        displaydchannel->setColorHaloStart(QColor(60,60,60));
-        displaydchannel->setColorOuterFrame(QColor(200,160,50));
+        displaydchannel->setColorHaloStart(QColor(100, 180, 255, 90));
+        displaydchannel->setColorHaloEnd(QColor(30, 80, 120, 25));
+        displaydchannel->setColorOuterFrame(QColor(91, 184, 232));
+        // 中心区保持深蓝，与白字/刻度对比度足够（勿用浅蓝内圈）
+        displaydchannel->setColorInnerStart(QColor(32, 96, 145, 250));
+        displaydchannel->setColorInnerEnd(QColor(55, 130, 185, 220));
+        displaydchannel->setColorOuterStart(QColor(70, 160, 215, 200));
+        displaydchannel->setColorOuterEnd(QColor(91, 184, 232, 230));
         QString name = displaydchannel->objectName();  // 缓存对象名
         QString channelStr = name.split("_").at(1);
         displaydchannel->setChannelnum(channelStr.toInt());
@@ -656,6 +977,10 @@ void MachineSetting::InitMachineui()
 
     m_maintenance = new QTreeWidgetItem(m_Modelitem,{tr("维护参数")});
     m_maintenance->setIcon(0,QIcon(":/Picture/SetPng/savetask.png"));
+
+    m_channelDimmingItem = new QTreeWidgetItem(m_Modelitem, {tr("通道调光")});
+    m_channelDimmingItem->setIcon(0, QIcon(":/Picture/SetPng/inspection.png"));
+    m_channelDimmingItem->setHidden(true);
 
 
     m_Modelitem_1 = new QTreeWidgetItem();
@@ -1236,21 +1561,22 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
 
     // 定义配置项映射表
     static const QMap<QString, int> rootMap = {
-        {tr("LIS"), MACHINECONFIGURE_LIS},
-        {tr("质控old"), MACHINE_QUALITYCONTROL},
-        {tr("质控"), MACHINE_PE}
+        {tr("LIS"), TabLis},
+        {tr("质控old"), TabQualityControl},
+        {tr("质控"), TabPerformance},
     };
 
     static const QMap<QString, QMap<int, int>> childMap = {
         {tr("通用"), {
-            {MACHINECONFIGURE_COMMON, MACHINECONFIGURE_COMMON},
-            {MACHINECONFIGURE_HOSPITALINFO, MACHINECONFIGURE_HOSPITALINFO},
-            {MACHINECONFIGURE, MACHINECONFIGURE},
-            {MACHINE_MAINTENANCE, MACHINE_MAINTENANCE_INDEX}
+            {0, TabUserManagement},
+            {1, TabHospitalInfo},
+            {2, TabChannelState},
+            {3, TabMaintenance},
+            {4, TabMaintenance}
         }},
         {tr("测量"), {
-            {0, MACHINECONFIGURE_CHANNELVALUE},
-            {1, MACHINECONFIGURE_REFERENCE}
+            {0, TabChannelValue},
+            {1, TabReference}
         }}
     };
 
@@ -1261,12 +1587,11 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
         if (rootMap.contains(rootText)) {
             const int tabIndex = rootMap.value(rootText);
             ui->tabWidgetSetconfigure->setCurrentIndex(tabIndex);
-            if (tabIndex == MACHINE_PE) {
+            if (tabIndex == TabPerformance) {
                 loadPerformanceEvaluation(ui->tabPE);
             }
         }
-    }
-    else {
+    } else {
         // 处理子节点
         const QString parentText = parent->text(initem);
         const int childIndex = parent->indexOfChild(item);
@@ -1277,10 +1602,16 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
                 const int tabIndex = tabMapping[childIndex];
                 ui->tabWidgetSetconfigure->setCurrentIndex(tabIndex);
 
+                if (parentText == tr("通用") && childIndex == 4 && m_channelDimmingConfigTabIndex >= 0) {
+                    ui->tabWidget_config->setCurrentIndex(m_channelDimmingConfigTabIndex);
+                } else if (parentText == tr("通用") && childIndex == 3) {
+                    ui->tabWidget_config->setCurrentIndex(0);
+                }
+
                 // 设置焦点控制
                 static const QHash<int, QLineEdit*> focusMap = {
-                    {MACHINECONFIGURE_HOSPITALINFO, ui->lineEdit_Abbreviation},
-                    {MACHINE_MAINTENANCE, ui->lineEdit_maintenance}
+                    {TabHospitalInfo, ui->lineEdit_Abbreviation},
+                    {TabMaintenance, ui->lineEdit_maintenance}
                 };
                 if (focusMap.contains(tabIndex)) {
                     focusMap[tabIndex]->setFocus(Qt::TabFocusReason);
@@ -1363,6 +1694,7 @@ void MachineSetting::ImportParameters(const quint8 equipmentIndex)
     initSettinggeneralParameters();
 
     ReagentConfigParaSetOrGet(false); //初始化参数部分
+    loadBloodPinExtendedUiFromIni();
 
     initdisplaymoduleChn(equipmentIndex); //初始化显示模组通道&&模组温度
 
@@ -1371,7 +1703,10 @@ void MachineSetting::ImportParameters(const quint8 equipmentIndex)
 }
 
 void MachineSetting::updatepara(const bool isTesting){
-    auto* consumables = ConsumablesOper::GetpInstance();
+    ConsumablesOper *consumables = ConsumablesOper::GetpInstance();
+    if (!consumables) {
+        return;
+    }
 
     // 更新试剂容量
     for (int i = 0; i < m_capactityList.size(); ++i) {
@@ -1555,7 +1890,7 @@ void MachineSetting::configWrite2BoardReagentNeedlePara() {
     notifyReagentPinParaToBoard();
     FullyAutomatedPlatelets::pinstanceinstrument()->ShowConsumablesLimitArm();
 
-    QMessageBox::information(this, tr("保存完成"), tr("仪器血样针参数设置完成!"));
+    QMessageBox::information(this, tr("保存完成"), tr("仪器试剂针参数设置完成!"));
 }
 
 
@@ -1865,6 +2200,9 @@ void MachineSetting::HandsParaWriteBoard()
             {GRIPPERSUCKTIME,   ui->spinBox_suckLatetimer->value()}
     };
     INI_File().wBatchConfigPara(configs);
+    auto &ini = INI_File();
+    ini.setexperimentalMode(ui->checkBoxExperimental->isChecked());
+    ini.wConfigPara("AbsorbanceAlgorithm", ui->checkBox_absorbance->isChecked());
 
     quint8 handsinierTray[4] ={0};
     handsinierTray[0] =  ui->spinBox_testtray_0->value();
@@ -1883,7 +2221,8 @@ void MachineSetting::HandsParaWriteBoard()
     QUIUtils::_writeParaNumIIHandsOrder(buffer,throwdownmm,handsinierTray,HandsinnerModule, brebackCatch);
 
     QByteArray GripperContl = outParaOx1aWrite();
-    emit SetParatoInstrument({ buffer, GripperContl },"抓手参数写入主板");
+    emit SetParatoInstrument({ buffer, GripperContl }, tr("抓手参数写入主板"));
+    QMessageBox::information(this, tr("保存完成"), tr("仪器抓手参数已保存并写入主板!"));
     return;
 }
 
@@ -1914,8 +2253,142 @@ void MachineSetting::configWriteDimming2Board(){
 
 
 
+void MachineSetting::loadBloodPinExtendedUiFromIni()
+{
+    auto &ini = INI_File();
+    ui->spinBox_PPPdelay->setValue(ini.GetAfterSpitDelayMs());
+    ui->spinBox_PRPdelay->setValue(ini.GetAfterSuckDelayMs());
+    ui->spinBoxAddPrp->setValue(ini.GetAddSuckPRP());
+    ui->doubleSpinBoxBottomHeigh->setValue(ini.getRefBottomDistance());
+}
+
+void MachineSetting::reloadMaintenanceParamsFromIni()
+{
+    auto &ini = INI_File();
+
+    ui->EmptyHeigh->setValue(ini.GetEmptyTubeDownHigh());
+    ui->doubleSpinBox_Ratio_ben->setValue(ini.GetPPPConversionScale());
+    ui->doubleSpinBox_PRPratio->setValue(ini.getPRPConvertTheratioColumn());
+    ui->doubleSpinBoxAddRatio->setValue(ini.getPEAddSuckRatio());
+    ui->SecurityValue_box->setValue(ini.GetSecurityValue());
+    ui->poorBlood_changliang->setValue(ini.GetLearnSamplevolume());
+    ui->OffsetTestHeightValue->setValue(ini.GetTestDifference());
+    ui->FixedHighvalue->setValue(ini.GetFixedHigh());
+    ui->spinBoxAbsorbX2->setValue(ini.GetAbsorbWashingfluidX2());
+    ui->spinBox_CleanLinqueFailedHigh->setValue(ini.GetFailedCleanLinqueHigh());
+    ui->Testheighdownheigh->setValue(ini.GetAbsorbTubeBottom());
+    ui->spinBox_faliedlinque->setValue(ini.GetFailedLinqueHigh());
+    ui->spinBox_suckairs->setValue(ini._getsuckairsuckPRP());
+    ui->spinBox_WashesTime->setValue(ini.getWashesTime());
+    loadBloodPinExtendedUiFromIni();
+
+    const quint8 reagentTypes[5] = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
+    QSpinBox *suckVol[] = {
+        ui->spinBox_AA_Suck_Vol, ui->spinBox_ADP_Suck_Vol, ui->spinBox_ADR_Suck_Vol,
+        ui->spinBox_COL_Suck_Vol, ui->spinBox_RIS_Suck_Vol
+    };
+    QDoubleSpinBox *ratio[] = {
+        ui->doubleSpinBox_AA_Ratio, ui->doubleSpinBox_ADP_Ratio, ui->doubleSpinBox_ADR_Ratio,
+        ui->doubleSpinBox_COL_Ratio, ui->doubleSpinBox_RIS_Ratio
+    };
+    QDoubleSpinBox *addRatio[] = {
+        ui->doubleSpinBox_Add_AA_Ratio, ui->doubleSpinBox_Add_ADP_Ratio,
+        ui->doubleSpinBox_Add_ADR_Ratio, ui->doubleSpinBox_Add_COL_Ratio,
+        ui->doubleSpinBox_Add_RIS_Ratio
+    };
+    QSpinBox *downHigh[] = {
+        ui->spinBox_down_AA, ui->spinBox_down_ADP, ui->spinBox_down_ADR,
+        ui->spinBox_down_COL, ui->spinBox_down_RIS
+    };
+    for (int i = 0; i < 5; ++i) {
+        if (suckVol[i]) {
+            suckVol[i]->setValue(ini.getTypesReagentSuckVolume(reagentTypes[i]));
+        }
+        if (ratio[i]) {
+            ratio[i]->setValue(ini.getTypesReagentSuckRatio(reagentTypes[i]));
+        }
+        if (addRatio[i]) {
+            addRatio[i]->setValue(ini.getTypesReagentSuckAdd_Ratio(reagentTypes[i]));
+        }
+        if (downHigh[i]) {
+            downHigh[i]->setValue(ini.getTypesReagentNeedleDownHigh(reagentTypes[i]));
+        }
+    }
+    ui->spinBoxAbsorbX1->setValue(ini.GetAbsorbWashingfluidX1());
+    ui->spinBoxReagentNeedleFailehigh->setValue(ini.getFailedCleanLinqueReagNeedle());
+    ui->spinBox_TestReagentFailedhigh->setValue(ini.GetFailedReagentsLinqueHigh());
+    ui->spinBox_deptime->setValue(ini._getdelayedtime());
+
+    ui->spinBoxSuckAirsMax->setValue(ini.rConfigPara(GRIPPERLESSTHANMAX).toInt());
+    ui->spinBoxSplitAirsMin->setValue(ini.rConfigPara(GRIPPERBIGTHANMIM).toInt());
+    ui->spinBox_suckLatetimer->setValue(ini.rConfigPara(GRIPPERSUCKTIME).toInt());
+    ui->checkBox_Recapture->setChecked(ini.rConfigPara(REPEATGRABCUP).toBool());
+    ui->spinBox_downthrowcups->setValue(ini._gethandsdownthrowcpus());
+    ui->checkBoxExperimental->setChecked(ini.getexperimentalMode());
+    ui->checkBox_absorbance->setChecked(ini.rConfigPara("AbsorbanceAlgorithm").toBool());
+    for (int t = 0; t < 4; ++t) {
+        QSpinBox *trayBox = nullptr;
+        switch (t) {
+        case 0: trayBox = ui->spinBox_testtray_0; break;
+        case 1: trayBox = ui->spinBox_testtray_1; break;
+        case 2: trayBox = ui->spinBox_testtray_2; break;
+        case 3: trayBox = ui->spinBox_testtray_3; break;
+        }
+        if (trayBox) {
+            trayBox->setValue(ini._gethandsdownheightinTesttray(t));
+        }
+    }
+    ui->spinBox_handsdownchn_0->setValue(ini._gethandsdownheiht(0));
+    ui->spinBox_handsdownchn_1->setValue(ini._gethandsdownheiht(4));
+    ui->spinBox_handsdownchn_2->setValue(ini._gethandsdownheiht(8));
+}
+
+void MachineSetting::syncBloodPinUiToIni()
+{
+    auto &ini = INI_File();
+    ini.SetEmptyTubeDownHigh(static_cast<quint8>(ui->EmptyHeigh->value()));
+    ini.SetPPPConversionScale(ui->doubleSpinBox_Ratio_ben->value());
+    ini.setPRPConvertTheratioColumn(ui->doubleSpinBox_PRPratio->value());
+    ini.setPEAddSuckRatio(ui->doubleSpinBoxAddRatio->value());
+    ini.SetSecurityValue(static_cast<quint8>(ui->SecurityValue_box->value()));
+    ini.SetLearnSamplevolume(static_cast<quint8>(ui->poorBlood_changliang->value()));
+    ini.SetFixedHigh(ui->FixedHighvalue->value());
+    ini.SetTestDifference(ui->OffsetTestHeightValue->value());
+    ini.setRefBottomDistance(ui->doubleSpinBoxBottomHeigh->value());
+    ini.SetAbsorbWashingfluidX2(ui->spinBoxAbsorbX2->value());
+    ini.setWashesTime(ui->spinBox_WashesTime->value());
+    ini.SetFailedCleanLinqueHigh(static_cast<quint8>(ui->spinBox_CleanLinqueFailedHigh->value()));
+    ini.SetAbsorbTubeBottom(static_cast<quint8>(ui->Testheighdownheigh->value()));
+    ini.SetFailedLinqueHigh(static_cast<quint8>(ui->spinBox_faliedlinque->value()));
+    ini._setsuckairsuckPRP(ui->spinBox_suckairs->value());
+    ini.SetAfterSpitDelayMs(ui->spinBox_PPPdelay->value());
+    ini.SetAfterSuckDelayMs(ui->spinBox_PRPdelay->value());
+    ini.SetAddSuckPRP(ui->spinBoxAddPrp->value());
+    ini.wConfigPara(FIRSTSUCKAIRS, ui->checkBox_suck_offset->isChecked());
+}
+
+QByteArray MachineSetting::outParaOx1cWrite()
+{
+    auto &ini = INI_File();
+    const quint8 pePct = static_cast<quint8>(
+                qBound(0, qRound(ini.getPEAddSuckRatio()), 255));
+    const quint8 extraPrp = static_cast<quint8>(qBound(0, ini.GetAddSuckPRP(), 255));
+    const quint16 pppDelay = static_cast<quint16>(qBound(0, ini.GetAfterSpitDelayMs(), 65535));
+    const quint16 prpDelay = static_cast<quint16>(qBound(0, ini.GetAfterSuckDelayMs(), 65535));
+    const quint16 refX10 = static_cast<quint16>(
+                qBound(0, qRound(ini.getRefBottomDistance() * 10.0), 65535));
+    return QUIUtils::writeExtendedBloodPara0x1c(
+                pePct, extraPrp, pppDelay, prpDelay,
+                ini.rConfigPara(FIRSTSUCKAIRS).toBool(),
+                refX10, true);
+}
+
 void MachineSetting::BloodPinParaWriteBoadr()
 {
+    syncBloodPinUiToIni();
+
     BloodPinParams params;
 
     params.paramIndex4 = {
@@ -1976,9 +2449,9 @@ void MachineSetting::BloodPinParaWriteBoadr()
     };
     QUIUtils::_writeParaBloodOtherOrder(bufferq8, bloodpara);
 
-    // 统一发送
-    emit SetParatoInstrument({bufferq16, bufferq8}, "血样针参数写入主板");
-
+    const QByteArray extendedBlood = outParaOx1cWrite();
+    emit SetParatoInstrument({bufferq16, bufferq8, extendedBlood}, tr("血样针参数写入主板"));
+    QMessageBox::information(this, tr("保存完成"), tr("仪器血样针参数已保存并写入主板!"));
     return;
 }
 
@@ -2021,7 +2494,17 @@ void MachineSetting::notifyReagentPinParaToBoard()
                                          ReagentPinSuckum,
                                          ReagentDownPinmm,
                                         otherReagentData);
-    emit SetParatoInstrument({sendOrder,sendOtherOrder},"配置试剂针参数");
+
+    quint8 addRatioX100[REAGENT_COUNT] = {0};
+    for (int i = 0; i < REAGENT_COUNT; ++i) {
+        addRatioX100[i] = static_cast<quint8>(
+            qBound(0, qRound(ini.getTypesReagentSuckAdd_Ratio(reagentTypes[i]) * 100.0), 255));
+    }
+    const QByteArray extendedReagentOrder =
+            QUIUtils::writeExtendedReagentPara0x1d(addRatioX100, true);
+
+    emit SetParatoInstrument({sendOrder, sendOtherOrder, extendedReagentOrder},
+                             QStringLiteral("配置试剂针参数"));
 	return;
 }
 
@@ -2175,12 +2658,19 @@ void MachineSetting::onMaintenanceButtonClicked(){
         ui->lineEdit_maintenance->clear();
         ui->lineEdit_maintenance->hide();
         ui->label_maintenance->hide();
-        ui->widget_valuediaplay->show();
-        ui->widget_valuediaplay->show();
         ui->pushButton_maintenance->setText("退出维护");
         disconnectEnterReturnShortcuts();
         Engineerinterfacelayout(true);  // 统一由该函数管理界面状态
         emit LoginEngineerMode(true);
+
+        ui->tabWidgetSetconfigure->setCurrentIndex(TabMaintenance);
+        if (m_channelDimmingConfigTabIndex >= 0) {
+            ui->tabWidget_config->setCurrentIndex(m_channelDimmingConfigTabIndex);
+        }
+        if (m_channelDimmingItem) {
+            ui->MachineSetList->setCurrentItem(m_channelDimmingItem);
+        }
+        refreshChannelValuePageLayout();
 
 
 
@@ -2192,7 +2682,6 @@ void MachineSetting::onMaintenanceButtonClicked(){
         ui->lineEdit_maintenance->show();
         ui->lineEdit_maintenance->clear();
         ui->lineEdit_maintenance->setFocus();
-        ui->widget_valuediaplay->hide();
         ui->pushButton_maintenance->setText("登入维护(F4)");
         connectEnterReturnShortcuts();
         if (!inputPassword.isEmpty()) {
@@ -2204,6 +2693,9 @@ void MachineSetting::onMaintenanceButtonClicked(){
 void MachineSetting::Engineerinterfacelayout(bool enterEngineerMode)
 {
     ui->tabWidget_config->setVisible(enterEngineerMode);
+    if (m_channelDimmingItem) {
+        m_channelDimmingItem->setHidden(!enterEngineerMode);
+    }
     if (enterEngineerMode) {
         // 延迟创建动画对象
         if (!m_propertyAnimation) {
@@ -2291,7 +2783,11 @@ void MachineSetting::configBloodpinparaSignals()
 
 		std::make_tuple(ui->OffsetTestHeightValue, [=]{
             INI_File().SetTestDifference(ui->OffsetTestHeightValue->value());
-        }, ""),
+        }, "测高偏移高度"),
+
+		std::make_tuple(ui->doubleSpinBoxBottomHeigh, [=]{
+            INI_File().setRefBottomDistance(ui->doubleSpinBoxBottomHeigh->value());
+        }, "测高模块底部距离"),
 
 		std::make_tuple(ui->spinBoxAbsorbX2, [=]{
             INI_File().SetAbsorbWashingfluidX2(ui->spinBoxAbsorbX2->value());
@@ -2315,7 +2811,19 @@ void MachineSetting::configBloodpinparaSignals()
 
 		std::make_tuple(ui->spinBox_suckairs, [=]{
             INI_File()._setsuckairsuckPRP(ui->spinBox_suckairs->value());
-        }, "吸富血前吸空气量:")
+        }, "吸富血前吸空气量:"),
+
+        std::make_tuple(ui->spinBox_PPPdelay, [=]{
+            INI_File().SetAfterSpitDelayMs(ui->spinBox_PPPdelay->value());
+        }, "吐样延时抬针"),
+
+        std::make_tuple(ui->spinBox_PRPdelay, [=]{
+            INI_File().SetAfterSuckDelayMs(ui->spinBox_PRPdelay->value());
+        }, "吸样延时抬针"),
+
+        std::make_tuple(ui->spinBoxAddPrp, [=]{
+            INI_File().SetAddSuckPRP(ui->spinBoxAddPrp->value());
+        }, "PRP预留比")
     };
 
 	// 使用std::get替代结构化绑定
@@ -2412,6 +2920,7 @@ void MachineSetting::_initBloodpinpara()
     int suckairvalue = ini._getsuckairsuckPRP();
     ui->spinBox_suckairs->setValue(suckairvalue);
 
+    loadBloodPinExtendedUiFromIni();
 
     update();
 
@@ -3153,8 +3662,6 @@ void MachineSetting::completedPETest(){
     }
 }
 
-
-
 //校准坐标
 void MachineSetting::on_pushButton_Adjustcoordinates_clicked()
 {
@@ -3164,38 +3671,27 @@ void MachineSetting::on_pushButton_Adjustcoordinates_clicked()
         m_initAdjustcoordinates = true;
         pkjustcoordinate->initstyle(m_typedequipment);
 
-        // 使用新式语法连接，检查返回值
-        bool conn1 = connect(pkjustcoordinate, &CustomPlot::writdAxisata,
-                            this, [=](const QByteArrayList data_, QString info) {
-            emit FullyAutomatedPlatelets::mainWindow()->sendcodeList(data_, info);
-        });
-        Q_ASSERT(conn1); // 确保连接成功 [[15]]
-
-        bool conn2 = connect(pkjustcoordinate, &CustomPlot::Resetmaneuver,
-                            this, [=]() {
-            FullyAutomatedPlatelets::mainWindow()->machineReposition();
-        });
-        Q_ASSERT(conn2);
-
-        bool conn3 = connect(pkjustcoordinate, &CustomPlot::SportActive,
-                            FullyAutomatedPlatelets::pinstanceSingleactive(),
-                            &USB_InitConnect::slotCeratActionDate);
-        Q_ASSERT(conn3);
-
-        bool conn4 = connect(FullyAutomatedPlatelets::pinstanceSingleactive(),
-                            &USB_InitConnect::CoordinatefinetuningactionFinish,
-                            pkjustcoordinate, &CustomPlot::Recv_CalibrationMoved);
-        Q_ASSERT(conn4);
-
-        bool conn5 = connect(pkjustcoordinate, &CustomPlot::TrayMoveTest,
-                            FullyAutomatedPlatelets::pinstanceserialusb(),
-                            &SuoweiSerialPort::Recv_TrayMoveTest);
-        Q_ASSERT(conn5);
-
-        bool conn6 = connect(FullyAutomatedPlatelets::pinstanceserialusb(),
-                            &SuoweiSerialPort::continueSendArryTray,
-                            pkjustcoordinate, &CustomPlot::send_test_cups_accurate);
-        Q_ASSERT(conn6);
+        if (!connect(pkjustcoordinate, &CustomPlot::writdAxisata,
+                     this, [=](const QByteArrayList data_, QString info) {
+                         emit FullyAutomatedPlatelets::mainWindow()->sendcodeList(data_, info);
+                     })) {
+            QLOG_WARN() << "CustomPlot::writdAxisata connect failed";
+        }
+        if (!connect(pkjustcoordinate, &CustomPlot::testMachineAxis,
+                     FullyAutomatedPlatelets::pinstanceSingleactive(),
+                     &USB_InitConnect::onCeratActionData)) {
+            QLOG_WARN() << "CustomPlot::testMachineAxis connect failed";
+        }
+        if (!connect(FullyAutomatedPlatelets::pinstanceSingleactive(),
+                     &USB_InitConnect::CoordinatefinetuningactionFinish,
+                     pkjustcoordinate, &CustomPlot::recvCalibrationMoved)) {
+            QLOG_WARN() << "CoordinatefinetuningactionFinish connect failed";
+        }
+        if (!connect(pkjustcoordinate, &CustomPlot::TrayMoveTest,
+                     FullyAutomatedPlatelets::pinstanceserialusb(),
+                     &SuoweiSerialPort::Recv_TrayMoveTest)) {
+            QLOG_WARN() << "CustomPlot::TrayMoveTest connect failed";
+        }
 
         // 窗口关闭时重置初始化标志
         connect(pkjustcoordinate, &QWidget::destroyed, this, [=]() {
@@ -3212,31 +3708,31 @@ void MachineSetting::on_pushButton_Adjustcoordinates_clicked()
 
 void MachineSetting::on_pushButtonsplitAirs_clicked()
 {
-    quint8 downhands = 0;
-    quint8 HandsSucknum =  HANDS_SPLIT_NUM;
-    QByteArray poutdata = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downhands,
-                                                                          0, HandsSucknum,false,
-                                                                          downhands,false,
-                                                                          GRIPPERNORMAL);
-    emit WriteArryCommand(poutdata,"关负压泵");
+    if (m_gripperAirDetectStep != 0) {
+        cancelGripperAirDetect();
+        return;
+    }
+    startGripperAirPoll(false);
 }
 
 void MachineSetting::on_pushButtonopenSuck_clicked()
 {
-    quint8 downhands = 0;
-    quint8 HandsSplitnum =  HANDS_SUCK_NUM;
-    QByteArray poutdata = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downhands,
-                                                                          0, HandsSplitnum,false,
-                                                                          downhands,false,
-                                                                          GRABCUPWITHGRIPPER);
-    emit WriteArryCommand(poutdata,"打开负压泵");
+    beginGripperAirDetect();
 }
 
-void MachineSetting::handlebackHandssuck(bool issuck,int airval){
-    if(issuck)
-        ui->label_showsuckVal->setText(QString::number(airval));
-    else
-        ui->label_splitval->setText(QString::number(airval));
+void MachineSetting::handlebackHandssuck(bool issuck, int airval)
+{
+    feedGripperAirSample(issuck, airval);
+    if (m_gripperAirDetectStep != 0) {
+        return;
+    }
+    if (issuck) {
+        m_liveHoldAir = airval;
+        ui->label_showsuckVal->setText(tr("吸住 %1").arg(airval));
+    } else {
+        m_liveReleaseAir = airval;
+        ui->label_splitval->setText(tr("空载 %1").arg(airval));
+    }
 }
 
 void MachineSetting::on_pushButtonsavedimming_clicked()
@@ -3281,4 +3777,50 @@ void MachineSetting::initshowPPPinit(){
     ui->groupBoxShowPPPinit->show();
 
     QLOG_DEBUG() << "PPP Value Widget initialized";
+}
+
+void MachineSetting::initCustomTitleBar()
+{
+    QLayout *existingLayout = layout();
+    if (!existingLayout) {
+        return;
+    }
+
+    m_titleBar = new CustomTitleBar(this);
+    m_titleBar->setTitle(windowTitle());
+
+    connect(m_titleBar, &CustomTitleBar::closeRequested, this, &MachineSetting::onCloseRequested);
+    connect(m_titleBar, &CustomTitleBar::minimizeRequested, this, &MachineSetting::onMinimizeRequested);
+    connect(m_titleBar, &CustomTitleBar::maximizeRequested, this, &MachineSetting::onMaximizeRequested);
+
+    if (QBoxLayout *boxLayout = qobject_cast<QBoxLayout *>(existingLayout)) {
+        boxLayout->insertWidget(0, m_titleBar);
+    }
+
+    existingLayout->setContentsMargins(0, 0, 0, 0);
+    existingLayout->setSpacing(0);
+}
+
+void MachineSetting::onCloseRequested()
+{
+    close();
+}
+
+void MachineSetting::onMinimizeRequested()
+{
+    showMinimized();
+}
+
+void MachineSetting::onMaximizeRequested()
+{
+    if (!m_titleBar) {
+        return;
+    }
+    if (isMaximized()) {
+        showNormal();
+        m_titleBar->updateMaximizeButton(false);
+    } else {
+        showMaximized();
+        m_titleBar->updateMaximizeButton(true);
+    }
 }
