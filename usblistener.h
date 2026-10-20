@@ -8,6 +8,7 @@
 
 #include <QAbstractNativeEventFilter>
 #include <Windows.h>
+#include <tchar.h>
 #include <QWidget>
 #include <dbt.h>
 #include <atomic>
@@ -23,14 +24,20 @@
 
 #include <vector>
 #include <string>
-#include <tchar.h>
+#include <strsafe.h>
 
 #include <winusb.h>
 #include <cfgmgr32.h>
 
+#ifdef _MSC_VER
 #pragma comment(lib, "setupapi.lib")
+#endif
+#ifdef _MSC_VER
 #pragma comment(lib, "cfgmgr32.lib")
+#endif
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 
 
 

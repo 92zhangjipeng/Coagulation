@@ -3,9 +3,12 @@
 
 #include <QObject>
 #include <QPoint>
+#include <QDir>
+#include <QCoreApplication>
 #include <stdexcept>
 #include <memory>
 #include <mutex>
+
 
 typedef struct REAGENTZONEAXIS{
     quint8 index;
@@ -30,6 +33,7 @@ typedef struct SAMPLEBLOODZONEAXISPOS {
     quint8 index;
     QPoint axisPos;
 }SAMPLEBLOODZONEAXISPOS_;//血样区坐标
+
 
 typedef struct EquipmentAXIS
 {
@@ -167,6 +171,8 @@ typedef struct EquipmentAXIS
 
 
 
+
+
 class SingletonAxis
 {
 public:
@@ -184,7 +190,7 @@ public:
     static void throwTubeHolePos(bool bWrite,QPoint &pos);
     static void cleanZoneAxisPos(bool bWrite,int indexNedl,QPoint &pos);
     static void reagetZoneAxisPos(bool bWrite,quint8 indexReag,QPoint &pos);
-    static void chnZoneAxisPos(bool bWrite,quint8 numChn,quint8 OffsetNedl ,QPoint &pos);
+    static void chnZoneAxisPos(bool bWrite, quint8 numChn, quint8 offsetNeedle, QPoint& pos);
     static void bloodSampleZonePos(bool bWrite,quint8 numhole,QPoint &pos);
 
 
@@ -194,7 +200,7 @@ public:
     static quint8 witchoneindexTary(const quint8 indextube);
 
     //修改坐标
-    static void oper_OriginAxis(bool bNotif_x,int posValue);
+    static void operOriginAxis(bool bNotif_x,int posValue);
     static void oper_ThrowTubeHolePos(bool bNotif_x,int posValue);
     static void oper_CleanZonePos(bool bNotif_x,int indexNedl,int posValue);
     static void oper_ReagentZonePos(bool bNotif_x, quint8 indexReag, quint16 posValue);
@@ -228,8 +234,13 @@ private:
 private:
     static SingletonAxis  *g_pSingletonAxis;
     static EquipmentAXIS_ *g_pEquipAxiaspos;
-    //static EquipmentAXIS_*g_pEquipAxiaspos;
+    static std::mutex m_mutex;
+
+
 };
+
+
+
 
 
 ///////////////////////耗材信息//////////////////////////////////
@@ -340,8 +351,8 @@ private:
 
 #define REAGENT_LIMIT      3 //试剂报警线和清洗液总量
 
-#define BlOODPINPARADATA        4 //血样针参数
-#define BLOODPINPARAOTHERDATA   22 //血样针参数all
+#define BlOODPINPARADATA        4 //样本针参数
+#define BLOODPINPARAOTHERDATA   22 //样本针参数all
 
 #define REAGENT_CAPACITY   5 //试剂的容量
 
@@ -362,12 +373,12 @@ private:
 #define AXIS_CHN4_8_HANDSX  14 //通道 4-8抓手x
 #define AXIS_CHN4_8_HANDSY  15 //通道 4-8抓手Y
 
-#define AXIS_CHN9_12_HANDSX  16 //通道 9-12抓手x 和样本区血样针 x
-#define AXIS_CHN9_12_HANDSY  17 //通道 9-12抓手Y 和样本区血样针 y
+#define AXIS_CHN9_12_HANDSX  16 //通道 9-12抓手x 和样本区样本针 x
+#define AXIS_CHN9_12_HANDSY  17 //通道 9-12抓手Y 和样本区样本针 y
 
-#define AXIS_TRAY_OFFSET_BLOODPINX   18//试管盘 血样针 1-4 x 和抓手盘 1
+#define AXIS_TRAY_OFFSET_BLOODPINX   18//试管盘 样本针 1-4 x 和抓手盘 1
 
-#define AXIS_TRAY_OFFSET_BLOODPINY   19 //试管盘 血样针 1-4 y 和抓手盘 1y
+#define AXIS_TRAY_OFFSET_BLOODPINY   19 //试管盘 样本针 1-4 y 和抓手盘 1y
 
 #define AXIS_TRAY_OFFSET_HANDSX      20 //试管盘抓手 x
 
@@ -379,8 +390,10 @@ private:
 
 #define CONTROLGRIPPERPARA           26  //0X1A
 #define CONTROL_MODULEDIMMINGVALUE   27  //0X1B 模组调光值
+#define PARA_EXTENDED_BLOOD          28  //0X1C 样本针扩展(PE加吸/多吸PRP/延时/先吸空气/参照底距)
+#define PARA_EXTENDED_REAGENT        29  //0X1D 五种试剂加吸比例
 
-
+#define PARA_EXT_PROTOCOL_VER        1   //0x1C/0x1D 末字节版本，固件未实现时读回为0，不覆盖本地INI
 
 
 #define MAINBORD_REAGENT_AA_INFO            100 //主板 AA试剂信息
@@ -436,6 +449,7 @@ public:
     explicit loadEquipmentPos(QObject *parent = nullptr);
     ~loadEquipmentPos();
 
+
 signals:
     void closetimercon(bool);
 
@@ -446,12 +460,9 @@ public slots:
     void StatrLoad();
 
     //先设置仪器型号再写坐标
-    void writeEquipmenttyped(const quint8 &index_, bool _ExitParaFile, QString _ParaPath);
-
+    void onconfiguredModel(const quint8 &index, bool bParaFile, QString bparaPath);
     void handlewritedataToEquip(const QByteArray &arry);
-
     void _sycnobtainEquipmenttyped(bool Parafilestate,QString ParaFilePath);
-
 
 public:
 	void CloseSerial();
@@ -463,9 +474,21 @@ private:
 
     void openLoadSerialPort(const QString &portName);
 
+    void initializeAllCoordinates(quint8 index);
 
+    bool saveCoordinateVerification(quint8 equipmentType,
+                                       const QPoint& originAxis,
+                                       const QPoint& cleanZoneBloodPin,
+                                       const QPoint& cleanZoneReagentPin,
+                                       const QPoint& reagentHoleAxis,
+                                       const QPoint& throwCupsAxis,
+                                       const QPoint& bloodZoneAxis,
+                                       const QMap<quint8, QPoint>& reagentPinOffsetChn,
+                                       const QMap<quint8, QPoint>& handsOffsetChn,
+                                       const QMap<quint8, QPoint>& trayTubeOffsetHands,
+                                       const QMap<quint8, QPoint>& trayTubeOffsetBloodPin);
 
-
+    //void compareCoordinates(quint8 equipmentType);
 
 
 
@@ -494,43 +517,57 @@ private:
     void recveNegativePressure(const QStringList hexArry);
     //0x1b 模组调光值
     void recveModuleDataPressure(const QStringList& hexArry);
+    //0x1c 样本针扩展参数
+    void recveExtendedBloodPara(const QStringList& hexArry);
+    //0x1d 试剂加吸比例
+    void recveExtendedReagentPara(const QStringList& hexArry);
 
 
     void recvReagentCapacity(const QStringList hexArry);
 
     void recvOrininAxis(const QStringList hexArry); //0x06 收到原点坐标x...
-    void _recvOrininAxisY(const QStringList hexArry); //0x07 收到原点坐标y...
+    void recvOrininAxisY(const QStringList hexArry); //0x07 收到原点坐标y...
 
     //通道相对试剂针1-5
-    void _recvChnoffsetReagpinXI_V(const QStringList hexArry);
-    void _recvChnoffsetReagpinYI_V(const QStringList hexArry);
+    void recvChnoffsetReagpinXI_V(const QStringList hexArry);
+    void recvChnoffsetReagpinYI_V(const QStringList hexArry);
 
     //通道相对试剂针6-10
-    void _recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata);
-    void _recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata);
+    void recvChnoffsetReagpinXIV_X(const QStringList ArryRecvdata);
+    void recvChnoffsetReagpinYIV_X(const QStringList ArryRecvdata);
 
-    void _recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvdata); //11 12试剂针 1-3抓手
-    void _recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvdata);
+    //11 12试剂针 1-3抓手
+    void recvChnoffsetReagpinXXI_XII(const QStringList ArryRecvdata);
+    void recvChnoffsetReagpinYXI_XII(const QStringList ArryRecvdata);
 
-    void _recvHandChnVI_IIIV_X(const QStringList ArryRecvdata); //抓手通道 4- 8
-    void _recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata);
+    //抓手通道 4- 8
+    void recvHandChnVI_IIIV_X(const QStringList ArryRecvdata);
+    void recvHandChnVI_IIIV_Y(const QStringList ArryRecvdata);
 
-    void _recvHandsChnX_XIII_X(const QStringList ArryRecvdata); //抓手9 - 12
-    void _recvHandsChnX_XIII_Y(const QStringList ArryRecvdata);
+    //抓手9 - 12
+    void recvHandsChnX_XIII_X(const QStringList ArryRecvdata);
+    void recvHandsChnX_XIII_Y(const QStringList ArryRecvdata);
 
-    void _recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvdata);
-    void _recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetbloodpin_x(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetbloodpin_y(const QStringList ArryRecvdata);
 
-    void  _recvTraytubeoffsetHands_x(const QStringList ArryRecvdata);
-    void  _recvTraytubeoffsetHands_y(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetHands_x(const QStringList ArryRecvdata);
+    void recvTraytubeoffsetHands_y(const QStringList ArryRecvdata);
 
 
     void groupReagentinfo(bool bread);
+
+    //void initWriteBoardPara();
+    //void LoadingReadBoardPara();
+
+
      //解析接收数据
     void parsingReceivedMessages(const QStringList ArryRecvdata);
 
-    void _equipmentParaParsing(quint8 index_, const QStringList ArryRecvdata);
-    void _mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata); //读取主板内试剂耗材信息
+    void equipmentParaParsing(quint8 index_, const QStringList ArryRecvdata);
+
+    //读取主板内试剂耗材信息
+    void mainbordParadata(quint8 indexReagent, const QStringList ArryRecvdata);
 
 
     void RecvSuippleNextStep(const bool bRead,quint8 finished,quint8 nextSend,quint8 indexReagent,
@@ -545,7 +582,7 @@ private:
 
     //写坐标--begin
     void configAxisPoint(QPoint &input,uint x_,uint y_);
-    void LoadCoordinateData(QString filePath, QString keydata_x, QString keydata_y,QPoint& outdata);
+
 
     void loadParaData(bool _bexit, QString filePath,  QString _key ,quint8& outdata);
     void loadParaData(bool _bexit, QString filePath,  QString _key ,quint16& outdata);
@@ -571,12 +608,12 @@ private:
     QPoint initThrowCupsAxis(const quint8 &indexEquipment);
     QPoint initReagentHoleAxis(const quint8 &indexEquipment);
 
-    void initHandsoffsetChn(const quint8 &indexEquipment);
-    void initReagentPinOffsetChn(const quint8 &indexEquipment);
-    void initBloodZoneAxisPos(const quint8 &indexEquipment);
+    QMap<quint8, QPoint> initHandsoffsetChn(const quint8 &indexEquipment);
+    QMap<quint8, QPoint> initReagentPinOffsetChn(const quint8 &indexEquipment);
+    QPoint initBloodZoneAxisPos(const quint8 &indexEquipment);
 
-    void initTrayTubeOffsetHands(const quint8 &indexEquipment);
-    void initTrayTubeOffsetBloodPin(const quint8 &indexEquipment);
+    QMap<quint8, QPoint> initTrayTubeOffsetHands(const quint8 &indexEquipment);
+	QMap<quint8, QPoint> initTrayTubeOffsetBloodPin(const quint8 &indexEquipment);
 
     void initOrderNumI();
 
@@ -605,14 +642,19 @@ private:
     //模组调光值
     QByteArray initModuleDimmingValPara();
 
+    QByteArray initWriteExtendedBloodPara();
+    QByteArray initWriteExtendedReagentPara();
+
     void initwriteMainReagNum();//写主板内耗材数
 
 
 
 signals:
-    void _whiletoReadEquipPosAixs(quint8, QString); //读取到仪器型号 直接读取坐标
+    //读取到仪器型号 直接读取坐标
+    void equipmentHadPosAixs(quint8, QString);
 
-    void progresstotal(int totalsize); //读或者写的总进度数
+    //读或者写的总进度数
+    void progresstotal(int totalsize);
 
     void sendUpdateProgressshow(bool);
 
@@ -620,10 +662,15 @@ signals:
 
 private:
     QSerialPort *minitPort = nullptr;
+
     bool m_hasWarned = false; // 添加警告标志
     QString mserialname ;
 
-    bool mcreatSetType = false;       //设置仪器类型标志
+    //设置仪器类型标志
+    bool m_creatSetType = false;
+
+    //true 写 false 读
+    bool m_bReadorWrite;
 
 
     bool mequipnotconnect; //未连接提示一次标志
@@ -634,8 +681,10 @@ private:
 
 
     QMap<quint8,READPARAMENTER*> mwriteAxismap; //读取仪器内参数
-    QMap<quint8,WRITEPARAMENTER*> m_axiswriteequipment; //把坐标写入到仪器内
-    bool m_bReadorWrite;   //true 写 false 读
+
+    //把坐标写入到仪器内
+    QMap<quint8,WRITEPARAMENTER*> m_axiswriteequipment;
+
 };
 
 #endif // LOADEQUIPMENTPOS_H

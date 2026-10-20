@@ -1,4 +1,6 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 
 #include "customhighdata.h"
 #include "ui_customhighdata.h"
@@ -45,7 +47,7 @@ void CustomHighData::onTimeOutOK()
 }
 void  CustomHighData::closeEvent(QCloseEvent* /*event*/)
 {
-    emit AddSupplies(Supplies_type, Supplies_AddNum);
+    // 确认写卡已在刷卡成功时立即发出，弹窗只做提示，关闭不再重复发确认
     return;
 }
 

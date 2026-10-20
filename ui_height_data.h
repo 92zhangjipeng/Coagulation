@@ -27,6 +27,8 @@ QT_BEGIN_NAMESPACE
 class Ui_Height_Data
 {
 public:
+    QVBoxLayout *verticalLayout_3;
+    QWidget *widget_center;
     QHBoxLayout *horizontalLayout_3;
     QWidget *widget_Task;
     QVBoxLayout *verticalLayout;
@@ -53,12 +55,165 @@ public:
         if (Height_Data->objectName().isEmpty())
             Height_Data->setObjectName(QStringLiteral("Height_Data"));
         Height_Data->setWindowModality(Qt::NonModal);
-        Height_Data->resize(1480, 650);
-        horizontalLayout_3 = new QHBoxLayout(Height_Data);
-        horizontalLayout_3->setSpacing(10);
+        Height_Data->resize(1538, 607);
+        Height_Data->setStyleSheet(QString::fromUtf8("\n"
+"/* \345\205\250\345\261\200\350\203\214\346\231\257\350\211\262 */\n"
+"QWidget#Height_Data {\n"
+"    background-color: #E8F4F8;\n"
+"}\n"
+"\n"
+"/* \350\241\250\346\240\274\346\240\267\345\274\217 */\n"
+"QTableWidget {\n"
+"    background-color: #FFFFFF;\n"
+"    alternate-background-color: #F2F9FC;\n"
+"    gridline-color: #C8E0F0;\n"
+"    font: 14px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\226\260\345\256\213\344\275\223';\n"
+"    color: #1A4D6B;\n"
+"    selection-background-color: #5FA8D3;\n"
+"    selection-color: white;\n"
+"    border: 1px solid #B8D9E6;\n"
+"    border-radius: 6px;\n"
+"}\n"
+"\n"
+"QTableWidget::item:hover {\n"
+"    background-color: #D9F0F8;\n"
+"}\n"
+"\n"
+"QTableWidget::item:selected {\n"
+"    background-color: #2C7DA0;\n"
+"    color: white;\n"
+"}\n"
+"\n"
+"/* \350\241\250\345\244\264\346\240\267\345\274\217 */\n"
+"QHeaderView::section {\n"
+"    background-color: #5FA8D3;\n"
+"    color: white;\n"
+"    padding: 8px;\n"
+"    border: none;\n"
+"    border-right: 1px solid #3A86A"
+                        "8;\n"
+"    font-weight: bold;\n"
+"    font-size: 13px;\n"
+"}\n"
+"\n"
+"QHeaderView::section:last {\n"
+"    border-right: none;\n"
+"}\n"
+"\n"
+"/* \345\272\225\351\203\250\345\267\245\345\205\267\346\240\217\345\256\271\345\231\250 */\n"
+"QWidget#widget {\n"
+"    border: 1px solid #B8D9E6;\n"
+"    background-color: #D9EAF5;\n"
+"    border-style: solid;\n"
+"    border-radius: 8px;\n"
+"    padding: 5px;\n"
+"}\n"
+"\n"
+"/* \346\265\213\351\253\230\346\250\241\345\274\217\345\256\271\345\231\250 */\n"
+"QWidget#widget_TestHeighModel {\n"
+"    border: 1px solid #AACDE2;\n"
+"    background-color: #E8F4F8;\n"
+"    border-style: solid;\n"
+"    border-radius: 8px;\n"
+"    padding: 5px;\n"
+"}\n"
+"\n"
+"/* CheckBox \346\240\267\345\274\217 - \345\214\273\347\226\227\346\265\205\350\223\235\351\243\216\346\240\274 */\n"
+"QCheckBox {\n"
+"    font: 12px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    color: #1A4D6B;\n"
+"    spacing: 8px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator {\n"
+"    width: "
+                        "20px;\n"
+"    height: 20px;\n"
+"    border-radius: 4px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:unchecked {\n"
+"    background-color: #FFFFFF;\n"
+"    border: 1.5px solid #AACDE2;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:unchecked:hover {\n"
+"    border: 1.5px solid #5FA8D3;\n"
+"    background-color: #F0F9FF;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked {\n"
+"    background-color: #5FA8D3;\n"
+"    border: 1.5px solid #5FA8D3;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked:after {\n"
+"    content: '\342\234\223';\n"
+"    color: white;\n"
+"    font-size: 14px;\n"
+"    font-weight: bold;\n"
+"    display: block;\n"
+"    text-align: center;\n"
+"    line-height: 18px;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:checked:hover {\n"
+"    background-color: #3A86A8;\n"
+"    border: 1.5px solid #3A86A8;\n"
+"}\n"
+"\n"
+"QCheckBox::indicator:disabled {\n"
+"    background-color: #E8F0F5;\n"
+"    border: 1.5px solid #C8E0F0;\n"
+"}\n"
+"\n"
+"/* QToolButton \346\240\267\345\274\217 - \345\214\273\347\226\227\346\265\205\350\223\235 */\n"
+"QToolButton"
+                        " {\n"
+"    border: 1px solid #5FA8D3;\n"
+"    background-color: #5FA8D3;\n"
+"    border-radius: 8px;\n"
+"    padding: 0 15px;\n"
+"    font: 14px '\345\276\256\350\275\257\351\233\205\351\273\221', '\346\245\267\344\275\223';\n"
+"    color: white;\n"
+"}\n"
+"\n"
+"QToolButton:hover {\n"
+"    background-color: #3A86A8;\n"
+"    border: 1px solid #3A86A8;\n"
+"}\n"
+"\n"
+"QToolButton:pressed {\n"
+"    background-color: #2C6D8A;\n"
+"    border: 1px solid #2C6D8A;\n"
+"}\n"
+"\n"
+"QToolButton:disabled {\n"
+"    background-color: #B0D4E8;\n"
+"    border: 1px solid #B0D4E8;\n"
+"    color: #6A8EAE;\n"
+"}\n"
+"\n"
+"/* \345\217\263\344\276\247\345\233\276\347\211\207\346\230\276\347\244\272\345\214\272\345\237\237 */\n"
+"QWidget#widget_ShowErrImage {\n"
+"    border: 1px solid #B8D9E6;\n"
+"    background-color: #D9EAF5;\n"
+"    border-style: solid;\n"
+"    border-radius: 8px;\n"
+"    padding: 5px;\n"
+"}\n"
+"   "));
+        verticalLayout_3 = new QVBoxLayout(Height_Data);
+        verticalLayout_3->setSpacing(5);
+        verticalLayout_3->setObjectName(QStringLiteral("verticalLayout_3"));
+        verticalLayout_3->setContentsMargins(0, 0, 0, 0);
+        widget_center = new QWidget(Height_Data);
+        widget_center->setObjectName(QStringLiteral("widget_center"));
+        horizontalLayout_3 = new QHBoxLayout(widget_center);
+        horizontalLayout_3->setSpacing(5);
         horizontalLayout_3->setObjectName(QStringLiteral("horizontalLayout_3"));
-        horizontalLayout_3->setContentsMargins(5, 5, 5, 5);
-        widget_Task = new QWidget(Height_Data);
+        horizontalLayout_3->setContentsMargins(0, 0, 0, 0);
+        widget_Task = new QWidget(widget_center);
         widget_Task->setObjectName(QStringLiteral("widget_Task"));
         widget_Task->setMinimumSize(QSize(800, 0));
         verticalLayout = new QVBoxLayout(widget_Task);
@@ -69,8 +224,10 @@ public:
         Sample_Data_tablewidget->setObjectName(QStringLiteral("Sample_Data_tablewidget"));
         Sample_Data_tablewidget->setMinimumSize(QSize(1050, 0));
         QFont font;
-        font.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
-        font.setPointSize(14);
+        font.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221,\346\226\260\345\256\213\344\275\223"));
+        font.setBold(false);
+        font.setItalic(false);
+        font.setWeight(50);
         Sample_Data_tablewidget->setFont(font);
 
         verticalLayout->addWidget(Sample_Data_tablewidget);
@@ -78,26 +235,15 @@ public:
         widget = new QWidget(widget_Task);
         widget->setObjectName(QStringLiteral("widget"));
         widget->setMinimumSize(QSize(0, 60));
-        widget->setFont(font);
-        widget->setStyleSheet(QLatin1String("QWidget#widget{  \n"
-"    border: 1px solid rgb(200,200,200);  \n"
-"	background-color: rgb(188, 187, 186);  \n"
-"    border-style: solid;  \n"
-"    border-radius:0px;  \n"
-"    padding:0 0px;  	\n"
-"}"));
+        QFont font1;
+        font1.setFamily(QString::fromUtf8("\346\226\260\345\256\213\344\275\223"));
+        font1.setPointSize(14);
+        widget->setFont(font1);
         horizontalLayout = new QHBoxLayout(widget);
         horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
         widget_TestHeighModel = new QWidget(widget);
         widget_TestHeighModel->setObjectName(QStringLiteral("widget_TestHeighModel"));
         widget_TestHeighModel->setMinimumSize(QSize(140, 0));
-        widget_TestHeighModel->setStyleSheet(QLatin1String("QWidget#widget_TestHeighModel{  \n"
-"    border: 1px solid rgb(200,200,200);  \n"
-"	background-color: rgb(188, 187, 186);  \n"
-"    border-style: solid;  \n"
-"    border-radius:1px;  \n"
-"    padding:0 0px;  	\n"
-"}"));
         verticalLayout_2 = new QVBoxLayout(widget_TestHeighModel);
         verticalLayout_2->setSpacing(5);
         verticalLayout_2->setObjectName(QStringLiteral("verticalLayout_2"));
@@ -105,7 +251,6 @@ public:
         checkBox_wholeblood = new QCheckBox(widget_TestHeighModel);
         checkBox_wholeblood->setObjectName(QStringLiteral("checkBox_wholeblood"));
         checkBox_wholeblood->setMinimumSize(QSize(0, 30));
-        checkBox_wholeblood->setStyleSheet(QStringLiteral(""));
         checkBox_wholeblood->setAutoExclusive(true);
 
         verticalLayout_2->addWidget(checkBox_wholeblood);
@@ -113,7 +258,6 @@ public:
         checkBox_plasma = new QCheckBox(widget_TestHeighModel);
         checkBox_plasma->setObjectName(QStringLiteral("checkBox_plasma"));
         checkBox_plasma->setMinimumSize(QSize(0, 30));
-        checkBox_plasma->setStyleSheet(QStringLiteral(""));
         checkBox_plasma->setAutoExclusive(true);
 
         verticalLayout_2->addWidget(checkBox_plasma);
@@ -129,10 +273,12 @@ public:
         toolButton_Delete_sel_item->setObjectName(QStringLiteral("toolButton_Delete_sel_item"));
         toolButton_Delete_sel_item->setMinimumSize(QSize(0, 50));
         toolButton_Delete_sel_item->setMaximumSize(QSize(170, 16777215));
-        QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        toolButton_Delete_sel_item->setFont(font1);
-        toolButton_Delete_sel_item->setStyleSheet(QStringLiteral(""));
+        QFont font2;
+        font2.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221,\346\245\267\344\275\223"));
+        font2.setBold(false);
+        font2.setItalic(false);
+        font2.setWeight(50);
+        toolButton_Delete_sel_item->setFont(font2);
         toolButton_Delete_sel_item->setIconSize(QSize(32, 32));
         toolButton_Delete_sel_item->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
@@ -142,8 +288,7 @@ public:
         AddTask->setObjectName(QStringLiteral("AddTask"));
         AddTask->setMinimumSize(QSize(0, 50));
         AddTask->setMaximumSize(QSize(170, 16777215));
-        AddTask->setFont(font1);
-        AddTask->setStyleSheet(QStringLiteral(""));
+        AddTask->setFont(font2);
         AddTask->setIconSize(QSize(32, 32));
         AddTask->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
@@ -164,8 +309,7 @@ public:
         toolButton_ok->setObjectName(QStringLiteral("toolButton_ok"));
         toolButton_ok->setMinimumSize(QSize(60, 50));
         toolButton_ok->setMaximumSize(QSize(170, 16777215));
-        toolButton_ok->setFont(font1);
-        toolButton_ok->setStyleSheet(QStringLiteral(""));
+        toolButton_ok->setFont(font2);
         toolButton_ok->setIconSize(QSize(32, 32));
         toolButton_ok->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
@@ -175,8 +319,7 @@ public:
         toolButton_Cancel->setObjectName(QStringLiteral("toolButton_Cancel"));
         toolButton_Cancel->setMinimumSize(QSize(60, 50));
         toolButton_Cancel->setMaximumSize(QSize(170, 16777215));
-        toolButton_Cancel->setFont(font1);
-        toolButton_Cancel->setStyleSheet(QStringLiteral(""));
+        toolButton_Cancel->setFont(font2);
         toolButton_Cancel->setIconSize(QSize(32, 32));
         toolButton_Cancel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
@@ -192,26 +335,19 @@ public:
 
         horizontalLayout_3->addWidget(widget_Task);
 
-        widget_ShowErrImage = new QWidget(Height_Data);
+        widget_ShowErrImage = new QWidget(widget_center);
         widget_ShowErrImage->setObjectName(QStringLiteral("widget_ShowErrImage"));
         widget_ShowErrImage->setMinimumSize(QSize(360, 600));
         widget_ShowErrImage->setMaximumSize(QSize(16777215, 16777215));
-        widget_ShowErrImage->setStyleSheet(QLatin1String("QWidget#widget_ShowErrImage{  \n"
-"    border: 1px solid rgba(220,220,220,1);\n"
-"	background-color: rgb(188,187,183);\n"
-"    border-style: solid;  \n"
-"    border-radius:0px;  \n"
-"    padding:0 0px;  	\n"
-"}\n"
-"\n"
-"\n"
-""));
         horizontalLayout_2 = new QHBoxLayout(widget_ShowErrImage);
         horizontalLayout_2->setSpacing(5);
         horizontalLayout_2->setObjectName(QStringLiteral("horizontalLayout_2"));
         horizontalLayout_2->setContentsMargins(5, 5, 5, 5);
 
         horizontalLayout_3->addWidget(widget_ShowErrImage);
+
+
+        verticalLayout_3->addWidget(widget_center);
 
 
         retranslateUi(Height_Data);

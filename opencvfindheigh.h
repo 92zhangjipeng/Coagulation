@@ -1,111 +1,89 @@
 ﻿#ifndef OPENCVFINDHEIGH_H
 #define OPENCVFINDHEIGH_H
 
-#ifdef Q_OS_WINDOWS
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <dshow.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "strmiids.lib")
 #pragma comment(lib, "ole32.lib")
 #endif
+#endif
 
-
-#pragma execution_character_set("utf-8")
 #include <QObject>
+#include <QMessageBox>
+#include <QRect>
+#include <QMutex>
+#include <QTimer>
+
 #include <opencv2/core.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/highgui.hpp>
-#include <opencv2\imgproc\imgproc.hpp>
-#include <opencv2/imgproc/types_c.h>
-#include <opencv2/highgui/highgui_c.h>
-#include <QMessageBox>
-#include <io.h>
-#include <string>
-#include <QRect>
-#include "correct_data.h"
+#include <opencv2/imgproc.hpp>
 
-using namespace std;
+#include <string>
+#include <io.h>
+#include <atomic>
+
+#include "correct_data.h"
 
 class opencvfindHeigh : public QObject
 {
     Q_OBJECT
+
 public:
     explicit opencvfindHeigh(QObject *parent = nullptr);
     ~opencvfindHeigh();
 
-    // 将路径常量提取为静态成员，方便统一管理
     static const QString DEFAULT_IMAGE_SUBDIR;
 
     bool createImageStorageDirectory();
     const QString& getImagePath() const { return m_imagePath; }
+    bool hasOpenedCamera() const { return m_openCameraPosition >= 0; }
 
 public slots:
-   void Start();
-   void recvfindCameraIndexByDevicePath(const QString& devicePath);
-   void handleTriggerTestHeight();
-
-   void handleRepPrpheight(const QString &numid,bool replflag);
+    void Start();
+    void recvfindCameraIndexByDevicePath(const QString& devicePath);
+    void handleTriggerTestHeight();
+    void handleRepPrpheight(const QString &numid, bool replflag);
+    void setCameraPower(bool enable);
 
 private:
-
-   int findCameraIndexByDevicePathWindows(const QString &targetDevicePath);
-
-   /*
-   * 图片旋转
-   */
-   bool pinwheel(const cv::Mat& inputImage, int degree, cv::Mat& outputImage);
-
-
-
-   /**  识别左侧的参照物
-    * @brief Extractthecolorblockontheleft
-    * @param img
-    * @param imgraito
-    * @return
-    */
-   bool Extractthecolorblockontheleft(cv::Mat img,double &imgraito);
-   bool ExtractColorBlockKmeans(cv::Mat img, double &ratio);
-
-   /** 识别红细胞高度
-    * @brief IdentifyRedBloodcellHeight
-    * @param img
-    */
-   bool IdentifyRBCHeight(cv::Mat img, double ratioimg, double &BloodHeigh);
-
-   void IdentifyTheTubes(cv::Mat img, cv::Mat &outTuberoi, cv::Rect &roiTube);
-
-    /**
-     * @brief inputImage  识别PRP
-     * @param imageOrinin
-     */
-    bool opencvIdentifyPrp(cv::Mat &inputImage, double &outBottomBloodHeight,QString &outErr);
-
-
-
+    int findCameraIndexByDevicePathWindows(const QString &targetDevicePath);
+    bool pinwheel(const cv::Mat& inputImage, int degree, cv::Mat& outputImage);
+    bool ensureCaptureOpen();
+    void releaseCapture();
+    void applyWindowsCameraLikeParams();
+    void warmupCaptureFrames();
+    void logCaptureParams(const char *backendName);
+    void drainLiveFrame();
+    quint64 hashFrame(const cv::Mat &frame) const;
+    bool takeFreshFrame(cv::Mat &outFrame);
 
 signals:
-   void obtainPRPImage(const QString &pathImage);
-
-   void reOpencvImageTubePRP(const QString &reId,const QString &pathImage);
-
-   void Testheightfinish(const bool );
-   void FindFailed(QString,QString);
-
-
+    void obtainPRPImage(const QString &pathImage);
+    void reOpencvImageTubePRP(const QString &reId, const QString &pathImage);
+    void Testheightfinish(const bool success);
+    void FindFailed(QString errorType, QString errorMessage);
 
 private:
-   QString m_imagePath;
-
-   QString m_replaceid;
-   bool m_isreptestheigh;
-
-   //打开摄像头索引
-   int  m_openCameraPosition;
-
-
-   const int imageWidth =  480;
-   const int imageHeight = 640;
+    QString m_imagePath;
+    QString m_replaceid;
+    bool m_isreptestheigh;
+    int m_openCameraPosition;
+    std::atomic<bool> m_abort{false};
+    std::atomic<bool> m_cameraWanted{false};
+    cv::VideoCapture m_capture;
+    QTimer *m_liveTimer;
+    QMutex m_frameMutex;
+    cv::Mat m_liveFrame;
+    quint64 m_lastSavedHash;
+    const int imageWidth = 480;
+    const int imageHeight = 640;
 };
 
-#endif // OPENCVFINDHEIGH_H
+#endif

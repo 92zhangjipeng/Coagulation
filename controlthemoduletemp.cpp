@@ -1,4 +1,6 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 #include "controlthemoduletemp.h"
 #include "ui_controlthemoduletemp.h"
 #include "quiutils.h"
@@ -22,7 +24,17 @@ ControltheModuletemp::ControltheModuletemp(QWidget *parent) :
     ui->labelICON->setPixmap(*pixmap);
     delete pixmap;
     pixmap = nullptr;
-    ui->label_title->setText("模组调光异常提示");
+    ui->label_title->setText(tr("模组调光异常提示"));
+
+    setMinimumSize(560, 300);
+    resize(560, 300);
+    ui->labeltips_failed->setWordWrap(true);
+    ui->labeltips_failed->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    ui->labeltips_failed->setMinimumHeight(150);
+    QFont tipFont(QString::fromUtf8("微软雅黑"), 12);
+    ui->labeltips_failed->setFont(tipFont);
+    ui->labeltips_failed->setStyleSheet(
+        QString::fromUtf8("font: 12pt '微软雅黑'; color: #1A6B8A; background: transparent; padding: 8px 16px;"));
 
 }
 
@@ -94,18 +106,29 @@ void ControltheModuletemp::settipstext(const QString tips,const QString titleTex
 
 void ControltheModuletemp::on_toolButton_close_clicked()
 {
-    this->close();
+    // 关闭等同于放弃重试：禁用失败通道并结束调光，避免门禁卡死
+    if (!m_actionTaken) {
+        m_actionTaken = true;
+        emit disableusechn();
+    }
 }
 
 //直接禁用通道
 void ControltheModuletemp::on_toolButtonok_clicked()
 {
+    if (m_actionTaken) {
+        return;
+    }
+    m_actionTaken = true;
     emit disableusechn();
-    this->close();
 }
 
 void ControltheModuletemp::on_toolButtonexit_clicked()
 {
+    if (m_actionTaken) {
+        return;
+    }
+    m_actionTaken = true;
     emit re_dimming();
     this->close();
 }
@@ -113,6 +136,10 @@ void ControltheModuletemp::on_toolButtonexit_clicked()
 void ControltheModuletemp::closeEvent(QCloseEvent *event)
 {
     emit deletedimming(m_dimmingText);
+    // Alt+F4 / 系统关闭：未选择时按禁用结束，避免永久卡死
+    if (!m_actionTaken) {
+        m_actionTaken = true;
+        emit disableusechn();
+    }
     event->accept();
-
 }

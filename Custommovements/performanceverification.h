@@ -181,6 +181,7 @@ public:
 								OperationType PerformanceData::* operationPtr,
 								const QString& logTag)
 	{
+		Q_UNUSED(logTag);
 		outSend.clear();
 		if (PerformanceData* pData = this->findChannel(channel)) {
 			const OperationType& operation = pData->*operationPtr;

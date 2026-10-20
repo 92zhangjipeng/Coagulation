@@ -1,14 +1,25 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 
 #include "structinstance.h"
 #include "quiutils.h"
 #include "globaldata.h"
-#include "globaldata.h"
-#include "globaldata.h"
+#include "loadequipmentpos.h"
+#include <algorithm>
+#include <QHash>
+#include <QDateTime>
+#include "cglobal.h"
+#include "testing.h"
 
 #include <operclass/fullyautomatedplatelets.h>
 #include <mainwindow.h>
 
+namespace {
+
+void markAllActionIndexDone(tSingleActive_list &list, quint8 index);
+
+} // namespace
 
 StructInstance* StructInstance::m_pInstance = nullptr;
 StructInstance::Garbo m_Garbo;
@@ -99,7 +110,7 @@ void StructInstance::setemptynull()
 }
 
 
-const bool StructInstance::getHandsStatus(const int sampleid){
+bool StructInstance::getHandsStatus(const int sampleid){
     const auto *itSample = rfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"获取抓手状态失败样本号"<<sampleid<<"为空";
@@ -118,7 +129,7 @@ void  StructInstance::setHandsErrStatus(const int sampleid,bool handsState){
 }
 
 
-const bool StructInstance::getSampleGiveupStatus(const int sampleid){
+bool StructInstance::getSampleGiveupStatus(const int sampleid){
     const auto *itSample = rfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"获取放弃样本号样本"<<sampleid<<"为空";
@@ -138,7 +149,7 @@ void  StructInstance::setSampleGiveupStatus(const int sampleid, bool isGiveup){
 }
 
 
-const bool StructInstance::getSamplePendingtimeStatus(const int sampleid){
+bool StructInstance::getSamplePendingtimeStatus(const int sampleid){
     const auto *itSample = rfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"获取挂起样本号样本"<<sampleid<<"为空";
@@ -174,25 +185,35 @@ bool StructInstance::continueTestPendTimeSample(quint8 &focuActive,int sampleId)
 
 
 
-bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum){
+bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd){
+    if (nextCmd) {
+        nextCmd->clear();
+    }
     auto *itSample = wfindIdSample(id);
     if(!itSample) {
         QLOG_ERROR()<<"收样本抓手异常,失败样本号"<<id<<"为空";
         return false;
     }
-    auto itactive = find_if(itSample->prePatchActions.begin(),itSample->prePatchActions.end(),
-                     find_recvIndex(activenum));
-    if(itactive == itSample->prePatchActions.end() || itSample == nullptr){
-        QLOG_ERROR()<<"收样本抓手异常,失败样本号"<<id<<"动作编号"<<activenum<<"未查询到";
+    auto itactive = itSample->prePatchActions.end();
+    for (auto it = itSample->prePatchActions.begin(); it != itSample->prePatchActions.end(); ++it) {
+        if (*it && (*it)->index_ == activenum && !(*it)->bcompleted) {
+            itactive = it;
+            break;
+        }
+    }
+    if (itactive == itSample->prePatchActions.end()) {
+        QLOG_WARN() << QString::fromUtf8("收样本抓手异常 prepatch 无未完成项匹配 样本")
+                    << id << QString::fromUtf8("动作编号") << activenum;
         return false;
     }
     (*itactive)->bcompleted = true;
     auto itFinish = find_if(itSample->prePatchActions.begin(),itSample->prePatchActions.end(),
                             find_allactivefinish(false));
     if(itFinish != itSample->prePatchActions.end()){
+        if (nextCmd) {
+            firstIncompleteCommand(itSample->prePatchActions, *nextCmd);
+        }
         return false;
-    }else{
-        return true;
     }
     return true;
 }
@@ -259,66 +280,75 @@ void StructInstance::rootTestChnGetSampleInfo(const quint8 index_Chn, QString &i
 
 void sycn_testdat_index_reag(QVector<double> &sycndata, chntest_reagdata testchndata_)
 {
-     auto iter = testchndata_.begin();
-     while(iter != testchndata_.end())
-     {
-         sycndata.push_back((*iter)->test_data);
-         iter++;
-     }
+    // 预分配空间（性能优化，不改变逻辑）
+    sycndata.reserve(sycndata.size() + testchndata_.size());
+
+    for (auto iter = testchndata_.begin(); iter != testchndata_.end(); ++iter) {
+        if (*iter != nullptr) {
+            sycndata.push_back((*iter)->test_data);
+        } else {
+            // 仅记录日志，不中断流程（保持原有逻辑：跳过空指针）
+            QLOG_WARN() << "sycn_testdat_index_reag: null pointer encountered, skipped";
+        }
+    }
 }
 
-void StructInstance::root_getinitvaluedata(const quint8 finishChn,quint8 index_reag,quint16 &AnaemiaInitValue,
-                                               QVector<double> &TestedDatamap,quint8 &suckanemia,quint8 &suckbloody)
+void StructInstance::rootGetinitvaluedata(const quint8 finishChn,quint8 index_reag,
+                                           quint16 &AnaemiaInitValue,
+                                           QVector<double> &TestedDatamap,
+                                           quint8 &suckanemia,quint8 &suckbloody)
 {
     auto it = find_if(m_testChnStructvec_.begin(),m_testChnStructvec_.end(),
                       finder_Chn(finishChn));
-    if(it != m_testChnStructvec_.end())
-    {
-        if ((*it) != nullptr)
-        {
-            switch (index_reag)
-            {
-                case AA_REAGENT:
-                    sycn_testdat_index_reag(TestedDatamap, (*it)->AA_testchndata_);
-                    _safeDelReagentData(&(*it)->AA_testchndata_);
-                break;
-                case ADP_REAGENT:
-                    sycn_testdat_index_reag(TestedDatamap, (*it)->ADP_testchndata_);
-                    _safeDelReagentData(&(*it)->ADP_testchndata_);
-                break;
-                case EPI_REAGENT:
-                    sycn_testdat_index_reag(TestedDatamap, (*it)->EPI_testchndata_);
-                    _safeDelReagentData(&(*it)->EPI_testchndata_);
-                break;
-                case COL_REAGENT:
-                    sycn_testdat_index_reag(TestedDatamap, (*it)->COL_testchndata_);
-                    _safeDelReagentData(&(*it)->COL_testchndata_);
-                break;
-                case RIS_REAGENT:
-                    sycn_testdat_index_reag(TestedDatamap, (*it)->RIS_testchndata_);
-                    _safeDelReagentData(&(*it)->RIS_testchndata_);
-                break;
-                default:
-                    break;
-            }
-        }
-    }
-    else
-    {
-        QLOG_DEBUG()<<"err未找完成测试通道"<<finishChn;
+
+    if (it == m_testChnStructvec_.end()) {
+        QLOG_DEBUG() << "rootGetinitvaluedata: 未找到完成测试通道" << finishChn;
         return;
     }
-    auto it_ = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_sampleinfo(finishChn));
-    if(it_ != m_BloodsampleInfo.end())
-    {
+
+    if ((*it) == nullptr) {
+        QLOG_DEBUG() << "rootGetinitvaluedata: 通道" << finishChn << "的数据结构为空";
+        return;
+    }
+
+    //根据试剂类型提取数据
+    switch (index_reag) {
+        case AA_REAGENT:
+            sycn_testdat_index_reag(TestedDatamap, (*it)->AA_testchndata_);
+            _safeDelReagentData(&(*it)->AA_testchndata_);
+            break;
+        case ADP_REAGENT:
+            sycn_testdat_index_reag(TestedDatamap, (*it)->ADP_testchndata_);
+            _safeDelReagentData(&(*it)->ADP_testchndata_);
+            break;
+        case EPI_REAGENT:
+            sycn_testdat_index_reag(TestedDatamap, (*it)->EPI_testchndata_);
+            _safeDelReagentData(&(*it)->EPI_testchndata_);
+            break;
+        case COL_REAGENT:
+            sycn_testdat_index_reag(TestedDatamap, (*it)->COL_testchndata_);
+            _safeDelReagentData(&(*it)->COL_testchndata_);
+            break;
+        case RIS_REAGENT:
+            sycn_testdat_index_reag(TestedDatamap, (*it)->RIS_testchndata_);
+            _safeDelReagentData(&(*it)->RIS_testchndata_);
+            break;
+        default:
+            QLOG_DEBUG() << "rootGetinitvaluedata: 未知的试剂类型" << index_reag;
+            return;
+    }
+
+    //查找贫血信息
+    auto it_ = find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(),
+                       find_sampleinfo(finishChn));
+    if (it_ != m_BloodsampleInfo.end() && (*it_) != nullptr) {
         AnaemiaInitValue = (*it_)->initAnemiaValue;
         suckanemia = (*it_)->suckanaemia_hole;
         suckbloody = (*it_)->suckbloody_hole;
-        QLOG_DEBUG()<<"通道"<< finishChn <<"的贫血值"<<AnaemiaInitValue<<endl;
-    }
-    else
-    {
-        QLOG_DEBUG()<<"完成通道"<< finishChn <<"未找到LINE="<<__LINE__<<endl;
+        QLOG_DEBUG() << "通道" << finishChn << "的贫血值" << AnaemiaInitValue;
+    } else {
+        QLOG_DEBUG() << "完成通道" << finishChn << "未找到贫血信息，LINE=" << __LINE__;
+        // 注意：原有逻辑不修改这些输出参数的值（由调用者决定是否有效）
     }
     return;
 }
@@ -341,8 +371,8 @@ void StructInstance::_Clearinvalidcommands(DATASAMPLESTRUCT *psanlpeinfo) {
 
     // 清洗双针命令校验
     CleanContainer(psanlpeinfo->clean_reag_blood_pin, "清洗双针命令数据");
-    // 洗血样针命令校验
-    CleanContainer(psanlpeinfo->clean_blood_pin, "清洗血样针命令数据");
+    // 洗样本针命令校验
+    CleanContainer(psanlpeinfo->clean_blood_pin, "清洗样本针命令数据");
     // 加样动作校验
     CleanContainer(psanlpeinfo->tadd_sample_active, "加样动作命令数据");
     // 抓贫血动作校验
@@ -377,28 +407,21 @@ void StructInstance::_Clearinvalidcommands(DATASAMPLESTRUCT *psanlpeinfo) {
 
 void StructInstance::SortemergencyattheTop()
 {
-    std::sort(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),sample_sort);
-    QList<DATASAMPLESTRUCT *> bemergency_List;
-    bemergency_List.clear();
-    auto iter = m_BloodsampleInfo.begin();
-    while(iter != m_BloodsampleInfo.end())
-    {
-       DATASAMPLESTRUCT *paddblood = *iter;
-       if(paddblood->bemergency == true)
-       {
-           bemergency_List.push_back(paddblood);
-       }
-       iter++;
+    // 已开测的保持相对顺序；未开测的急诊稳定前移（开测时全部未开测，效果与整表前移相同）
+    auto startedEnd = std::stable_partition(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(),
+        [](const DATASAMPLESTRUCT *sample) {
+            return sample && sample->bstartTesting;
+        });
+    std::stable_partition(startedEnd, m_BloodsampleInfo.end(),
+        [](const DATASAMPLESTRUCT *sample) {
+            return sample && sample->bemergency;
+        });
+
+    for (auto *sample : m_BloodsampleInfo) {
+        if (sample && sample->bemergency) {
+            QLOG_DEBUG() << "急诊样本置顶:" << sample->sample_num;
+        }
     }
-    int loc = 0;
-    foreach(auto it , bemergency_List)
-    {
-       m_BloodsampleInfo.replace(loc,it);
-       QString outtext = QString("急诊样本置顶成功:%1").arg(it->sample_num);
-       QLOG_DEBUG()<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<outtext<<endl;
-       loc++;
-    }
-    return;
 }
 
 void StructInstance::addSamplebloodInfo(DATASAMPLESTRUCT *&pinfo)
@@ -480,7 +503,10 @@ void StructInstance::sycn_sampleneed_data(const int id, quint8 &tsetChn)
 
 
     if(ptmp != nullptr) {
-        // 使用安全类型转换
+        if (ptmp->indexTestingChn < 0) {
+            QLOG_WARN() << "[样本同步] ID:" << id << "尚未分配测试通道";
+            return;
+        }
         tsetChn = static_cast<quint8>(ptmp->indexTestingChn);
         QLOG_DEBUG() << "[样本同步] ID:" << id
                     << "测试通道:" << tsetChn + 1;
@@ -540,7 +566,10 @@ void StructInstance::cancelsampletask(quint8 cancelsanpleid,int &canceltube_num,
 
 void StructInstance::_safeDelReagentData(chntest_reagdata* pdelchndata)
 {
-    if(pdelchndata == nullptr) return;
+    if (pdelchndata == nullptr) {
+        QLOG_WARN() << "_safeDelReagentData: input pointer is null";
+        return;
+    }
 
     for(auto& item : *pdelchndata){
         if (item != nullptr) {
@@ -548,19 +577,7 @@ void StructInstance::_safeDelReagentData(chntest_reagdata* pdelchndata)
             item = nullptr;
         }
     }
-
     pdelchndata->clear();
-
-//    auto it = pdelchndata->begin();
-//    while (it != pdelchndata->end())
-//    {
-//        if (*it != nullptr) {
-//            delete *it;
-//            *it = nullptr;
-//        }
-//        it++;
-//    }
-//    pdelchndata->erase(std::remove(pdelchndata->begin(), pdelchndata->end(), nullptr), pdelchndata->end());
     return;
 }
 
@@ -598,7 +615,6 @@ void StructInstance::_deleteOneSampleTesteddata(const quint8 _chntested ,const i
         }
         else
         {
-            (*it)->Reagent = ANEMIA;
             QString err = QString("样本:%1 通道%2 删除通道数据失败数据为NULL!").arg(indexSample).arg(_chntested + 1);
             QLOG_DEBUG() << err << __LINE__ << endl;
         }
@@ -774,16 +790,6 @@ void StructInstance::safeRemoveSampleFromContainer(DataSampleList& container, in
             ++it;
         }
     }
-
-//    for (auto it = container.begin(); it != container.end();) {
-//        if ((*it)->sample_num == target) {
-//            clearSampleDataByNumber(**it, target); // 清空数据
-//            delete *it;        // 释放结构体内存
-//            it = container.erase(it); // 移除指针
-//        } else {
-//            ++it;
-//        }
-//    }
 }
 void StructInstance::onetestend_del(int indexSample)
 {
@@ -802,9 +808,6 @@ bool StructInstance::sampleHadFocus()
                                      m_BloodsampleInfo.cend(),
                                      find_bfocus(true)
                                      );
-   QLOG_DEBUG() << "试剂测试完成后"
-                << (hadFocus ? "有" : "[无]")
-                << "焦点任务 行号" << __LINE__;
    return hadFocus;
 
 }
@@ -1040,9 +1043,6 @@ void StructInstance::write_focusSampleActive(int sample_focu,quint8 index_active
     }
     DATASAMPLESTRUCT *psampledata = *itFocus;
     psampledata->index_fcus_Active = index_active;
-    QString stractive = QUIUtils::equipmentdoAction(index_active);
-    QString outtext = QString("样本ID:%1准备开始执行%2动作").arg(sample_focu).arg(stractive);
-    QLOG_DEBUG()<<outtext<<endl;
 }
 
 
@@ -1079,9 +1079,10 @@ int StructInstance::ClipEndGetAnemiaValeChn(quint8 &TestingChn, quint8 indexActi
         DATASAMPLESTRUCT *pcommand = *iter;
         if(pcommand->fcus_in == true)
         {
-            if(pcommand->index_fcus_Active == indexActive)
+            if(pcommand->index_fcus_Active == indexActive
+                    && pcommand->indexTestingChn >= 0)
             {
-                TestingChn = pcommand->indexTestingChn;
+                TestingChn = static_cast<quint8>(pcommand->indexTestingChn);
                 sampleid = pcommand->sample_num;
                 QLOG_DEBUG()<<"通道:"<<TestingChn+1<<outText<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<endl;
             }
@@ -1148,9 +1149,15 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
 
         //吐试剂
         QVector<QByteArray> addReagentToTestChannel;
+        QList<quint8> SpitReagtcondeNum;
         addReagentToTestChannel.clear();
-        QUIUtils::spitReanentToTestChn(testingChannel,pReagentInfo->index_Reagent,addReagentToTestChannel);
+        SpitReagtcondeNum.clear();
+        QUIUtils::spitReanentToTestChn(testingChannel,pReagentInfo->index_Reagent,
+                                       addReagentToTestChannel,SpitReagtcondeNum);
+
         pReagentInfo->pSpitReagentsActive.reserve(addReagentToTestChannel.size());
+        pReagentInfo->sSpitReagtcondeNum = SpitReagtcondeNum;
+
         for(const QByteArray &splitReagent : addReagentToTestChannel){
             char indexChar = splitReagent.at(GET_COMMAND_INDEX);
             indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
@@ -1160,6 +1167,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         std::sort(pReagentInfo->pSpitReagentsActive.begin(),
                   pReagentInfo->pSpitReagentsActive.end(),
                   sort_ascending);
+
 
         //清洗试剂针
         QVector<QByteArray> cleanReagpinVec;
@@ -1176,7 +1184,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         //抓PRP血样杯到测试通道
        QVector<QByteArray> suckCup2TestChannel;
        quint8 suckPRPindex = 0,ktestPRPsuckBacknum,ktestPRPsplitBacknum; //吸杯起始指令号
-       quint8 knextSteOriginReagentNeedle = 0;
+       quint8 suckReagentwait = 0;
        QUIUtils::suckReagentClipTubetoChnPut(pReagentInfo->index_Reagent,
                                              testingChannel,
                                              pReagentInfo->indexHole,
@@ -1185,7 +1193,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
                                              suckPRPindex,
                                              ktestPRPsuckBacknum,
                                              ktestPRPsplitBacknum
-                                            ,knextSteOriginReagentNeedle);
+                                            ,suckReagentwait);
 
        pReagentInfo->pTestingReagentActive.reserve(suckCup2TestChannel.size());
        for(const QByteArray &suckPRP2Channel : suckCup2TestChannel){
@@ -1195,7 +1203,9 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
        }
        pReagentInfo->testPRPsucknum = ktestPRPsuckBacknum;
        pReagentInfo->testPRPsplitnum = ktestPRPsplitBacknum;
-       pReagentInfo->nextSteOriginReagentNeedle = knextSteOriginReagentNeedle;
+
+
+       pReagentInfo->nextSteOriginReagentNeedle = suckReagentwait;
        pReagentInfo->suckCupIndexCommand = suckPRPindex;
        std::sort(pReagentInfo->pTestingReagentActive.begin(),
                  pReagentInfo->pTestingReagentActive.end(),
@@ -1223,10 +1233,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
 void StructInstance::testPrpGripperErr(const int sampleId,quint8 indexReag,bool &outErr){
     backorigintimes();
     outErr = GRIPPERMOVE_ABNORMALLY;
-
-	//重置丢杯动作
-    resettheCupDropAnimation(sampleId,indexReag,false,false);
-    return;
+    resettheCupDropAnimation(sampleId, indexReag, false, false);
 }
 
 
@@ -1285,88 +1292,40 @@ bool StructInstance::recvSuckReagentClipTube(const int sampleId,int index_code,
 
     if(!HandsControl){
         endReagentCommand->bcompleted = true;
-        quint8 nextStepUpReagentNeedle = endReagentCommand->index_ + 1; //下一步就是复位试剂针
         allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-        isnextStepUpReagentNeedle = (ReagentbackOrigin == nextStepUpReagentNeedle)? true: false;
+        quint8 nextIndex = 0xFF;
+        if (!iscomplete) {
+            for (const single_action_commands *c : kptestingReagent->pTestingReagentActive) {
+                if (c && !c->bcompleted) {
+                    nextIndex = c->index_;
+                    break;
+                }
+            }
+        }
+        QLOG_INFO() << "[吸试剂+抓PRP]" << GlobalData::mapIndexReagentnames(indexReag)
+                    << "样本" << sampleId << "步骤完成 命令号" << index_code
+                    << "段结束" << iscomplete << "下一命令号" << nextIndex;
+        // 当前步是试剂泵吸完时延时，再发试剂针 Z 复位（抬针）；勿用 index+1 否则会判在前一步（吸试剂前）延时
+        isnextStepUpReagentNeedle = (ReagentbackOrigin == static_cast<quint8>(index_code));
         if(isnextStepUpReagentNeedle)
-            QLOG_DEBUG()<<"吸完试剂准备复位试剂针:"<<isnextStepUpReagentNeedle;
+            QLOG_DEBUG() << "试剂泵吸完，延时后复位试剂针 index=" << index_code;
         return iscomplete;
     }
 
-    if(isSuction){
-        bool isscuess = GlobalData::isHandsSuckFinish(airvale);
-        const quint8 suckBackRoiginnum = kptestingReagent->testPRPsucknum;
-        if(!isscuess && suckBackRoiginnum == index_code){
-            testPrpGripperErr(sampleId,indexReag,outErr);
-            QLOG_ERROR()<<"测试试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"[复位]吸取失败";
-            return false;
-        }else if(isscuess && suckBackRoiginnum == index_code){
-             QLOG_DEBUG()<<"吸杯复位测试试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"负压值"<<airvale;
-             endReagentCommand->bcompleted = true;
-             allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-             return iscomplete;
-        }
-
-        const quint8 firstSuckReagCup = suckBackRoiginnum - 2;
-        if(firstSuckReagCup == index_code){
-            endReagentCommand->bcompleted = true;
-            laterTimer = true;
-            QLOG_DEBUG()<<"测试试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"舍弃初始[吸杯]负压值"<<airvale;
-            allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-            return iscomplete;
-        }
-
-        //吸杯
-        const quint8 suckreagentnum = suckBackRoiginnum - 1;
-        if(suckreagentnum == index_code){
-            bool success =  GlobalData::isHandsSuckFinish(airvale);
-            int& retries = m_handsFailedtimes;
-            const int maxRetries = 3;
-            if(success){
-                endReagentCommand->bcompleted = true;
-                allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-                return iscomplete;
-            } else if(retries <= maxRetries){
-                quint8 numindex = endReagentCommand->index_;
-                retries++;
-                sendData =  GlobalData::GrabtheCupAttheTestTubeTray(numindex, retries, prphole);
-                return  false;
-            }else {
-                testPrpGripperErr(sampleId,indexReag,outErr);
-                QLOG_DEBUG() <<  "[吸]PRP试杯3次失败" << endl;
-                return false;
-            }
-        }
-    }
-    else{
-
-        //放杯
-        const quint8 splitreagentnum = kptestingReagent->testPRPsplitnum - 1;
-        if(splitreagentnum == index_code){
-            if(GlobalData::isHandsThrowCupFinish(airvale)){
-                endReagentCommand->bcompleted = true;
-            }
-            QLOG_DEBUG()<<"测试试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"放杯等待负压值为:"<<airvale;
-            allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-            return iscomplete;
-        }
-
-        const quint8 firstSplitReagentCup = kptestingReagent->testPRPsplitnum - 2;
-        if(firstSplitReagentCup == index_code){
-            endReagentCommand->bcompleted = true;
-            QLOG_DEBUG()<<"测试试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"舍弃初始[丢杯]负压值"<<airvale;
-            allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-            return iscomplete;
-        }
-
-        if(kptestingReagent->testPRPsplitnum == index_code){
-            QLOG_DEBUG()<<"放杯复位测试试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"负压值"<<airvale;
-            endReagentCommand->bcompleted = true;
-            allTseaReagentActiveFinish(kptestingReagent,iscomplete,sendData);
-            return iscomplete;
-        }
-    }
-	return iscomplete;
+    const quint8 channel = psampleinfo->indexTestingChn >= 0
+            ? static_cast<quint8>(psampleinfo->indexTestingChn) : 0;
+    const QString tag = QString::fromUtf8("抓%1")
+            .arg(GlobalData::mapIndexReagentnames(indexReag));
+    return dispatchGripperAck(kptestingReagent->pTestingReagentActive,
+                              static_cast<quint8>(index_code),
+                              kptestingReagent->testPRPsucknum,
+                              kptestingReagent->testPRPsplitnum,
+                              airvale, isSuction, tag,
+                              true, false, prphole, channel, sampleId,
+                              sendData, outErr, laterTimer,
+                              [this, kptestingReagent](bool &finished, QByteArray &nextCmd) {
+        allTseaReagentActiveFinish(kptestingReagent, finished, nextCmd);
+    });
 }
 void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestReagent,bool &iscomplete,QByteArray &outdata){
 	auto itFinish = find_if(ptestReagent->pTestingReagentActive.cbegin(),
@@ -1486,7 +1445,104 @@ void StructInstance::setRichBloodInitValue(quint8 index_reag, int index_Chn,int 
          iter++;
     }
 }
+/**************************** 向 通道内加试剂  ******************************************************/
+QByteArray StructInstance::addReagentIntoChannel(const int SampleId, quint8 indexReagent)
+{
+    // 1. 查找样本
+    auto it = find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(), find_id(SampleId));
+    if (it == m_BloodsampleInfo.end()) {
+        QLOG_DEBUG() << "未找到样本ID" << SampleId << __LINE__;
+        return QByteArray();
+    }
 
+    DATASAMPLESTRUCT* sample = *it;
+
+    // 2. 查找试剂
+    auto itReagent = find_if(sample->ptestReagent_active.begin(),
+                             sample->ptestReagent_active.end(),
+                             findtest_testreagent(indexReagent));
+    if (itReagent == sample->ptestReagent_active.end()) {
+        QLOG_DEBUG() << "样本ID" << SampleId << "未找到试剂" << indexReagent << __LINE__;
+        return QByteArray();
+    }
+
+    Testing_reagents* reagent = *itReagent;
+
+    // 3. 遍历指令，返回第一个未完成的
+    for (single_action_commands* cmd : reagent->pSpitReagentsActive) {
+        if (cmd && !cmd->bcompleted) {
+            return cmd->arrcode;
+        }
+    }
+    // 没有未完成的指令
+    QLOG_DEBUG() << "样本ID" << SampleId << "试剂" << indexReagent << "无未完成指令";
+    return QByteArray();
+}
+
+bool StructInstance::addReagentIntoChannelFinish(const int SampleId,quint8 indexReagent,const int indexNum,QByteArray &cmd, int *nextDelayMs)
+{
+    cmd.clear(); // 确保输出参数清空
+    if (nextDelayMs) {
+        *nextDelayMs = DELAY_TIMENUM;
+    }
+
+    auto *psampleInfo = wfindIdSample(SampleId);
+    if (!psampleInfo) {
+        QLOG_DEBUG() << "未找到样本ID" << SampleId << "吐试剂信息为空 LINE" << __LINE__;
+        return false;
+    }
+
+    auto splitReagent = find_if(psampleInfo->ptestReagent_active.cbegin(),
+                               psampleInfo->ptestReagent_active.cend(),
+                               findtest_testreagent(indexReagent));
+   if (splitReagent == psampleInfo->ptestReagent_active.cend() || *splitReagent == nullptr) {
+       QLOG_DEBUG() << "样本ID" << SampleId << "吐试剂" << GlobalData::mapIndexReagentnames(indexReagent)
+                    << "命令编号" << indexNum << "试剂为空" << __LINE__;
+       return false;
+   }
+
+   QList<quint8> pumpSpitReagentAct = (*splitReagent)->sSpitReagtcondeNum;
+
+
+   auto splitReagentIndexnum = find_if((*splitReagent)->pSpitReagentsActive.begin(),
+                                       (*splitReagent)->pSpitReagentsActive.end(),
+                                       recv_index(indexNum));
+   if (splitReagentIndexnum == (*splitReagent)->pSpitReagentsActive.end() || (*splitReagentIndexnum) == nullptr) {
+       QLOG_DEBUG() << "样本ID" << SampleId << "吐试剂" << GlobalData::mapIndexReagentnames(indexReagent)
+                    << "命令编号" << indexNum << "命令为空" << __LINE__;
+       return false;
+   }
+
+   // 标记当前指令为已完成
+   (*splitReagentIndexnum)->bcompleted = true;
+
+   if (pumpSpitReagentAct.contains(indexNum) && nextDelayMs) {
+       const int delaytime = INI_File().GetAfterSpitDelayMs();
+       if (delaytime > 0) {
+           *nextDelayMs = delaytime;
+       }
+   }
+   
+   // 查找下一个未完成的指令
+   auto itNext = find_if((*splitReagent)->pSpitReagentsActive.cbegin(),
+                         (*splitReagent)->pSpitReagentsActive.cend(),
+                         find_allactivefinish(false)); // 查找 bcompleted == false 的指令
+   if (itNext != (*splitReagent)->pSpitReagentsActive.cend()) {
+       // 还有未完成的指令，输出其 arrcode
+       cmd = (*itNext)->arrcode;
+       QLOG_DEBUG() << "样本ID" << SampleId << "吐试剂" << GlobalData::mapIndexReagentnames(indexReagent)
+                    << "下一个未完成命令，指令内容:" << cmd.toHex();
+       return false; // 未全部完成
+    } else {
+       // 所有指令已完成
+       QLOG_DEBUG() << "样本ID" << SampleId << "吐" << GlobalData::mapIndexReagentnames(indexReagent)
+                    << "试剂完成" << "LINE" << __LINE__;
+       return true;
+   }
+
+}
+
+/**以修改测试后删除*/
 
 void StructInstance::send_spitReagentData(const int SampleId, quint8 index_reagent,QByteArrayList &senddata)
 {
@@ -1569,6 +1625,12 @@ bool StructInstance::recv_spitReagentData(const int SampleId, quint8 index_reage
 	}
 	return bfinishactive;
 }
+
+/**以修改测试后删除 --end*/
+
+
+
+
 
 
 
@@ -1672,6 +1734,10 @@ void StructInstance::creat_cleanBloodyPin(bool bcleanDoublePin, QByteArrayList a
         psampleinfo->clean_blood_pin.reserve(allcommand.size());
 
     for(const QByteArray &cleanNeedle : allcommand){
+        if (cleanNeedle.size() <= GET_COMMAND_INDEX) {
+            QLOG_ERROR() << "[清洗] 指令长度不够，已跳过，避免空指令崩溃 长度" << cleanNeedle.size();
+            continue;
+        }
         char  indexChar = cleanNeedle.at(GET_COMMAND_INDEX);
         quint8 indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
         if(bcleanDoublePin){
@@ -1693,7 +1759,8 @@ void StructInstance::send_CleanbloodyPinActive(const int sampleID, QByteArrayLis
 
     const auto *itSample = rfindIdSample(sampleID);
     if(itSample == nullptr){
-        QLOG_DEBUG()<<"样本"<< sampleID<<"清洗血样针失败,查找样本结构失败";
+        QLOG_ERROR()<<"样本"<< sampleID<<"清洗样本针失败,查找样本结构失败";
+        return;
     }
     senddata.reserve(itSample->clean_blood_pin.size());
     for(auto& pcleanblood : itSample->clean_blood_pin){
@@ -1724,8 +1791,9 @@ bool StructInstance::isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double
     return cleanfinished_;
 }
 
-bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample)
+bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample, QByteArray &nextCmd)
 {
+    nextCmd.clear();
     const auto sampleIt = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
             [loseFocusSample](const DATASAMPLESTRUCT* sample) {
                 return sample->sample_num == loseFocusSample;
@@ -1740,7 +1808,7 @@ bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample
 
     const auto commandIt = std::find_if(commands.cbegin(), commands.cend(),
         [index_num](const single_action_commands* cmd) {
-        return cmd->index_ == index_num;
+        return cmd && cmd->index_ == index_num && !cmd->bcompleted;
     });
 
     if (commandIt == commands.cend()) {
@@ -1751,7 +1819,11 @@ bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample
     }
     (*commandIt)->bcompleted = true;
 
-    return isDoublePinCleaningFinished(*sampleIt, loseFocusSample);
+    if (isDoublePinCleaningFinished(*sampleIt, loseFocusSample)) {
+        return true;
+    }
+    firstIncompleteCommand(commands, nextCmd);
+    return false;
 }
 
 void StructInstance::sendCleanDoubleNeedle(const int sampleid, QByteArrayList &senddata)
@@ -1804,14 +1876,15 @@ void StructInstance::send_cleanReagPin(const int sampleid, const quint8 index_re
 
 
 
-bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample)
+bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample,
+                                          QByteArray &nextCmd)
 {
-    bool finished = false;
+    nextCmd.clear();
 	auto *psampleInfo = wfindIdSample(loseFocusSample);
 	if (!psampleInfo) {
 		QLOG_DEBUG() << "未找到样本ID" << loseFocusSample << QUIUtils::index_reagent_mapping_reagentName(index_reag, "接收洗试剂针")
 			  << "信息" << __LINE__ << endl;
-		return finished;
+		return false;
 	}
 
 	auto recvCleanReagent = find_if(psampleInfo->ptestReagent_active.begin(),
@@ -1819,16 +1892,18 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 							findtest_testreagent(index_reag));
 	if (recvCleanReagent == psampleInfo->ptestReagent_active.end() || (*recvCleanReagent) == nullptr) {
 		QLOG_DEBUG() << "未找到洗试剂针样本ID" << loseFocusSample<<QUIUtils::index_reagent_mapping_reagentName(index_reag, "未找到试剂:");
-		return finished;
+		return false;
 	}
 
 	auto recvIndex = find_if((*recvCleanReagent)->pCleanReagentActive.begin(),
 							 (*recvCleanReagent)->pCleanReagentActive.end(),
-							 recv_index(index_num));
+                             [&](single_action_commands *cmd) {
+        return cmd && cmd->index_ == static_cast<quint8>(index_num) && !cmd->bcompleted;
+    });
 	if (recvIndex == (*recvCleanReagent)->pCleanReagentActive.end() || *recvIndex == nullptr) {
 		QLOG_DEBUG() << "样本ID" << loseFocusSample << QUIUtils::index_reagent_mapping_reagentName(index_reag, "清洗试剂:")
 			<< "未找到编号" << index_num << endl;
-		return finished;
+		return false;
 	}
 
 	(*recvIndex)->bcompleted = true;
@@ -1836,32 +1911,33 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 									(*recvCleanReagent)->pCleanReagentActive.cend(),
 									find_allactivefinish(false));
 	if (finishCleanAll == (*recvCleanReagent)->pCleanReagentActive.cend()) {
-        finished = true;
+        return true;
 	}
-	else {
-        finished = false;
-	}
-	return finished;
+    firstIncompleteCommand((*recvCleanReagent)->pCleanReagentActive, nextCmd);
+    return false;
 }
 
 
 
 
-bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample)
+bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd)
 {
-    bool bfinished = false;
+    nextCmd.clear();
     auto *sampleinfo = wfindIdSample(loseFocusSample);
     if(!sampleinfo){
-        QLOG_DEBUG()<<"样本ID"<< loseFocusSample <<"未找到洗血样针信息"<<__LINE__<<endl;
-        return bfinished;
+        QLOG_DEBUG()<<"样本ID"<< loseFocusSample <<"未找到洗样本针信息"<<__LINE__<<endl;
+        return false;
     }
 
     auto cleanBloodNeedle = find_if(sampleinfo->clean_blood_pin.begin(),
-                                    sampleinfo->clean_blood_pin.end(),recv_index(index_num));
+                                    sampleinfo->clean_blood_pin.end(),
+                                    [&](single_action_commands *cmd) {
+        return cmd && cmd->index_ == static_cast<quint8>(index_num) && !cmd->bcompleted;
+    });
 
-    if(cleanBloodNeedle == sampleinfo->clean_blood_pin.end() || *cleanBloodNeedle == nullptr){
-        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"未找到洗血样针命令编号:"<<index_num<<endl;
-        return bfinished;
+    if (cleanBloodNeedle == sampleinfo->clean_blood_pin.end() || *cleanBloodNeedle == nullptr) {
+        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"未找到洗样本针命令编号:"<<index_num<<endl;
+        return false;
     }
 
 	(*cleanBloodNeedle)->bcompleted = true;
@@ -1870,15 +1946,23 @@ bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample
 								sampleinfo->clean_blood_pin.cend(),
 								find_allactivefinish(false));
 	if (cleanFinishAll == sampleinfo->clean_blood_pin.cend()) {
-		bfinished = true;
         sampleinfo->bcleanDoublePin_state = true;
         sampleinfo->bcleanbloody_state = true;
-        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"洗血样针指令完成标志设为true"<<endl;
+        QLOG_DEBUG()<<"样本"<<loseFocusSample<<"洗样本针指令完成标志设为true"<<endl;
+        return true;
 	}
-	else {
-		bfinished = false;
-	}
-	return bfinished;
+    firstIncompleteCommand(sampleinfo->clean_blood_pin, nextCmd);
+    return false;
+}
+
+QByteArray StructInstance::nextIncompletePrepatch(const int sampleId) const
+{
+    QByteArray data;
+    const auto *sample = rfindIdSample(sampleId);
+    if (sample) {
+        firstIncompleteCommand(sample->prePatchActions, data);
+    }
+    return data;
 }
 
 
@@ -1945,6 +2029,8 @@ void StructInstance::throwPRPFailed(const int sampleID,quint8 indexReag,bool &ou
     sendCommandThrowCupFirst(sampleID,indexReag,GRIPPERMOVE_ABNORMALLY);
     backorigintimes();
 }
+
+
 bool StructInstance::recvThrowCupPara(const int sampleID,const int commandIndex,quint8 indexReag,
                                       bool HandsControl,bool isSuction,quint32 airvale,
                                       QByteArray &sendData,bool &outErr,bool &laterTimer){
@@ -1988,88 +2074,24 @@ bool StructInstance::recvThrowCupPara(const int sampleID,const int commandIndex,
         return isthrocupfinish;
     }
 
-
-    if(isSuction){
-        const quint8 throwCupsuckBackNum = preaginfo->throwPRRsucknum;
-        bool  issucess = GlobalData::isHandsSuckFinish(airvale);
-        if(!issucess && throwCupsuckBackNum == commandIndex){
-            throwPRPFailed(sampleID,indexReag,outErr);
-            return false;
-        }else if(issucess && throwCupsuckBackNum == commandIndex){
-            QLOG_DEBUG()<<"吸杯复位丢试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"负压值"<<airvale;
-            kpthrowCup->bcompleted = true;
-            allThrowPRPFinish(preaginfo,isthrocupfinish,sendData);
-            return isthrocupfinish;
-        }
-
-        quint8 firstGrippersuck = preaginfo->throwPRRsucknum - 2;
-        if(firstGrippersuck == commandIndex){
-            kpthrowCup->bcompleted = true;
-            laterTimer = true;
-            QLOG_DEBUG()<<"丢试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"舍弃初次[吸杯]负压值"<<airvale;
-            allThrowPRPFinish(preaginfo,isthrocupfinish,sendData);
-            return isthrocupfinish;
-        }
-
-        const quint8 throwsuckPRPnum = preaginfo->throwPRRsucknum - 1;
-        if(throwsuckPRPnum == commandIndex){
-            bool success =  GlobalData::isHandsSuckFinish(airvale);
-            int& retries =  m_handsFailedtimes ;
-            const int maxRetries =  3;
-            if (success) {
-                kpthrowCup->bcompleted = true;
-                allThrowPRPFinish(preaginfo,isthrocupfinish,sendData);
-                return isthrocupfinish;
-            }
-            else if (retries <= maxRetries)
-            {
-                quint8 numindex = kpthrowCup->index_;
-                retries++;
-                sendData =  GlobalData::Grabthehandtotryagain(numindex, retries, kthrowChannel);
-                return false;
-            }
-            else
-            {
-                throwPRPFailed(sampleID, indexReag,outErr);
-                QLOG_DEBUG() << "通道吸试管丢杯3次失败"<<endl;
-                return isSuction ? false : false;
-            }
-        }
-
-    }
-    else{
-
-        const quint8 firstSplitCupVal = preaginfo->throePRPsplitnum - 2;
-        if(firstSplitCupVal == commandIndex){
-            kpthrowCup->bcompleted = true;
-            QLOG_DEBUG()<<"丢试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"舍弃初次[放杯]负压值"<<airvale;
-            allThrowPRPFinish(preaginfo,isthrocupfinish,sendData);
-            return isthrocupfinish;
-        }
-
-
-        const quint8 throwPRPSplitnum =  preaginfo->throePRPsplitnum - 1;
-        if(throwPRPSplitnum == commandIndex){
-            if(GlobalData::isHandsThrowCupFinish(airvale))
-                 kpthrowCup->bcompleted = true;
-            QLOG_DEBUG()<<"等待丢试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"放杯负压值"<<airvale;
-            allThrowPRPFinish(preaginfo,isthrocupfinish,sendData);
-            return isthrocupfinish;
-        }
-
-        if(preaginfo->throePRPsplitnum == commandIndex){
-            QLOG_DEBUG()<<"放杯复位丢试剂"<<GlobalData::mapIndexReagentnames(indexReag)<<"负压值"<<airvale;
-            kpthrowCup->bcompleted = true;
-            allThrowPRPFinish(preaginfo,isthrocupfinish,sendData);
-            return isthrocupfinish;
-        }
-
-    }
-    return isthrocupfinish;
+    const quint8 channel = static_cast<quint8>(kthrowChannel);
+    const QString tag = QString::fromUtf8("丢%1杯")
+            .arg(GlobalData::mapIndexReagentnames(indexReag));
+    return dispatchGripperAck(preaginfo->pThrowCupsActive,
+                              static_cast<quint8>(commandIndex),
+                              preaginfo->throwPRRsucknum,
+                              preaginfo->throePRPsplitnum,
+                              airvale, isSuction, tag,
+                              false, true, channel, channel, sampleID,
+                              sendData, outErr, laterTimer,
+                              [this, preaginfo](bool &finished, QByteArray &nextCmd) {
+        allThrowPRPFinish(preaginfo, finished, nextCmd);
+    });
 }
 
 
-void StructInstance::allThrowPRPFinish(const Testing_reagents *preagdata,bool &isthrocupfinish,QByteArray &outdata){
+void StructInstance::allThrowPRPFinish(const Testing_reagents *preagdata,
+                                       bool &isthrocupfinish,QByteArray &outdata){
     auto itFinish = find_if(preagdata->pThrowCupsActive.cbegin(),preagdata->pThrowCupsActive.cend(),
                             find_allactivefinish(false));
     if(itFinish != preagdata->pThrowCupsActive.cend())
@@ -2090,8 +2112,8 @@ bool StructInstance::judge_hadWaitTestReag(const int testSample,quint8 &waitTest
     bool bhand_waittest_reag = false;
     const auto *psampleInfo = rfindIdSample(testSample);
     if(!psampleInfo){
-        bhand_waittest_reag = false;
         QLOG_DEBUG()<<"未找到样本ID"<< testSample <<"无待测试剂"<<__LINE__<<endl;
+        return false;
     }
 
     auto waittesTing = find_if(psampleInfo->ptestReagent_active.cbegin(),
@@ -2113,16 +2135,16 @@ bool StructInstance::judge_hadWaitTestReag(const int testSample,quint8 &waitTest
 
 bool StructInstance::alreadyadded_wait_chn(int &wait_sampleid)
 {
-    DATASAMPLESTRUCT *psampleId = NULL;
     auto it = m_BloodsampleInfo.begin();
     while(it != m_BloodsampleInfo.end())
     {
-       psampleId = (*it);
-       if(psampleId->bcleanbloody_state && psampleId->bcleanDoublePin_state && psampleId->indexTestingChn == -1)
+       DATASAMPLESTRUCT *psampleId = (*it);
+       if(psampleId && psampleId->bcleanbloody_state && psampleId->bcleanDoublePin_state
+               && psampleId->indexTestingChn == -1)
        {
-          wait_sampleid = psampleId->sample_num;
-          QLOG_DEBUG()<<"已加样等待通道样本号:"<<wait_sampleid<<endl;
-          return true;
+           wait_sampleid = psampleId->sample_num;
+           QLOG_DEBUG()<<"已加样等待通道样本号:"<<wait_sampleid<<endl;
+           return true;
        }
        it++;
     }
@@ -2310,6 +2332,16 @@ QByteArrayList StructInstance::outputsIncompleteInstructionList(const int smaple
     return outputDataList;
 }
 
+bool StructInstance::firstIncompleteCommand(const tSingleActive_list &list, QByteArray &data)
+{
+    auto it = find_if(list.cbegin(), list.cend(), find_allactivefinish(false));
+    if (it != list.cend() && *it) {
+        data = (*it)->arrcode;
+        return true;
+    }
+    return false;
+}
+
 QByteArray StructInstance::outputstheFirstIncompleteInstruction(const int smapleId,const quint8 indexActive){
    const auto *itsample = rfindIdSample(smapleId);
    if(!itsample){
@@ -2360,6 +2392,42 @@ QByteArray StructInstance::outputstheFirstIncompleteInstruction(const int smaple
        case FOCUS_THROW_RIS_TUBE:
 		   hasPendingData = backThrowCupsNotFinishArry(itsample, outputData,RIS_REAGENT);
        break;
+       case FOCUS_SPIT_AA_TESTING:
+           hasPendingData = firstIncompleteCommand(backSplitReagentComm(itsample, AA_REAGENT), outputData);
+       break;
+       case FOCUS_SPIT_ADP_TESTING:
+           hasPendingData = firstIncompleteCommand(backSplitReagentComm(itsample, ADP_REAGENT), outputData);
+       break;
+       case FOCUS_SPIT_EPI_TESTING:
+           hasPendingData = firstIncompleteCommand(backSplitReagentComm(itsample, EPI_REAGENT), outputData);
+       break;
+       case FOCUS_SPIT_COL_TESTING:
+           hasPendingData = firstIncompleteCommand(backSplitReagentComm(itsample, COL_REAGENT), outputData);
+       break;
+       case FOCUS_SPIT_RIS_TESTING:
+           hasPendingData = firstIncompleteCommand(backSplitReagentComm(itsample, RIS_REAGENT), outputData);
+       break;
+       case FOCUS_CLEAN_DOUBLEPIN:
+           hasPendingData = firstIncompleteCommand(itsample->clean_reag_blood_pin, outputData);
+       break;
+       case FOCUS_CLEAN_BLOODPIN:
+           hasPendingData = firstIncompleteCommand(itsample->clean_blood_pin, outputData);
+       break;
+       case FOCUS_CLEAN_EREAGENTPIN_AA:
+           hasPendingData = firstIncompleteCommand(backCleanReagentNeedleComm(itsample, AA_REAGENT), outputData);
+       break;
+       case FOCUS_CLEAN_EREAGENTPIN_ADP:
+           hasPendingData = firstIncompleteCommand(backCleanReagentNeedleComm(itsample, ADP_REAGENT), outputData);
+       break;
+       case FOCUS_CLEAN_EREAGENTPIN_EPI:
+           hasPendingData = firstIncompleteCommand(backCleanReagentNeedleComm(itsample, EPI_REAGENT), outputData);
+       break;
+       case FOCUS_CLEAN_EREAGENTPIN_COL:
+           hasPendingData = firstIncompleteCommand(backCleanReagentNeedleComm(itsample, COL_REAGENT), outputData);
+       break;
+       case FOCUS_CLEAN_EREAGENTPIN_RIS:
+           hasPendingData = firstIncompleteCommand(backCleanReagentNeedleComm(itsample, RIS_REAGENT), outputData);
+       break;
    }
    return hasPendingData ? outputData : QByteArray();
 }
@@ -2397,26 +2465,36 @@ void StructInstance::addEquipmentChn(const QList<quint8> &equipmentOperChn)
     }
     return;
 }
+
+
 void StructInstance::config_testChn_State(const quint8 indexChn,quint8 ChnState)
 {
-    QVector<TESTCHNSTAUSINFO *>::iterator _it = find_if(m_testChnStructvec_.begin(),
-                                                        m_testChnStructvec_.end(),
-                                                        finder_Chn(indexChn));
-    if(_it != m_testChnStructvec_.end())
-    {
-        TESTCHNSTAUSINFO *pChnInfo = (*_it);
-        pChnInfo->Chn_Status = ChnState;
-        QString outinfo = "";
-        if(ChnState == CHN_STATUS_DISABLE)  outinfo = "禁用";
-        else if(ChnState == CHN_STATUS_TESTING) outinfo ="测试中";
-        else if(ChnState == CHN_STATUS_FINISHED) outinfo = "测试完成";
-        else if(ChnState == CHN_STATUS_FREE) outinfo = "空闲中";
-        //QLOG_DEBUG()<<"设置通道"<<indexChn + 1 <<"状态:"<<outinfo<<__FUNCTION__<<__LINE__;
-    }
-    else
-    {
-        QLOG_DEBUG()<<"未找到通道"<<indexChn<<"信息"<<endl;
-    }
+    auto it = std::find_if(m_testChnStructvec_.begin(), m_testChnStructvec_.end(),
+            [indexChn](const TESTCHNSTAUSINFO* p) {
+                return p && p->index_Chn == indexChn;
+            });
+
+        if (it != m_testChnStructvec_.end()) {
+            TESTCHNSTAUSINFO* pChnInfo = *it;
+            if (pChnInfo) {   // 额外判空，与 find 中的条件保持一致
+                pChnInfo->Chn_Status = ChnState;
+
+                QString stateName;
+                switch (ChnState) {
+                    case CHN_STATUS_DISABLE:  stateName = "禁用"; break;
+                    case CHN_STATUS_TESTING:  stateName = "测试中"; break;
+                    case CHN_STATUS_FINISHED: stateName = "测试完成"; break;
+                    case CHN_STATUS_FREE:     stateName = "空闲中"; break;
+                    default:                  stateName = "未知";
+                }
+                QLOG_DEBUG() << "设置通道" << indexChn + 1 << "状态:" << stateName;
+
+            } else {
+                QLOG_DEBUG() << "通道" << indexChn << "的指针为空，无法设置状态";
+            }
+        } else {
+            QLOG_DEBUG() << "未找到通道" << indexChn << "信息";
+        }
 }
 
 void StructInstance::config_testChn_test_reagent(const quint8 indexChn,const quint8 indexReag)
@@ -2682,7 +2760,12 @@ void StructInstance::delalltaskinfo(const bool exitapp)
 }
 
 
-void StructInstance::creataddSampleCommands(const QByteArrayList addSamplecommand,DATASAMPLESTRUCT *&psampleinfo)
+void StructInstance::creataddSampleCommands(const QByteArrayList addSamplecommand,
+                                            DATASAMPLESTRUCT *&psampleinfo,
+                                            const QList<quint8> delayCommandsuckPPP,
+                                            const QList<quint8> delayCommandspitPPP,
+                                            const QList<quint8> delayCommandsuckPRP,
+                                            const QList<quint8> delayCommandspitPRP)
 {
     for(const QByteArray& command : addSamplecommand) {
         if(command.isEmpty()) {
@@ -2706,19 +2789,141 @@ void StructInstance::creataddSampleCommands(const QByteArrayList addSamplecomman
              new single_action_commands(index_code, false, command));
          //QLOG_DEBUG()<<"加样指令编号"<<index_code;
     }
-    //QLOG_DEBUG()<<"样本"<<psampleinfo->sample_num<<"加样动作指令长度"<< psampleinfo->tadd_sample_active.size()<<endl;
+
+    //++
+    psampleinfo->sPPPsuckDelaytime = delayCommandsuckPPP;
+    psampleinfo->sPPPspitDelaytime = delayCommandspitPPP;
+
+    psampleinfo->sPRPsuckDelaytime = delayCommandsuckPRP;
+    psampleinfo->sPRPspitDelaytime = delayCommandspitPRP;
 }
 
-QByteArray StructInstance::recvAddSampleIndexCommand(const int sampleId, const quint8 index,bool &completedAddSample)
+void StructInstance::setPppPreProbeMeta(DATASAMPLESTRUCT *sample,
+                                        const QByteArrayList &pendingTail,
+                                        quint8 preProbeCmdIndex)
+{
+    if (!sample) {
+        return;
+    }
+    sample->pppAddSamplePendingTail = pendingTail;
+    sample->pppPreProbeCmdIndex = preProbeCmdIndex;
+    sample->pppPreProbePrefixCmdIndex = preProbeCmdIndex;
+    sample->pppPreProbeWashCount = 0;
+    sample->pppAwaitManualWipe = false;
+    sample->pppManualPreProbeRetry = false;
+    sample->pppPreProbeCompleted = false;
+}
+
+namespace {
+
+QByteArray patchCommandIndexByte(const QByteArray &command, quint8 newIndex)
+{
+    if (command.size() <= GET_COMMAND_INDEX) {
+        return command;
+    }
+    QByteArray patched = command;
+    patched[GET_COMMAND_INDEX] = static_cast<char>(newIndex);
+    return patched;
+}
+
+void remapDelayIndexList(QList<quint8> &delayIndices, const QHash<quint8, quint8> &indexRemap)
+{
+    for (int i = 0; i < delayIndices.size(); ++i) {
+        const quint8 oldIndex = delayIndices.at(i);
+        if (indexRemap.contains(oldIndex)) {
+            delayIndices[i] = indexRemap.value(oldIndex);
+        }
+    }
+}
+
+} // namespace
+
+void StructInstance::markAddSampleCommandComplete(int sampleId, quint8 commandIndex)
+{
+    auto *pIdsample = wfindIdSample(sampleId);
+    if (!pIdsample) {
+        return;
+    }
+    for (single_action_commands *cmd : pIdsample->tadd_sample_active) {
+        if (cmd && cmd->index_ == commandIndex) {
+            cmd->bcompleted = true;
+            return;
+        }
+    }
+}
+
+void StructInstance::appendPendingPppAddSampleTail(int sampleId)
+{
+    auto *pIdsample = wfindIdSample(sampleId);
+    if (!pIdsample || pIdsample->pppAddSamplePendingTail.isEmpty()) {
+        return;
+    }
+
+    quint8 nextIndex = 0;
+    for (single_action_commands *cmd : pIdsample->tadd_sample_active) {
+        if (cmd) {
+            nextIndex = qMax(nextIndex, static_cast<quint8>(cmd->index_ + 1));
+        }
+    }
+
+    QHash<quint8, quint8> indexRemap;
+    for (const QByteArray &command : pIdsample->pppAddSamplePendingTail) {
+        if (command.isEmpty()) {
+            continue;
+        }
+        const QByteArray indexField = command.mid(GET_COMMAND_INDEX, 1);
+        if (indexField.isEmpty()) {
+            continue;
+        }
+        bool ok = false;
+        const quint8 oldIndex = indexField.toHex().toUShort(&ok, HEX_SWITCH);
+        if (!ok) {
+            continue;
+        }
+        const quint8 newIndex = nextIndex++;
+        if (!indexRemap.contains(oldIndex)) {
+            indexRemap.insert(oldIndex, newIndex);
+        }
+        const QByteArray patched = patchCommandIndexByte(command, newIndex);
+        pIdsample->tadd_sample_active.push_back(
+            new single_action_commands(newIndex, false, patched));
+    }
+
+    remapDelayIndexList(pIdsample->sPPPsuckDelaytime, indexRemap);
+    remapDelayIndexList(pIdsample->sPPPspitDelaytime, indexRemap);
+    remapDelayIndexList(pIdsample->sPRPsuckDelaytime, indexRemap);
+    remapDelayIndexList(pIdsample->sPRPspitDelaytime, indexRemap);
+
+    pIdsample->pppAddSamplePendingTail.clear();
+}
+
+//加样握手动作
+QByteArray StructInstance::recvAddSampleIndexCommand(const int sampleId,
+                                                     const quint8 index,
+                                                     bool &completedAddSample)
 {
     auto *pIdsample = wfindIdSample(sampleId);
     if(pIdsample == nullptr) return {};
+    auto &ini = INI_File();
+
+    QList<quint8> delayCommandPPPsuck = pIdsample->sPPPsuckDelaytime;
+    QList<quint8> delayCommandPPPspit = pIdsample->sPPPspitDelaytime;
+
+    QList<quint8> delayCommandPRPsuck = pIdsample->sPRPsuckDelaytime;
+    QList<quint8> delayCommandPRPspit = pIdsample->sPRPspitDelaytime;
+
+
+
+
+
 
     auto actionIt = find_if(pIdsample->tadd_sample_active.begin(),
                             pIdsample->tadd_sample_active.end(),
-                            find_recvIndex(index));
+                            [&](single_action_commands *cmd) {
+        return cmd && cmd->index_ == index && !cmd->bcompleted;
+    });
     if (actionIt == pIdsample->tadd_sample_active.end() || (*actionIt) == nullptr) {
-        QLOG_DEBUG() << QString("样本id[%1]加样未找到动作编号[%2]").arg(sampleId).arg(index);
+        QLOG_DEBUG() << QString("样本id[%1]加样未找到未完成动作编号[%2]").arg(sampleId).arg(index);
         completedAddSample = false;
         return {};
     }
@@ -2728,12 +2933,21 @@ QByteArray StructInstance::recvAddSampleIndexCommand(const int sampleId, const q
     auto finishit = find_if(pIdsample->tadd_sample_active.cbegin(),
                             pIdsample->tadd_sample_active.cend(), find_finishall(false));
     if (finishit == pIdsample->tadd_sample_active.cend()) {
-        QLOG_DEBUG() << "样本" << sampleId << "收加样指令" << index << "加样完毕状态完成;" << __LINE__ << endl;
+        QLOG_DEBUG() << "样本" << sampleId << "收加样指令" << index <<
+                        "加样完毕状态完成;" << __LINE__ << endl;
         completedAddSample = true;
         return {};
     }
     else {
         completedAddSample = false;
+        // ========== 新增：判断当前 index  ==========
+        int SuckDelay = ini.GetAfterSuckDelayMs ();  // 默认 300
+        int spitDelay = ini.GetAfterSpitDelayMs();  // 默认 600
+        if (delayCommandPPPsuck.contains(index) || delayCommandPRPsuck.contains(index)) {
+            QThread::msleep(SuckDelay);
+        } else if (delayCommandPPPspit.contains(index) || delayCommandPRPspit.contains(index) ) {
+            QThread::msleep(spitDelay);
+        }
         return (*finishit)->arrcode;
     }
     return {};
@@ -2834,6 +3048,67 @@ QByteArray StructInstance::sendPPP2ChannelHeanderCommand(const int sampleId, boo
    return cupsContainer.front() ? cupsContainer.front()->arrcode : QByteArray();
 }
 
+bool StructInstance::pppClipContainsCommandIndex(int sampleId, quint8 index) const
+{
+    const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
+    if (!sample) {
+        return false;
+    }
+    const tSingleActive_list &clipList = sample->t_catchAnemiaTest;
+    for (int i = 0; i < clipList.size(); ++i) {
+        const single_action_commands *cmd = clipList.at(i);
+        if (cmd && cmd->index_ == index) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool StructInstance::pppClipXyAtTray(int sampleId, const QPoint &pos) const
+{
+    const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
+    if (!sample) {
+        return false;
+    }
+    return sample->anemiaoffHandsAxis == pos;
+}
+
+QByteArray StructInstance::restartPppClipFromXy(int sampleId)
+{
+    DATASAMPLESTRUCT *pitSample = wfindIdSample(sampleId);
+    if (!pitSample) {
+        return QByteArray();
+    }
+    if (pitSample->indexTestingChn < 0) {
+        QLOG_ERROR() << "重建夹PPP失败：样本" << sampleId << "没有测试通道";
+        return QByteArray();
+    }
+
+    qDeleteAll(pitSample->t_catchAnemiaTest);
+    pitSample->t_catchAnemiaTest.clear();
+    pitSample->suctionPPPreset = 0;
+    pitSample->spitPPPreset = 0;
+    backorigintimes();
+
+    QVector<QByteArray> catchAnemia2testChn;
+    QPoint anemiaEmptyHandAxis(0, 0);
+    quint8 suckReset = 0;
+    quint8 splitReset = 0;
+    QUIUtils::ClipAnemiatoTestChn(static_cast<quint8>(pitSample->indexTestingChn),
+                                  pitSample->spitanaemia_hole,
+                                  catchAnemia2testChn,
+                                  anemiaEmptyHandAxis,
+                                  suckReset,
+                                  splitReset);
+    pitSample->anemiaoffHandsAxis = anemiaEmptyHandAxis;
+    creatSuckPPP2theTestChannel(sampleId, catchAnemia2testChn, suckReset, splitReset);
+    QLOG_DEBUG() << "样本" << sampleId << "复位后重建夹PPP，从试管盘XY重跑"
+                 << "通道" << pitSample->indexTestingChn
+                 << "孔" << pitSample->spitanaemia_hole
+                 << "目标" << anemiaEmptyHandAxis.x() << "," << anemiaEmptyHandAxis.y();
+    return sendPPP2ChannelHeanderCommand(sampleId, false);
+}
+
 
 
 
@@ -2895,7 +3170,6 @@ void StructInstance::throwPPPFailed(const int sampleId,bool &kGripperFailed){
     backorigintimes();
     kGripperFailed = GRIPPERMOVE_ABNORMALLY;
     outputHeadnThrowCups(sampleId,GRIPPERMOVE_ABNORMALLY);
-    return;
 }
 
 bool StructInstance::recv_throwCupcommd(const int sampleId,const quint8 index_code,bool HandsControl,bool isSuction,
@@ -2926,86 +3200,16 @@ bool StructInstance::recv_throwCupcommd(const int sampleId,const quint8 index_co
         return isthrowFinish;
     }
 
-    if(isSuction)
-    {
-        bool issuccess = GlobalData::isHandsSuckFinish(airvale);
-        const quint8 suckBackOriginnum = pIdsample->throwPPPsuckBacknum;
-        //吸动作复位负压值未到区间
-        if(suckBackOriginnum == index_code && !issuccess){
-            throwPPPFailed(sampleId,kGripperFailed);
-            QLOG_DEBUG() << "丢PPP动作失败!";
-            return false;
-        }else if(suckBackOriginnum == index_code && issuccess){
-            QLOG_DEBUG()<<"吸杯复位[丢PPP动作]的负压值"<<airvale;
-            kpsampleThrowActive->bcompleted = true;
-            allGripperThrowFinish(pIdsample,isthrowFinish,sendData);
-            return isthrowFinish;
-        }
-        //舍弃值
-        const quint8 firstGrippersuck = suckBackOriginnum - 2;
-        if(firstGrippersuck == index_code){
-            kpsampleThrowActive->bcompleted = true;
-            laterTimer = true;
-            QLOG_DEBUG()<<"舍弃初次吸[丢PPP动作]的负压值"<<airvale;
-            allGripperThrowFinish(pIdsample,isthrowFinish,sendData);
-            return isthrowFinish;
-        }
-
-        //吸杯成功？动作
-        const quint8 suckPPPnum = pIdsample->throwPPPsuckBacknum - 1;
-        if(suckPPPnum == index_code){
-            bool success =  GlobalData::isHandsSuckFinish(airvale);
-            int& retries =  m_handsFailedtimes;
-            const char* logMsg =  "吸PPP试杯丟失败次数" ;
-            const char* failMsg =  "吸杯3次失败";
-            const int maxRetries = 3;  // 统一最大重试次数
-
-            if (!success) {
-                if (retries <= maxRetries) {
-                    quint8 numindex = kpsampleThrowActive->index_;
-                    sendData =  GlobalData::Grabthehandtotryagain(numindex, ++retries, kthrowChannel);
-                    QLOG_WARN() << logMsg << retries << endl;
-                    return false;
-                } else {
-                    throwPPPFailed(sampleId,kGripperFailed);
-                    QLOG_ERROR()<<failMsg;
-                    return false;
-                }
-            }else{
-                 kpsampleThrowActive->bcompleted = true;
-                 allGripperThrowFinish(pIdsample,isthrowFinish,sendData);
-                 return isthrowFinish;
-            }
-        }
-    }else{
-        if(pIdsample->throwPPPsplitBacknum == index_code){
-            QLOG_DEBUG()<<"放杯复位[丢PPP动作]的负压值"<<airvale;
-            kpsampleThrowActive->bcompleted = true;
-            allGripperThrowFinish(pIdsample,isthrowFinish,sendData);
-            return isthrowFinish;
-        }
-
-        const quint8 firstGripperSplit = pIdsample->throwPPPsplitBacknum - 2;
-        if(firstGripperSplit == index_code){
-            kpsampleThrowActive->bcompleted = true;
-            QLOG_DEBUG()<<"舍弃初次放[丢PPP动作]的负压值"<<airvale;
-            allGripperThrowFinish(pIdsample,isthrowFinish,sendData);
-            return isthrowFinish;
-        }
-
-        const quint8 splitPPPnum = pIdsample->throwPPPsplitBacknum - 1;
-        if(splitPPPnum == index_code){
-            if(GlobalData::isHandsThrowCupFinish(airvale)){
-                kpsampleThrowActive->bcompleted = true;
-            }
-            QLOG_DEBUG()<<"等待放[丢PPP动作]的负压值"<<airvale;
-            //sendData = GlobalData::ThrowCupstotryagain(index_code, 3);
-            allGripperThrowFinish(pIdsample,isthrowFinish,sendData);
-            return isthrowFinish;
-        }
-    }
-
-   return isthrowFinish;
+    Q_UNUSED(kpsampleThrowActive);
+    const quint8 channel = static_cast<quint8>(kthrowChannel);
+    return dispatchGripperAck(pIdsample->t_throw_anemiacups_active, index_code,
+                              pIdsample->throwPPPsuckBacknum, pIdsample->throwPPPsplitBacknum,
+                              airvale, isSuction, QString::fromUtf8("丢PPP"),
+                              false, true, channel, channel, sampleId,
+                              sendData, kGripperFailed, laterTimer,
+                              [this, pIdsample](bool &finished, QByteArray &nextCmd) {
+        allGripperThrowFinish(pIdsample, finished, nextCmd);
+    });
 }
 
 void StructInstance::allGripperThrowFinish(const DATASAMPLESTRUCT *psampledata,bool &isthrowFinish,QByteArray &outdata){
@@ -3147,27 +3351,1067 @@ QByteArray StructInstance::resettheCupDropAnimation(const int sampleId,
 		}
 	case SINGLE_ACTION_MASK: {
 			quint8 startIndex = (*itReagent)->suckCupIndexCommand;
-			auto target = std::find_if((*itReagent)->pTestingReagentActive.begin(),
-				(*itReagent)->pTestingReagentActive.end(),
-				[startIndex](const auto& item) {
-				return item->index_ == startIndex;
-			});
-			if (target != (*itReagent)->pTestingReagentActive.end()) {
-				return (*target)->arrcode;
+			for (auto &arrdatastu : (*itReagent)->pTestingReagentActive) {
+				if (arrdatastu && arrdatastu->index_ >= startIndex) {
+					arrdatastu->bcompleted = false;
+				}
+			}
+			QByteArray firstCmd;
+			if (firstIncompleteCommand((*itReagent)->pTestingReagentActive, firstCmd)) {
+				return firstCmd;
 			}
 			break;
 		}
 	default:
-		Q_ASSERT_X(false, "resettheCupDropAnimation", "未处理分支");
+		QLOG_ERROR() << "resettheCupDropAnimation: unhandled branch mask";
+		break;
 	}
     return {};
 }
 
 
 
+bool StructInstance::gripperGrabRetriesExhausted() const
+{
+    return m_handsFailedtimes >= 3; // 与 kGripperMaxRetry 一致
+}
+
+QByteArray StructInstance::buildGripperTrayGrabDeepenCmd(quint8 suckCheckIndex,
+                                                         quint8 trayHole) const
+{
+    const int deepenTimes = qMax(1, m_handsFailedtimes);
+    return GlobalData::GrabtheCupAttheTestTubeTray(suckCheckIndex, deepenTimes, trayHole);
+}
+
+QByteArray StructInstance::buildGripperTrayReadVacuumCmd(const quint8 readIndex,
+                                                         const quint8 trayHole)
+{
+    m_gripperGrabReadPhase = GrabWaitReadAckJudge;
+    const quint8 maxIndex = 3;
+    quint8 indexTray = trayHole / ONETRAY_TOTALTUBE;
+    if (indexTray > maxIndex) {
+        indexTray = 0;
+    }
+    const int downMm = static_cast<int>(INI_File()._gethandsdownheightinTesttray(indexTray));
+    const bool bRepeat = INI_File().rConfigPara(REPEATGRABCUP).toBool();
+    auto *dll = Testing::getTaskDll();
+    if (!dll || downMm <= 0) {
+        return QByteArray();
+    }
+    quint8 cmdIndex = readIndex;
+    return QUIUtils::withGripperPump(
+                dll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false,
+                                           downMm, bRepeat, GRABCUPWITHGRIPPER),
+                GRIPPERMOVE_ABNORMALLY);
+}
+
+bool StructInstance::gripperNeedsDelayBeforeRead() const
+{
+    return m_gripperGrabReadPhase == GrabWaitDelayThenRead;
+}
+
+void StructInstance::clearGripperReadPhase()
+{
+    m_gripperGrabReadPhase = GrabReadIdle;
+}
+
+QByteArray StructInstance::buildGripperChannelGrabDeepenCmd(quint8 suckCheckIndex,
+                                                            quint8 channelIndex) const
+{
+    const int deepenTimes = qMax(1, m_handsFailedtimes);
+    return GlobalData::Grabthehandtotryagain(suckCheckIndex, deepenTimes, channelIndex);
+}
+
+QByteArray StructInstance::buildGripperChannelReadVacuumCmd(const quint8 readIndex,
+                                                            const quint8 channelIndex)
+{
+    m_gripperGrabReadPhase = GrabWaitReadAckJudge;
+    const int downMm = static_cast<int>(INI_File()._gethandsdownheiht(channelIndex));
+    const bool bRepeat = INI_File().rConfigPara(REPEATGRABCUP).toBool();
+    auto *dll = Testing::getTaskDll();
+    if (!dll || downMm <= 0) {
+        return QByteArray();
+    }
+    quint8 cmdIndex = readIndex;
+    return QUIUtils::withGripperPump(
+                dll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false,
+                                           downMm, bRepeat, GRABCUPWITHGRIPPER),
+                GRIPPERMOVE_ABNORMALLY);
+}
+
+void StructInstance::resetGripperRetryCounters()
+{
+    backorigintimes();
+    m_gripperGrabReadPhase = GrabReadIdle;
+}
+
+QByteArray StructInstance::gripperLiftAfterSuckHoldPassed(const int sampleId,
+                                                            const quint8 holdQueue,
+                                                            const quint8 suckCheckIndex,
+                                                            const quint8 reagentIndex)
+{
+    QByteArray out;
+    auto *sample = wfindIdSample(sampleId);
+    if (!sample) {
+        return out;
+    }
+    if (holdQueue == 1) {
+        markAllActionIndexDone(sample->t_catchAnemiaTest, suckCheckIndex);
+        bool finished = false;
+        outsuckPPPOtherOrder(sample, finished, out);
+        return out;
+    }
+    if (holdQueue == 2) {
+        Testing_reagents *reag = nullptr;
+        for (Testing_reagents *r : sample->ptestReagent_active) {
+            if (r && r->index_Reagent == reagentIndex) {
+                reag = r;
+                break;
+            }
+        }
+        if (!reag) {
+            return out;
+        }
+        markAllActionIndexDone(reag->pTestingReagentActive, suckCheckIndex);
+        bool finished = false;
+        allTseaReagentActiveFinish(reag, finished, out);
+    }
+    return out;
+}
+
 void  StructInstance::backorigintimes(){
      m_handsFailedtimes = 0; //抓手吸杯失败次数
      m_handsThrowFailedtimes = 0; //助手丢被失败次数
+     m_gripperGrabReadPhase = GrabReadIdle;
+     clearGripperVacuumPoll();
+}
+
+void StructInstance::clearGripperVacuumPoll()
+{
+    if (m_gripperVacuumPoll.active) {
+        QLOG_DEBUG() << "[GripperVac]" << m_gripperVacuumPoll.tag
+                     << "样本" << m_gripperVacuumPoll.sampleId << "结束负压轮询";
+    }
+    m_gripperVacuumPoll = GripperVacuumPollCtx();
+}
+
+bool StructInstance::isGripperVacuumPollActive() const
+{
+    return m_gripperVacuumPoll.active;
+}
+
+void StructInstance::stopGripperVacuumPoll()
+{
+    clearGripperVacuumPoll();
+}
+
+bool StructInstance::gripperAckBlocksAdvance(GripperAckOutcome outcome)
+{
+    return outcome == GripperAckRetry || outcome == GripperAckPoll;
+}
+
+namespace {
+// 抬Z未吸牢：最多加深重抓 kGripperMaxRetry 次（每次相对基准再下 1～3mm，见 capGripperExtraMm）
+const int kGripperMaxRetry = 3;
+const int kGripperExtraMmCap = 3;
+const int kGripperPollDefaultWaitMs = 500;
+
+int gripperVacuumProbeDownMm(bool grabMode,
+                             bool grabAtTray,
+                             bool putAtThrowHole,
+                             quint8 grabRetryPos,
+                             quint8 putRetryPos)
+{
+    if (grabMode) {
+        if (grabAtTray) {
+            const quint8 maxIndex = 3;
+            quint8 indexTray = grabRetryPos / ONETRAY_TOTALTUBE;
+            if (indexTray > maxIndex) {
+                indexTray = 0;
+            }
+            return static_cast<int>(INI_File()._gethandsdownheightinTesttray(indexTray));
+        }
+        return static_cast<int>(INI_File()._gethandsdownheiht(putRetryPos));
+    }
+    if (putAtThrowHole) {
+        return static_cast<int>(INI_File()._gethandsdownthrowcpus());
+    }
+    return static_cast<int>(INI_File()._gethandsdownheiht(putRetryPos));
+}
+
+int cappedGripperRetryMm(int attemptTimes)
+{
+    if (attemptTimes < 1) {
+        return 1;
+    }
+    return attemptTimes > kGripperExtraMmCap ? kGripperExtraMmCap : attemptTimes;
+}
+
+void markActionIndexDone(tSingleActive_list &list, quint8 index)
+{
+    tSingleActive_list::iterator it = std::find_if(list.begin(), list.end(), recv_index(index));
+    if (it != list.end() && *it != nullptr) {
+        (*it)->bcompleted = true;
+    }
+}
+
+void markAllActionIndexDone(tSingleActive_list &list, quint8 index)
+{
+    for (int i = 0; i < list.size(); ++i) {
+        single_action_commands *cmd = list.at(i);
+        if (cmd && cmd->index_ == index) {
+            cmd->bcompleted = true;
+        }
+    }
+}
+
+bool actionIndexDone(const tSingleActive_list &list, quint8 index)
+{
+    tSingleActive_list::const_iterator it = std::find_if(list.cbegin(), list.cend(), recv_index(index));
+    return (it != list.cend() && *it != nullptr && (*it)->bcompleted);
+}
+
+bool listHasCommandIndex(const tSingleActive_list &list, quint8 index)
+{
+    for (int i = 0; i < list.size(); ++i) {
+        const single_action_commands *cmd = list.at(i);
+        if (cmd && cmd->index_ == index) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void fillCommandList(tSingleActive_list &list, const QVector<QByteArray> &cmds)
+{
+    list.reserve(cmds.size());
+    for (int i = 0; i < cmds.size(); ++i) {
+        const QByteArray &cmd = cmds.at(i);
+        if (cmd.isEmpty() || cmd.size() <= GET_COMMAND_INDEX) {
+            continue;
+        }
+        bool ok = false;
+        const quint8 indexCode = cmd.mid(GET_COMMAND_INDEX, 1).toHex().toUShort(&ok, HEX_SWITCH);
+        if (!ok) {
+            continue;
+        }
+        list.push_back(new single_action_commands(indexCode, false, cmd));
+    }
+    std::sort(list.begin(), list.end(), sort_ascending);
+}
+
+Testing_reagents *findReagentPtr(DATASAMPLESTRUCT *sample, quint8 reagent)
+{
+    if (!sample) {
+        return nullptr;
+    }
+    tVariousReagentsvec::iterator it = std::find_if(sample->ptestReagent_active.begin(),
+                                                sample->ptestReagent_active.end(),
+                                                findtest_testreagent(reagent));
+    if (it == sample->ptestReagent_active.end() || *it == nullptr) {
+        return nullptr;
+    }
+    return *it;
+}
+
+const Testing_reagents *findReagentPtrConst(const DATASAMPLESTRUCT *sample, quint8 reagent)
+{
+    if (!sample) {
+        return nullptr;
+    }
+    tVariousReagentsvec::const_iterator it = std::find_if(sample->ptestReagent_active.cbegin(),
+                                                      sample->ptestReagent_active.cend(),
+                                                      findtest_testreagent(reagent));
+    if (it == sample->ptestReagent_active.cend() || *it == nullptr) {
+        return nullptr;
+    }
+    return *it;
+}
+
+QByteArray firstCommandCode(const tSingleActive_list &list)
+{
+    if (list.isEmpty() || list.front() == nullptr) {
+        return QByteArray();
+    }
+    return list.front()->arrcode;
+}
+
+bool listHasUnfinished(const tSingleActive_list &list)
+{
+    for (int i = 0; i < list.size(); ++i) {
+        const single_action_commands *cmd = list.at(i);
+        if (cmd && !cmd->bcompleted) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void markGripperVacuumPollCommandsDone(tSingleActive_list &list,
+                                       bool grabMode,
+                                       quint8 /*markIndex*/,
+                                       quint8 suckBack,
+                                       quint8 spitBack)
+{
+    const quint8 suckCheck = static_cast<quint8>(suckBack - 1);
+    const quint8 suckDiscard = static_cast<quint8>(suckBack - 2);
+    const quint8 spitCheck = static_cast<quint8>(spitBack - 1);
+    const quint8 spitDiscard = static_cast<quint8>(spitBack - 2);
+
+    if (grabMode) {
+        markAllActionIndexDone(list, suckCheck);
+        markAllActionIndexDone(list, suckDiscard);
+        if (suckBack >= 3) {
+            markAllActionIndexDone(list, static_cast<quint8>(suckBack - 3));
+        }
+    } else {
+        markAllActionIndexDone(list, spitCheck);
+        markAllActionIndexDone(list, spitDiscard);
+    }
+}
+}
+
+StructInstance::GripperAckOutcome StructInstance::startVacuumPollPhase(
+        GripperVacuumPollMode mode,
+        tSingleActive_list &list,
+        quint8 phaseCommandIndex,
+        quint8 suckBack,
+        quint8 spitBack,
+        const QString &tag,
+        bool grabAtTray,
+        bool putAtThrowHole,
+        quint8 grabRetryPos,
+        quint8 putRetryPos,
+        int sampleId)
+{
+    beginGripperVacuumPoll(mode, list, phaseCommandIndex, suckBack, spitBack, tag,
+                           grabAtTray, putAtThrowHole, grabRetryPos, putRetryPos, sampleId);
+    return GripperAckPoll;
+}
+
+void StructInstance::beginGripperVacuumPoll(GripperVacuumPollMode mode,
+                                            tSingleActive_list &list,
+                                            quint8 phaseCommandIndex,
+                                            quint8 suckBack,
+                                            quint8 spitBack,
+                                            const QString &tag,
+                                            bool grabAtTray,
+                                            bool putAtThrowHole,
+                                            quint8 grabRetryPos,
+                                            quint8 putRetryPos,
+                                            int sampleId)
+{
+    int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
+    if (mode == GripperPollGrab && waitMs < 300) {
+        waitMs = 300;
+    }
+    m_gripperVacuumPoll.active = true;
+    m_gripperVacuumPoll.mode = mode;
+    m_gripperVacuumPoll.commandList = &list;
+    m_gripperVacuumPoll.markIndexOnSuccess = phaseCommandIndex;
+    m_gripperVacuumPoll.retryCommandIndex = phaseCommandIndex;
+    m_gripperVacuumPoll.suckBack = suckBack;
+    m_gripperVacuumPoll.spitBack = spitBack;
+    m_gripperVacuumPoll.grabAtTray = grabAtTray;
+    m_gripperVacuumPoll.putAtThrowHole = putAtThrowHole;
+    m_gripperVacuumPoll.grabRetryPos = grabRetryPos;
+    m_gripperVacuumPoll.putRetryPos = putRetryPos;
+    m_gripperVacuumPoll.tag = tag;
+    m_gripperVacuumPoll.sampleId = sampleId;
+    m_gripperVacuumPoll.deadlineMs = QDateTime::currentMSecsSinceEpoch()
+            + (waitMs > 0 ? waitMs : kGripperPollDefaultWaitMs);
+    m_gripperVacuumPoll.probeDownMm = gripperVacuumProbeDownMm(
+                mode == GripperPollGrab, grabAtTray, putAtThrowHole, grabRetryPos, putRetryPos);
+    const quint8 suckCheck = static_cast<quint8>(suckBack - 1);
+    const quint8 suckDiscard = static_cast<quint8>(suckBack - 2);
+    QLOG_INFO() << "[GripperVac]" << tag << "样本" << sampleId
+                << (mode == GripperPollGrab ? "开始抓杯负压轮询" : "开始放杯负压轮询")
+                << "阶段命令号" << phaseCommandIndex
+                << "吸族号" << suckDiscard << suckCheck << suckBack
+                << "放族号" << static_cast<quint8>(spitBack - 2)
+                << static_cast<quint8>(spitBack - 1) << spitBack
+                << "轮询窗口ms" << (waitMs > 0 ? waitMs : kGripperPollDefaultWaitMs)
+                << "probe高度mm" << m_gripperVacuumPoll.probeDownMm
+                << "托盘抓杯" << grabAtTray << "弃杯孔" << putAtThrowHole;
+}
+
+QByteArray StructInstance::gripperVacuumProbeCommand() const
+{
+    UsbCodeDispose *taskDll = Testing::getTaskDll();
+    if (!taskDll || !m_gripperVacuumPoll.active) {
+        return QByteArray();
+    }
+    const bool suckOn = (m_gripperVacuumPoll.mode == GripperPollGrab);
+    quint8 cmdIndex = suckOn ? static_cast<quint8>(HANDS_SUCK_NUM)
+                             : static_cast<quint8>(HANDS_SPLIT_NUM);
+    const int downMm = m_gripperVacuumPoll.probeDownMm > 0 ? m_gripperVacuumPoll.probeDownMm : 0;
+    const bool gripperMode = suckOn ? GRABCUPWITHGRIPPER : GRIPPERNORMAL;
+    return QUIUtils::withGripperPump(
+                taskDll->DLL_ZMoveSpecifiedPosition(
+                MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false, downMm, false, gripperMode),
+                suckOn ? GRIPPERMOVE_ABNORMALLY : GRIPPERMOVE_NORMAL);
+}
+
+StructInstance::GripperVacuumPollResult StructInstance::finishGripperVacuumPollSuccess()
+{
+    GripperVacuumPollResult out;
+    if (!m_gripperVacuumPoll.active || !m_gripperVacuumPoll.commandList) {
+        return out;
+    }
+    tSingleActive_list *list = m_gripperVacuumPoll.commandList;
+    markGripperVacuumPollCommandsDone(*list,
+                                      m_gripperVacuumPoll.mode == GripperPollGrab,
+                                      m_gripperVacuumPoll.markIndexOnSuccess,
+                                      m_gripperVacuumPoll.suckBack,
+                                      m_gripperVacuumPoll.spitBack);
+
+    out.sampleId = m_gripperVacuumPoll.sampleId;
+    out.tips = m_gripperVacuumPoll.tag;
+    const bool wasRelease = (m_gripperVacuumPoll.mode == GripperPollRelease);
+    clearGripperVacuumPoll();
+    if (wasRelease) {
+        out.lateTimer = true;
+    }
+
+    auto itFinish = std::find_if(list->cbegin(), list->cend(), find_allactivefinish(false));
+    if (itFinish == list->cend()) {
+        out.allFinished = true;
+        backorigintimes();
+    } else {
+        out.active = true;
+        out.sendData = (*itFinish)->arrcode;
+        if ((*itFinish)->arrcode.size() > GET_COMMAND_INDEX) {
+            QLOG_INFO() << "[GripperVac]" << out.tips << "样本" << out.sampleId
+                        << "负压判定成功 下发后续命令号" << (*itFinish)->index_;
+        }
+    }
+    return out;
+}
+
+StructInstance::GripperVacuumPollResult StructInstance::gripperVacuumPollDepthRetry()
+{
+    GripperVacuumPollResult out;
+    if (!m_gripperVacuumPoll.active) {
+        return out;
+    }
+    const QString tag = m_gripperVacuumPoll.tag;
+    const quint8 retryIndex = m_gripperVacuumPoll.retryCommandIndex;
+    out.sampleId = m_gripperVacuumPoll.sampleId;
+
+    if (m_gripperVacuumPoll.mode == GripperPollGrab) {
+        if (m_handsFailedtimes >= kGripperMaxRetry) {
+            QLOG_ERROR() << tag << "吸杯加深重试已达上限 负压仍不足";
+            out.gripperFailed = true;
+            clearGripperVacuumPoll();
+            return out;
+        }
+        m_handsFailedtimes++;
+        const int extraMm = cappedGripperRetryMm(m_handsFailedtimes);
+        if (m_gripperVacuumPoll.grabAtTray) {
+            out.sendData = GlobalData::GrabtheCupAttheTestTubeTray(
+                        retryIndex, extraMm, m_gripperVacuumPoll.grabRetryPos);
+        } else {
+            out.sendData = GlobalData::Grabthehandtotryagain(
+                        retryIndex, extraMm, m_gripperVacuumPoll.grabRetryPos);
+        }
+        QLOG_WARN() << tag << "抓杯负压超时，加深第" << m_handsFailedtimes
+                    << "次 +" << extraMm << "mm";
+    } else {
+        if (m_handsThrowFailedtimes >= kGripperMaxRetry) {
+            QLOG_ERROR() << tag << "放杯上抬重试已达上限 负压仍未释放";
+            out.gripperFailed = true;
+            clearGripperVacuumPoll();
+            return out;
+        }
+        m_handsThrowFailedtimes++;
+        const int extraMm = cappedGripperRetryMm(m_handsThrowFailedtimes);
+        if (m_gripperVacuumPoll.putAtThrowHole) {
+            out.sendData = GlobalData::ThrowCupsRaiseRetry(retryIndex, extraMm);
+        } else {
+            out.sendData = GlobalData::putoutCupAtTestChannel(
+                        retryIndex, extraMm, m_gripperVacuumPoll.putRetryPos);
+        }
+        out.lateTimer = true;
+        QLOG_WARN() << tag << "放杯负压超时，上抬第" << m_handsThrowFailedtimes
+                    << "次 +" << extraMm << "mm 后再读";
+    }
+
+    clearGripperVacuumPoll();
+    out.active = true;
+    return out;
+}
+
+StructInstance::GripperVacuumPollResult StructInstance::feedGripperVacuumPollSample(quint32 airvale,
+                                                                                  bool isSuctionBit)
+{
+    GripperVacuumPollResult out;
+    if (!m_gripperVacuumPoll.active) {
+        return out;
+    }
+
+    m_gripperVacuumPoll.lastAirSample = airvale;
+    m_gripperVacuumPoll.lastSuctionBit = isSuctionBit;
+
+    const bool grabOk = GlobalData::isHandsSuckFinish(airvale);
+    const bool releaseOk = GlobalData::isHandsCupReleased(airvale, isSuctionBit);
+    if ((m_gripperVacuumPoll.mode == GripperPollGrab && grabOk)
+            || (m_gripperVacuumPoll.mode == GripperPollRelease && releaseOk)) {
+        QLOG_INFO() << "[GripperVac]" << m_gripperVacuumPoll.tag
+                    << "样本" << m_gripperVacuumPoll.sampleId
+                    << (m_gripperVacuumPoll.mode == GripperPollGrab ? "轮询抓杯负压到位" : "轮询放杯负压到位")
+                    << airvale;
+        out = finishGripperVacuumPollSuccess();
+        out.active = true;
+        return out;
+    }
+
+    const qint64 remainMs = m_gripperVacuumPoll.deadlineMs - QDateTime::currentMSecsSinceEpoch();
+    if (m_gripperVacuumPoll.mode == GripperPollGrab) {
+        const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
+        QLOG_DEBUG() << "[GripperVac]" << m_gripperVacuumPoll.tag
+                     << "样本" << m_gripperVacuumPoll.sampleId
+                     << "轮询读数" << airvale << "抓杯阈值<=" << grabTh
+                     << "剩余ms" << remainMs;
+    } else {
+        const quint32 spitTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
+        QLOG_DEBUG() << "[GripperVac]" << m_gripperVacuumPoll.tag
+                     << "样本" << m_gripperVacuumPoll.sampleId
+                     << "轮询读数" << airvale << "放杯阈值>=" << spitTh
+                     << "剩余ms" << remainMs;
+    }
+
+    if (QDateTime::currentMSecsSinceEpoch() >= m_gripperVacuumPoll.deadlineMs) {
+        QLOG_WARN() << "[GripperVac]" << m_gripperVacuumPoll.tag
+                    << "样本" << m_gripperVacuumPoll.sampleId
+                    << "轮询窗口到期 末次负压" << airvale;
+        return tickGripperVacuumPollDeadline();
+    }
+
+    out.active = true;
+    return out;
+}
+
+StructInstance::GripperVacuumPollResult StructInstance::tickGripperVacuumPollDeadline()
+{
+    GripperVacuumPollResult out;
+    if (!m_gripperVacuumPoll.active) {
+        return out;
+    }
+    if (QDateTime::currentMSecsSinceEpoch() < m_gripperVacuumPoll.deadlineMs) {
+        return out;
+    }
+    if (m_gripperVacuumPoll.mode == GripperPollRelease
+            && GlobalData::isHandsCupReleased(m_gripperVacuumPoll.lastAirSample,
+                                              m_gripperVacuumPoll.lastSuctionBit)) {
+        QLOG_INFO() << "[GripperVac]" << m_gripperVacuumPoll.tag
+                    << "样本" << m_gripperVacuumPoll.sampleId
+                    << "放杯轮询超时但已关负压/读数回升 判松开"
+                    << m_gripperVacuumPoll.lastAirSample;
+        out = finishGripperVacuumPollSuccess();
+        out.active = true;
+        return out;
+    }
+    return gripperVacuumPollDepthRetry();
+}
+
+bool StructInstance::throwPppContainsCommandIndex(int sampleId, quint8 index) const
+{
+    const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
+    return sample && listHasCommandIndex(sample->t_throw_anemiacups_active, index);
+}
+
+bool StructInstance::throwReagentContainsCommandIndex(int sampleId, quint8 reagent, quint8 index) const
+{
+    const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
+    return reag && listHasCommandIndex(reag->pThrowCupsActive, index);
+}
+
+bool StructInstance::prpClipContainsCommandIndex(int sampleId, quint8 reagent, quint8 index) const
+{
+    const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
+    return reag && listHasCommandIndex(reag->pTestingReagentActive, index);
+}
+
+bool StructInstance::gripperXyAtChannel(int sampleId, const QPoint &pos) const
+{
+    const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
+    if (!sample || sample->indexTestingChn < 0) {
+        return false;
+    }
+    QPoint chnAxis(0, 0);
+    SingletonAxis::chnZoneAxisPos(READ_OPERRAT,
+                                  static_cast<quint8>(sample->indexTestingChn),
+                                  MOTOR_HANDS_INDEX,
+                                  chnAxis);
+    return chnAxis == pos;
+}
+
+bool StructInstance::prpClipXyAtReagent(int sampleId, quint8 reagent, const QPoint &pos) const
+{
+    Q_UNUSED(sampleId);
+    if (reagent == 0) {
+        return false;
+    }
+    QPoint reagentAxis(0, 0);
+    SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT, static_cast<quint8>(reagent - 1), reagentAxis);
+    return reagentAxis == pos;
+}
+
+bool StructInstance::prpClipXyAtTrayHole(int sampleId, quint8 reagent, const QPoint &pos) const
+{
+    const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
+    return reag && reag->emptyHoleAxisHands == pos;
+}
+
+QByteArray StructInstance::restartThrowPppFromXy(int sampleId)
+{
+    DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
+    if (!sample) {
+        return QByteArray();
+    }
+    if (sample->indexTestingChn < 0) {
+        QLOG_ERROR() << "重建丢PPP失败：样本" << sampleId << "没有测试通道";
+        return QByteArray();
+    }
+    qDeleteAll(sample->t_throw_anemiacups_active);
+    sample->t_throw_anemiacups_active.clear();
+    sample->throwPPPsuckBacknum = 0;
+    sample->throwPPPsplitBacknum = 0;
+    backorigintimes();
+    creatThrowCupsCommands(sampleId, static_cast<quint8>(sample->indexTestingChn));
+    std::sort(sample->t_throw_anemiacups_active.begin(),
+              sample->t_throw_anemiacups_active.end(),
+              sort_ascending);
+    QLOG_DEBUG() << "样本" << sampleId << "复位后重建丢PPP，从通道XY重跑";
+    return firstCommandCode(sample->t_throw_anemiacups_active);
+}
+
+QByteArray StructInstance::restartThrowReagentFromXy(int sampleId, quint8 reagent)
+{
+    DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
+    Testing_reagents *reag = findReagentPtr(sample, reagent);
+    if (!reag) {
+        QLOG_ERROR() << "重建丢试剂杯失败 样本" << sampleId << "试剂" << reagent;
+        return QByteArray();
+    }
+    if (sample->indexTestingChn < 0) {
+        QLOG_ERROR() << "重建丢试剂杯失败：样本" << sampleId << "没有测试通道";
+        return QByteArray();
+    }
+    qDeleteAll(reag->pThrowCupsActive);
+    reag->pThrowCupsActive.clear();
+    QVector<QByteArray> throwCups;
+    quint8 sucknum = 0;
+    quint8 splitnum = 0;
+    QUIUtils::ThrowTestChnCup(static_cast<quint8>(sample->indexTestingChn), throwCups, sucknum, splitnum);
+    reag->throwPRRsucknum = sucknum;
+    reag->throePRPsplitnum = splitnum;
+    fillCommandList(reag->pThrowCupsActive, throwCups);
+    backorigintimes();
+    QLOG_DEBUG() << "样本" << sampleId << "复位后重建丢试剂杯"
+                 << GlobalData::mapIndexReagentnames(reagent) << "从通道XY重跑";
+    return firstCommandCode(reag->pThrowCupsActive);
+}
+
+static void pruneReagentCommandsFromIndex(Testing_reagents *reag, quint8 fromIndex)
+{
+    if (!reag) {
+        return;
+    }
+    auto &list = reag->pTestingReagentActive;
+    for (auto it = list.begin(); it != list.end(); ) {
+        if (*it && (*it)->index_ >= fromIndex) {
+            delete *it;
+            it = list.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+static bool reagentSuckDoneBeforeGrab(const Testing_reagents *reag)
+{
+    if (!reag || reag->suckCupIndexCommand == 0) {
+        return false;
+    }
+    for (const single_action_commands *cmd : reag->pTestingReagentActive) {
+        if (!cmd) {
+            continue;
+        }
+        if (cmd->index_ < reag->suckCupIndexCommand && !cmd->bcompleted) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool StructInstance::isGripperCupFailFocus(quint8 indexActive)
+{
+    switch (indexActive) {
+    case FOCUS_CLIP_ANEMIA_TO_CHN:
+    case FOCUS_THORW_ANEMIA:
+    case FOCUS_TESTING_AA:
+    case FOCUS_TESTING_ADP:
+    case FOCUS_TESTING_EPI:
+    case FOCUS_TESTING_COL:
+    case FOCUS_TESTING_RIS:
+    case FOCUS_THROW_AA_TUBE:
+    case FOCUS_THROW_ADP_TUBE:
+    case FOCUS_THROW_EPI_TUBE:
+    case FOCUS_THROW_COL_TUBE:
+    case FOCUS_THROW_RIS_TUBE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+QByteArray StructInstance::restartGripperFailTryAgain(int sampleId, quint8 indexActive)
+{
+    // 1) 吸 PPP 试杯失败 → XY 到 PPP 孔位再抓杯放通道
+    if (indexActive == FOCUS_CLIP_ANEMIA_TO_CHN) {
+        return restartPppClipFromXy(sampleId);
+    }
+    if (indexActive == FOCUS_THORW_ANEMIA) {
+        return restartThrowPppFromXy(sampleId);
+    }
+    const quint8 reagent = [&indexActive]() -> quint8 {
+        switch (indexActive) {
+        case FOCUS_TESTING_AA:
+        case FOCUS_THROW_AA_TUBE: return AA_REAGENT;
+        case FOCUS_TESTING_ADP:
+        case FOCUS_THROW_ADP_TUBE: return ADP_REAGENT;
+        case FOCUS_TESTING_EPI:
+        case FOCUS_THROW_EPI_TUBE: return EPI_REAGENT;
+        case FOCUS_TESTING_COL:
+        case FOCUS_THROW_COL_TUBE: return COL_REAGENT;
+        case FOCUS_TESTING_RIS:
+        case FOCUS_THROW_RIS_TUBE: return RIS_REAGENT;
+        default: return 0xFF;
+        }
+    }();
+    // 2) 吸 PRP 试杯失败 → XY 到 PRP 孔位再抓杯放通道（不重吸试剂）
+    if (indexActive == FOCUS_TESTING_AA || indexActive == FOCUS_TESTING_ADP
+            || indexActive == FOCUS_TESTING_EPI || indexActive == FOCUS_TESTING_COL
+            || indexActive == FOCUS_TESTING_RIS) {
+        return restartPrpClipFromGrabCup(sampleId, reagent, true);
+    }
+    // 3) 测试通道抓杯失败（丢 PPP / 丢试剂杯）→ XY 到通道再抓杯
+    if (indexActive == FOCUS_THROW_AA_TUBE || indexActive == FOCUS_THROW_ADP_TUBE
+            || indexActive == FOCUS_THROW_EPI_TUBE || indexActive == FOCUS_THROW_COL_TUBE
+            || indexActive == FOCUS_THROW_RIS_TUBE) {
+        return restartThrowReagentFromXy(sampleId, reagent);
+    }
+    return QByteArray();
+}
+
+QByteArray StructInstance::restartPrpClipFromGrabCup(int sampleId, quint8 reagent, bool fromXyOrigin)
+{
+    DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
+    Testing_reagents *reag = findReagentPtr(sample, reagent);
+    if (!reag || !sample || sample->indexTestingChn < 0) {
+        QLOG_ERROR() << "抓PRP重试重建失败 样本" << sampleId << "试剂" << reagent;
+        return QByteArray();
+    }
+    const quint8 fromIndex = reag->suckCupIndexCommand;
+    pruneReagentCommandsFromIndex(reag, fromIndex);
+
+    quint8 cmdIndexBase = 0;
+    for (const single_action_commands *cmd : reag->pTestingReagentActive) {
+        if (cmd && cmd->index_ >= cmdIndexBase) {
+            cmdIndexBase = static_cast<quint8>(cmd->index_ + 1);
+        }
+    }
+
+    QPoint holeAxis = reag->emptyHoleAxisHands;
+    QPoint lookedUp(0, 0);
+    SingletonAxis::GetInstance()->testTaryZoneAxisPos(
+                READ_OPERRAT, reag->indexHole, MOTOR_HANDS_INDEX, lookedUp);
+    if (!(lookedUp.x() == 0 && lookedUp.y() == 0)) {
+        holeAxis = lookedUp;
+        reag->emptyHoleAxisHands = lookedUp;
+    }
+    if (holeAxis.x() == 0 && holeAxis.y() == 0) {
+        QLOG_ERROR() << "[抓放杯] 样本" << sampleId
+                     << "抓PRP重试失败：孔" << reag->indexHole
+                     << "坐标是原点，不下抓手";
+        return QByteArray();
+    }
+
+    QVector<QByteArray> tail;
+    quint8 suckPRPindex = 0;
+    quint8 suckBack = 0;
+    quint8 spitBack = 0;
+    QUIUtils::buildPrpGripFromTrayToChannel(sample->indexTestingChn,
+                                            reag->indexHole,
+                                            holeAxis,
+                                            tail,
+                                            suckPRPindex,
+                                            suckBack,
+                                            spitBack,
+                                            cmdIndexBase,
+                                            fromXyOrigin);
+    if (tail.isEmpty()) {
+        return QByteArray();
+    }
+    fillCommandList(reag->pTestingReagentActive, tail);
+    reag->testPRPsucknum = suckBack;
+    reag->testPRPsplitnum = spitBack;
+    reag->suckCupIndexCommand = suckPRPindex;
+    resetGripperRetryCounters();
+    QByteArray firstCmd;
+    StructInstance::firstIncompleteCommand(reag->pTestingReagentActive, firstCmd);
+    quint8 firstIndex = 0;
+    if (firstCmd.size() > GET_COMMAND_INDEX) {
+        bool ok = false;
+        firstIndex = static_cast<quint8>(
+                    firstCmd.mid(GET_COMMAND_INDEX, 1).toHex().toUShort(&ok, 16));
+        if (!ok) {
+            firstIndex = 0;
+        }
+    }
+    QLOG_INFO() << "[抓放杯] 样本" << sampleId
+                << "抓PRP失败重试 试剂" << GlobalData::mapIndexReagentnames(reagent)
+                << "孔" << reag->indexHole
+                << "坐标" << holeAxis.x() << "," << holeAxis.y()
+                << "先发命令号" << firstIndex
+                << "XY到孔的命令号" << suckPRPindex
+                << (fromXyOrigin ? "从原点先移到PRP孔再下抓" : "从当前点衔接");
+    return firstCmd;
+}
+
+bool StructInstance::prpReagentPortionCompleted(int sampleId, quint8 reagent) const
+{
+    return reagentSuckDoneBeforeGrab(findReagentPtrConst(rfindIdSample(sampleId), reagent));
+}
+
+QByteArray StructInstance::restartPrpClipResumePoint(int sampleId, quint8 reagent)
+{
+    if (reagentSuckDoneBeforeGrab(findReagentPtrConst(rfindIdSample(sampleId), reagent))) {
+        return restartPrpClipFromGrabCup(sampleId, reagent, false);
+    }
+    return restartPrpClipFromFirst(sampleId, reagent);
+}
+
+QByteArray StructInstance::restartPrpClipFromFirst(int sampleId, quint8 reagent)
+{
+    DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
+    Testing_reagents *reag = findReagentPtr(sample, reagent);
+    if (!reag) {
+        QLOG_ERROR() << "重建抓PRP失败 样本" << sampleId << "试剂" << reagent;
+        return QByteArray();
+    }
+    if (sample->indexTestingChn < 0) {
+        QLOG_ERROR() << "重建抓PRP失败：样本" << sampleId << "没有测试通道";
+        return QByteArray();
+    }
+    qDeleteAll(reag->pTestingReagentActive);
+    reag->pTestingReagentActive.clear();
+    QVector<QByteArray> suckCup2TestChannel;
+    QPoint bloodyAxis(0, 0);
+    quint8 suckPRPindex = 0;
+    quint8 suckBack = 0;
+    quint8 spitBack = 0;
+    quint8 suckReagentwait = 0;
+    QUIUtils::suckReagentClipTubetoChnPut(reag->index_Reagent,
+                                          sample->indexTestingChn,
+                                          reag->indexHole,
+                                          suckCup2TestChannel,
+                                          bloodyAxis,
+                                          suckPRPindex,
+                                          suckBack,
+                                          spitBack,
+                                          suckReagentwait);
+    fillCommandList(reag->pTestingReagentActive, suckCup2TestChannel);
+    reag->testPRPsucknum = suckBack;
+    reag->testPRPsplitnum = spitBack;
+    reag->nextSteOriginReagentNeedle = suckReagentwait;
+    reag->suckCupIndexCommand = suckPRPindex;
+    reag->emptyHoleAxisHands = bloodyAxis;
+    backorigintimes();
+    QLOG_DEBUG() << "样本" << sampleId << "复位后重建抓PRP"
+                 << GlobalData::mapIndexReagentnames(reagent) << "从试剂位XY重跑";
+    return firstCommandCode(reag->pTestingReagentActive);
+}
+
+bool StructInstance::prpClipFinishedAwaitingRead(int sampleId, quint8 reagent) const
+{
+    const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
+    if (!reag || reag->pTestingReagentActive.isEmpty()) {
+        return false;
+    }
+    return !listHasUnfinished(reag->pTestingReagentActive);
+}
+
+bool StructInstance::pppClipFinishedAwaitingRead(int sampleId) const
+{
+    const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
+    if (!sample || sample->t_catchAnemiaTest.isEmpty()) {
+        return false;
+    }
+    return !listHasUnfinished(sample->t_catchAnemiaTest);
+}
+
+StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
+        tSingleActive_list &list,
+        quint8 index,
+        quint8 suckBack,
+        quint8 spitBack,
+        quint32 airvale,
+        bool isSuctionBit,
+        const QString &tag,
+        bool grabAtTray,
+        bool putAtThrowHole,
+        quint8 grabRetryPos,
+        quint8 putRetryPos,
+        int sampleId,
+        QByteArray &retryData,
+        bool &lateTimer)
+{
+    const bool grabQuad = suckBack >= 3;
+    const quint8 suckRead = static_cast<quint8>(suckBack - 1);
+    const quint8 suckOpen = static_cast<quint8>(suckBack - 2);
+    const quint8 suckPre = static_cast<quint8>(suckBack - 3);
+    const quint8 spitCheck = static_cast<quint8>(spitBack - 1);
+    const quint8 spitDiscard = static_cast<quint8>(spitBack - 2);
+    const bool suckFamily = grabQuad && (index == suckBack || index == suckRead
+                                         || index == suckOpen || index == suckPre);
+    const bool spitFamily = (index == spitBack || index == spitCheck || index == spitDiscard);
+    if (!suckFamily && !spitFamily) {
+        return GripperAckUnhandled;
+    }
+
+    if (index == suckBack && actionIndexDone(list, suckBack)) {
+        return GripperAckAdvance;
+    }
+    if (index == spitBack && actionIndexDone(list, spitBack)) {
+        return GripperAckAdvance;
+    }
+
+    const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
+    const quint32 spitTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
+    auto trace = [&](const QString &what, const QString &next) {
+        QLOG_INFO() << "[抓放杯]" << tag
+                    << "样本" << sampleId
+                    << "|" << what
+                    << "| 命令号" << index
+                    << "负压" << airvale
+                    << "吸杯位" << (isSuctionBit ? 1 : 0)
+                    << "| " << next;
+    };
+
+    lateTimer = false;
+    retryData.clear();
+
+    if (index == suckPre) {
+        markAllActionIndexDone(list, suckPre);
+        trace(QString::fromUtf8("预下扎完成，负压关"),
+              QString::fromUtf8("下一步:立刻开负压下扎"));
+        return GripperAckAdvance;
+    }
+
+    if (index == suckOpen) {
+        markAllActionIndexDone(list, suckOpen);
+        lateTimer = true;
+        const int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
+        trace(QString::fromUtf8("开负压下扎完成，泵已开，本步不判"),
+              QString::fromUtf8("下一步:等%1ms后发队列里的读负压").arg(waitMs));
+        return GripperAckAdvance;
+    }
+
+    if (index == suckRead) {
+        clearGripperVacuumPoll();
+        if (GlobalData::isHandsSuckFinish(airvale)) {
+            m_handsFailedtimes = 0;
+            m_gripperGrabReadPhase = GrabReadIdle;
+            markAllActionIndexDone(list, suckRead);
+            trace(QString::fromUtf8("读负压判定:吸牢(负压%1，阈值≤%2)").arg(airvale).arg(grabTh),
+                  QString::fromUtf8("下一步:抬Z，抬起后再确认"));
+            return GripperAckAdvance;
+        }
+        trace(QString::fromUtf8("读负压判定:未吸牢(负压%1，需要≤%2)").arg(airvale).arg(grabTh),
+              QString::fromUtf8("准备加深或结束"));
+        if (gripperGrabRetriesExhausted()) {
+            m_gripperGrabReadPhase = GrabReadIdle;
+            trace(QString::fromUtf8("读负压判定:加深3次仍未吸牢"),
+                  QString::fromUtf8("下一步:异常善后(先抓手复位→双针复位→XY)"));
+            return GripperAckFailed;
+        }
+        incrementGripperGrabRetry();
+        retryData = grabAtTray
+                ? buildGripperTrayGrabDeepenCmd(suckRead, grabRetryPos)
+                : buildGripperChannelGrabDeepenCmd(suckRead, putRetryPos);
+        trace(QString::fromUtf8("读负压判定:未吸牢，加深第%1/3次，泵保持开").arg(m_handsFailedtimes),
+              QString::fromUtf8("下一步:下发加深下扎，回来仍按读负压判定"));
+        return GripperAckRetry;
+    }
+
+    if (index == suckBack) {
+        if (!GlobalData::isHandsLiftStillHolding(airvale, isSuctionBit)) {
+            trace(QString::fromUtf8("抬Z确认:杯子掉了(负压%1，吸杯位%2)")
+                  .arg(airvale).arg(isSuctionBit ? 1 : 0),
+                  QString::fromUtf8("下一步:异常善后"));
+            return GripperAckFailed;
+        }
+        m_handsFailedtimes = 0;
+        markAllActionIndexDone(list, suckBack);
+        trace(QString::fromUtf8("抬Z确认:仍然吸牢"),
+              QString::fromUtf8("下一步:继续去通道或后续动作"));
+        return GripperAckAdvance;
+    }
+
+    if (index == spitDiscard) {
+        markAllActionIndexDone(list, spitDiscard);
+        trace(QString::fromUtf8("放杯下扎完成，负压仍开，本步不判"),
+              QString::fromUtf8("下一步:立刻关负压下扎"));
+        return GripperAckAdvance;
+    }
+
+    if (index == spitCheck) {
+        markAllActionIndexDone(list, spitCheck);
+        clearGripperVacuumPoll();
+        lateTimer = true;
+        const int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
+        trace(putAtThrowHole
+              ? QString::fromUtf8("关负压完成(弃杯孔)，本步不判")
+              : QString::fromUtf8("关负压完成(通道放杯)，本步不判"),
+              QString::fromUtf8("下一步:等%1ms后抬Z，用抬Z应答判定松开").arg(waitMs));
+        return GripperAckAdvance;
+    }
+
+    if (index == spitBack) {
+        const bool releasedByBit = !isSuctionBit;
+        const bool releasedByVac = GlobalData::isHandsCupReleased(airvale, isSuctionBit);
+        if (releasedByBit || releasedByVac) {
+            m_handsThrowFailedtimes = 0;
+            markAllActionIndexDone(list, spitBack);
+            trace(putAtThrowHole
+                  ? QString::fromUtf8("抬Z判定:杯子已松开(弃杯)")
+                  : QString::fromUtf8("抬Z判定:杯子已松开(放杯)"),
+                  QString::fromUtf8("下一步:本段放杯结束"));
+            return GripperAckAdvance;
+        }
+        if (m_handsThrowFailedtimes >= kGripperMaxRetry) {
+            trace(QString::fromUtf8("抬Z判定:上抬3次仍未松开(负压%1，吸杯位%2，松开一般≥%3)")
+                  .arg(airvale).arg(isSuctionBit ? 1 : 0).arg(spitTh),
+                  QString::fromUtf8("下一步:异常善后"));
+            return GripperAckFailed;
+        }
+        m_handsThrowFailedtimes++;
+        const int extraMm = cappedGripperRetryMm(m_handsThrowFailedtimes);
+        if (putAtThrowHole) {
+            retryData = GlobalData::ThrowCupsRaiseRetry(spitBack, extraMm);
+        } else {
+            retryData = GlobalData::putoutCupAtTestChannel(spitBack, extraMm, putRetryPos);
+        }
+        lateTimer = false;
+        trace(QString::fromUtf8("抬Z判定:未松开，上抬重试第%1/3次，再抬%2mm")
+              .arg(m_handsThrowFailedtimes).arg(extraMm),
+              QString::fromUtf8("下一步:下发上抬，回来仍按抬Z判定"));
+        return GripperAckRetry;
+    }
+
+    return GripperAckUnhandled;
 }
 
 
@@ -3175,7 +4419,7 @@ void  StructInstance::backorigintimes(){
 
 
 
-const DATASAMPLESTRUCT *StructInstance::rfindIdSample(const int idSample){
+const DATASAMPLESTRUCT *StructInstance::rfindIdSample(const int idSample) const {
     const auto itSample = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
         [idSample](const DATASAMPLESTRUCT* pSample) {
         return   pSample != nullptr &&  pSample->sample_num == idSample;
@@ -3207,6 +4451,7 @@ void StructInstance::labelCancelTubes(const int sampleid,QList<quint8> &outCance
     outCancelTube.append(itsample->spitanaemia_hole);
     for(BLOODY_INFO  holedata : itsample->bloody_tube){
         outCancelTube.append(holedata.bloody_hole);
+
     }
     QLOG_WARN()<<"放弃样本"<<sampleid<<"血样试管位置"<<outCancelTube;
 }
@@ -3214,6 +4459,85 @@ void StructInstance::labelCancelTubes(const int sampleid,QList<quint8> &outCance
 
 
 
+
+bool StructInstance::dispatchGripperAck(
+        tSingleActive_list &list,
+        quint8 index,
+        quint8 suckBack,
+        quint8 spitBack,
+        quint32 airvale,
+        bool isSuction,
+        const QString &tag,
+        bool grabAtTray,
+        bool putAtThrowHole,
+        quint8 grabRetryPos,
+        quint8 putRetryPos,
+        int sampleId,
+        QByteArray &sendData,
+        bool &kGripperFailed,
+        bool &lateTimer,
+        const std::function<void(bool &finished, QByteArray &nextCmd)> &pullNext)
+{
+    sendData.clear();
+    lateTimer = false;
+    kGripperFailed = GRIPPERMOVE_NORMAL;
+    QByteArray retryData;
+    const GripperAckOutcome outcome = applyGripperVacuumAck(
+                list, index, suckBack, spitBack, airvale, isSuction, tag,
+                grabAtTray, putAtThrowHole, grabRetryPos, putRetryPos,
+                sampleId, retryData, lateTimer);
+    auto cmdNo = [](const QByteArray &cmd) -> int {
+        if (cmd.size() <= GET_COMMAND_INDEX) {
+            return -1;
+        }
+        bool ok = false;
+        const int index = cmd.mid(GET_COMMAND_INDEX, 1).toHex().toUShort(&ok, 16);
+        return ok ? index : -1;
+    };
+    switch (outcome) {
+    case GripperAckFailed:
+        kGripperFailed = GRIPPERMOVE_ABNORMALLY;
+        backorigintimes();
+        QLOG_WARN() << "[抓放杯]" << tag << "样本" << sampleId
+                    << "| 本步失败，交给异常善后";
+        return false;
+    case GripperAckRetry:
+        sendData = retryData;
+        QLOG_INFO() << "[抓放杯]" << tag << "样本" << sampleId
+                    << "| 立即下发重试命令号" << cmdNo(sendData);
+        return false;
+    case GripperAckAdvance: {
+        bool finished = false;
+        if (pullNext) {
+            pullNext(finished, sendData);
+        }
+        if (finished) {
+            QLOG_INFO() << "[抓放杯]" << tag << "样本" << sampleId
+                        << "| 这一段抓杯/放杯做完";
+        } else if (lateTimer) {
+            QLOG_INFO() << "[抓放杯]" << tag << "样本" << sampleId
+                        << "| 等吸杯延时后下发命令号" << cmdNo(sendData);
+        } else {
+            QLOG_INFO() << "[抓放杯]" << tag << "样本" << sampleId
+                        << "| 立即下发命令号" << cmdNo(sendData);
+        }
+        return finished;
+    }
+    case GripperAckPoll:
+        return false;
+    case GripperAckUnhandled:
+    default:
+        QLOG_WARN() << "[抓放杯]" << tag << "样本" << sampleId
+                    << "| 这条抓手应答对不上吸杯/放杯步骤，命令号" << index
+                    << "，当作本步完成继续";
+        markAllActionIndexDone(list, index);
+        bool finished = false;
+        if (pullNext) {
+            pullNext(finished, sendData);
+        }
+        return finished;
+    }
+}
 
 bool StructInstance::processPPPCupToChannel(const int sampleId,const quint8 index,bool HandsControl,
                                               bool isSuction, quint32 airvale,
@@ -3237,9 +4561,9 @@ bool StructInstance::processPPPCupToChannel(const int sampleId,const quint8 inde
         return isMovePPPComplete;
     }
 
-    quint8 putChannel = itsample->indexTestingChn;
-    quint8 ppphole = itsample->spitanaemia_hole;
-    const int MAX_RETRY_COUNT = 3;
+    const quint8 ppphole = itsample->spitanaemia_hole;
+    const quint8 channel = itsample->indexTestingChn >= 0
+            ? static_cast<quint8>(itsample->indexTestingChn) : 0;
 
     if(!HandsControl){
         (*itIndex)->bcompleted = true;
@@ -3247,86 +4571,25 @@ bool StructInstance::processPPPCupToChannel(const int sampleId,const quint8 inde
         return isMovePPPComplete;
     }
 
-    if(isSuction){
-        //吸杯动作复位负压值检测
-        const quint8 ksuckPPPBacknum = itsample->suctionPPPreset;
-        bool  issuckBackSucess =  GlobalData::isHandsSuckFinish(airvale);
-        if(ksuckPPPBacknum == index && !issuckBackSucess){
-            kGripperFailed = GRIPPERMOVE_ABNORMALLY;
-            backorigintimes();
-            sendPPP2ChannelHeanderCommand(sampleId,GRIPPERMOVE_ABNORMALLY);
-            QLOG_DEBUG() <<"吸PPP杯复位失败"<<endl;
-            return false;
-        }
-        else if (ksuckPPPBacknum == index && issuckBackSucess){
-            QLOG_DEBUG()<<"吸杯复位[测试PPP动作]的负压值"<<airvale;
-            (*itIndex)->bcompleted = true;
-            outsuckPPPOtherOrder(itsample,isMovePPPComplete,sendData);
-            return isMovePPPComplete;
-        }
+    return dispatchGripperAck(itsample->t_catchAnemiaTest, index,
+                              itsample->suctionPPPreset, itsample->spitPPPreset,
+                              airvale, isSuction, QString::fromUtf8("夹PPP"),
+                              true, false, ppphole, channel, sampleId,
+                              sendData, kGripperFailed, lateTimer,
+                              [this, itsample](bool &finished, QByteArray &nextCmd) {
+        outsuckPPPOtherOrder(itsample, finished, nextCmd);
+    });
+}
 
-        //第一次吸杯的值舍弃
-        const quint8 firsesuckVal = itsample->suctionPPPreset - 2;
-        if(index == firsesuckVal){
-            (*itIndex)->bcompleted = true;
-            lateTimer = true;
-            QLOG_DEBUG()<<"吸PPP舍弃初次负压值"<<airvale;
-            outsuckPPPOtherOrder(itsample,isMovePPPComplete,sendData);
-            return isMovePPPComplete;
-        }
-
-        const quint8 suckCupNum = itsample->suctionPPPreset - 1;
-        if(suckCupNum == index){
-            bool success =  GlobalData::isHandsSuckFinish(airvale);
-            int& retries = m_handsFailedtimes;
-            const int maxRetries =  MAX_RETRY_COUNT ;
-            if(success){
-                (*itIndex)->bcompleted = true;
-                outsuckPPPOtherOrder(itsample, isMovePPPComplete, sendData);
-                return isMovePPPComplete;
-            }else if(retries <= maxRetries){
-                quint8 numindex = (*itIndex)->index_;
-                retries++;
-                sendData =  GlobalData::GrabtheCupAttheTestTubeTray(numindex, retries, ppphole);
-                return  false;
-            }else {
-                kGripperFailed = GRIPPERMOVE_ABNORMALLY;
-                backorigintimes();
-                sendPPP2ChannelHeanderCommand(sampleId,GRIPPERMOVE_ABNORMALLY);
-                QLOG_DEBUG() << "吸PPP杯3次失败" <<endl;
-                return false;
-            }
-        }
-
-    }else{
-
-        if(itsample->spitPPPreset == index){
-            QLOG_DEBUG()<<"放杯复位[测试PPP动作]的负压值"<<airvale;
-            (*itIndex)->bcompleted = true;
-            outsuckPPPOtherOrder(itsample,isMovePPPComplete,sendData);
-            return isMovePPPComplete;
-        }
-
-        //等待释放负压
-        const quint8 splitCupnum = itsample->spitPPPreset - 1;
-        if(splitCupnum == index){
-            if (GlobalData::isHandsThrowCupFinish(airvale)) {
-                (*itIndex)->bcompleted = true;
-            }
-            outsuckPPPOtherOrder(itsample,isMovePPPComplete,sendData);
-            return isMovePPPComplete;
-        }
-
-        //吐值舍弃初次
-        const quint8 firstsplitnum = itsample->spitPPPreset - 2;
-        if(index == firstsplitnum){
-            (*itIndex)->bcompleted = true;
-            QLOG_DEBUG()<<"吐PPP舍弃初次负压值"<<airvale;
-            outsuckPPPOtherOrder(itsample,isMovePPPComplete,sendData);
-            return isMovePPPComplete;
-        }
+void StructInstance::forceAdvancePppClipQueue(const int sampleId, QByteArray &outSend)
+{
+    outSend.clear();
+    auto *itsample = wfindIdSample(sampleId);
+    if (!itsample) {
+        return;
     }
-    return isMovePPPComplete;
+    bool finished = false;
+    outsuckPPPOtherOrder(itsample, finished, outSend);
 }
 
 void StructInstance::outsuckPPPOtherOrder(const DATASAMPLESTRUCT * psampledata,bool &allFinished,QByteArray &outdata){

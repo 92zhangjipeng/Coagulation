@@ -67,12 +67,13 @@ void Performanceverification::allfinishClearData(){
 }
 
 // 坐标配置独立函数
-void configureChannelCoordinates(PerformanceData& data, SingletonAxis* axis) {
-    axis->chnZoneAxisPos(READ_OPERRAT, data.channelIndex,
-                        MOTOR_HANDS_INDEX, data.handsChannelCoord);
+void configureChannelCoordinates(PerformanceData& data) {
+    SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT, data.channelIndex,
+                                               MOTOR_HANDS_INDEX, data.handsChannelCoord);
 }
 // 测试台坐标配置
-void configureTestTaryPositions(PerformanceData& data, SingletonAxis* axis) {
+void configureTestTaryPositions(PerformanceData& data) {
+    SingletonAxis *axis = SingletonAxis::GetInstance();
     const auto configure = [&](quint8 count, int motor, QPoint& coord) {
         axis->testTaryZoneAxisPos(READ_OPERRAT, count, motor, coord);
     };
@@ -123,7 +124,7 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
         pdataPE->channelIndex = iter.value() - 1;
         const quint8 gripperDown = ini._gethandsdownheiht(pdataPE->channelIndex);
         const quint8 throwGripperDown = ini._gethandsdownthrowcpus();
-        configureChannelCoordinates(*pdataPE,axis);
+        configureChannelCoordinates(*pdataPE);
 
         // 试管配置
         pdataPE->waterTubeCount = outfreeEmptyTube();
@@ -133,7 +134,7 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
         pdataPE->basicLiquidTubeCountL = outfreeEmptyTube();
 
         // 统一配置测试台坐标
-        configureTestTaryPositions(*pdataPE, axis);
+        configureTestTaryPositions(*pdataPE);
 
         // 参数设置
         pdataPE->waterLevel = 1;
@@ -531,7 +532,7 @@ void Performanceverification::TrageIndexTube(const quint8& index, const int&loss
     FullyAutomatedPlatelets::pinstancesqlData()->UpdateEmptyTube_State(index,lossKind);
 }
 
-void Performanceverification::suckWaterFunc(const quint8 addr,const quint8 indexnum){
+void Performanceverification::suckWaterFunc(const quint8 /*addr*/, const quint8 indexnum){
     auto *pdata = findChannel(m_peChannel);
     if(!pdata){
         QLOG_DEBUG()<<"PE吸蒸馏水遍历指令为空";
@@ -548,7 +549,7 @@ void Performanceverification::suckWaterFunc(const quint8 addr,const quint8 index
     }
 }
 
-void Performanceverification::testWaterFunc(const quint8 addr,const quint8 indexnum){
+void Performanceverification::testWaterFunc(const quint8 /*addr*/, const quint8 indexnum){
     auto *pdata = findChannel(m_peChannel);
     if(!pdata){
         QLOG_DEBUG()<<"PE测试蒸馏水遍历指令为空";
@@ -603,7 +604,7 @@ void Performanceverification::obtainChannelTestVal(int& val, TestType testType) 
 
 
 
-void Performanceverification::throwWaterFunc(const quint8 addr,const quint8 indexnum){
+void Performanceverification::throwWaterFunc(const quint8 /*addr*/, const quint8 indexnum){
     auto *pdata = findChannel(m_peChannel);
     if(!pdata){
         QLOG_DEBUG()<<"PE弃杯蒸馏水遍历指令为空";
@@ -619,7 +620,7 @@ void Performanceverification::throwWaterFunc(const quint8 addr,const quint8 inde
 	}
 }
 
-void Performanceverification::cleanPinFunc(const quint8 addr,const quint8 indexnum){
+void Performanceverification::cleanPinFunc(const quint8 /*addr*/, const quint8 indexnum){
     auto *pdata = findChannel(m_peChannel);
     if(!pdata){
         QLOG_DEBUG()<<"PE清洗遍历指令为空";
@@ -635,7 +636,7 @@ void Performanceverification::cleanPinFunc(const quint8 addr,const quint8 indexn
 }
 
 
-void  Performanceverification::suckBasicLinqueFunc(const quint8 addr,const quint8 indexnum)
+void Performanceverification::suckBasicLinqueFunc(const quint8 /*addr*/, const quint8 indexnum)
 {
     auto *pdata = findChannel(m_peChannel);
     if(!pdata){

@@ -1,23 +1,35 @@
-﻿#pragma execution_character_set("utf-8")
-#include "controldimming.h"  //控温调光
+﻿#ifdef _MSC_VER
+#pragma warning(disable: 4819)
+#pragma execution_character_set("utf-8")
+#endif
+#include "controldimming.h"
 
 #include "QsLog/include/QsLog.h"
 #include "cglobal.h"
-#include <mainwindow.h>
 #include <operclass/fullyautomatedplatelets.h>
-#include <QMessagebox>
-#include <QThread>
-#include <QTimer>
 #include <ini_file.h>
 #include <structinstance.h>
-#include <warn_interface.h>
-#include <qmainwindow.h>
 #include <globaldata.h>
+#include <QtGlobal>
+#include <QDateTime>
+#include <cmath>
 
-#define DIMMINGDIFFERENCEABSOLUTEVALUE 100 //调光差绝对值
+namespace {
+constexpr int kEmptyChannelAdcTarget = 3300; // 空通道应对齐的 AD
+constexpr int kAdcMax = 4095;                // 通道 ADC 满量程
+constexpr int kDimmingAbsThreshold = 200;    // |空通道ADC - 3300|，约 3100~3500
+constexpr int kSettleAfterReadyMs = 2000;    // 齐套后再跟最新 ADC 稳定 2 秒再判
+constexpr int kMaxSmartCupClearRounds = 2;   // 未勾选「初始清空试杯」时自动丢杯轮数
+qint64 g_dimmingSettleStartMs = 0;
+}
 
-controldimming::controldimming(QObject *parent) : QObject(parent)
-  ,m_startCollectChannelVal(false),m_totalchn(0),m_frequency(0)
+controldimming::controldimming(QObject *parent)
+    : QObject(parent)
+    , m_startCollectChannelVal(false)
+    , m_discardNextCompleteFrame(false)
+    , m_frequency(0)
+    , m_smartCupClearAttempts(0)
+    , m_totalchn(0)
 {
     m_testChnDimmingStu.clear();
 }
@@ -26,16 +38,13 @@ controldimming::~controldimming()
 {
     qDeleteAll(m_testChnDimmingStu);
     m_testChnDimmingStu.clear();
-    QLOG_DEBUG()<<"退出调光实例";
+    QLOG_DEBUG() << "退出调光实例";
 }
-
 
 void controldimming::getdimming_status(bool &finished)
 {
-    finished = cglobal::g_controldimmingfinished;
+    finished = cglobal::g_controldimmingfinished.load();
 }
-
-
 
 void controldimming::sycnequipment(quint8 index)
 {
@@ -44,53 +53,96 @@ void controldimming::sycnequipment(quint8 index)
         {KS800, 8},
         {KS1200, 12}
     };
-    m_totalchn = channelMap.value(index, m_totalchn);
+    m_totalchn = static_cast<quint8>(channelMap.value(index, 0));
+    QLOG_INFO() << "调光同步机型通道数:" << m_totalchn << "机型:" << index;
 }
 
+bool controldimming::moduleAlreadyRegistered(int module) const
+{
+    for (const ModuleChannelData *p : m_testChnDimmingStu) {
+        if (p && p->ModuleNum == static_cast<quint8>(module)) {
+            return true;
+        }
+    }
+    return false;
+}
 
+void controldimming::markDimmingFinished(const QString &reason)
+{
+    cglobal::g_controldimmingfinished = true;
+    m_smartCupClearAttempts = 0;
+    m_startCollectChannelVal = false;
+    emit requestDimmingProgress(false);
+    emit reminderText(PROMPTLOG, reason);
+    QLOG_INFO() << reason;
+}
 
-
-
-//温度达标的完成模组号
 void controldimming::recvmoduletemp(int module)
 {
-    // 预定义模块配置参数
-    const int channels_per_module = 4;
-    const int start_channel = TEST_CHANNEL_1 + ((module - 1) * channels_per_module);
+    if (m_totalchn == 0) {
+        QLOG_ERROR() << "机型通道数未同步(m_totalchn=0)，忽略模组" << module << "控温调光";
+        return;
+    }
+    if (cglobal::g_controldimmingfinished.load()) {
+        QLOG_DEBUG() << "调光已完成，忽略模组" << module << "再次控温事件";
+        return;
+    }
+    if (moduleAlreadyRegistered(module)) {
+        QLOG_DEBUG() << "模组" << module << "已登记，跳过重复控温触发";
+        return;
+    }
 
-    // 使用C++11智能指针管理内存
-    typedef std::unique_ptr<ModuleChannelData> ModuleDataPtr;
+    // 首个模组到达 37℃：开启本轮调光
+    if (m_testChnDimmingStu.isEmpty()) {
+        m_frequency = 0;
+        m_smartCupClearAttempts = 0;
+        dimmingModule.clear();
+        m_startCollectChannelVal = false;
+        m_discardNextCompleteFrame = false;
+        cglobal::g_controldimmingfinished = false;
+        QLOG_INFO() << "模组达控温阈值，开始空通道AD对齐检测(目标3300)";
+    }
 
-    // 预分配内存提升性能
-    m_testChnDimmingStu.reserve(m_testChnDimmingStu.size() + channels_per_module);
+    constexpr int channelsPerModule = 4;
+    const int startChannel = TEST_CHANNEL_1 + ((module - 1) * channelsPerModule);
 
-    for (int i = 0; i < channels_per_module; ++i) {
-        ModuleDataPtr pModuleData(new ModuleChannelData);
+    m_testChnDimmingStu.reserve(m_testChnDimmingStu.size() + channelsPerModule);
+    for (int i = 0; i < channelsPerModule; ++i) {
+        ModuleChannelData *pModuleData = new ModuleChannelData;
         pModuleData->ControlTemp = true;
-        pModuleData->ModuleNum = module;
-        pModuleData->ModuleDimmingVal = INI_File().getModuledimmingVal(module);
-        pModuleData->indexChannel = start_channel + i;
+        pModuleData->ModuleNum = static_cast<quint8>(module);
+        pModuleData->ModuleDimmingVal = kEmptyChannelAdcTarget; // 空通道 AD 对齐 3300
+        pModuleData->ledDriveVal = 0;
+        pModuleData->indexChannel = static_cast<quint8>(startChannel + i);
         pModuleData->channdelData = 0;
         pModuleData->DimmingTimes = 0;
         pModuleData->bneedcontrastive = false;
         pModuleData->Dimmingsuccessful = false;
-		m_testChnDimmingStu.push_back(pModuleData.release());
+        m_testChnDimmingStu.push_back(pModuleData);
     }
 
-   // 进度条件判断
-   if (m_testChnDimmingStu.size() >= m_totalchn) {  // 使用>=更安全
-       m_startCollectChannelVal = true;
-       FullyAutomatedPlatelets::mainWindow()->dimmingprogress(true);
-   }
-   return;
+    QLOG_INFO() << "模组" << module << "控温达标，登记空通道检测"
+                << startChannel << "-" << (startChannel + channelsPerModule - 1)
+                << "AD目标" << kEmptyChannelAdcTarget
+                << "已登记" << m_testChnDimmingStu.size() << "/" << m_totalchn;
+
+    if (m_testChnDimmingStu.size() >= m_totalchn) {
+        m_startCollectChannelVal = true;
+        m_discardNextCompleteFrame = true; // 丢掉刚到温的第一帧，避免未稳定就判失败
+        emit requestDimmingProgress(true);
+    }
 }
 
-
 void controldimming::Collectchannelvalues(QVector<ModuleChannelData *> &ChannelVet,
-                                            quint8 indexChannel,int indexChannelData)
+                                          quint8 indexChannel, int indexChannelData)
 {
     for (ModuleChannelData *pmoduleState : ChannelVet) {
-        if (pmoduleState->ControlTemp && pmoduleState->indexChannel == indexChannel && !pmoduleState->bneedcontrastive) {
+        if (pmoduleState
+            && pmoduleState->ControlTemp
+            && pmoduleState->indexChannel == indexChannel) {
+            if (indexChannelData <= 0 || indexChannelData > kAdcMax) {
+                break;
+            }
             pmoduleState->channdelData = indexChannelData;
             pmoduleState->bneedcontrastive = true;
             break;
@@ -98,179 +150,199 @@ void controldimming::Collectchannelvalues(QVector<ModuleChannelData *> &ChannelV
     }
 }
 
-
 void controldimming::handleFailedChannels(const QSet<quint8>& failedChannels)
 {
     dimmingModule.clear();
-    QList<quint8> OnceDimmingChn; //已经跳过光值的通道
-    OnceDimmingChn.clear();
+    QList<quint8> onceDimmingChn;
 
-    QVector<quint8> EndDimmingList;
-    EndDimmingList.clear();
-
-    for(auto *pModule : m_testChnDimmingStu){
-		if (!failedChannels.contains(pModule->indexChannel)) continue;
-
-		if (m_frequency == 0) {
-			pModule->DimmingTimes = 1;
-		}
-		else if (m_frequency == 1) {
-			pModule->DimmingTimes = 2;
-			if(!OnceDimmingChn.contains(pModule->indexChannel))
-				OnceDimmingChn.append(pModule->indexChannel);
-		}
-		else if (m_frequency == 2) {
-			pModule->DimmingTimes = 3;
-			if (!EndDimmingList.contains(pModule->indexChannel - 1)) {
-				EndDimmingList.push_back(pModule->indexChannel - 1);
-			}
-		}
-		pModule->bneedcontrastive = false;
-
-		if (!dimmingModule.contains(pModule->ModuleNum)) {
-			dimmingModule.insert(pModule->ModuleNum, pModule->ModuleDimmingVal);
-		}
+    for (ModuleChannelData *pModule : m_testChnDimmingStu) {
+        if (!pModule || !failedChannels.contains(pModule->indexChannel)) {
+            continue;
+        }
+        pModule->DimmingTimes = static_cast<quint8>(qMin(m_frequency + 1, 3));
+        if (!onceDimmingChn.contains(pModule->indexChannel)) {
+            onceDimmingChn.append(pModule->indexChannel);
+        }
+        pModule->bneedcontrastive = false;
+        QLOG_WARN() << "空通道AD未对齐 通道" << pModule->indexChannel
+                    << "ADC" << pModule->channdelData
+                    << "目标" << pModule->ModuleDimmingVal
+                    << "（有测试杯挡光会明显低于3300，不会改LED去硬拉）";
     }
 
-	switch (m_frequency)
-	{
-		case 0: sendoutDimmingCode();
-			break;
-		case 1: emit showDimmingFailedChn(OnceDimmingChn);
-			break;
-		case 2: Disableitdirectly(EndDimmingList);
-			break;
-		default: break;
-	}
+    emit showDimmingFailedChn(onceDimmingChn);
 }
-
-
 
 void controldimming::ProactiveComparisons(int differenceThreshold)
 {
-	QSet<quint8> failedChannels;
-    failedChannels.clear();
-	for (auto *pmoduleinfo : qAsConst(m_testChnDimmingStu)) {
-		const int delta = std::abs(pmoduleinfo->channdelData - pmoduleinfo->ModuleDimmingVal);
-		pmoduleinfo->Dimmingsuccessful = (delta <= differenceThreshold);
+    QSet<quint8> failedChannels;
+    for (ModuleChannelData *pmoduleinfo : qAsConst(m_testChnDimmingStu)) {
+        if (!pmoduleinfo) {
+            continue;
+        }
+        const QString chOpenKey = QString("TestTheChanne1Opening_%1").arg(pmoduleinfo->indexChannel);
+        if (!INI_File().rConfigPara(chOpenKey).toBool()) {
+            pmoduleinfo->Dimmingsuccessful = true;
+            continue;
+        }
+        if (pmoduleinfo->ModuleDimmingVal <= 0) {
+            pmoduleinfo->Dimmingsuccessful = false;
+            failedChannels.insert(pmoduleinfo->indexChannel);
+            QLOG_WARN() << "通道" << pmoduleinfo->indexChannel
+                        << "模组" << pmoduleinfo->ModuleNum << "空通道AD目标为0";
+            continue;
+        }
+        const int delta = std::abs(pmoduleinfo->channdelData - pmoduleinfo->ModuleDimmingVal);
+        const bool ok = (delta <= differenceThreshold);
+        pmoduleinfo->Dimmingsuccessful = ok;
+        QLOG_INFO() << "空通道AD检测 通道" << pmoduleinfo->indexChannel
+                    << "ADC" << pmoduleinfo->channdelData
+                    << "目标" << pmoduleinfo->ModuleDimmingVal
+                    << "偏差" << delta
+                    << (ok ? "通过" : "未对齐(可能有杯或光路异常)");
+        if (!ok) {
+            failedChannels.insert(pmoduleinfo->indexChannel);
+        }
+    }
 
-		if (!pmoduleinfo->Dimmingsuccessful) {
-			failedChannels.insert(pmoduleinfo->indexChannel);
-		}
-	}
-
-	if (failedChannels.isEmpty()) {
-        FullyAutomatedPlatelets::mainWindow()->dimmingprogress(false); //调光进度条
-		cglobal::g_controldimmingfinished = true;
-		emit reminderText(PROMPTLOG, "所有模组调光完成!");
-		QLOG_DEBUG() << "所有模组调光完成" << endl;
+    if (failedChannels.isEmpty()) {
+        markDimmingFinished(tr("所有空通道AD已对齐3300"));
         return;
-	}
+    }
+
+    const bool legacyBootClear = INI_File().rConfigPara(INITGRABCUPS).toBool();
+    if (!legacyBootClear && m_smartCupClearAttempts < kMaxSmartCupClearRounds) {
+        QList<quint8> toThrow;
+        for (quint8 ch : failedChannels) {
+            const QString wkey = QString("TestTheChanne1Opening_%1").arg(ch);
+            if (INI_File().rConfigPara(wkey).toBool()) {
+                toThrow.append(ch);
+            }
+        }
+        if (!toThrow.isEmpty()) {
+            ++m_smartCupClearAttempts;
+            m_startCollectChannelVal = false;
+            g_dimmingSettleStartMs = 0;
+            for (ModuleChannelData *pModule : m_testChnDimmingStu) {
+                if (!pModule || !failedChannels.contains(pModule->indexChannel)) {
+                    continue;
+                }
+                pModule->bneedcontrastive = false;
+                pModule->channdelData = 0;
+            }
+            QStringList chStrs;
+            for (quint8 ch : toThrow) {
+                chStrs.append(QString::number(ch));
+            }
+            const QString msg = tr("空通道AD未对齐，正在自动清理可能遗留的测试杯(通道 %1)，第 %2 轮")
+                                    .arg(chStrs.join(','))
+                                    .arg(m_smartCupClearAttempts);
+            QLOG_INFO() << msg;
+            emit reminderText(PROMPTLOG, msg);
+            emit requestSmartCupClear(toThrow);
+            return;
+        }
+    }
 
     handleFailedChannels(failedChannels);
-    return;
+}
+
+void controldimming::startEmptyChannelRecheck()
+{
+    g_dimmingSettleStartMs = 0;
+    m_startCollectChannelVal = true;
+    m_discardNextCompleteFrame = true;
+    ++m_frequency;
+    QLOG_INFO() << "空通道AD重检，第" << m_frequency << "轮";
 }
 
 void controldimming::theEndDimmingActive()
 {
-    sendoutDimmingCode();
+    // 取消 = 取出杯子后重新检测空通道 AD，不改 LED
+    startEmptyChannelRecheck();
 }
 
 void controldimming::Disableitdirectly(QVector<quint8> FailedDimmingChn)
 {
-    //直接禁用
-    QString outstr = "调光失败通道";
-    FullyAutomatedPlatelets::pinstanceequipmentconfig()->disablechn(FailedDimmingChn); //同步设置界面通道状态
-    for(int n = 0; n < FailedDimmingChn.size(); n++)
-    {
-       quint8 indexChannel = FailedDimmingChn.at(n);
-       outstr+= QString::number(indexChannel);
-       QString wkey = QString("TestTheChanne1Opening_%1").arg(indexChannel + 1);
-       INI_File().wConfigPara(wkey,false);
-       //INI_File().SetChannelState(indexChannel + 1,false);
-       StructInstance::getInstance()->config_testChn_State(indexChannel,CHN_STATUS_DISABLE);
-       FullyAutomatedPlatelets::pinstanceTesting()->recv_NotifyChannleState(indexChannel + 1, false);
+    QString outstr = tr("调光失败通道");
+    FullyAutomatedPlatelets::pinstanceequipmentconfig()->disablechn(FailedDimmingChn);
+    for (int n = 0; n < FailedDimmingChn.size(); ++n) {
+        const quint8 indexChannel = FailedDimmingChn.at(n);
+        outstr += QString::number(indexChannel + 1);
+        if (n + 1 < FailedDimmingChn.size()) {
+            outstr += QLatin1Char(',');
+        }
+        const QString wkey = QString("TestTheChanne1Opening_%1").arg(indexChannel + 1);
+        INI_File().wConfigPara(wkey, false);
+        StructInstance::getInstance()->config_testChn_State(indexChannel, CHN_STATUS_DISABLE);
+        FullyAutomatedPlatelets::pinstanceTesting()->recv_NotifyChannleState(indexChannel + 1, false);
     }
-    FullyAutomatedPlatelets::mainWindow()->dimmingprogress(false); //调光进度条
-    cglobal::g_controldimmingfinished = true;
-    emit reminderText(PROMPTLOG,"所有模组调光完成!");
-    QLOG_DEBUG()<<"所有模组调光完成"<<endl;
-    return;
+    markDimmingFinished(outstr + tr("已禁用，调光流程结束"));
 }
-
 
 void controldimming::sendoutDimmingCode()
 {
-    QByteArrayList dimmingLedList;
-    dimmingLedList.clear();
-    auto itmap = dimmingModule.begin();
-    while(itmap != dimmingModule.end())
-    {
-       QByteArray dimmingLed = GlobalData::WriteModuleLedData(itmap.key(),W_MODULE_LED_DIMMING,itmap.value());
-       dimmingLedList.append(dimmingLed);//调光
-       itmap++;
+    // 初始化只做空通道 AD 检测，不再闭环改 LED
+    if (dimmingModule.isEmpty()) {
+        return;
     }
-    emit writemodulLedData(dimmingLedList, "自动调光");
+    QLOG_WARN() << "初始化调光已改为空通道检测，忽略LED闭环下发" << dimmingModule.keys();
+    dimmingModule.clear();
 }
 
-//收到第一次主动调光
 void controldimming::SecondDimmingModule(quint8 notifyModule, int times_)
 {
-    if(dimmingModule.contains(notifyModule))
-    {
-        dimmingModule.remove(notifyModule);
-    }
-    if(dimmingModule.size() == 0)
-    {
-        m_startCollectChannelVal = true; //采集通道值
-        m_frequency = m_frequency + times_;
-    }
-    return;
+    Q_UNUSED(notifyModule);
+    Q_UNUSED(times_);
+    // 初始化不再写 LED，应答路径若仍进来，按空通道重检处理
+    startEmptyChannelRecheck();
 }
 
-//获取到的通道数据
-void controldimming::_obtainChndata(const quint8 indexChannel, const int indexChannelData) {
-    if (!m_startCollectChannelVal) return;
+void controldimming::_obtainChndata(const quint8 indexChannel, const int indexChannelData)
+{
+    if (!m_startCollectChannelVal || cglobal::g_controldimmingfinished.load()) {
+        return;
+    }
 
     Collectchannelvalues(m_testChnDimmingStu, indexChannel + 1, indexChannelData);
-    bool AllChnContrastState = true;
 
-    // 使用智能指针避免裸指针
-    for (auto& pChnVal : m_testChnDimmingStu) { // 范围for循环更安全
-        if (pChnVal == nullptr) { // 显式判空
-            // 日志或处理：例如跳过或标记错误
-            AllChnContrastState = false;
-            continue;
-        }
-        if (!pChnVal->bneedcontrastive) {
-            AllChnContrastState = false;
+    bool allReady = !m_testChnDimmingStu.isEmpty();
+    for (ModuleChannelData *pChnVal : m_testChnDimmingStu) {
+        if (!pChnVal || !pChnVal->bneedcontrastive) {
+            allReady = false;
             break;
         }
     }
 
-    if (AllChnContrastState) {
+    if (allReady) {
+        if (m_discardNextCompleteFrame) {
+            m_discardNextCompleteFrame = false;
+            for (ModuleChannelData *pChnVal : m_testChnDimmingStu) {
+                if (pChnVal) {
+                    pChnVal->bneedcontrastive = false;
+                    pChnVal->channdelData = 0;
+                }
+            }
+            g_dimmingSettleStartMs = 0;
+            QLOG_INFO() << "丢弃未稳定的第一组ADC，等待下一组齐套后再稳定采集";
+            return;
+        }
+        if (g_dimmingSettleStartMs == 0) {
+            g_dimmingSettleStartMs = QDateTime::currentMSecsSinceEpoch();
+            QLOG_INFO() << "通道ADC已齐套，稳定采集" << kSettleAfterReadyMs << "ms后再对比";
+            return;
+        }
+        const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - g_dimmingSettleStartMs;
+        if (elapsed < kSettleAfterReadyMs) {
+            return; // 继续用最新 ADC，对齐设置页上看到的 3300
+        }
+        g_dimmingSettleStartMs = 0;
         m_startCollectChannelVal = false;
-        ProactiveComparisons(DIMMINGDIFFERENCEABSOLUTEVALUE);//主动对比
+        ProactiveComparisons(kDimmingAbsThreshold);
     }
 }
 
-
 quint8 controldimming::_chnParentModule(const quint8 index_chn)
 {
-    quint8 index_module = index_chn/4 + 1;
-    return index_module;
+    return static_cast<quint8>(index_chn / 4 + 1);
 }
-
-
-
-
-
-
-
-
-
-
-//QString datastr = QString("模组%1LED光值主动对比完成!").arg(indexModule);
-// this->reminderText(PROMPTLOG,datastr);
-
-

@@ -1,4 +1,7 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma warning(disable: 4819)
+#pragma execution_character_set("utf-8")
+#endif
 #include "globaldata.h"
 #include "QsLog/include/QsLog.h"
 #include <QCoreApplication>
@@ -12,6 +15,7 @@
 #include "cglobal.h"
 #include "ini_file.h"
 #include "quiutils.h"
+#include "custom_struct.h"
 #include "transformeddata.h"
 #include <QDateTime>
 #include <QHeaderView>
@@ -25,17 +29,59 @@ GlobalData::GlobalData()
 
 
 
-void  GlobalData::QCommboxSheet(QComboBox *pcommbox)
+void GlobalData::QCommboxSheet(QComboBox *pcommbox)
 {
-    QString css_ = "QComboBox{border-radius:5px; padding:2px 4px; font: 19 17pt '楷体'; border: 2px solid rgba(220,220,220);background-color:rgba(188,187,183);}"
-                           "QComboBox::drop-down {subcontrol-origin: padding;subcontrol-position: top right;width: 15px; border:none;}"
-                           "QComboBox::down-arrow {height:35px; width:30px; image: url(:/Picture/minus.png);}"
-                           "QComboBox QAbstractItemView{background:rgba(255,255,255,1);border:1px solid rgba(150,150,150,1);border-radius:0px 0px 5px 5px;font: 24px; font-family: 楷体;outline: 0px;}"
-                           "QComboBox QAbstractItemView::item{ height:35px; color:#666666; padding-left:9px; background-color:#FFFFFF;}"
-                           "QComboBox QAbstractItemView::item:hover{background-color:#409CE1;color:#ffffff;}"
-                           "QComboBox QAbstractItemView::item:selected{background-color:#409CE1;color:#ffffff;}"
-                           "QComboBox:on { padding-top: 3px;padding-left: 3px;}"
-                           "QComboBox::down-arrow:on {top: 1px;left:3px;}";
+    QString css_ = "QComboBox{"
+                   "   border-radius:6px;"
+                   "   padding:4px 8px;"
+                   "   font:14px '微软雅黑', '楷体';"
+                   "   border:1px solid #AACDE2;"
+                   "   background-color:#FFFFFF;"
+                   "   color:#1A4D6B;"
+                   "}"
+                   "QComboBox::drop-down {"
+                   "   subcontrol-origin:padding;"
+                   "   subcontrol-position:top right;"
+                   "   width:20px;"
+                   "   border-left:1px solid #AACDE2;"
+                   "}"
+                   "QComboBox::down-arrow {"
+                   "   image:url(:/Picture/minus.png);"
+                   "   width:12px;"
+                   "   height:12px;"
+                   "}"
+                   "QComboBox QAbstractItemView{"
+                   "   background:#FFFFFF;"
+                   "   border:1px solid #AACDE2;"
+                   "   border-radius:6px;"
+                   "   font:12px '微软雅黑', '楷体';"
+                   "   outline:0px;"
+                   "}"
+                   "QComboBox QAbstractItemView::item{"
+                   "   height:32px;"
+                   "   color:#1A4D6B;"
+                   "   padding-left:9px;"
+                   "   background-color:#FFFFFF;"
+                   "}"
+                   "QComboBox QAbstractItemView::item:hover{"
+                   "   background-color:#5FA8D3;"
+                   "   color:#ffffff;"
+                   "}"
+                   "QComboBox QAbstractItemView::item:selected{"
+                   "   background-color:#2C7DA0;"
+                   "   color:#ffffff;"
+                   "}"
+                   "QComboBox:on {"
+                   "   padding-top:2px;"
+                   "   padding-left:6px;"
+                   "}"
+                   "QComboBox::down-arrow:on {"
+                   "   top:1px;"
+                   "   left:2px;"
+                   "}"
+                   "QComboBox:focus {"
+                   "   border:2px solid #5FA8D3;"
+                   "}";
     pcommbox->setStyleSheet(css_);
     pcommbox->update();
     return;
@@ -44,65 +90,139 @@ void  GlobalData::QCommboxSheet(QComboBox *pcommbox)
 void GlobalData::QLableSheet(QLabel *plable){
     plable->setStyleSheet(
         "QLabel {"
-        "   background-color: qradialgradient(cx:0.5, cy:0.5, radius: 0.6,"
-        "       fx:0.5, fy:0.5, stop:0 #FFFFFF, stop:1 #F5F5F5);"
-        "   border: 3px solid qconicalgradient(cx:0.5, cy:0.5, angle:90,"
-        "       stop:0 #4CAF50, stop:0.5 #2196F3, stop:1 #2196F3);"
-        "   border-radius: 15px;"
-        "   padding: 15px;"
-        "   color: #212121;"
-        "   font: bold 14px '楷体';"
-        "   min-width: 100px;"
-        "   min-height: 20px;"
+        "   background-color: #F0F9FF;"
+        "   border: 1px solid #AACDE2;"
+        "   border-radius: 8px;"
+        "   padding: 8px 12px;"
+        "   color: #1A4D6B;"
+        "   font: 12px '微软雅黑', '楷体';"
+        "   min-width: 80px;"
+        "   min-height: 24px;"
         "}"
         "QLabel:hover {"
-        "   border: 3px solid #2196F3;"
-        "   box-shadow: 0 0 15px rgba(33,150,243,0.3);"
-        "}"
-        "QLabel:pressed {"
-        "   background-color: #E0E0E0;"
+        "   border: 1px solid #5FA8D3;"
+        "   background-color: #E8F4F8;"
         "}"
     );
 }
 
 void GlobalData::QLineEditSheet(QLineEdit *PLineEdit)
 {
-    QString  css_ = "QLineEdit:hover {border: 1px solid #298DFF;border-radius: 3px;background-color: #F2F2F2;color: "
-                    "#298DFF;selection-background-color: #298DFF;selection-color: #F2F2F2;}"
-                    "QLineEdit[echoMode = '2'] { lineedit-password-character: 9679;lineedit-password-mask-delay: 2000;}"
-                    "QLineEdit{border: 1px solid #298DFF;background-color: #F2F2F2;}"
-                    "QLineEdit:disabled {border: 1px solid #CDCDCD;background-color: #CDCDCD;color: #B4B4B4; }"
-                    "QLineEdit:read-only { background-color: #CDCDCD;color: #F2F2F2;}";
+    QString css_ = "QLineEdit{"
+                   "   border: 1px solid #AACDE2;"
+                   "   background-color: #FFFFFF;"
+                   "   border-radius: 6px;"
+                   "   padding: 5px 8px;"
+                   "   font: 12px '微软雅黑', '楷体';"
+                   "   color: #1A4D6B;"
+                   "   selection-background-color: #5FA8D3;"
+                   "   selection-color: #FFFFFF;"
+                   "}"
+                   "QLineEdit:hover {"
+                   "   border: 1px solid #5FA8D3;"
+                   "}"
+                   "QLineEdit:focus {"
+                   "   border: 2px solid #5FA8D3;"
+                   "}"
+                   "QLineEdit:disabled {"
+                   "   background-color: #E8F0F5;"
+                   "   border: 1px solid #C8E0F0;"
+                   "   color: #6A8EAE;"
+                   "}"
+                   "QLineEdit:read-only {"
+                   "   background-color: #E8F0F5;"
+                   "   color: #6A8EAE;"
+                   "}";
     PLineEdit->setStyleSheet(css_);
-    PLineEdit->update();                                                                                                                                                                                                                                                                                                                                                   "QLineEdit:disabled {border: 1px solid #CDCDCD;background-color: #CDCDCD;color: #B4B4B4;}QLineEdit:read-only { /* QLineEdit在只读时的状态 */background-color: #CDCDCD;color: #F2F2F2;}";
+    PLineEdit->update();
 }
 
-
-void GlobalData::QCheckboxSheet(QCheckBox *pbox,const QString name)
+void GlobalData::QCheckboxSheet(QCheckBox *pbox, const QString name)
 {
-   QString css_ = "QCheckBox::indicator {width:32px; height: 32px;}"
-                  "QCheckBox::indicator::unchecked {image: url(:/Picture/check_box_unchecked.png);width:32px;height: 32px;}"
-                  "QCheckBox::indicator::checked {image: url(:/Picture/check-box-checked.png);width:32px;height: 32px;}"
-                  "QCheckBox::indicator:enabled:unchecked:hover {image: url(:/Picture/check_box_hove.png);width:32px;height: 32px;}";
-   pbox->setStyleSheet(css_);
-   pbox->setText(name);
-   pbox->update();
-   return;
-}
-
-void GlobalData::QCheckboxSheetChnstate(QCheckBox *pbox,const QString name)
-{
-    QString css_ ="QCheckBox::indicator {width: 64px; height: 64px;color: rgb(0, 0, 0);}"
-                  "QCheckBox::indicator:unchecked {image: url(:/Picture/SetPng/closechannel.png);width: 64px; height: 64px;}"
-                  "QCheckBox::indicator:checked {image: url(:/Picture/SetPng/openchannel.png);width: 64px; height: 64px;}";
-
+    QString css_ = "QCheckBox {"
+                   "   font: 12px '微软雅黑', '楷体';"
+                   "   color: #1A4D6B;"
+                   "   spacing: 8px;"
+                   "}"
+                   "QCheckBox::indicator {"
+                   "   width: 24px;"
+                   "   height: 24px;"
+                   "   border-radius: 5px;"
+                   "}"
+                   "QCheckBox::indicator:unchecked {"
+                   "   background-color: #FFFFFF;"
+                   "   border: 1.5px solid #AACDE2;"
+                   "}"
+                   "QCheckBox::indicator:unchecked:hover {"
+                   "   border: 1.5px solid #5FA8D3;"
+                   "   background-color: #F0F9FF;"
+                   "}"
+                   "QCheckBox::indicator:checked {"
+                   "   background-color: #5FA8D3;"
+                   "   border: 1.5px solid #5FA8D3;"
+                   "}"
+                   "QCheckBox::indicator:checked:after {"
+                   "   content: '✓';"
+                   "   color: white;"
+                   "   font-size: 16px;"
+                   "   font-weight: bold;"
+                   "   display: block;"
+                   "   text-align: center;"
+                   "   line-height: 22px;"
+                   "}"
+                   "QCheckBox::indicator:checked:hover {"
+                   "   background-color: #3A86A8;"
+                   "   border: 1.5px solid #3A86A8;"
+                   "}"
+                   "QCheckBox::indicator:checked:disabled {"
+                   "   background-color: #C8E0F0;"
+                   "   border: 1.5px solid #C8E0F0;"
+                   "}"
+                   "QCheckBox::indicator:checked:disabled:after {"
+                   "   color: #FFFFFF;"
+                   "}"
+                   "QCheckBox::indicator:unchecked:disabled {"
+                   "   background-color: #F0F0F0;"
+                   "   border: 1.5px solid #D0D0D0;"
+                   "}";
     pbox->setStyleSheet(css_);
     pbox->setText(name);
     pbox->update();
     return;
 }
 
-void GlobalData::mainseledview(QToolButton *ptoolbtn,bool checked)
+void GlobalData::QCheckboxSheetChnstate(QCheckBox *pbox, const QString name)
+{
+    QString css_ = "QCheckBox {"
+               "   font: 14px '微软雅黑', '楷体';"
+               "   color: #1A4D6B;"
+               "   spacing: 12px;"
+               "}"
+               "QCheckBox::indicator {"
+               "   width: 48px;"
+               "   height: 48px;"
+               "}"
+               "QCheckBox::indicator:unchecked {"
+               "   image: url(:/Picture/SetPng/closechannel.png);"
+               "}"
+               "QCheckBox::indicator:checked {"
+               "   image: url(:/Picture/SetPng/openchannel.png);"
+               "}"
+               "QCheckBox::indicator:unchecked:hover {"
+               "   image: url(:/Picture/SetPng/closechannel.png);"
+               "   opacity: 0.8;"
+               "}"
+               "QCheckBox::indicator:checked:hover {"
+               "   image: url(:/Picture/SetPng/openchannel.png);"
+               "   opacity: 0.8;"
+               "}";
+    pbox->setStyleSheet(css_);
+    pbox->setText(name);
+    pbox->update();
+    return;
+}
+
+void GlobalData::mainseledview(QToolButton *ptoolbtn, bool checked)
 {
     QString Css_;
     if(checked)
@@ -127,113 +247,99 @@ QColor GlobalData::customCurveColor(quint8 indexReag)
     QColor customColor;
     switch(indexReag)
     {
-        case AA_REAGENT:  
-            customColor.setRgb(86,147,198,255);
-		break;
-        case ADP_REAGENT: 
-            customColor.setRgb(114,106,176,255);
-		break;
-        case EPI_REAGENT: 
-            customColor.setRgb(234,42,42,255);
-		break;
-        case COL_REAGENT: 
-            customColor.setRgb(147,153,156,255);
-		break;
-        case RIS_REAGENT: 
-            customColor.setRgb(188, 143, 143,255);
-		break;
+        case AA_REAGENT:
+            customColor.setRgb(86, 147, 198, 255);   // 医疗蓝
+            break;
+        case ADP_REAGENT:
+            customColor.setRgb(114, 106, 176, 255);  // 紫罗兰
+            break;
+        case EPI_REAGENT:
+            customColor.setRgb(234, 42, 42, 255);    // 警示红
+            break;
+        case COL_REAGENT:
+            customColor.setRgb(147, 153, 156, 255);  // 中性灰
+            break;
+        case RIS_REAGENT:
+            customColor.setRgb(95, 168, 211, 255);   // 医疗浅蓝
+            break;
         default:
-            customColor.setRgb(0,0,0,0);
-        break;
+            customColor.setRgb(0, 0, 0, 0);
+            break;
     }
     return customColor;
 }
 
-
-void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget,const QString TableName,
-                                        const QStringList itemHeand,const QStringList itemRows,bool binsertRows)
+void GlobalData::QTableWidgetinitSheet(QTableWidget *CustomTableWidget, const QString TableName,
+                                        const QStringList itemHeand, const QStringList itemRows, bool binsertRows)
 {
-    CustomTableWidget->setMouseTracking(true);  //设置鼠标追踪
-    CustomTableWidget->setSelectionBehavior(QAbstractItemView::SelectItems); //整行选中的方式
-    CustomTableWidget->setEditTriggers(QAbstractItemView::CurrentChanged); //禁止编辑
-
+    CustomTableWidget->setMouseTracking(true);
+    CustomTableWidget->setSelectionBehavior(QAbstractItemView::SelectItems);
+    CustomTableWidget->setEditTriggers(QAbstractItemView::CurrentChanged);
 
     QFont cellFont;
-    cellFont.setPointSize(11); // 设置较大的字号
+    cellFont.setPointSize(11);
     cellFont.setBold(false);
     CustomTableWidget->horizontalHeader()->setFont(cellFont);
 
-    //表列随着表格变化而自适应变化++
     CustomTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    CustomTableWidget->setAlternatingRowColors(true); //隔行换色
-
-    //点击表时不对表头行光亮（获取焦点)
+    CustomTableWidget->setAlternatingRowColors(true);
     CustomTableWidget->horizontalHeader()->setHighlightSections(false);
 
-    //设置表头字体加粗
     QFont headerFont = CustomTableWidget->horizontalHeader()->font();
     headerFont.setBold(true);
-    headerFont.setPointSize(12); // 增大表头字号
+    headerFont.setPointSize(12);
     CustomTableWidget->horizontalHeader()->setFont(headerFont);
-    CustomTableWidget->verticalHeader()->setHidden(true);       //隐藏行号列
+    CustomTableWidget->verticalHeader()->setHidden(true);
     CustomTableWidget->setWindowTitle(TableName);
 
-    //表头
     int leng_ = itemHeand.size();
     CustomTableWidget->setColumnCount(leng_);
     CustomTableWidget->setHorizontalHeaderLabels(itemHeand);
     CustomTableWidget->verticalHeader()->setVisible(false);
-    CustomTableWidget->verticalHeader()->setDefaultSectionSize(35); //默认行高
+    CustomTableWidget->verticalHeader()->setDefaultSectionSize(35);
 
-    //表行
     if(binsertRows)
     {
         int totalRows = itemRows.size();
         CustomTableWidget->setRowCount(totalRows);
         CustomTableWidget->verticalHeader()->setVisible(false);
-        CustomTableWidget->verticalHeader()->setDefaultSectionSize(35); //默认行高
+        CustomTableWidget->verticalHeader()->setDefaultSectionSize(35);
     }
 
-    // 设置表头样式 - 更美观
+    // 医疗浅蓝风格表头样式
     CustomTableWidget->horizontalHeader()->setStyleSheet(
         "QHeaderView::section {"
-        "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "                               stop:0 #6c6c6c, stop:1 #4a4a4a);"
+        "   background-color: #5FA8D3;"
         "   color: white;"
         "   padding: 8px;"
-        "   border: 1px solid #3a3a3a;"
+        "   border: none;"
+        "   border-right: 1px solid #3A86A8;"
         "   font-weight: bold;"
-        "   font-size: 12pt;"  // 增大表头字号
-        "}"
-        "QHeaderView::section:first {"
-        "   border-left: 1px solid #3a3a3a;"
+        "   font-size: 12px;"
         "}"
         "QHeaderView::section:last {"
-        "   border-right: 1px solid #3a3a3a;"
+        "   border-right: none;"
         "}"
     );
 
-
-    QString cssTable = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
-                       "QTableWidget::item:selected{background-color:rgb(139, 139, 122)}"
-
-                       "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
-                       "border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(0, 0, 0);"
-                       "font: bold 1pt; padding:12px 0 0 10px}"
-
-                       "QHeaderView::section,QTableCornerButton:section{padding:3px; margin:0px; color:rgba(188, 187, 186, 255); "
-                       "border:1px solid rgba(188, 187, 186, 255); border-left-width:0px; border-right-width:1px; border-top-width:0px; "
-                       "border-bottom-width:1px; background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252);}"
-
-                       "QTableWidget{background-color: white; border: 1px; border-color: rgb(0, 0, 0);}"
-
-                       "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,stop:0 rgba(188, 187, 186, 255), "
-                       "stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
-
-                       "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,stop:0 rgba(188, 187, 186, 255), "
-                       "stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
+    QString cssTable = "QTableWidget{"
+                       "   background-color: #FFFFFF;"
+                       "   alternate-background-color: #F2F9FC;"
+                       "   gridline-color: #C8E0F0;"
+                       "   border: 1px solid #B8D9E6;"
+                       "}"
+                       "QTableWidget::item:hover{"
+                       "   background-color: #D9F0F8;"
+                       "}"
+                       "QTableWidget::item:selected{"
+                       "   background-color: #2C7DA0;"
+                       "   color: white;"
+                       "}"
+                       "QTableCornerButton::section{"
+                       "   background-color: #5FA8D3;"
+                       "   border: none;"
+                       "}";
     CustomTableWidget->setStyleSheet(cssTable);
-    // 设置代理以实现编辑时文字居中
     CustomTableWidget->setItemDelegate(new AlignDelegate(CustomTableWidget));
     CustomTableWidget->update();
     return;
@@ -328,16 +434,16 @@ bool GlobalData::commandStatus(const int &run_status,QString &outtext){
     bool isfinished = false;
     switch(run_status){
         case MOTOR_WAITING:
-            outtext = "指令返回状态:等待运行";
+            outtext = QString("指令返回状态:等待运行");
         break;
         case MOTOR_RUNNING:
-            outtext = "指令返回状态:运行中";
+            outtext = QString("指令返回状态:运行中");
         break;
         case MOTOR_ERROR:
-            outtext = "指令返回状态:执行异常";
+            outtext = QString("指令返回状态:执行异常");
         break;
         case MOTOR_FINISH:
-            outtext = "指令返回状态:执行完成";
+            outtext = QString("指令返回状态:执行完成");
             isfinished = true;
         break;
         default : break;
@@ -510,30 +616,74 @@ bool GlobalData::isHandsThrowCupFinish(quint32 airvale){
     return (airvale >= Minsplit);
 }
 
+bool GlobalData::isHandsLiftStillHolding(quint32 airvale, bool isSuctionBit)
+{
+    if (isHandsSuckFinish(airvale)) {
+        return true;
+    }
+    if (!isSuctionBit) {
+        return false;
+    }
+    const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
+    const quint32 releaseTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
+    const quint32 liftSlack = 100;
+    return airvale <= grabTh + liftSlack && airvale < releaseTh;
+}
+
+bool GlobalData::isHandsCupReleased(quint32 airvale, bool isSuctionBit)
+{
+    if (isHandsThrowCupFinish(airvale)) {
+        return true;
+    }
+    if (isSuctionBit) {
+        return false;
+    }
+    const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
+    const quint32 releaseTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
+    if (releaseTh <= grabTh) {
+        return true;
+    }
+    const quint32 span = releaseTh - grabTh;
+    const quint32 partialRecover = grabTh + span / 4;
+    const quint32 riseFromGrab = grabTh + 120;
+    return airvale >= partialRecover || airvale >= riseFromGrab;
+}
+
+
+namespace {
+int capGripperExtraMm(int times)
+{
+    if (times < 1) {
+        return 1;
+    }
+    if (times > 3) {
+        return 3;
+    }
+    return times;
+}
+}
 
 QByteArray GlobalData::Grabthehandtotryagain(const quint8 num,const int times,quint8 catchChannel)
 {
     quint8 commandnum = num;
-    int chndownhands = INI_File()._gethandsdownheiht(catchChannel) + times;
+    const int extraMm = capGripperExtraMm(times);
+    int chndownhands = INI_File()._gethandsdownheiht(catchChannel) + extraMm;
     bool bRepeattheGrabCup = INI_File().rConfigPara(REPEATGRABCUP).toBool();
-    QByteArray poutdata = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
-                                                                         chndownhands,
-                                                                         0,
-                                                                         commandnum,
-                                                                         false,
-                                                                         chndownhands,
-                                                                         bRepeattheGrabCup,
-                                                                         GRABCUPWITHGRIPPER);
-
-
-    return poutdata;
+    auto *pDll = Testing::getTaskDll();
+    if (!pDll) {
+        return QByteArray();
+    }
+    return QUIUtils::withGripperPump(
+                pDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, chndownhands, 0, commandnum, false,
+                                            chndownhands, bRepeattheGrabCup, GRABCUPWITHGRIPPER),
+                GRIPPERMOVE_ABNORMALLY);
 }
 
 QByteArray GlobalData::ThrowCupstotryagain(const quint8 num,const int times)
 {
     quint8 commandnum = num;
-    int _throwcupheigh = INI_File()._gethandsdownthrowcpus() - times;
-    QByteArray poutdata= Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
+    int _throwcupheigh = INI_File()._gethandsdownthrowcpus() + capGripperExtraMm(times);
+    QByteArray poutdata= Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
                                                                         _throwcupheigh,0,
                                                                         commandnum,
                                                                         false,
@@ -541,7 +691,20 @@ QByteArray GlobalData::ThrowCupstotryagain(const quint8 num,const int times)
                                                                         false,GRIPPERNORMAL);
 
 
-    return poutdata;
+    return QUIUtils::withGripperPump(poutdata, GRIPPERMOVE_NORMAL);
+}
+
+QByteArray GlobalData::ThrowCupsRaiseRetry(const quint8 num, const int times)
+{
+    int throwHeight = INI_File()._gethandsdownthrowcpus() - capGripperExtraMm(times);
+    if (throwHeight < 0) {
+        throwHeight = 0;
+    }
+    quint8 commandnum = num;
+    return QUIUtils::withGripperPump(
+                Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(
+                MOTOR_HANDS_INDEX, throwHeight, 0, commandnum, false, throwHeight, false, GRIPPERNORMAL),
+                GRIPPERMOVE_NORMAL);
 }
 
 QByteArray GlobalData::GrabtheCupAttheTestTubeTray(const quint8 num , const int times, quint8 testTubeHole) {
@@ -555,29 +718,33 @@ QByteArray GlobalData::GrabtheCupAttheTestTubeTray(const quint8 num , const int 
     if (index_tray > maxIndex) {
         index_tray = 0; // 可根据实际需求调整为其他值或断言
     }
-    quint8 indextraydown = INI_File()._gethandsdownheightinTesttray(index_tray) + times;
+    quint8 indextraydown = INI_File()._gethandsdownheightinTesttray(index_tray)
+            + static_cast<quint8>(capGripperExtraMm(times));
 
-    QByteArray SuckCupArry = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
+    QByteArray SuckCupArry = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
 																		   indextraydown,0,
                                                                            commandnum,false,
                                                                            indextraydown,
                                                                            false,GRABCUPWITHGRIPPER);
-    return SuckCupArry;
+    return QUIUtils::withGripperPump(SuckCupArry, GRIPPERMOVE_ABNORMALLY);
 
 }
 
 QByteArray GlobalData::putoutCupAtTestChannel(const quint8 num,const int times,quint8 indexChn)
 {
-    int HandsGripDownHigh = (int)INI_File()._gethandsdownheiht(indexChn) - times;
+    int HandsGripDownHigh = (int)INI_File()._gethandsdownheiht(indexChn) - capGripperExtraMm(times);
+    if (HandsGripDownHigh < 0) {
+        HandsGripDownHigh = 0;
+    }
     quint8 commandnum = num;
-    QByteArray outdata = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
+    QByteArray outdata = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,
                                                                         HandsGripDownHigh,
                                                                         0,
                                                                         commandnum,
                                                                         false,
                                                                         HandsGripDownHigh,
                                                                         false,GRIPPERNORMAL);
-    return outdata;
+    return QUIUtils::withGripperPump(outdata, GRIPPERMOVE_NORMAL);
 }
 
 
@@ -856,6 +1023,18 @@ QByteArray GlobalData::ReadEachChannelSpeed(quint8 indexModule)
 
 QByteArray GlobalData::WriteModuleLedData(quint8 indexModule, quint8 FcunNum, quint16 Ledval)
 {
+    // 检测模组协议 V1.1.0（15字节）：
+    // slave(1)+0x17(1)+cmd_num(1)+cmd_size(1)+ctrl(1)+temp(2)+ch1..ch4(8)
+    // ctrl: type(1bit写0)+status(2bit)+cmd_func(5bit=00001 设置LED调光)
+    // ch1..ch4：此时为调光值，有效范围 2000~3300
+    if (Ledval < MODULE_LED_DIMMING_MIN || Ledval > MODULE_LED_DIMMING_MAX) {
+        QLOG_WARN() << "写模组LED值" << Ledval << "超出协议范围["
+                    << MODULE_LED_DIMMING_MIN << "," << MODULE_LED_DIMMING_MAX << "]，已钳位";
+        Ledval = static_cast<quint16>(qBound(MODULE_LED_DIMMING_MIN,
+                                            static_cast<int>(Ledval),
+                                            MODULE_LED_DIMMING_MAX));
+    }
+
     QByteArray driverarry;
     driverarry = QByteArray::fromHex(QString::number(indexModule).toUtf8());
 
@@ -866,9 +1045,9 @@ QByteArray GlobalData::WriteModuleLedData(quint8 indexModule, quint8 FcunNum, qu
 
     driverarry.push_back(QByteArray::fromHex(QString::number(0,HEX_SWITCH).toUtf8())); //缓存容量
 
-    QString loc_end = QString("%1").arg(1, 5, 2,QLatin1Char('0')); //模组LED
-    QString loc_min = QString("%1").arg(0, 2, 2,QLatin1Char('0'));
-    QString loc_top = QString("%1").arg(0, 1, 2,QLatin1Char('0')); //写
+    QString loc_end = QString("%1").arg(1, 5, 2,QLatin1Char('0')); // cmd_func=00001 LED调光
+    QString loc_min = QString("%1").arg(0, 2, 2,QLatin1Char('0')); // status=00
+    QString loc_top = QString("%1").arg(0, 1, 2,QLatin1Char('0')); // type=0 写
     QString hexstr = QString("%1%2%3").arg(loc_end).arg(loc_min).arg(loc_top);
     quint8 numtmp = hexstr.toInt(nullptr,2);
     QLOG_DEBUG()<<"写模组LED"<<indexModule<<"4thbit="<<hexstr<<"16进制="<<numtmp;
@@ -888,21 +1067,30 @@ QByteArray GlobalData::WriteModuleLedData(quint8 indexModule, quint8 FcunNum, qu
     QByteArray dataTemp =   QUIUtils::qint16ToQByteArray(moduleTemp, false);
     driverarry.push_back(dataTemp);  //5 - 6 th
 
-    QByteArray datachn =  QUIUtils::qint16ToQByteArray(Ledval, false);
-    driverarry.push_back(datachn);
-
-    datachn =  QUIUtils::qint16ToQByteArray(Ledval, false);
-    driverarry.push_back(datachn);
-
-    datachn =  QUIUtils::qint16ToQByteArray(Ledval, false);
-    driverarry.push_back(datachn);
-
-    datachn =  QUIUtils::qint16ToQByteArray(Ledval, false);
-    driverarry.push_back(datachn);
-    QLOG_DEBUG()<<"写模组LED"<<indexModule<<"命令"<< driverarry.toHex(' ').trimmed().toUpper()<<endl;
+    // 4 通道写入同一调光值（协议允许 2000~3300）
+    for (int i = 0; i < 4; ++i) {
+        driverarry.push_back(QUIUtils::qint16ToQByteArray(Ledval, false));
+    }
+    QLOG_DEBUG()<<"写模组LED"<<indexModule<<"调光值"<<Ledval
+                <<"命令"<< driverarry.toHex(' ').trimmed().toUpper()<<endl;
     return driverarry;
 }
 
+bool GlobalData::isModuleChannelAdcFrame(const QStringList &moduleData)
+{
+    if (moduleData.size() < 5) {
+        return false;
+    }
+    bool ok = false;
+    const int ctrl = moduleData.at(4).toInt(&ok, HEX_SWITCH);
+    if (!ok) {
+        return false;
+    }
+    // ctrl: cmd_func(5bit) + status(2bit) + type(1bit)
+    const int cmdFunc = (ctrl >> 3) & 0x1F;
+    const int typeBit = ctrl & 0x01;
+    return (cmdFunc == 0 && typeBit == 1);
+}
 
 QByteArray GlobalData::ReadModuleLedData(quint8 indexModule)
 {
@@ -1010,6 +1198,10 @@ QString GlobalData::ObatinCreatSampleTime()
 void GlobalData::apartSampleId(const QString sampleId, QString &date, int &id)
 {
     QString clonedata = sampleId;
+    // 如果末尾有 'F'，先去掉
+    if (clonedata.endsWith('F', Qt::CaseSensitive)) {
+        clonedata.chop(1);
+    }
     int leng = clonedata.length();
     id = clonedata.right(4).toInt();
     date = clonedata.left(leng - 4);
@@ -1025,26 +1217,28 @@ QString GlobalData::groupDateAndID(const QString date, const int idnum)
     return outputSampleid;
 }
 
-void GlobalData::vectorconversionString(QVector<double> curvepoint,QString &curvepos)
+void GlobalData::vectorconversionString(const QVector<double> curvepoint, QString& curvepos)
 {
-    int size_len = curvepoint.size();
-    for(int n = 0; n < size_len; n++)
-    {
-        double _data = curvepoint.at(n);
-        QString _data_precision = QString::number(_data, 'f', 4);
-        if(n + 1 != size_len)
-            curvepos = curvepos + QString("%1,").arg(_data_precision);
-        else
-            curvepos = curvepos + QString("%1").arg(_data_precision);
+    curvepos.clear();  // 清空输出字符串
+
+    const int size_len = curvepoint.size();
+    if (size_len == 0) return;
+
+    // 预分配内存，避免多次重新分配
+    curvepos.reserve(size_len * 10);  // 估算每个数字约10个字符
+
+    for (int n = 0; n < size_len; ++n) {
+        if (n != 0) {
+            curvepos.append(',');
+        }
+        curvepos.append(QString::number(curvepoint.at(n), 'f', 4));
     }
-    return;
 }
 
 
 void GlobalData::outputtheAbsorbentIndex(const quint8 focuinActive,
                                           quint8 &index_reagent,
                                           quint8 &consumable_index) {
-    bool reatentLocLeft = true;
     switch(focuinActive)
     {
         case FOCUS_SPIT_AA_TESTING:
@@ -1113,121 +1307,46 @@ QByteArray GlobalData::replactSuckReagentLoc(quint8 num,quint8 indexReagnet){
 	}
     QPoint AbsorbReaentAxis(0,0);
     SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT,testingReag,AbsorbReaentAxis);
-    return Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(AbsorbReaentAxis,
-                                                            0,
-                                                            0,
+    return Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(AbsorbReaentAxis,
+                                                            ReagentNeddle,
+                                                            TRAY_TESTCHANNEL,
                                                             num);
 }
 
 QByteArrayList GlobalData::errMachineBackOrigin(const quint8 num,const int indexZAxis)
 {
     QByteArrayList allBackOrigin;
-    allBackOrigin.reserve(4);
-    quint8 indexcode = num;
-    QPoint OriginAxis(0,0);
-    const QByteArray dataArry = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(indexZAxis,10,0,indexcode,
-                                                                               false,10,false,GRIPPERNORMAL);
-    allBackOrigin.push_back(dataArry);
-    allBackOrigin.push_back(Testing::m_TaskDll->DLL_ZAxis_Reset(indexZAxis,0,TRAY_TESTCHANNEL,
-                                                                indexcode,false));
-    allBackOrigin.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(OriginAxis,0,0,indexcode));
-    SingletonAxis::GetInstance()->originPos(READ_OPERRAT,OriginAxis);
-    allBackOrigin.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(OriginAxis,0,0,indexcode));
+    allBackOrigin.reserve(8);
+    auto *dll = Testing::getTaskDll();
+    if (!dll) {
+        return allBackOrigin;
+    }
+    quint8 cmdIndex = num;
+    Q_UNUSED(indexZAxis);
+    // 判定抓杯失败后只抬抓手，复位命令不改负压。
+    allBackOrigin.push_back(dll->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, 0, 0, cmdIndex, false));
+    cmdIndex = static_cast<quint8>(cmdIndex + 1);
+    allBackOrigin.push_back(dll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, 0, cmdIndex, false));
+    cmdIndex = static_cast<quint8>(cmdIndex + 1);
+    allBackOrigin.push_back(dll->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, cmdIndex, false));
+    cmdIndex = static_cast<quint8>(cmdIndex + 1);
+    QPoint originAxis(0, 0);
+    SingletonAxis::GetInstance()->originPos(READ_OPERRAT, originAxis);
+    allBackOrigin.push_back(dll->_DLLXYMoveReposition_(cmdIndex, MACHINEBACK_SPEED));
+    cmdIndex = static_cast<quint8>(cmdIndex + 1);
+    allBackOrigin.push_back(dll->DLL_XYMoveSpecifiedPosition(originAxis, 0, 0, cmdIndex));
+    cmdIndex = static_cast<quint8>(cmdIndex + 1);
+    allBackOrigin.push_back(dll->DLL_XYMoveSpecifiedPosition(originAxis, 0, 0, cmdIndex));
     return allBackOrigin;
 }
 
 
-QByteArrayList GlobalData::outCommandSuckReagent(const quint8 indexReag){
-
-    QPoint suckReagentAxis(0,0);
-    const quint8 testingReag = indexReag - 1;
-    //试剂坐标从0-9下标开始 indexReag = AA:RIS 0 - 4
-    SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT,testingReag,suckReagentAxis);
-    const bool issuckAir =  true; //INI_File().rConfigPara(FIRSTSUCKAIRS).toBool();    //吸空气校准
-    const int  linqueFailedHeigh = INI_File().GetFailedReagentsLinqueHigh();
-    auto *pActiveStu = Testing::m_TaskDll;
-    int washTime = 0;
-    quint8 num = 0;
-
-    QByteArrayList outdata;
-    outdata.push_back(pActiveStu->DLL_XYMoveSpecifiedPosition(suckReagentAxis,0,0,num));
-    if(issuckAir){
-        outdata.push_back(pActiveStu->SmallBenActive(true,SMALL_BEN_INHALE_ARI,DIS_WASHES_PUMPS,num, washTime));
-    }
-
-    outdata.push_back(pActiveStu->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,
-                                                             linqueFailedHeigh,
-                                                             0,
-                                                             num,
-                                                             true,
-                                                             linqueFailedHeigh,
-                                                             false,
-                                                             GRIPPERNORMAL));
-    /*总步数吸试剂*/
-    int TotalSuckStep = QUIUtils::SuckReagentNumberofSteps(indexReag);
-
-    /*动小泵吸试剂*/
-    outdata.push_back(pActiveStu->SmallBenActive(true,
-                                                TotalSuckStep,
-                                                DIS_WASHES_PUMPS,
-                                                num,
-                                                washTime)
-                      );
-    //试剂针复位
-    outdata.push_back(pActiveStu->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false));
-    return outdata;
-}
-
-QByteArrayList GlobalData::outSuckPRPtestReagentCup(int testChannel,
-                                                    quint8 suckHole,
-                                                    QPoint &PRPHoleAxis){
 
 
-    QByteArrayList outdataCommand;
-    outdataCommand.clear();
-    quint8 num = outdataCommand.size()%255;
-    int putDownHeigh  = INI_File()._gethandsdownheiht(testChannel); //抓手在通道放杯高度
-    quint8 suckCupHeigh =  QUIUtils::_hansdownheightinnertubetray(suckHole); //在试管盘吸杯高度
-    const bool bRepeattheGrabCup = INI_File().rConfigPara(REPEATGRABCUP).toBool();
-
-
-    QPoint channelPutAxis(0,0);
-    SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,suckHole,MOTOR_HANDS_INDEX,PRPHoleAxis);
-
-    SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,testChannel,MOTOR_HANDS_INDEX,channelPutAxis);
-    auto *pActivestu = Testing::m_TaskDll;
-    outdataCommand.push_back(pActivestu->DLL_XYMoveSpecifiedPosition(PRPHoleAxis,0,0,num));
-
-    outdataCommand.push_back(pActivestu->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,suckCupHeigh,
-                                                                    0,num,false,
-                                                                    suckCupHeigh,
-                                                                    bRepeattheGrabCup,
-                                                                    GRABCUPWITHGRIPPER));
-
-    outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,
-                                                        suckCupHeigh,
-                                                        0,num,
-                                                        bRepeattheGrabCup));
-
-    outdataCommand.push_back(pActivestu->DLL_XYMoveSpecifiedPosition(channelPutAxis,0,0,num));
-
-
-
-    outdataCommand.push_back(pActivestu->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,putDownHeigh,
-                                                                    0,num,false,
-                                                                    putDownHeigh,false,GRIPPERNORMAL));
-
-
-    outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,
-                                                         putDownHeigh,0,
-                                                         num,false));
-
-    return outdataCommand;
-}
 
 
 QByteArrayList GlobalData::letallAxisBackOrigin(QList<quint8> &backnumList){
-     auto *pActivestu = Testing::m_TaskDll;
+     auto *pActivestu = Testing::getTaskDll();
      QByteArrayList outdataCommand;
      outdataCommand.clear();
      backnumList.clear();
@@ -1236,7 +1355,9 @@ QByteArrayList GlobalData::letallAxisBackOrigin(QList<quint8> &backnumList){
      QPoint nativeOrigin(0,0);
      quint8 num = 0;
      backnumList<<0<<1<<2<<3<<4;
-     outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
+     outdataCommand.push_back(QUIUtils::withGripperPump(
+                 pActivestu->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false),
+                 GRIPPERMOVE_NORMAL));
      outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false));
      outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0, num,false));
      outdataCommand.push_back(pActivestu->DLL_XYMoveSpecifiedPosition(nativeOrigin,0,0,num));
@@ -1244,3 +1365,12 @@ QByteArrayList GlobalData::letallAxisBackOrigin(QList<quint8> &backnumList){
      outdataCommand.push_back(pActivestu->DLL_XYMoveSpecifiedPosition(nativeOrigin,0,0,num));
      return outdataCommand;
 }
+
+bool GlobalData::isPppBaselineValid(int value)
+{
+    return value >= kPppBaselineMin && value <= kPppBaselineMax;
+}
+
+constexpr int GlobalData::kPppBaselineMin;
+constexpr int GlobalData::kPppBaselineMax;
+constexpr int GlobalData::kPppLowVolumeWarn;

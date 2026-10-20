@@ -1,4 +1,4 @@
-#include "vWaterProgressBar.h"
+﻿#include "vWaterProgressBar.h"
 #include <QPainter>
 #include <QPaintEvent>
 #include <QTimerEvent>

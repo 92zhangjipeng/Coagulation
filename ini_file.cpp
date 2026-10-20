@@ -1,4 +1,7 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
+#include "globaldata.h"
 #include "ini_file.h"
 #include <QtCore/QtCore>
 #include <QFile>
@@ -6,6 +9,9 @@
 #include "cglobal.h"
 #include "QsLog/include/QsLog.h"
 
+const QString INI_File::Instrument_parameters = "InstrumentParameters";  // 定义
+const QString INI_File::kPrintPara = "PrintSettings"; //打印参数
+const QString INI_File::kTestContl = "TestContlSettings"; //测试参数控制
 
 INI_File::INI_File()
 {
@@ -13,7 +19,6 @@ INI_File::INI_File()
     m_psetting = new QSettings(m_qstrFileName,QSettings::IniFormat);
     m_psetting->setIniCodec("UTF-8");
     m_Section_Key = "";
-
 }
 
 INI_File::~INI_File()
@@ -22,12 +27,32 @@ INI_File::~INI_File()
     m_psetting = nullptr;
 }
 
+/*
+ * 粘附率
+ * @brief INI_File::setPrintAdhesion
+ * @param show
+ */
+void INI_File::setPrintAdhesion(const bool show)
+{
+    QString key = QString("%1/%2").arg(kPrintPara).arg("PrintAdhesion");
+    m_psetting->setValue(key, show);
+    m_psetting->sync();  // 立即写入文件
+}
+
+bool INI_File::getPrintAdhesion()
+{
+    QString key = QString("%1/%2").arg(kPrintPara).arg("PrintAdhesion");
+    // 第二个参数是默认值，如果键不存在则返回 true
+    return m_psetting->value(key, true).toBool();
+}
+
 //写入基础参数
 bool INI_File::wConfigPara(const QString& keyValue, const QVariant& data)
 {
     static const QString wBasicParaTab = "BasicPara";
     QString wKey = QString("%1/%2").arg(wBasicParaTab).arg(keyValue);
     m_psetting->setValue(wKey,data);
+    m_psetting->sync();
 	return (m_psetting->status() == QSettings::NoError);
 }
 //批量w
@@ -77,6 +102,19 @@ void INI_File::setFilteringMode(const int indexMode){
     m_psetting->setValue(keywrite,indexMode);
 }
 
+
+quint8 INI_File::getTubeManager()
+{
+    const QString keyget = QString("%1/%2").arg(QStringLiteral("TubeManager")).arg(QStringLiteral("currentTray"));
+    return m_psetting->value(keyget, 0).toUInt();
+}
+
+void INI_File::setTubeManager(const quint8 currentTray)
+{
+    const QString keyset = QString("%1/%2").arg(QStringLiteral("TubeManager")).arg(QStringLiteral("currentTray"));
+    m_psetting->setValue(keyset,currentTray);
+    m_psetting->sync();
+}
 
 quint8 INI_File::getInstrumentType()
 {
@@ -129,6 +167,48 @@ int INI_File::GetSecurityValue()
 }
 
 
+
+int INI_File::GetAfterSpitDelayMs()
+{
+    const QString keyget = QString("%1/%2").arg(kTestContl).arg("AfterSpitDelayMs");
+    return m_psetting->value(keyget, 300).toInt();
+}
+
+int INI_File::GetAfterSuckDelayMs()
+{
+    const QString keyget = QString("%1/%2").arg(kTestContl).arg("AfterSuckDelayMs");
+    return m_psetting->value(keyget, 800).toInt();
+}
+
+
+void INI_File::SetAfterSpitDelayMs(const int Ms)
+{
+    QString key = QString("%1/%2").arg(kTestContl).arg("AfterSpitDelayMs");
+    m_psetting->setValue(key, Ms);
+    m_psetting->sync();
+}
+
+void INI_File::SetAfterSuckDelayMs(const int Ms)
+{
+    QString key = QString("%1/%2").arg(kTestContl).arg("AfterSuckDelayMs");
+    m_psetting->setValue(key, Ms);
+    m_psetting->sync();
+}
+
+//吸多百分比PRP
+int INI_File::GetAddSuckPRP(){
+    const QString keyget = QString("%1/%2").arg(kTestContl).arg("AddSuckPRP");
+    return m_psetting->value(keyget, 50).toInt();
+}
+
+void INI_File::SetAddSuckPRP(int num)
+{
+    QString key = QString("%1/%2").arg(kTestContl).arg("AddSuckPRP");
+    m_psetting->setValue(key, num);
+    m_psetting->sync();
+}
+
+
 /**
  * @brief INI_File::SetFixedHigh
  * @param high 测高物理值（蓝色基准物到针的垂直距离）
@@ -147,7 +227,7 @@ double INI_File::GetFixedHigh()
 
 /**
  * @brief INI_File::SetTestDifference
- * @param UpOffsetmm PPP最底部向上偏移高度
+ * @param UpOffsetmm PrP最底部向上偏移高度
  */
 void  INI_File::SetTestDifference(double UpOffsetmm )
 {
@@ -159,6 +239,21 @@ double INI_File::GetTestDifference(void)
 {
     m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("TestHeightDifference");
     return m_psetting->value(m_Section_Key).toDouble();
+}
+
+
+const QString INI_File::KEY_REF_BOTTOM_DISTANCE = QString("%1/RefBottomDistance").arg(Instrument_parameters);
+/** 参照物到底部距离
+ * @brief INI_File::setRefBottomDistance
+ * @param distance
+ */
+void INI_File::setRefBottomDistance(const double distance)
+{
+    m_psetting->setValue(KEY_REF_BOTTOM_DISTANCE,distance);
+}
+double INI_File::getRefBottomDistance(void)
+{
+    return m_psetting->value(KEY_REF_BOTTOM_DISTANCE).toDouble();
 }
 
 
@@ -332,7 +427,8 @@ void    INI_File::setTypesReagentSuckAdd_Ratio(const quint8 IndexReagent, double
             QLOG_WARN()<<"配置吸试剂添加比例系数失败";
         break;
     }
-    m_psetting->setValue(configKey,VolumeRatio);
+    m_psetting->setValue(configKey, VolumeRatio);
+    m_psetting->sync();
 }
 double  INI_File::getTypesReagentSuckAdd_Ratio(const quint8 IndexReagent)
 {
@@ -341,14 +437,31 @@ double  INI_File::getTypesReagentSuckAdd_Ratio(const quint8 IndexReagent)
     {
         case AA_REAGENT:    configKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_AA_AddRatio");    break;
         case ADP_REAGENT:   configKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_ADP_AddRatio");   break;
-        case EPI_REAGENT:   configKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_EIP_AddRatio");   break;
+        case EPI_REAGENT:   configKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_EPI_AddRatio");   break;
         case COL_REAGENT:   configKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_COL_AddRatio");   break;
         case RIS_REAGENT:   configKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_RIS_AddRatio");   break;
         default:
             QLOG_WARN()<<"获取吸试剂添加比例系数失败";
         break;
     }
-    return m_psetting->value(configKey).toDouble();
+    if (configKey.isEmpty()) {
+        return 0.0;
+    }
+
+    double value = m_psetting->value(configKey).toDouble();
+    // 历史误写键名 SuckReagent_EIP_AddRatio，迁移到 EPI
+    if (IndexReagent == EPI_REAGENT && qFuzzyIsNull(value)) {
+        const QString legacyKey = QString("%1/%2").arg(Instrument_parameters).arg("SuckReagent_EIP_AddRatio");
+        if (m_psetting->contains(legacyKey)) {
+            const double legacyValue = m_psetting->value(legacyKey).toDouble();
+            if (!qFuzzyIsNull(legacyValue)) {
+                m_psetting->setValue(configKey, legacyValue);
+                m_psetting->sync();
+                value = legacyValue;
+            }
+        }
+    }
+    return value;
 }
 
 void INI_File::setTypesReagentNeedleDownHigh(const quint8 IndexReagent, quint8 downHigh)
@@ -403,7 +516,7 @@ double INI_File::GetLearnSamplevolume()
 
 /*
 *
-* 空试管区下针高度(血样针下针高度)
+* 空试管区下针高度(样本针下针高度)
 */
 void INI_File::SetEmptyTubeDownHigh(double high)
 {
@@ -432,7 +545,7 @@ int INI_File::GetFailedLinqueHigh()
 }
 
 /*
-* 探测失败高度（清洗剂=血样针）
+* 探测失败高度（清洗剂=样本针）
 */
 void INI_File::SetFailedCleanLinqueHigh(int highValue)
 {
@@ -497,6 +610,22 @@ int INI_File::_getdelayedtime()
     return  m_psetting->value(m_Section_Key).toInt();
 }
 
+void INI_File::SetReagentAfterSuckLiftDelayMs(const int ms)
+{
+    const QString key = QString("%1/%2").arg(Instrument_parameters).arg("ReagentAfterSuckLiftDelayMs");
+    m_psetting->setValue(key, ms);
+    m_psetting->sync();
+}
+
+int INI_File::GetReagentAfterSuckLiftDelayMs()
+{
+    const QString key = QString("%1/%2").arg(Instrument_parameters).arg("ReagentAfterSuckLiftDelayMs");
+    if (!m_psetting->contains(key)) {
+        return GetAfterSuckDelayMs();
+    }
+    return m_psetting->value(key, 1000).toInt();
+}
+
 /*
 *吸取清洗剂X1 的量(洗试剂针)
 *吸取清洗剂 == 清洗试剂针
@@ -513,8 +642,8 @@ quint8  INI_File::GetAbsorbWashingfluidX1()
 }
 
 /*
-*吸取清洗剂 ==清洗血样针
-* 吸取清洗剂X2 的量(洗血样针)
+*吸取清洗剂 ==清洗样本针
+* 吸取清洗剂X2 的量(洗样本针)
 */
 void  INI_File::SetAbsorbWashingfluidX2(int ul_value)
 {
@@ -594,13 +723,104 @@ double INI_File::getPEAddSuckRatio(void){
 
 
 
+/******************************* 测试数据控制 ***********************************/
+/*
+ * 胶原启动数据舍弃
+ * @brief setColTestGiveupNum
+ * @param num
+ */
+void INI_File::setColTestGiveupNum(quint8 num)
+{
+    QString key = QString("%1/%2").arg(kTestContl).arg("ColGiveupPoints");
+    m_psetting->setValue(key, num);
+    m_psetting->sync();
+}
+quint8 INI_File::getColTestGiveupNum()
+{
+    QString key = QString("%1/%2").arg(kTestContl).arg("ColGiveupPoints");
+    return m_psetting->value(key, 0).toUInt();
+}
 
+/*
+* 测试偏移
+* @brief setoffsetTestRatio
+*/
+QString INI_File::buildKey(quint8 type, const QString& paramName) const
+{
+    // 构建格式: TestControl/ParamName_AA
+    // 例如: TestControl/TriggerInvalid_AA
+    QString typeStr = GlobalData::mapIndexReagentnames(type);
+    return QString("%1/%2_%3").arg(kTestContl)
+                               .arg(paramName)
+                               .arg(typeStr);
+}
 
+void INI_File::setoffsetTestRatio(quint8 type, float Percentage)
+{
+    QString key = buildKey(type, "TestOffsetPerc");
+    m_psetting->setValue(key, Percentage);
+    m_psetting->sync();
+}
 
+float INI_File::getoffsetTestRatio(quint8 type)
+{
+    QString key = buildKey(type, "TestOffsetPerc");
+    return m_psetting->value(key, 0.0).toFloat();
+}
 
+// ==================== 触发无效 ====================
+void  INI_File::setTriggerInvalid(int reagentIndex, quint8 Percentage)
+{
+    QString key = buildKey(reagentIndex, "TriggerInvalid");
+    m_psetting->setValue(key, Percentage);
+    m_psetting->sync();
+}
 
+quint8 INI_File::getTriggerInvalid(int reagentIndex)
+{
+    QString key = buildKey(reagentIndex, "TriggerInvalid");
+    return static_cast<quint8>(m_psetting->value(key, 0).toUInt());
+}
 
+// ==================== 偏移百分比 ====================
+void INI_File::setTriggerOffset(quint8 type, quint8 val)
+{
+    QString key = buildKey(type, "TriggerOffset");
+    m_psetting->setValue(key, val);
+    m_psetting->sync();
+}
+quint8 INI_File::getTriggerOffset(quint8 type)
+{
+    QString key = buildKey(type, "TriggerOffset");
+    return static_cast<quint8>(m_psetting->value(key, 0).toUInt());
+}
 
+// ==================== 终止时间 ====================
+void INI_File::setInvalidMax(quint8 type, quint8 maxPerce)
+{
+    QString key = buildKey(type, "InvalidMax");
+    m_psetting->setValue(key, maxPerce);
+    m_psetting->sync();
+}
+quint8 INI_File::getInvalidMax(quint8 type)
+{
+    QString key = buildKey(type, "InvalidMax");
+    return static_cast<quint8>(m_psetting->value(key, 0).toUInt());
+}
+
+// ==================== 起始时间 ====================
+void INI_File::setInvalidMin(quint8 type, quint8 minPerce)
+{
+    QString key = buildKey(type, "InvalidMin");
+    m_psetting->setValue(key, minPerce);
+    m_psetting->sync();
+}
+
+quint8 INI_File::getInvalidMin(quint8 type)
+{
+    QString key = buildKey(type, "InvalidMin");
+    return static_cast<quint8>(m_psetting->value(key, 0).toUInt());
+}
 
 
 

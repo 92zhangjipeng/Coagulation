@@ -1,7 +1,9 @@
 ﻿#include "datalprocessor.h"
 #include "QsLog/include/QsLog.h"
 #include <algorithm>
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 #include <cmath>
 #include <random>
 #include <QRandomGenerator>

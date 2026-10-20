@@ -3,7 +3,9 @@
 #include <QSettings>
 #include <QString>
 #include <QCoreApplication>
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 
 
 #define SCANCODEBAR            "ScanCodeBar"            //扫码
@@ -51,6 +53,11 @@ public:
     int  getFilteringMode();
     void setFilteringMode(const int indexMode);
 
+    //试管盘管理
+    quint8  getTubeManager();
+    void    setTubeManager(const quint8 currentTray);
+
+
 
 
     /**  柱塞泵清洗时间
@@ -81,6 +88,9 @@ public:
     //测高下降的差值
     void   SetTestDifference(double UpOffsetmm);
     double GetTestDifference(void);
+
+    void   setRefBottomDistance(const double distance);
+    double getRefBottomDistance(void);
 
 
     //抓手在通道的下针高度
@@ -132,7 +142,7 @@ public:
     void SetFailedLinqueHigh(int highvalue);
     int  GetFailedLinqueHigh();
 
-    /*探测失败高度（清洗剂）血样针*/
+    /*探测失败高度（清洗剂）样本针*/
     void SetFailedCleanLinqueHigh(int highValue);
     int  GetFailedCleanLinqueHigh();
 
@@ -152,11 +162,15 @@ public:
     void _setdelayedtime(int deltime_);
     int  _getdelayedtime();
 
+    // 吸完试剂后延时抬针（试剂针参数，与样本针吸样抬针延时独立）
+    void SetReagentAfterSuckLiftDelayMs(int ms);
+    int GetReagentAfterSuckLiftDelayMs();
+
     /*吸取清洗剂 == 清洗试剂针*/
     void    SetAbsorbWashingfluidX1(quint8 ul_value);
     quint8  GetAbsorbWashingfluidX1();
 
-    /*吸取清洗剂 ==清洗血样针*/
+    /*吸取清洗剂 ==清洗样本针*/
     void    SetAbsorbWashingfluidX2(int ul_value);
     int     GetAbsorbWashingfluidX2();
 
@@ -183,6 +197,66 @@ public:
     double getPEAddSuckRatio(void);
 
 
+
+    //PPP 和PRP 抬针前延时毫秒
+    int GetAfterSpitDelayMs();
+    void SetAfterSpitDelayMs(const int Ms);
+
+
+    int GetAfterSuckDelayMs();
+    void SetAfterSuckDelayMs(const int Ms);
+
+    //吸多百分比PRP
+    int     GetAddSuckPRP();
+    void   SetAddSuckPRP(int num);
+
+    /*
+    * 胶原启动数据舍弃
+    * @brief setColTestGiveupNum
+    * @param num
+    */
+    void setColTestGiveupNum(quint8 num);
+    quint8 getColTestGiveupNum();
+
+    /*
+    * 测试偏移
+    * @brief setoffsetTestRatio
+    */
+    void  setoffsetTestRatio(quint8 type, float Percentage);
+    float getoffsetTestRatio(quint8 type);
+
+
+    /** 试剂反应低于  Percentage 触发无效
+     * @brief setTriggerInvalid
+     * @param Percentage
+     */
+    void  setTriggerInvalid(int reagentIndex,quint8 Percentage);
+    quint8 getTriggerInvalid(int reagentIndex);
+
+    void setTriggerOffset(quint8 type, quint8 val); //偏移比
+    quint8 getTriggerOffset(quint8 type);
+
+    /** 触发无效试剂后 自定义生成范围
+     * @brief setInvalidMaxAndMin
+     * @param key
+     * @param Perce
+     */
+    void setInvalidMax(quint8 type, quint8 maxPerce);
+    quint8 getInvalidMax(quint8 type);
+
+    void setInvalidMin(quint8 type, quint8 minPerce);
+    quint8 getInvalidMin(quint8 type);
+
+
+    /*
+     * 粘附率
+     * @brief INI_File::setPrintAdhesion
+     * @param show
+     */
+    void setPrintAdhesion(const bool show);
+    bool getPrintAdhesion();
+
+
     //写入基础参数
     bool wConfigPara(const QString& keyValue, const QVariant& data);
     bool wBatchConfigPara(const QVariantMap& keyValues);
@@ -191,11 +265,18 @@ public:
     //读取基本参数
     QVariant rConfigPara(const QString& keyValue);
 
+
+
+
 private:
     QString m_qstrFileName;
     QSettings *m_psetting; 
-    const QString Instrument_parameters = "InstrumentParameters";
     QString m_Section_Key;
+    static const QString Instrument_parameters;
+    static const QString KEY_REF_BOTTOM_DISTANCE;
+    static const QString kPrintPara;
+    static const QString kTestContl;
+    QString buildKey(quint8 type, const QString& paramName) const;
 
 };
 

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>全自动血小板聚集分析系统 — 软件可运行环境说明</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "SimSun", sans-serif; color: #1a2a3a; margin: 0; background: #f3f6f9; font-size: 14px; line-height: 1.6; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; padding: 36px 44px 48px; }
+  h1 { font-size: 22px; margin: 0 0 6px; line-height: 1.35; }
+  h2 { font-size: 16px; margin: 28px 0 10px; border-bottom: 1px solid #c5d6e4; padding-bottom: 6px; }
+  h3 { font-size: 14px; margin: 16px 0 8px; }
+  .meta { color: #4a6578; font-size: 13px; margin: 0 0 18px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 13px; }
+  th, td { border: 1px solid #c5d6e4; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #e8f2f8; }
+  td.th { background: #e8f2f8; width: 26%; font-weight: 600; }
+  .ok { background: #f3faf5; border-left: 4px solid #2e8b57; padding: 12px 14px; margin: 12px 0; }
+  .note { background: #f4f8fb; border-left: 4px solid #3a9bd4; padding: 12px 14px; margin: 12px 0; }
+  .warn { background: #fff8f0; border-left: 4px solid #d4893a; padding: 12px 14px; margin: 12px 0; }
+  ul { margin: 6px 0 12px 22px; }
+  .footer { color: #6a8496; font-size: 12px; margin-top: 28px; border-top: 1px solid #e4eef4; padding-top: 14px; }
+  .tag { display: inline-block; background: #e8f2f8; color: #2c5f8a; padding: 1px 8px; font-size: 12px; margin-right: 6px; }
+  @media print {
+    body { background: #fff; }
+    .wrap { padding: 12px; max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>全自动血小板聚集分析系统<br/>软件可运行环境说明</h1>
+<p class="meta">
+  <span class="tag">Coagulation.exe</span>
+  <span class="tag">V1.0.1.0</span>
+  <span class="tag">KS-600 / KS-800 / KS-1200</span><br/>
+  用途：供医院信息科、装机工程师确认上位机电脑能否运行本软件<br/>
+  编制日期：2026-09-01
+</p>
+
+<div class="ok">
+  <b>Windows 7 64 位可以运行。</b>本软件用 Qt 5.10.0 + MSVC 2015 x64 编译，Qt 官方支持 Windows 7（x64）+ MSVC 2015。
+  <b>Windows 7 32 位不能运行。</b>必须先装 SP1、通用 C 运行库补丁和 VC++ 2015 x64 运行库，摄像头/串口驱动也要是 Win7 版。日常交付仍建议 Windows 10 64 位。
+</div>
+
+<div class="note">
+  本软件是仪器配套的 <b>Windows 64 位上位机</b>，安装在与分析仪相连的工控机或专用电脑上。不支持手机、平板、macOS、Linux，也不支持任何 32 位 Windows。
+</div>
+
+<h2>1. 操作系统</h2>
+<table>
+  <tr><td class="th">推荐</td><td><b>Windows 10 64 位</b>（1809 及以上）。开发与出厂验证环境为此系统。</td></tr>
+  <tr><td class="th">可用</td><td><b>Windows 7 SP1 64 位</b>、Windows 8.1 64 位、Windows 11 64 位。Win7 / Win11 需按第 2 节补齐运行库并现场验证串口、摄像头、打印。</td></tr>
+  <tr><td class="th">不可用</td><td>Windows 7 / 10 / 11 的 <b>32 位</b>；无 SP1 的 Windows 7；Windows XP / Vista；macOS；Linux。</td></tr>
+  <tr><td class="th">系统架构</td><td>必须 <b>64 位 (x64)</b>。</td></tr>
+  <tr><td class="th">语言</td><td>中文 Windows。区域建议「中国」。</td></tr>
+  <tr><td class="th">权限</td><td>首次装驱动建议管理员。日常运行要求对软件安装目录有<b>读写权限</b>（数据库、日志、图片都写在程序目录）。</td></tr>
+</table>
+
+<h2>2. Windows 7 64 位专项说明</h2>
+<p>结论：<b>可以运行，不是“开箱即用”</b>。请按下面清单装机。</p>
+<table>
+  <tr>
+    <th>检查项</th>
+    <th>要求</th>
+  </tr>
+  <tr>
+    <td>版本</td>
+    <td>必须是 <b>Windows 7 旗舰版 / 专业版 64 位</b>，并已安装 <b>Service Pack 1</b>。开始菜单 → 计算机 → 属性，看“系统类型”是否为 64 位。</td>
+  </tr>
+  <tr>
+    <td>系统补丁</td>
+    <td>安装微软 <b>KB2999226</b>（Universal CRT / 通用 C 运行时）。未打此补丁时，双击 exe 常提示“无法启动此程序，因为计算机中丢失 api-ms-win-crt-runtime-l1-1-0.dll”。也可直接安装较新的 <b>Visual C++ 2015–2022 可再发行组件包（x64）</b>，一般会带上该运行时。</td>
+  </tr>
+  <tr>
+    <td>VC++ 运行库</td>
+    <td>必须安装 <b>Visual C++ 2015 可再发行组件包 x64</b>（或 2015–2022 x64 合并包）。缺 msvcp140.dll / vcruntime140.dll 无法启动。</td>
+  </tr>
+  <tr>
+    <td>驱动</td>
+    <td>USB 转串口、测高摄像头、扫码枪必须有 <b>Windows 7 64 位驱动</b>。只有 Win10 驱动、在 Win7 上装不上的，软件界面能开、仪器也连不上。</td>
+  </tr>
+  <tr>
+    <td>电源与 USB</td>
+    <td>关闭“USB 选择性暂停”；不要让系统睡眠。工控机建议接 UPS。</td>
+  </tr>
+  <tr>
+    <td>未验证点</td>
+    <td>当前出厂验证在 Windows 10 64 位上完成。Win7 现场需确认：能进登录界面、COM 口通信、测高拍照、打印 A5 报告。</td>
+  </tr>
+</table>
+<div class="warn">
+  Windows 7 已停止官方安全更新。医院若信息科强制要求 Win7，可以装机，但建议尽快迁到 Windows 10 64 位。Win7 上杀毒软件、旧驱动更容易误拦 DLL 或串口。
+</div>
+
+<h2>3. 电脑配置（最低 / 推荐）</h2>
+<table>
+  <tr><th>项目</th><th>最低（能打开软件）</th><th>推荐（日常检测）</th></tr>
+  <tr><td>CPU</td><td>64 位双核，2.0 GHz 及以上</td><td>Intel i5 或同级，四核及以上</td></tr>
+  <tr><td>内存</td><td>4 GB（Win7 建议不要低于此值）</td><td><b>8 GB 及以上</b></td></tr>
+  <tr><td>硬盘</td><td>系统盘剩余 20 GB</td><td>SSD，剩余 <b>50 GB 及以上</b></td></tr>
+  <tr><td>显卡</td><td>支持桌面 OpenGL / DirectX 的核芯显卡</td><td>核芯或独显均可</td></tr>
+  <tr><td>显示器</td><td>1366×768 能打开，界面会挤</td><td><b>1920×1080</b>，缩放 <b>100%</b></td></tr>
+  <tr><td>USB</td><td>至少 4 个 USB 口</td><td>6 个及以上</td></tr>
+</table>
+<div class="warn">
+  软件按屏幕可用区域铺满窗口，<b>未做高分屏缩放适配</b>。显示缩放请设为 100%。125%、150% 可能导致按钮、表格显示不全。
+</div>
+
+<h2>4. 必须安装的运行库</h2>
+<p>出厂安装包一般已带齐。若只拷贝了 exe，或缺 DLL 无法启动，需具备：</p>
+<table>
+  <tr><td class="th">VC++ 2015 x64</td><td>vcruntime140.dll、msvcp140.dll。Win7 上请用官方安装包安装，不要只拷这两个文件。</td></tr>
+  <tr><td class="th">Qt 5.10.0（MSVC2015_64）</td><td>与程序一起部署：platforms\qwindows.dll、sqldrivers\qsqlite.dll、imageformats、mediaservice（摄像头）等。</td></tr>
+  <tr><td class="th">OpenCV</td><td>opencv_world453.dll；测高分层另需 opencv_world3416.dll（两套可同目录并存）。</td></tr>
+  <tr><td class="th">配套 DLL</td><td>bloodlayer.dll、UsbCodeDispose.dll、suoweidll.dll、QZXing3.dll、QsLog 等须与 exe 同目录。</td></tr>
+</table>
+
+<h2>5. 与仪器相关的硬件条件</h2>
+<table>
+  <tr><td class="th">分析仪主机</td><td>KS-600 / KS-800 / KS-1200，通信线正常，上位机机型与实机一致。</td></tr>
+  <tr><td class="th">串口</td><td>设备管理器能看到 COM 口。同一 COM 口不能被其他软件占用。</td></tr>
+  <tr><td class="th">测高摄像头</td><td>DirectShow 能识别。被会议软件占用时测高会失败。</td></tr>
+  <tr><td class="th">USB 扫码枪</td><td>按仪器配置接入。</td></tr>
+  <tr><td class="th">耗材刷卡</td><td>RFID 在仪器主板，电脑只需串口畅通。</td></tr>
+  <tr><td class="th">打印机（可选）</td><td>Windows 能打印即可。报告按 <b>A5、300 dpi</b> 排版。</td></tr>
+</table>
+
+<h2>6. 软件会写入的本机目录</h2>
+<p>以下路径都在程序安装目录下，必须可写。数据是本地 SQLite，<b>不需要 MySQL / SQL Server</b>。</p>
+<table>
+  <tr><th>路径</th><th>用途</th></tr>
+  <tr><td>SQLFile\SWData.db 等</td><td>患者、结果、耗材数据库</td></tr>
+  <tr><td>suoweiLogFile\</td><td>运行日志，单文件最大约 512 MB</td></tr>
+  <tr><td>CurveImages\、TestResults\</td><td>曲线图、检测结果</td></tr>
+  <tr><td>FindHighImage\</td><td>测高拍照缓存</td></tr>
+  <tr><td>plugins\</td><td>Qt 插件，启动加载</td></tr>
+</table>
+<ul>
+  <li>同一台电脑<b>只能运行一份本软件</b>。</li>
+  <li>不要放在只读光盘或无写权限的网盘映射盘。</li>
+</ul>
+
+<h2>7. 网络与 LIS</h2>
+<table>
+  <tr><td class="th">单机</td><td>不接医院网也可以检测、出报告、存本地库。</td></tr>
+  <tr><td class="th">LIS 对接</td><td>软件带 HTTP 接口（示例端口 8080）。启用后需固定 IP，防火墙放行，LIS 与本机网络可达。</td></tr>
+  <tr><td class="th">曲线共享</td><td>若 LIS 用网上邻居取图，需共享 CurveImages 并授权读取。</td></tr>
+</table>
+
+<h2>8. 现场检查清单</h2>
+<ul>
+  <li>计算机属性：<b>64 位</b>操作系统。Win7 须为 SP1。</li>
+  <li>显示：1920×1080，缩放 100%。</li>
+  <li>双击 Coagulation.exe 能进登录界面，无“缺少 dll / 无法定位程序输入点”。</li>
+  <li>设备管理器：COM 口、摄像头、打印机无感叹号。</li>
+  <li>杀毒软件将安装目录加白名单。</li>
+  <li>关闭睡眠和 USB 选择性暂停。</li>
+  <li>登录后机型与实机一致，通信正常后再做样本。</li>
+</ul>
+
+<h2>9. 不能运行或效果差的情况</h2>
+<ul>
+  <li>32 位 Windows（含 Windows 7 32 位）。</li>
+  <li>Windows 7 未装 SP1，或未装 KB2999226 / VC++ 2015 x64。</li>
+  <li>虚拟机未直通 USB/串口；远程桌面使用摄像头。</li>
+  <li>压缩包未解压直接运行；安装目录只读。</li>
+  <li>同时开两份本软件；COM 口或摄像头被占用。</li>
+  <li>显示缩放不是 100%；分辨率低于 1366×768。</li>
+</ul>
+
+<p class="footer">
+  本说明依据当前上位机工程（Qt 5.10.0 + MSVC 2015 x64）整理。Qt 5.10 官方支持平台包含 Windows 7 x64。具体安装以出厂安装包和现场工程师操作为准。可用浏览器打开本文档，或打印为 PDF 发给信息科。
+</p>
+</div>
+</body>
+</html>

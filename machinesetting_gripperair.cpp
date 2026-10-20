@@ -4,32 +4,62 @@
 #include "loadequipmentpos.h"
 #include "usbcodedispose.h"
 #include "globaldata.h"
+#include "quiutils.h"
+#include "cglobal.h"
+#include "custom_struct.h"
 
 #include <QMessageBox>
 #include <QGridLayout>
 #include <QSpinBox>
 #include <QSizePolicy>
+#include <QTimer>
+#include <QVector>
 #include <algorithm>
 
 namespace {
 
 const int kGripperAirStableCount = 5;
+const int kGripperAirOriginStableCount = 3;
 const int kGripperAirMaxSpread = 120;
+const int kGripperAirOriginMaxSpread = 100;
 const int kGripperAirPhaseMinMs = 600;
 const int kGripperAirHoldDeltaMin = 80;
 const int kGripperAirDropMin = 150;
 const int kGripperAirReleaseTimeoutMs = 45000;
 const int kGripperAirDumpMaxRetry = 2;
 const int kGripperAirEmptyMatchMax = 100;
-const int kGripperAirOriginSettleMs = 2500;
-const int kGripperAirChannelSettleMs = 3200;
+const int kGripperAirOriginSettleMs = 800;
+const int kGripperAirChannelSettleMs = 1200;
+const int kGripperAirReleaseFastSettleMs = 350;
 const int kGripperAirThrowSettleMs = 3500;
 const int kGripperGrabApplySlack = 60;
 const int kGripperReleaseApplySlack = 60;
 const int kGripperThresholdMinGap = 80;
 const quint8 kGripperAirCalibChannel = 0;
 
-// detect step: 1=origin pump empty  2=ch1 hold  3=throw release
+const int kGripperMotionOrigin = 1;
+const int kGripperMotionChannel = 2;
+const int kGripperMotionDump = 3;
+const int kGripperMotionReturn = 4;
+const int kGripperMotionDumpRetreat = 5;
+const int kGripperMotionCancel = 6;
+const int kGripperAirVacuumOffBeforeMoveMs = 700;
+
+// detect step: 1=origin empty(suck off)  2=ch1 hold(suck on)  3=throw release(suck off)
+
+quint8 nextGripperCmdIndex(const QByteArrayList &cmds)
+{
+    return static_cast<quint8>(cmds.size() % 255);
+}
+
+void appendXYReposition(QByteArrayList &cmds, UsbCodeDispose *pActive)
+{
+    quint8 idx = nextGripperCmdIndex(cmds);
+    const QByteArray repos = pActive->_DLLXYMoveReposition_(idx, MACHINEBACK_SPEED);
+    if (!repos.isEmpty()) {
+        cmds.push_back(repos);
+    }
+}
 
 static inline QString gtr(const char *utf8Text)
 {
@@ -82,25 +112,30 @@ bool computeGripperAirThresholds(int holdSample, int emptyOrigin, int emptyAfter
     return true;
 }
 
-bool gripperAirPushSample(QVector<int> &samples, int value, int *outAvg)
+bool gripperAirPushSample(QVector<int> &samples, int value, int *outAvg,
+                          int stableCount = kGripperAirStableCount,
+                          int maxSpread = kGripperAirMaxSpread)
 {
+    if (stableCount < 1) {
+        return false;
+    }
     samples.push_back(value);
-    while (samples.size() > kGripperAirStableCount) {
+    while (samples.size() > stableCount) {
         samples.remove(0);
     }
-    if (samples.size() < kGripperAirStableCount) {
+    if (samples.size() < stableCount) {
         return false;
     }
     const int minVal = *std::min_element(samples.cbegin(), samples.cend());
     const int maxVal = *std::max_element(samples.cbegin(), samples.cend());
-    if (maxVal - minVal > kGripperAirMaxSpread) {
+    if (maxVal - minVal > maxSpread) {
         return false;
     }
     int sum = 0;
     for (int v : samples) {
         sum += v;
     }
-    *outAvg = sum / kGripperAirStableCount;
+    *outAvg = sum / stableCount;
     return true;
 }
 
@@ -240,8 +275,8 @@ void MachineSetting::updateGripperAirStepHint(int step)
     if (!m_gripperAirStepLabel) {
         return;
     }
-    const QString step1 = gtr(u8"(1) \u70b9[\u4eea\u5668\u4e3b\u52a8\u5224\u5b9a], \u5728\u539f\u70b9\u5f00\u6cf5\u8bfb\u7a33\u7a7a\u8f7d");
-    const QString step2 = gtr(u8"(2) \u5230\u901a\u90531\u5f00\u8d1f\u538b\u5438\u676f, \u8bfb\u7a33\u5438\u4f4f\u8d1f\u538b");
+    const QString step1 = gtr(u8"(1) \u70b9[\u4eea\u5668\u4e3b\u52a8\u5224\u5b9a], \u5728\u539f\u70b9\u5173\u6cf5\u8bfb\u7a33\u7a7a\u8f7d");
+    const QString step2 = gtr(u8"(2) \u5230\u901a\u90531\u5148\u4e0b\u624e\u518d\u5f00\u8d1f\u538b\u5438\u676f, \u8bfb\u7a33\u5438\u4f4f\u503c");
     const QString step3 = gtr(u8"(3) \u5f03\u676f\u5b54\u4e0b\u964d\u5173\u8d1f\u538b, \u7b49\u7a7a\u8f7d\u540e\u590d\u4f4d\u56de\u539f\u70b9");
     const QString step4 = gtr(u8"(4) \u70b9[\u81ea\u52a8\u8bbe\u5b9a], \u518d\u70b9\u672c\u9875[\u4fdd\u5b58\u6293\u624b\u53c2\u6570]");
     QString s1 = step1;
@@ -251,13 +286,13 @@ void MachineSetting::updateGripperAirStepHint(int step)
     QString now;
     if (step == 1) {
         s1 = QStringLiteral("<b style=\"color:#C0392B;\">") + step1 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u6293\u624b\u5728\u539f\u70b9\u5f00\u6cf5\u7a7a\u8f7d, \u8bf7\u52ff\u653e\u8bd5\u7ba1, \u7b49\u5f85\u8d1f\u538b\u7a33\u5b9a\u3002");
-    } else if (step == 12) {
-        s2 = QStringLiteral("<b style=\"color:#C0392B;\">") + step2 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u5df2\u5230\u901a\u90531, \u8bf7\u653e\u8bd5\u7ba1\u5438\u4f4f, \u7b49\u5f85\u8d1f\u538b\u7a33\u5b9a\u3002");
+        now = gtr(u8"\u5f53\u524d: \u6293\u624b\u5728\u539f\u70b9\u5173\u6cf5\u7a7a\u8f7d, \u8bf7\u52ff\u653e\u8bd5\u7ba1, \u4ee5\u5173\u6cf5\u6307\u4ee4\u56de\u4f20\u8d1f\u538b\u4e3a\u51c6\u3002");
     } else if (step == 2) {
         s2 = QStringLiteral("<b style=\"color:#C0392B;\">") + step2 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u5438\u676f\u8d1f\u538b\u5df2\u7a33\u5b9a, \u6b63\u5728\u53bb\u5f03\u676f\u5b54...");
+        now = gtr(u8"\u5f53\u524d: \u901a\u90531\u4e0b\u9488\u5f00\u8d1f\u538b\u5438\u676f, \u7b49\u5f85\u5438\u4f4f\u8d1f\u538b\u7a33\u5b9a\u3002");
+    } else if (step == 22) {
+        s1 = QStringLiteral("<b style=\"color:#C0392B;\">") + step1 + QStringLiteral("</b>");
+        now = gtr(u8"\u5f53\u524d: \u539f\u70b9\u7a7a\u8f7d\u5df2\u8bfb\u53d6, \u524d\u5f80\u901a\u90531\u5438\u676f...");
     } else if (step == 3) {
         s3 = QStringLiteral("<b style=\"color:#C0392B;\">") + step3 + QStringLiteral("</b>");
         now = gtr(u8"\u5f53\u524d: \u5df2\u5728\u5f03\u676f\u4f4d\u5173\u8d1f\u538b, \u7b49\u5f85\u6062\u590d\u7a7a\u8f7d\u503c...");
@@ -282,13 +317,18 @@ void MachineSetting::sendGripperVacuumProbe(bool suckOn)
                              : static_cast<quint8>(HANDS_SPLIT_NUM);
     const int downMm = m_gripperAirProbeHeight > 0 ? m_gripperAirProbeHeight : 0;
     const bool gripperMode = suckOn ? GRABCUPWITHGRIPPER : GRIPPERNORMAL;
-    const QByteArray cmd = taskDll->DLL_ZMoveSpecifiedPosition(
-                MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false, downMm, false, gripperMode);
+    const QByteArray cmd = QUIUtils::withGripperPump(
+                taskDll->DLL_ZMoveSpecifiedPosition(
+                MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false, downMm, false, gripperMode),
+                suckOn ? GRIPPERMOVE_ABNORMALLY : GRIPPERMOVE_NORMAL);
     emit WriteArryCommand(cmd, suckOn ? gtr(u8"\u6253\u5f00\u8d1f\u538b") : gtr(u8"\u5173\u95ed\u8d1f\u538b"));
 }
 
 void MachineSetting::startGripperAirPoll(bool hold)
 {
+    if (m_gripperAirAwaitingMotion) {
+        return;
+    }
     if (cglobal::g_StartTesting.load()) {
         QMessageBox::information(this, gtr(u8"\u8fd0\u884c\u6682\u505c"),
                                  gtr(u8"\u6d4b\u8bd5\u4e2d\u4e0d\u80fd\u5f00\u542f\u6293\u624b\u8d1f\u538b\u3002"));
@@ -307,6 +347,9 @@ void MachineSetting::startGripperAirPoll(bool hold)
         m_gripperAirPollTimer = new QTimer(this);
         m_gripperAirPollTimer->setInterval(500);
         connect(m_gripperAirPollTimer, &QTimer::timeout, this, [this]() {
+            if (m_gripperAirAwaitingMotion) {
+                return;
+            }
             if (m_gripperAirPollHold) {
                 sendGripperVacuumProbe(true);
             } else {
@@ -327,10 +370,71 @@ void MachineSetting::stopGripperAirPoll()
     m_gripperAirPollHold = false;
 }
 
+void MachineSetting::queueGripperAirMotion(const QByteArrayList &cmds, int motionKind)
+{
+    if (cmds.isEmpty()) {
+        return;
+    }
+    stopGripperAirPoll();
+    m_gripperAirMotionKind = motionKind;
+    m_gripperAirAwaitingMotion = true;
+    emit testdownheight(cmds, EQUIPMENT_GRIPPER_AIR_CALIB);
+}
+
+void MachineSetting::onGripperAirMotionFinished()
+{
+    if (!m_gripperAirAwaitingMotion || m_gripperAirDetectStep == 0) {
+        return;
+    }
+    m_gripperAirAwaitingMotion = false;
+    const int kind = m_gripperAirMotionKind;
+    m_gripperAirMotionKind = 0;
+
+    switch (kind) {
+    case kGripperMotionOrigin:
+        m_gripperAirSettleMs = 0;
+        m_gripperAirPhaseClock.restart();
+        m_gripperAirSamples.clear();
+        sendGripperVacuumProbe(false);
+        scheduleGripperOriginEmptyPollFallback();
+        updateGripperAirStepHint(1);
+        break;
+    case kGripperMotionChannel:
+        m_gripperAirPhaseClock.restart();
+        startGripperAirPoll(true);
+        updateGripperAirStepHint(2);
+        break;
+    case kGripperMotionDump:
+        m_gripperAirSettleMs = kGripperAirReleaseFastSettleMs;
+        m_gripperAirPhaseClock.restart();
+        m_gripperAirSamples.clear();
+        startGripperAirPoll(false);
+        updateGripperAirStepHint(3);
+        break;
+    case kGripperMotionDumpRetreat:
+        sendGripperReturnOriginAfterDetect();
+        break;
+    case kGripperMotionReturn:
+        finishGripperAirDetect();
+        break;
+    case kGripperMotionCancel:
+        updateGripperAirStepHint(0);
+        break;
+    default:
+        break;
+    }
+}
+
 void MachineSetting::cancelGripperAirDetect()
 {
+    const bool wasActive = (m_gripperAirDetectStep != 0) || m_gripperAirPollHold || m_gripperAirAwaitingMotion;
     const bool wasHolding = m_gripperAirPollHold;
     stopGripperAirPoll();
+    if (m_gripperAirOriginAckFallbackTimer) {
+        m_gripperAirOriginAckFallbackTimer->stop();
+    }
+    m_gripperAirAwaitingMotion = false;
+    m_gripperAirMotionKind = 0;
     if (wasHolding || m_gripperAirDetectStep != 0) {
         sendGripperVacuumProbe(false);
     }
@@ -342,6 +446,9 @@ void MachineSetting::cancelGripperAirDetect()
     m_gripperAirSettleMs = kGripperAirPhaseMinMs;
     m_gripperAirSamples.clear();
     updateGripperAirStepHint(0);
+    if (wasActive && cglobal::gserialConnecStatus.load() && !cglobal::g_StartTesting.load()) {
+        sendGripperCancelHoming();
+    }
 }
 
 void MachineSetting::finishGripperAirDetect()
@@ -412,16 +519,7 @@ void MachineSetting::askGripperAirApply()
     } else {
         verifyNote = gtr(u8"\n[\u81ea\u68c0] \u4e09\u6bb5\u5b9e\u6d4b\u4e0e\u6d4b\u8bd5\u5224\u636e(<=\u6293\u4f4f / >=\u4e22\u6389)\u4e00\u81f4\u3002");
     }
-
-    QMessageBox::information(
-                this, gtr(u8"\u5df2\u81ea\u52a8\u8bbe\u5b9a"),
-                gtr(u8"\u6293\u4f4f\u5224\u5b9a <= %1 (\u5438\u676f\u7a33\u6001 %2)\n\u4e22\u6389\u5224\u5b9a >= %3 (\u5f03\u676f\u540e\u7a7a\u8f7d %4, \u539f\u70b9\u5f00\u6cf5\u7a7a\u8f7d %5)\n\u8bf7\u70b9\u672c\u9875[\u4fdd\u5b58\u6293\u624b\u53c2\u6570]\u5199\u5165\u4eea\u5668\u3002")
-                .arg(grabThreshold)
-                .arg(holdSample >= 0 ? QString::number(holdSample) : QStringLiteral("-"))
-                .arg(releaseThreshold)
-                .arg(emptyDump >= 0 ? QString::number(emptyDump) : QStringLiteral("-"))
-                .arg(emptyOrigin >= 0 ? QString::number(emptyOrigin) : QStringLiteral("-"))
-                + verifyNote);
+    Q_UNUSED(verifyNote);
 }
 
 void MachineSetting::sendGripperOriginSequence()
@@ -446,15 +544,22 @@ void MachineSetting::sendGripperOriginSequence()
     }
 
     m_gripperAirProbeHeight = 0;
-    quint8 idx = 1;
     QByteArrayList cmds;
+    QUIUtils::allZAxisBackOrigin(cmds, cmds.size());
+    appendXYReposition(cmds, pActive);
     const int safeZ = INI_File()._gethandsdownthrowcpus();
     if (safeZ > 0) {
-        cmds.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, safeZ,
-                                                TRAY_TESTCHANNEL, idx, false));
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(QUIUtils::withGripperPump(
+                    pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, safeZ,
+                                                TRAY_TESTCHANNEL, idx, false),
+                    GRIPPERMOVE_NORMAL));
     }
-    cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(origin, 0, 0, idx));
-    emit SetParatoInstrument(cmds, gtr(u8"\u6293\u624b\u56de\u539f\u70b9\u8bfb\u7a7a\u8f7d\u8d1f\u538b"));
+    {
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(origin, 0, 0, idx));
+    }
+    queueGripperAirMotion(cmds, kGripperMotionOrigin);
 }
 
 void MachineSetting::sendGripperChannelGrabSequence()
@@ -481,12 +586,22 @@ void MachineSetting::sendGripperChannelGrabSequence()
     }
     m_gripperAirProbeHeight = grabH;
 
-    quint8 idx = 1;
     QByteArrayList cmds;
-    cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(chAxis, 0, 0, idx));
-    cmds.push_back(pActive->DLL_ZMoveSpecifiedPosition(
-                       MOTOR_HANDS_INDEX, grabH, 0, idx, false, grabH, false, GRABCUPWITHGRIPPER));
-    emit SetParatoInstrument(cmds, gtr(u8"\u6293\u624b\u5230\u901a\u90531\u5438\u676f\u5224\u5b9a"));
+    QUIUtils::allZAxisBackOrigin(cmds, cmds.size());
+    appendXYReposition(cmds, pActive);
+    {
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(chAxis, 0, 0, idx));
+    }
+    QVector<QByteArray> tail;
+    tail.reserve(4);
+    QUIUtils::appendGripperDescendThenOpenVacuum(tail, grabH, INI_File().rConfigPara(REPEATGRABCUP).toBool());
+    for (const QByteArray &cmd : tail) {
+        if (!cmd.isEmpty()) {
+            cmds.push_back(cmd);
+        }
+    }
+    queueGripperAirMotion(cmds, kGripperMotionChannel);
 }
 
 void MachineSetting::sendGripperDumpSequence()
@@ -506,20 +621,70 @@ void MachineSetting::sendGripperDumpSequence()
         return;
     }
 
-    quint8 idx = 2;
     QByteArrayList cmds;
-    cmds.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, throwH,
-                                            TRAY_TESTCHANNEL, idx, GRABCUPWITHGRIPPER));
-    cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(
-                       throwAxis, OFFSET_ZHANDS, TRAY_TESTENPTY, idx));
-    cmds.push_back(pActive->DLL_ZMoveSpecifiedPosition(
-                       MOTOR_HANDS_INDEX, throwH, 0, idx, false, throwH, false, GRABCUPWITHGRIPPER));
-    quint8 splitIdx = static_cast<quint8>(HANDS_SPLIT_NUM);
-    cmds.push_back(pActive->DLL_ZMoveSpecifiedPosition(
-                       MOTOR_HANDS_INDEX, throwH, 0, splitIdx, false, throwH, false, GRIPPERNORMAL));
+    {
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(QUIUtils::withGripperPump(
+                    pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, throwH,
+                                                TRAY_TESTCHANNEL, idx, GRABCUPWITHGRIPPER),
+                    GRIPPERMOVE_ABNORMALLY));
+    }
+    {
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(
+                           throwAxis, OFFSET_ZHANDS, TRAY_TESTENPTY, idx));
+    }
+    {
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(QUIUtils::withGripperPump(
+                    pActive->DLL_ZMoveSpecifiedPosition(
+                           MOTOR_HANDS_INDEX, throwH, 0, idx, false, throwH, false, GRIPPERNORMAL),
+                    GRIPPERMOVE_NORMAL));
+    }
     m_gripperAirProbeHeight = throwH;
-    emit SetParatoInstrument(cmds, gtr(u8"\u6293\u624b\u5f03\u676f\u9636\u6bb5"));
-    updateGripperAirStepHint(3);
+    queueGripperAirMotion(cmds, kGripperMotionDump);
+}
+
+void MachineSetting::sendGripperDumpZRetreat()
+{
+    UsbCodeDispose *pActive = Testing::getTaskDll();
+    if (!pActive) {
+        cancelGripperAirDetect();
+        return;
+    }
+    const int throwH = INI_File()._gethandsdownthrowcpus();
+    if (throwH <= 0) {
+        sendGripperReturnOriginAfterDetect();
+        return;
+    }
+    QByteArrayList cmds;
+    quint8 idx = nextGripperCmdIndex(cmds);
+    cmds.push_back(QUIUtils::withGripperPump(
+                pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, throwH, TRAY_TESTCHANNEL, idx, false),
+                GRIPPERMOVE_NORMAL));
+    m_gripperAirProbeHeight = 0;
+    queueGripperAirMotion(cmds, kGripperMotionDumpRetreat);
+}
+
+void MachineSetting::sendGripperCancelHoming()
+{
+    if (cglobal::g_StartTesting.load() || !cglobal::gserialConnecStatus.load()) {
+        return;
+    }
+    UsbCodeDispose *pActive = Testing::getTaskDll();
+    if (!pActive) {
+        return;
+    }
+    QPoint origin(0, 0);
+    SingletonAxis::GetInstance()->originPos(READ_OPERRAT, origin);
+    QByteArrayList cmds = QUIUtils::backZAxisandmoveOrigin(origin);
+    if (cmds.isEmpty()) {
+        return;
+    }
+    stopGripperAirPoll();
+    m_gripperAirMotionKind = kGripperMotionCancel;
+    m_gripperAirAwaitingMotion = true;
+    emit testdownheight(cmds, EQUIPMENT_GRIPPER_AIR_CALIB);
 }
 
 void MachineSetting::sendGripperDumpRetry()
@@ -549,15 +714,23 @@ void MachineSetting::sendGripperReturnOriginAfterDetect()
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT, origin);
     const int throwH = INI_File()._gethandsdownthrowcpus();
     m_gripperAirProbeHeight = 0;
-    quint8 idx = 3;
     QByteArrayList cmds;
     if (throwH > 0) {
-        cmds.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, throwH, TRAY_TESTCHANNEL, idx, false));
+        quint8 idx = nextGripperCmdIndex(cmds);
+        cmds.push_back(QUIUtils::withGripperPump(
+                    pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, throwH, TRAY_TESTCHANNEL, idx, false),
+                    GRIPPERMOVE_NORMAL));
     }
     if (origin.x() != 0 || origin.y() != 0) {
+        appendXYReposition(cmds, pActive);
+        quint8 idx = nextGripperCmdIndex(cmds);
         cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(origin, 0, 0, idx));
     }
-    emit SetParatoInstrument(cmds, gtr(u8"\u6293\u624b\u590d\u4f4d\u5e76\u56de\u539f\u70b9"));
+    if (cmds.isEmpty()) {
+        finishGripperAirDetect();
+        return;
+    }
+    queueGripperAirMotion(cmds, kGripperMotionReturn);
 }
 
 void MachineSetting::beginGripperAirDetect()
@@ -597,19 +770,92 @@ void MachineSetting::beginGripperAirDetect()
     m_gripperAirSamples.clear();
     m_gripperAirPhaseClock.restart();
 
-    sendGripperOriginSequence();
-    startGripperAirPoll(true);
     updateGripperAirStepHint(1);
-    QMessageBox::information(this, gtr(u8"\u6293\u624b\u8d1f\u538b"),
-                             gtr(u8"\u5148\u5728\u539f\u70b9\u5f00\u6cf5\u8bfb\u7a7a\u8f7d\u8d1f\u538b\u5e76\u7b49\u5f85\u7a33\u5b9a, \u6b64\u9636\u6bb5\u8bf7\u52ff\u653e\u8bd5\u7ba1\u3002"));
+    sendGripperOriginSequence();
+}
+
+void MachineSetting::completeGripperOriginEmptyStep(int emptyVal)
+{
+    if (m_gripperAirDetectStep != 1) {
+        return;
+    }
+    if (m_gripperAirOriginAckFallbackTimer) {
+        m_gripperAirOriginAckFallbackTimer->stop();
+    }
+    m_gripperAirEmptyBaseline = emptyVal;
+    m_liveReleaseAir = emptyVal;
+    ui->label_splitval->setText(gtr(u8"\u539f\u70b9\u7a7a\u8f7d %1").arg(emptyVal));
+    m_gripperAirSamples.clear();
+    stopGripperAirPoll();
+    m_gripperAirDetectStep = 0;
+    updateGripperAirStepHint(22);
+    QTimer::singleShot(kGripperAirVacuumOffBeforeMoveMs, this, [this]() {
+        if (m_gripperAirEmptyBaseline < 0) {
+            return;
+        }
+        m_gripperAirDetectStep = 2;
+        m_gripperAirSettleMs = kGripperAirChannelSettleMs;
+        m_gripperAirPhaseClock.restart();
+        m_gripperAirSamples.clear();
+        sendGripperChannelGrabSequence();
+    });
+}
+
+void MachineSetting::scheduleGripperOriginEmptyPollFallback()
+{
+    if (!m_gripperAirOriginAckFallbackTimer) {
+        m_gripperAirOriginAckFallbackTimer = new QTimer(this);
+        m_gripperAirOriginAckFallbackTimer->setSingleShot(true);
+        connect(m_gripperAirOriginAckFallbackTimer, &QTimer::timeout, this, [this]() {
+            if (m_gripperAirDetectStep != 1 || m_gripperAirAwaitingMotion) {
+                return;
+            }
+            m_gripperAirSettleMs = kGripperAirOriginSettleMs;
+            m_gripperAirPhaseClock.restart();
+            startGripperAirPoll(false);
+        });
+    }
+    m_gripperAirOriginAckFallbackTimer->start(2500);
 }
 
 void MachineSetting::feedGripperAirSample(bool issuck, int airval)
 {
-    if (m_gripperAirDetectStep == 0) {
+    if (m_gripperAirDetectStep == 0 || m_gripperAirAwaitingMotion) {
         return;
     }
+    if (m_gripperAirDetectStep != 1 && m_gripperAirPhaseClock.elapsed() < m_gripperAirSettleMs) {
+        return;
+    }
+
+    if (m_gripperAirDetectStep == 1 && !issuck) {
+        if (!GlobalData::isHandsSuckFinish(static_cast<quint32>(airval))) {
+            completeGripperOriginEmptyStep(airval);
+            return;
+        }
+        int avg = 0;
+        if (gripperAirPushSample(m_gripperAirSamples, airval, &avg,
+                                 kGripperAirOriginStableCount, kGripperAirOriginMaxSpread)
+                && !GlobalData::isHandsSuckFinish(static_cast<quint32>(avg))) {
+            completeGripperOriginEmptyStep(avg);
+        }
+        return;
+    }
+
     if (m_gripperAirPhaseClock.elapsed() < m_gripperAirSettleMs) {
+        return;
+    }
+
+    const auto finishDumpRelease = [this](int releaseVal) {
+        m_gripperAirReleaseAfterDump = releaseVal;
+        m_liveReleaseAir = releaseVal;
+        ui->label_splitval->setText(gtr(u8"\u5f03\u676f\u7a7a\u8f7d %1").arg(releaseVal));
+        stopGripperAirPoll();
+        sendGripperDumpZRetreat();
+    };
+
+    if (m_gripperAirDetectStep == 3 && !issuck
+            && GlobalData::isHandsCupReleased(static_cast<quint32>(airval), false)) {
+        finishDumpRelease(airval);
         return;
     }
 
@@ -618,24 +864,11 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
         return;
     }
 
-    if (m_gripperAirDetectStep == 1 && issuck) {
-        m_gripperAirEmptyBaseline = avg;
-        ui->label_splitval->setText(gtr(u8"\u539f\u70b9\u5f00\u6cf5\u7a7a\u8f7d %1").arg(avg));
-        m_gripperAirDetectStep = 2;
-        m_gripperAirSamples.clear();
-        m_gripperAirSettleMs = kGripperAirChannelSettleMs;
-        m_gripperAirPhaseClock.restart();
-        sendGripperChannelGrabSequence();
-        startGripperAirPoll(true);
-        updateGripperAirStepHint(12);
-        QMessageBox::information(this, gtr(u8"\u6293\u624b\u8d1f\u538b"),
-                                 gtr(u8"\u7a7a\u8f7d\u8d1f\u538b\u5df2\u7a33\u5b9a, \u6293\u624b\u5c06\u5230\u901a\u90531, \u8bf7\u653e\u8bd5\u7ba1\u5438\u4f4f\u3002"));
-        return;
-    }
-
     if (m_gripperAirDetectStep == 2 && issuck) {
-        if (m_gripperAirEmptyBaseline >= 0
-                && m_gripperAirEmptyBaseline - avg < kGripperAirHoldDeltaMin) {
+        const bool holdByThreshold = GlobalData::isHandsSuckFinish(static_cast<quint32>(avg));
+        const bool holdByDelta = (m_gripperAirEmptyBaseline >= 0
+                                  && m_gripperAirEmptyBaseline - avg >= kGripperAirHoldDeltaMin);
+        if (!holdByThreshold && !holdByDelta) {
             return;
         }
         m_gripperAirLockedHold = avg;
@@ -643,12 +876,10 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
         ui->label_showsuckVal->setText(gtr(u8"\u5438\u4f4f %1").arg(avg));
         m_gripperAirDetectStep = 3;
         m_gripperAirSamples.clear();
-        m_gripperAirSettleMs = kGripperAirThrowSettleMs;
+        m_gripperAirSettleMs = kGripperAirReleaseFastSettleMs;
         m_gripperAirPhaseClock.restart();
         stopGripperAirPoll();
         sendGripperDumpSequence();
-        startGripperAirPoll(false);
-        updateGripperAirStepHint(2);
         return;
     }
 
@@ -657,19 +888,17 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
                 || (avg - m_gripperAirLockedHold >= kGripperAirDropMin);
         const bool nearEmpty = (m_gripperAirEmptyBaseline < 0)
                 || (avg >= m_gripperAirEmptyBaseline - kGripperAirEmptyMatchMax);
-        if (!risenFromHold || !nearEmpty) {
+        const bool throwReleased = GlobalData::isHandsCupReleased(static_cast<quint32>(avg), issuck)
+                || (risenFromHold && nearEmpty);
+        if (!throwReleased) {
             if (m_gripperAirPhaseClock.elapsed() > kGripperAirReleaseTimeoutMs) {
                 sendGripperDumpRetry();
                 m_gripperAirSamples.clear();
-                m_gripperAirSettleMs = kGripperAirThrowSettleMs;
+                m_gripperAirSettleMs = kGripperAirReleaseFastSettleMs;
                 m_gripperAirPhaseClock.restart();
             }
             return;
         }
-        m_gripperAirReleaseAfterDump = avg;
-        m_liveReleaseAir = avg;
-        ui->label_splitval->setText(gtr(u8"\u5f03\u676f\u7a7a\u8f7d %1").arg(avg));
-        sendGripperReturnOriginAfterDetect();
-        finishGripperAirDetect();
+        finishDumpRelease(avg);
     }
 }

@@ -10,6 +10,7 @@
 #include <QTableWidget>
 #include <QStringList>
 #include <QQueue>
+#include <QSet>
 #include "cglobal.h"
 #include "instrumentcoordinatetable.h"
 
@@ -131,6 +132,9 @@ public:
     /*关闭数据库*/
     void     CloseAllDb();  //关闭所有数据库
 
+    void initSampleInitBloodDb();
+    void saveSamplePppInit(int sampleNum, int channel, int pppInit);
+    void saveSamplePrpInit(int sampleNum, int reagentIndex, int channel, int prpInit);
 
 public:
     /** 建表
@@ -148,7 +152,6 @@ public:
                             const QString &testRatioM,
                             const QString &testRatioL);
     bool insertPEDayResult(const QString& PEDate, const QString& resultH, const QString &resultM, const QString &resultL);
-
 
     bool deletePETestEntry(const QString& PEid);
 
@@ -211,7 +214,7 @@ public:
      * @return
      */
     bool  updateTestCurveDataTale(QString id, quint8 indexReag,QString updateVal);
-
+    bool  setTestCurveDataChannel(QString id, int channelNo);
 
     //获取样本基础数据和结果
     bool getTestResultTabledata(QString id, PInfTable &PainterListInfo);
@@ -236,6 +239,10 @@ public:
      */
     bool  updateTestResultTable(QString id, QString updateKey, QString val);
 
+    bool updateAnalysisResults(const QString idnum, const QString key,
+                               const double AUC, const double MaxSlope,
+                               const double TMA, const double Lag,
+                               const double Adhesionrate);
 
     /**  遍历找当天的最大号样本
      * @brief getMaxSampleID
@@ -249,7 +256,7 @@ public:
      * @param datetoday
      * @return
      */
-    QVector<int> getTodayAllSampleid(const QString datetoday);
+    QSet<QString> getTodayAllSampleid(const QString datetoday, const bool isfollowUp);
 
 
 
@@ -317,6 +324,8 @@ public:
 	quint8  BackEmptyTubeNum();
 	QMap<quint8, bool> BackEmptyTubeNumMap();
 
+    QMap<quint8, QList<quint8>> GetEmptyTubeMap();
+
 	quint8 BackFirstEmptyHole();
 
 
@@ -374,6 +383,7 @@ public:
     void	_updateReferenceValue(QString key_,QString updatekey_,QString data_);
 
     void    _obtainPersondata_(QString key_, QString &outMandata_,QString& outWomandata_);
+    void    obtainPersondata(QString key_, QString &outMandata_, QString &outWomandata_);
 
     void    initReerenceTable();
 
@@ -458,6 +468,7 @@ private:
 
     //机器执行任务
     QSqlDatabase m_MachineperformsTaskdb;
+    QSqlDatabase m_sampleInitBloodDb;
     QString m_RemainingTasks;
 
     QString m_MachineTubeState; //机器空试管区孔状态表名

@@ -1,4 +1,6 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 
 #include "consumableswrite.h"
 #include <customcreatsql.h>
@@ -55,7 +57,7 @@ void ConsumablesWrite::handlcloseEquipmentconsumables()
     }
 
     QThread::msleep(100);
-    _shutdownWithError();
+    shutdownWithError();
     return;
 
 
@@ -122,16 +124,15 @@ QByteArray ConsumablesWrite::_PoweronandoffconfigSupplies(quint8 reagentIndex)
     // 确定实际操作的索引
     const quint8 targetIndex = kRightToLeftIndexMap.value(reagentIndex, reagentIndex);
 
-    // 获取操作器实例
-    ConsumablesOper* pOper = ConsumablesOper::GetpInstance();
+    ConsumablesOper::GetpInstance();
 
     // 读取瓶数
     quint8 bottleCount = 0;
-    pOper->syacnReagentTotalBottle(READ_OPERRAT, targetIndex, bottleCount);
+    ConsumablesOper::syacnReagentTotalBottle(READ_OPERRAT, targetIndex, bottleCount);
 
     // 读取余量比
     quint16 remainingRatio = 0;
-    pOper->updateReplaceLocRatio(READ_OPERRAT, reagentIndex, remainingRatio);
+    ConsumablesOper::updateReplaceLocRatio(READ_OPERRAT, reagentIndex, remainingRatio);
 
     // 生成控制指令
    QUIUtils::writeSuppliesBottleControlOrder(outputData, reagentIndex, reagentIndex,
@@ -179,10 +180,10 @@ void ConsumablesWrite::_insterSTUtudata(const QByteArray lossCleanarry,quint8 in
 }
 
 //统一关闭逻辑
-void ConsumablesWrite::_shutdownWithError()
+void ConsumablesWrite::shutdownWithError()
 {
     emit closeSerial();
-    emit _ShutdownApp();
+    emit shutdownApp();
 }
 // 专用充值状态判断函数
 bool ConsumablesWrite::isRechargeSuccessful(const CardAnalysisResult& result)
@@ -260,7 +261,7 @@ void ConsumablesWrite::_recvConsumableswriteState(QStringList recvdata_)
     // 基础校验
     if (recvdata_.size() < 13) {
         QLOG_ERROR() << "Invalid data format. Expected 13 elements, got" << recvdata_.size();
-        emit _shutdownWithError();
+        emit shutdownWithError();
         return;
     }
 
@@ -299,11 +300,11 @@ void ConsumablesWrite::_recvConsumableswriteState(QStringList recvdata_)
         } else {
             QLOG_ERROR() << "配置完成 | 串口状态:" << cglobal::gserialConnecStatus
                         << "| 剩余指令:" << mdataarry_.size() << endl;
-            _shutdownWithError();
+            shutdownWithError();
         }
     } else {
             QLOG_DEBUG() << "试剂配置未完成，执行关闭流程"<<endl;
-            _shutdownWithError();
+            shutdownWithError();
     }
     return;
 }

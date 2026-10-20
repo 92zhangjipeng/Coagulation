@@ -1,4 +1,6 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 #include "globaldata.h"
 #include "replacethetesttubetray.h"
 #include "ui_replacethetesttubetray.h"
@@ -10,7 +12,9 @@
 #include <QMessageBox>
 #include <cglobal.h>
 #include <QDateTime>
+#include <QSet>
 #include <operclass/fullyautomatedplatelets.h>
+#include <custom_style/custommessagebox.h>
 
 
 ReplaceTheTestTubeTray::ReplaceTheTestTubeTray(quint8 indexEquip,QWidget *parent) :
@@ -115,6 +119,14 @@ bool ReplaceTheTestTubeTray::isKeyExists(const QString &key) {
 
 void ReplaceTheTestTubeTray::createHorizontalButtons(const int &numChannel)
 {
+    int channelCount = 12;
+    switch (numChannel) {
+        case KS600: channelCount = 4; break;
+        case KS800: channelCount = 8; break;
+        case KS1200: channelCount = 12; break;
+        default: channelCount = 12; break;
+    }
+
     // 确保groupBox存在且已初始化
     Q_ASSERT(ui->groupBox_testChannel != nullptr);
 
@@ -151,8 +163,8 @@ void ReplaceTheTestTubeTray::createHorizontalButtons(const int &numChannel)
     QButtonGroup *buttonGroup = new QButtonGroup(this);
     buttonGroup->setExclusive(false); // 允许选择多个
 
-    // 生成12个通道按钮
-    for(int i = 0; i < 12; ++i) {
+    // 按机型生成通道按钮：KS600=4、KS800=8、KS1200=12
+    for(int i = 0; i < channelCount; ++i) {
         QPushButton *btn = new QPushButton(QString::number(i+1));
 
         // 设置按钮属性
@@ -173,9 +185,7 @@ void ReplaceTheTestTubeTray::createHorizontalButtons(const int &numChannel)
         });
     }
 
-    // 设置groupBox属性
-    //ui->groupBox_testChannel->setTitle(QString("测试通道 1-%1").arg(4*(numChannel+1)));
-    ui->groupBox_testChannel->setTitle(QString("测试通道"));
+    ui->groupBox_testChannel->setTitle(QString("测试通道 1-%1").arg(channelCount));
     ui->groupBox_testChannel->setLayout(hLayout);
 
     // 添加伸缩因子保持按钮居中
@@ -194,9 +204,8 @@ void ReplaceTheTestTubeTray::resetAllChannels(bool resetAll, const QString& targ
     };
 
     if (resetAll) {
-        // 批量操作时禁用信号
-        QSignalBlocker blocker(this); // 阻止按钮信号触发
         for (auto* btn : qAsConst(m_channelButtons)) {
+            QSignalBlocker blocker(btn);
             processButton(btn);
         }
     } else {
@@ -358,7 +367,14 @@ void ReplaceTheTestTubeTray::sycntestingChannel(const QString &channle,bool addi
     if(addit && !ishand){
         addNewRow(channle,"待测");
     }else if(addit && ishand){
-        QMessageBox::warning(nullptr,"添加失败","已存在性能测试通道!");
+        CustomMessageBox::warning(nullptr,"添加失败","已存在性能测试通道!");
+        for (QPushButton* btn : m_channelButtons) {
+            if (btn && btn->text().trimmed() == channle) {
+                QSignalBlocker blocker(btn);
+                btn->setChecked(false);
+                break;
+            }
+        }
         return;
     }else if(!addit && ishand){
         removeDuplicateKeys(channle);
@@ -420,8 +436,11 @@ void ReplaceTheTestTubeTray::addNewRow(const QString &key, const QString &value)
     table->setUpdatesEnabled(true); // 结束批量模式
 }
 
-QMap<QString, quint8> ReplaceTheTestTubeTray::getColumnValues(QTableWidget *table) {
+QMap<QString, quint8> ReplaceTheTestTubeTray::getColumnValues(QTableWidget *table, bool *insertOk) {
     QMap<QString, quint8> values;
+    if (insertOk) {
+        *insertOk = true;
+    }
     if(!table) return values;
 
     for (int row = 0; row < table->rowCount(); ++row) {
@@ -457,7 +476,13 @@ QMap<QString, quint8> ReplaceTheTestTubeTray::getColumnValues(QTableWidget *tabl
        }
 
        values.insert(skey, ival);
-       FullyAutomatedPlatelets::pinstancesqlData()->insertPETestEntry(skey,ival,"waiting","waiting","waiting");
+       if (!FullyAutomatedPlatelets::pinstancesqlData()->insertPETestEntry(
+                   skey,ival,"waiting","waiting","waiting")) {
+           QLOG_ERROR() << "PE写入完成记录失败" << skey;
+           if (insertOk) {
+               *insertOk = false;
+           }
+       }
     }
     return values;
 }
@@ -475,11 +500,11 @@ void ReplaceTheTestTubeTray::on_toolButton_clicked()
 
     const QVector<CheckCondition> conditions = {
         {
-            !cglobal::gserialConnecStatus,
+            !cglobal::gserialConnecStatus.load(),
             { tr("性能测试启动失败"), tr("仪器离线!") }
         },
         {
-            cglobal::g_StartTesting,
+            cglobal::g_StartTesting.load(),
             { tr("性能测试启动失败"), tr("仪器常规测试中!") }
         },
         {
@@ -494,14 +519,36 @@ void ReplaceTheTestTubeTray::on_toolButton_clicked()
 
     for (const auto& check : conditions) {
        if (check.condition) {
-           warn_interface::showTransientWarning(check.message.first, check.message.second);
+           CustomMessageBox::warning(this,check.message.first,check.message.second);
            return;
        }
     }
 
-    disableAllButtons();
+    const int needTubes = table->rowCount() * 5;
+    const int freeTubes = FullyAutomatedPlatelets::pinstancesqlData()
+            ? FullyAutomatedPlatelets::pinstancesqlData()->BackEmptyTubeNum()
+            : 0;
+    if (freeTubes < needTubes) {
+        CustomMessageBox::warning(this,
+                                  tr("性能测试启动失败"),
+                                  tr("空试管不足，当前空闲%1个，本次需要%2个（每个通道5个：水/标准物/高/中/低）")
+                                  .arg(freeTubes)
+                                  .arg(needTubes));
+        return;
+    }
 
-    QMap<QString,quint8> testChannel = getColumnValues(ui->tableWidget_test);
+    bool insertOk = true;
+    QMap<QString,quint8> testChannel = getColumnValues(ui->tableWidget_test, &insertOk);
+    if (!insertOk) {
+        CustomMessageBox::warning(this, tr("性能测试启动失败"), tr("完成记录写入数据库失败，请检查 SWData.db"));
+        return;
+    }
+    if (testChannel.isEmpty()) {
+        CustomMessageBox::warning(this, tr("性能测试启动失败"), tr("没有有效测试通道!"));
+        return;
+    }
+
+    disableAllButtons();
 
     //性能验证
     Performanceverification::instance()->gettestChannelList(testChannel);
@@ -600,7 +647,10 @@ void ReplaceTheTestTubeTray::updateDatabase(const QString& id, quint8 channel, c
 
 void ReplaceTheTestTubeTray::handlecompletedPETest(){
     resetAllChannels(true,"");
-    allfinishshowResult();
+    ui->tableWidget_test->clearContents();
+    ui->tableWidget_test->setRowCount(0);
+    // 完成记录从数据库重载全部历史，避免只留下本轮、点「全部」又查空表
+    on_pushButton_all_clicked();
 }
 
 // 转移数据
@@ -757,12 +807,22 @@ void ReplaceTheTestTubeTray::generateMultiDemoData(
 
 void ReplaceTheTestTubeTray::openPEdataWindow(const QPoint &pos)
 {
+   QTableWidget *table = ui->tableWidget_result;
+   if (table) {
+       const QModelIndex idx = table->indexAt(pos);
+       if (idx.isValid() && table->selectionModel()
+               && !table->selectionModel()->isRowSelected(idx.row(), QModelIndex())) {
+           table->selectRow(idx.row());
+       }
+   }
+
    QMap<int,QVector<double> > vecdata;
    vecdata.clear();
    SelectedRows(vecdata);
 
-   const bool hasSelection = vecdata.isEmpty();
-   if(hasSelection){
+   if (vecdata.value(HEIGHVALUE).isEmpty()
+           && vecdata.value(MIDVALUE).isEmpty()
+           && vecdata.value(LOWVALUE).isEmpty()) {
        return;
    }
 
@@ -776,15 +836,13 @@ void ReplaceTheTestTubeTray::openPEdataWindow(const QPoint &pos)
                 &ReplaceTheTestTubeTray::handlemakesureResult);
         peWindow->setAttribute(Qt::WA_DeleteOnClose); // 核心设置
 
-        peWindow->insertdata(vecdata);
-
-        // 窗口初始化
         peWindow->setWindowTitle("PE Data Analyzer");
         peWindow->resize(570, 180);
-        peWindow->show();
-    } else {
-        peWindow->activateWindow(); // 已存在则激活窗口
     }
+
+    peWindow->insertdata(vecdata);
+    peWindow->show();
+    peWindow->activateWindow();
 }
 
 void ReplaceTheTestTubeTray::SelectedRows(QMap<int,QVector<double> >& outdata) {
@@ -793,40 +851,56 @@ void ReplaceTheTestTubeTray::SelectedRows(QMap<int,QVector<double> >& outdata) {
     QVector<double> outputdataM;
     QVector<double> outputdataL;
 
-    //直接获取选中行索引并排序 (高效替代 selectedItems() 遍历)
+    QSet<int> selectedRowSet;
     QItemSelectionModel *selectionModel = table->selectionModel();
-    QModelIndexList selectedIndexes = selectionModel->selectedRows(); // 直接获取行索引 [[1,4,8]]
-    std::sort(selectedIndexes.begin(), selectedIndexes.end(), [](const QModelIndex &a, const QModelIndex &b) {
-        return a.row() < b.row(); // 确保行号顺序 [[8]]
-    });
+    if (selectionModel) {
+        const QModelIndexList selectedIndexes = selectionModel->selectedIndexes();
+        for (const QModelIndex &index : selectedIndexes) {
+            selectedRowSet.insert(index.row());
+        }
+        const QModelIndexList selectedRows = selectionModel->selectedRows();
+        for (const QModelIndex &index : selectedRows) {
+            selectedRowSet.insert(index.row());
+        }
+    }
 
-    // 预分配空间
-    outputdata.reserve(selectedIndexes.size());
-    outputdataM.reserve(selectedIndexes.size());
-    outputdataL.reserve(selectedIndexes.size());
+    QList<int> rowList = selectedRowSet.values();
+    std::sort(rowList.begin(), rowList.end());
 
-    // 2. 辅助函数：处理文本转换（避免重复代码）
-    auto convertItemTextToDouble = [](QTableWidgetItem *item) -> double {
+    outputdata.reserve(rowList.size());
+    outputdataM.reserve(rowList.size());
+    outputdataL.reserve(rowList.size());
+
+    auto convertItemTextToDouble = [](QTableWidgetItem *item, bool *ok) -> double {
+        if (ok) {
+            *ok = false;
+        }
         if (!item || item->text().isEmpty()) {
-            return 0.0; // 默认值
+            return 0.0;
         }
         QString cleanText = item->text().replace("%", "").trimmed();
         bool convertOK = false;
-        double convertedValue = cleanText.toDouble(&convertOK);
+        const double convertedValue = cleanText.toDouble(&convertOK);
+        if (ok) {
+            *ok = convertOK;
+        }
         return convertOK ? convertedValue : 0.0;
     };
 
-    // 3. 遍历排序后的行索引
-    foreach (const QModelIndex &index, selectedIndexes) {
-        int row = index.row();
-        QTableWidgetItem *item = table->item(row, COL_VALUE);
-        QTableWidgetItem *itemM = table->item(row, COL_VALUEMID);
-        QTableWidgetItem *itemL = table->item(row, COL_VALUELOW);
+    for (int row : rowList) {
+        bool okH = false;
+        bool okM = false;
+        bool okL = false;
+        const double hVal = convertItemTextToDouble(table->item(row, COL_VALUE), &okH);
+        const double mVal = convertItemTextToDouble(table->item(row, COL_VALUEMID), &okM);
+        const double lVal = convertItemTextToDouble(table->item(row, COL_VALUELOW), &okL);
+        if (!okH || !okM || !okL) {
+            continue;
+        }
 
-        // 应用转换函数
-        outputdata.append(convertItemTextToDouble(item));
-        outputdataM.append(convertItemTextToDouble(itemM));
-        outputdataL.append(convertItemTextToDouble(itemL)); // 同上
+        outputdata.append(hVal);
+        outputdataM.append(mVal);
+        outputdataL.append(lVal);
     }
     outdata.insert(HEIGHVALUE,outputdata);
     outdata.insert(MIDVALUE,outputdataM);
@@ -848,6 +922,8 @@ void ReplaceTheTestTubeTray::handlemakesureResult(const QString &resultdata,cons
 void ReplaceTheTestTubeTray::viewPEResult(const bool isnow,const QString tratDate, const QDate &tragmonth){
     m_dayx.clear();
     m_dayValy.clear();
+    m_dayMidValy.clear();
+    m_dayLowValy.clear();
     QString keydate;
     keydate = isnow? QDate::currentDate().toString("yyyyMM"): tratDate;
     FullyAutomatedPlatelets::pinstancesqlData()->selectPEResultThisMonth(keydate,m_dayx,m_dayValy,m_dayMidValy,m_dayLowValy);

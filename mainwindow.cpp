@@ -1,10 +1,10 @@
-﻿#pragma execution_character_set("utf-8")
-
-#include  "loginui.h"
+﻿#include  "loginui.h"
 #include  "mainwindow.h"
 #include  "ui_mainwindow.h"
+#include  "dilag/testopcv.h"
 #include  <Dbt.h>
 #include  <QCameraInfo>
+#include  <QFontMetrics>
 #include  <QSerialPortInfo>
 #include  <QVideoProbe>
 #include  "genericfunctions.h"
@@ -15,25 +15,103 @@
 #include  <FunctionWidget/functioncustomwidget.h>
 #include  <operclass/fullyautomatedplatelets.h>
 #include  <custom_style/custombutton.h>
+#include <custom_style/custommessagebox.h>
 #include  <QPair>
 #include  <QScreen>         // 包含QScreen头文件
 #include  <QGuiApplication> // 包含QGuiApplication头文件
+#include <QPointer>
 #include <suoweiFileManager/filemanager.h>
 
+#include "CalibratCoordinateLoc/coordinatepposit.h"
 
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
+
+namespace {
+
+void setFocusTaskStatusText(QLabel *lab, const QString &text)
+{
+    if (!lab)
+        return;
+    const QString shown = text.isEmpty() ? QObject::tr("待机") : text;
+    const bool idle = (shown == QObject::tr("待机"));
+    const bool alert = shown.contains(QObject::tr("暂停"))
+            || shown.contains(QObject::tr("异常"))
+            || shown.contains(QObject::tr("超时"))
+            || shown.contains(QObject::tr("失败"));
+    QString bg = QStringLiteral("#FFFFFF");
+    QString fg = QStringLiteral("#1A6B8A");
+    QString border = QStringLiteral("#E2EEF4");
+    if (idle) {
+        bg = QStringLiteral("transparent");
+        fg = QStringLiteral("#5A7384");
+        border = QStringLiteral("transparent");
+    } else if (alert) {
+        bg = QStringLiteral("#FFF4D6");
+        fg = QStringLiteral("#9A6B00");
+        border = QStringLiteral("#E8D39A");
+    }
+    lab->setStyleSheet(
+        QStringLiteral("QLabel#label_focusTask{"
+                       "background:%1;color:%2;border:1px solid %3;"
+                       "border-radius:8px;padding:4px 10px;"
+                       "font-family:'Microsoft YaHei';font-size:13px;}")
+            .arg(bg).arg(fg).arg(border));
+    QFontMetrics fm(lab->font());
+    const int w = qMax(lab->width(), 220);
+    lab->setToolTip(shown);
+    lab->setText(fm.elidedText(shown, Qt::ElideRight, w - 20));
+}
+
+QLabel *ensureFocusTaskLabel(Ui::MainWindow *ui)
+{
+    QLabel *lab = ui->StatusBar->findChild<QLabel *>(QStringLiteral("label_focusTask"));
+    if (!lab) {
+        lab = new QLabel(ui->StatusBar);
+        lab->setObjectName(QStringLiteral("label_focusTask"));
+        lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        lab->setMinimumWidth(220);
+        lab->setMaximumWidth(420);
+        lab->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        lab->setAttribute(Qt::WA_StyledBackground, true);
+        setFocusTaskStatusText(lab, QObject::tr("待机"));
+    }
+
+    QHBoxLayout *lay = ui->horizontalLayout_status;
+    if (lay->indexOf(lab) >= 0)
+        lay->removeWidget(lab);
+    const int reagentIdx = lay->indexOf(ui->widget_ReminderLiqune);
+    lay->insertWidget(reagentIdx >= 0 ? reagentIdx + 1 : lay->count(), lab);
+    return lab;
+}
+
+QTimer *usbUnplugDebounceTimer(QObject *owner)
+{
+    static QPointer<QTimer> timer;
+    if (!timer) {
+        timer = new QTimer(owner);
+        timer->setSingleShot(true);
+        timer->setInterval(1200);
+    }
+    return timer;
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
-    ui(new Ui::MainWindow)
-    ,m_MachineAlreadyInitCleanned(false)
-    ,m_bmachineconfigureSignal(false)
-    ,m_pauseIcon(":/Picture/pause.png")
+    m_pauseIcon(":/Picture/pause.png")
     ,m_continueIcon(":/Picture/Start.png")
-    ,m_indexSec(0)
-    ,m_warmIndexReagent(-1)
-    ,m_currentIndex(0)
-    ,m_relChannel(0)
+    ,ui(new Ui::MainWindow)
     ,m_shutdownClean(false)
+    ,m_bmachineconfigureSignal(false)
+    ,m_MachineAlreadyInitCleanned(false)
     ,m_benterapp(false)
+    ,m_indexSec(0)
+    ,m_relChannel(0)
+    ,m_currentIndex(0)
+    ,m_warmIndexReagent(-1)
 {
     ui->setupUi(this);
 
@@ -53,13 +131,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
         m_iconsLoaded = true;
         // 初始缩放设置
         QSize labelSize = ui->label_machineStaus_show->size();
-        m_connectedIcon = m_connectedIcon.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        m_disconnectedIcon = m_disconnectedIcon.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        m_connectedIcon = m_connectedIcon.scaled(labelSize, Qt::KeepAspectRatio, Qt::FastTransformation);
+        m_disconnectedIcon = m_disconnectedIcon.scaled(labelSize, Qt::KeepAspectRatio, Qt::FastTransformation);
     }
 
 
     // 状态栏初始化
-    ui->StatusBar->setFixedHeight(60);
+    ui->StatusBar->setFixedHeight(64);
     m_reminderTitleStr.clear();
 
     //主标签页配置
@@ -79,7 +157,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     // 带缓存的智能缩放
     machinePixmap = machinePixmap.scaled(ui->Machine_type->size() * devicePixelRatioF(),
                                         Qt::KeepAspectRatio,
-                                        Qt::SmoothTransformation);
+                                        Qt::FastTransformation);
     machinePixmap.setDevicePixelRatio(devicePixelRatioF());
 
     ui->Machine_type->setPixmap(machinePixmap);
@@ -91,6 +169,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     ui->Machine_type->setStyleSheet(style);
 
     initErrorDisplayMap();
+
+   // initScanBarcode();
 
 }
 
@@ -108,34 +188,26 @@ void MainWindow::stopAndWaitThreads()
     }
 
     // 添加线程停止获取主板线程方法
-    if (m_ObtainMainBoardData) {
-        m_ObtainMainBoardData->stop();
-        delete m_ObtainMainBoardData;
-        m_ObtainMainBoardData = nullptr;
-    }
+    shutdownBoardThread();
 
-    if (m_threadMainBoard.isRunning()) {
-        m_threadMainBoard.quit();
-        if (!m_threadMainBoard.wait(1000)) {
-            QLOG_WARN() << "MainBoard thread termination timeout!";
-        }
-    }
+
+
+
 
     if (mThreaddotest.isRunning()) {
         mThreaddotest.quit();
-        if(!mThreaddotest.wait(3000)){
-            qCritical() << "Failed to stop thread gracefully!";
-            //mThreaddotest.terminate();  // 强制终止（慎用）
+        if (!mThreaddotest.wait(3000)) {
+            QLOG_WARN() << "Test thread did not stop in time";
         }
     }
 
-    m_pdoingTesting.reset();
-
-
-    if (mTesthighThread.isRunning()){
-        mTesthighThread.quit();
-        if (!mTesthighThread.wait(500)) {
-            QLOG_WARN() << "High-speed thread timeout, forcing termination";
+    if (m_pdoingTesting) {
+        if (mThreaddotest.isRunning()) {
+            // 调度对象还在测试线程里跑，这里 delete 会 UAF；退出过程宁可泄漏
+            QLOG_WARN() << "Test thread still running, skip deleting TestProjectProcess";
+            (void)m_pdoingTesting.take();
+        } else {
+            m_pdoingTesting.reset();
         }
     }
 
@@ -147,9 +219,8 @@ void MainWindow::logThreadStatus()
 {
     QLOG_DEBUG() << "\n----- Thread Status Report -----";
     QLOG_DEBUG() << "Module Thread:" << (m_threadModule.isRunning() ? "Running" : "Stopped");
-    QLOG_DEBUG() << "MainBoard Thread:" << (m_threadMainBoard.isRunning() ? "Running" : "Stopped");
+    QLOG_DEBUG() << "MainBoard Thread:" << (m_boardThread.isRunning() ? "Running" : "Stopped");
     QLOG_DEBUG() << "Test Thread:" << (mThreaddotest.isRunning() ? "Running" : "Stopped");
-    QLOG_DEBUG() << "HighSpeed Thread:" << (mTesthighThread.isRunning() ? "Running" : "Stopped");
     QLOG_DEBUG() << "-------------------------------\n";
 }
 
@@ -193,16 +264,21 @@ try{
     delete WriteParameter;
     WriteParameter = nullptr;
 
-    delete mshowModuledata;
-    mshowModuledata = nullptr;
+    if (mshowModuledata) {
+        mshowModuledata->shutdown();
+        delete mshowModuledata.data();
+        mshowModuledata = nullptr;
+    }
 
     // 6. 删除UI相关的非Widget对象
     delete m_graphplot;
     m_graphplot = nullptr;
 
-    // 7. 删除对话框和提示界面
-    delete preminder;
-    preminder = nullptr;
+    // 7. 退出框只由这里释放（不要 WA_DeleteOnClose / closeEvent deleteLater 再删一次）
+    if (preminder) {
+        delete preminder.data();
+        preminder = nullptr;
+    }
 
 
     // 8. 清理单例（在大多数对象之后）
@@ -216,9 +292,6 @@ try{
     ui = nullptr;
 
     StructInstance::getInstance()->m_garbo;
-
-    // 11. 销毁日志实例（最后执行）
-    QsLogging::Logger::destroyInstance();
 
     } catch (const std::exception& e) {
         QLOG_WARN() << "Exception in MainWindow destructor: " << e.what();
@@ -256,42 +329,16 @@ void MainWindow::configReminderIcon(quint8 index_)
 
 void MainWindow::dimmingprogress(bool isDimmingInProgress)
 {
-    // 使用更清晰的变量名
-    static const bool isDimmingFinished = cglobal::g_controldimmingfinished;
-
-    // 提前终止条件放在最前面
-    if (isDimmingFinished) {
-        initcreatprogressingDimming(false); // 终止调光进度条
+    if (cglobal::g_controldimmingfinished.load()) {
+        initcreatprogressingDimming(false);
         return;
     }
 
-    // 使用局部静态变量缓存模块值，避免重复读取INI文件
-    static int cachedModValues[3] = { -1, -1, -1 };
-    static bool valuesCached = false;
-
-    if (!valuesCached) {
-        cachedModValues[0] = INI_File().getModuledimmingVal(MODULE_1);
-        cachedModValues[1] = INI_File().getModuledimmingVal(MODULE_2);
-        cachedModValues[2] = INI_File().getModuledimmingVal(MODULE_3);
-        valuesCached = true;
-    }
-
-    // 使用更清晰的逻辑判断
-    bool anyModuleDisabled = (cachedModValues[0] == 0) ||
-        (cachedModValues[1] == 0) ||
-        (cachedModValues[2] == 0);
-
-    if (anyModuleDisabled) {
-        QLOG_ERROR() << "所有模组调光值设置为0 调光异常!";
-        return;
-    }
-
-    // 更新进度条状态
     initcreatprogressingDimming(isDimmingInProgress);
     update();
 }
 
-void MainWindow::init_style_all()
+void MainWindow::initStyleAll()
 {
     m_benterapp = true;
     quint8 indexequipment;
@@ -381,29 +428,42 @@ void MainWindow::init_style_all()
                         ,Qt::QueuedConnection);
 
         QObject::connect(FullyAutomatedPlatelets::pinstanceWirteBoard(),
-                         &ConsumablesWrite::_ShutdownApp,this,[=](){
-                FullyAutomatedPlatelets::mainWindow()->deleteExitSoftware();
+                         &ConsumablesWrite::shutdownApp, this, []() {
+            if (auto *mw = FullyAutomatedPlatelets::mainWindow()) {
+                mw->deleteExitSoftware();
+            }
         });
     }
 
 
     //所有测试完成复位
-    connect(mptesting.data(),&Testing::tsetfinishedbackorigin,this,[=]()
-    {
+    connect(mptesting.data(),&Testing::tsetfinishedbackorigin,this,[=](){
+
         backOriginTestFinished();
+		QLOG_DEBUG() << "仪器无测试样本或已完成,机器复位";
 
         if (!m_pProgress.isNull()) {
             m_pProgress->close();  // 自动触发 delete 并置空 m_pProgress
             qApp->processEvents(); // 可选：处理界面残留
         }
 
+        //清空复查样本
+        auto *paddTaskCol = FullyAutomatedPlatelets::pinstancepatientdata();
+        if (paddTaskCol) {
+            paddTaskCol->clearfollowUpSample();
+        }
+      
+
+
         emit allCurveClear();  //曲线界面复原
         mptesting.data()->TotalTaskProgress();//总任务进度试管杯
         update();
     });
 
-    connect(m_graphplot.data(),&GraphPlot::DrawProgressbar,
-            mptesting.data(),&Testing::DrawChannelProgress);
+    connect(m_graphplot.data(),
+            &GraphPlot::DrawProgressbar,
+            mptesting.data(),
+            &Testing::DrawChannelProgress);
 
     connect(this,&MainWindow::allCurveClear,
             m_graphplot.data(),&GraphPlot::backallCurveClear);
@@ -440,6 +500,9 @@ void MainWindow::init_style_all()
     connect(this,&MainWindow::cleanModuleBuffData,
             mshowModuledata.data(),&displayChanneldata::handleCleanModuleBuffData
             ,Qt::QueuedConnection);
+    connect(this, &MainWindow::instrumentCameOnline,
+            mshowModuledata.data(), &displayChanneldata::handleInstrumentReconnected,
+            Qt::QueuedConnection);
 
 
     //读耗材卡确认充值
@@ -464,6 +527,18 @@ void MainWindow::init_style_all()
     connect(mshowModuledata.data(),&displayChanneldata::sampleTestingErr,
             FullyAutomatedPlatelets::pinstancepatientdata(),
             &Calibrate::recvSampleTestingErr);
+
+    //查询界面删除样本记录
+    auto *inquireData = FullyAutomatedPlatelets::pinstanceInquiredata();
+    auto *patientData = FullyAutomatedPlatelets::pinstancepatientdata();
+    if (inquireData && patientData) {
+        connect(inquireData, &Inquire_Sql_Info::sycnDelOthertableWidgetRow,
+                patientData, &Calibrate::onsycnDelOthertableWidgetRow);
+    } else {
+        // 可选：记录日志或处理错误
+        QLOG_WARN() << "Failed to connect delete signal: instance is null";
+    }
+
 
     // 连接通道数据错误信号，显示非阻塞提示给用户
     connect(mshowModuledata.data(), &displayChanneldata::channelDataError,
@@ -510,8 +585,16 @@ void MainWindow::init_read_moduledata_thread()
     connect(this,&MainWindow::syncModuleChannelData, mshowModuledata.data(),
                 &displayChanneldata::Recv_syncModuleChannelData);
 
-    connect(mshowModuledata.data(), &displayChanneldata::DisplayTestingValue,
-                m_graphplot.data(),&GraphPlot::GetTestingValue);
+    connect(mshowModuledata.data(),
+            &displayChanneldata::DisplayTestingValue,
+            m_graphplot.data(),
+            &GraphPlot::GetTestingValue);
+
+    connect(mshowModuledata.data(),
+            &displayChanneldata::pppInitRead,
+            m_graphplot.data(),
+            &GraphPlot::onPppInitRead,
+            Qt::QueuedConnection);
 
     connect(this,&MainWindow::qualityChannelVal,mshowModuledata.data(),
             &displayChanneldata::getqualityControlValue);
@@ -562,7 +645,8 @@ void  MainWindow::inittestmodule_data_thread()
 
         QObject::connect(mtestmoduleprotocol.data(),&theTestModuleProtocol::errmodule,
                          this,[=](QString title_,QString errstr){
-             ThreadSafeReminder(title_,errstr);
+             //ThreadSafeReminder(title_,errstr);
+             CustomMessageBox::warning(this,title_,errstr);
         });
 
 
@@ -576,6 +660,7 @@ void  MainWindow::inittestmodule_data_thread()
         QObject::connect(mtestmoduleprotocol.data(),
                          &theTestModuleProtocol::resetconnectModule,this,[=](){
             emit aNewconnectMachine();
+            resumeBoardAcquisition();
             emit ReminderTextOut(PROMPTLOG,tr("恢复继续获取模组和主板数据"));
         });
 
@@ -603,7 +688,8 @@ void MainWindow::handleNormalOperation(quint8 index)
 }
 void MainWindow::handleAbnormalCardSwipe(const QString& promptInfo)
 {
-    ThreadSafeReminder(tr("充值耗材异常"), promptInfo);
+    resumeMainboardPollAfterRecharge();
+    CustomMessageBox::warning(this,tr("充值耗材异常"), promptInfo);
 }
 void MainWindow::initmainboradthread()
 {
@@ -708,6 +794,52 @@ void MainWindow::initTestTaskThread()
             &Alarm::handleReminderText,
             Qt::QueuedConnection);
 
+    connect(m_pdoingTesting.data(), &TestProjectProcess::workflowStatusChanged,
+            this, [this](const QString& statusText) {
+        if (QLabel *lab = ui->StatusBar->findChild<QLabel*>(QStringLiteral("label_focusTask")))
+            setFocusTaskStatusText(lab, statusText);
+    }, Qt::QueuedConnection);
+
+    connect(m_pdoingTesting.data(), &TestProjectProcess::pauseTesting,
+            this, [this]() {
+        if (!cglobal::g_PauseTesting.load() && cglobal::g_StartTesting.load()) {
+            cglobal::g_PauseTesting = true;
+            QToolButton *pPauseBtn = ui->toolButton_quality_sample;
+            if (pPauseBtn) {
+                pPauseBtn->setText(tr("继续"));
+                pPauseBtn->setIcon(m_continueIcon);
+                pPauseBtn->setStyleSheet(mPauseSateQss);
+            }
+            emit ReminderTextOut(PROMPTLOG, tr("流程异常，测试已自动暂停"));
+        }
+    }, Qt::QueuedConnection);
+
+    connect(m_pdoingTesting.data(), &TestProjectProcess::requestPauseUiSync,
+            this, [this](bool paused) {
+        if (!cglobal::g_StartTesting.load()) {
+            return;
+        }
+        cglobal::g_PauseTesting = paused;
+        QToolButton *pPauseBtn = ui->toolButton_quality_sample;
+        if (!pPauseBtn) {
+            return;
+        }
+        if (paused) {
+            pPauseBtn->setText(tr("继续"));
+            pPauseBtn->setIcon(m_continueIcon);
+            pPauseBtn->setStyleSheet(mPauseSateQss);
+        } else {
+            pPauseBtn->setText(tr("暂停"));
+            pPauseBtn->setIcon(m_pauseIcon);
+            pPauseBtn->setStyleSheet(minitTopBtnQss);
+        }
+    }, Qt::QueuedConnection);
+
+    connect(m_pdoingTesting.data(), &TestProjectProcess::sampleSuckPosInvalid,
+            this, [this](const QString& msg) {
+        CustomMessageBox::warning(this, tr("吸样位置错误"), msg);
+    }, Qt::QueuedConnection);
+
 
     connect(mlocalSerial.data(),&SuoweiSerialPort::sendTestingRecvData,
             m_pdoingTesting.data(),
@@ -725,13 +857,48 @@ void MainWindow::initTestTaskThread()
     connect(m_pdoingTesting.data(),&TestProjectProcess::write_instructions_group,
             mlocalSerial.data(),&SuoweiSerialPort::slotwrite_instructions_group);
 
+    connect(m_pdoingTesting.data(), &TestProjectProcess::abortPendingEquipmentIo,
+            mlocalSerial.data(), &SuoweiSerialPort::abortPendingWrites,
+            Qt::QueuedConnection);
+    if (USB_InitConnect *act = FullyAutomatedPlatelets::pinstanceSingleactive()) {
+        connect(m_pdoingTesting.data(), &TestProjectProcess::abortPendingEquipmentIo,
+                act, &USB_InitConnect::abortPendingActions,
+                Qt::QueuedConnection);
+    }
+
 
     //异常提示
     connect(m_pdoingTesting.data(),&TestProjectProcess::executeErrPrompt,this,
             [this](QString ERRInfo){
-        ThreadSafeReminder("动作执行异常", ERRInfo);
-        emit ProceedTask();//继续执行
-    });
+        const bool pppHangWipePrompt = ERRInfo.contains(
+                    QString::fromUtf8("洗针后仍探测到挂液"));
+        const QString footer = pppHangWipePrompt
+                ? tr("\n\n确定：按失败高度液面探测吸PPP并吐PPP。\n取消：保持暂停，擦净针尖后点「继续」重做预探测。")
+                : tr("\n\n确定：全轴复位后按当前步骤续跑。\n取消：保持暂停，处理好后再点「继续」。");
+        const auto ret = CustomMessageBox::question(
+                    this,
+                    tr("动作执行异常"),
+                    ERRInfo + footer,
+                    QMessageBox::Ok | QMessageBox::Cancel);
+        if (ret == QMessageBox::Ok) {
+            if (pppHangWipePrompt && m_pdoingTesting) {
+                m_pdoingTesting->confirmPppHangLiquidProceed();
+            } else {
+                emit ProceedTask();
+            }
+        } else {
+            if (!cglobal::g_PauseTesting.load() && cglobal::g_StartTesting.load()) {
+                cglobal::g_PauseTesting = true;
+                QToolButton *pPauseBtn = ui->toolButton_quality_sample;
+                if (pPauseBtn) {
+                    pPauseBtn->setText(tr("继续"));
+                    pPauseBtn->setIcon(m_continueIcon);
+                    pPauseBtn->setStyleSheet(mPauseSateQss);
+                }
+            }
+            emit ReminderTextOut(PROMPTLOG, tr("动作异常已暂停，等待处理后继续"));
+        }
+    }, Qt::QueuedConnection);
 
     connect(this,&MainWindow::ProceedTask,m_pdoingTesting.data(),
             &TestProjectProcess::equipment_err_continue);
@@ -749,18 +916,114 @@ void MainWindow::initTestTaskThread()
     connect(m_pdoingTesting.data(),
             &TestProjectProcess::getAnemiaValue,
             mshowModuledata.data(),
-            &displayChanneldata::slotgetAnemiaValue);
+            &displayChanneldata::slotgetAnemiaValue,
+            Qt::QueuedConnection);
 
     //获取样本PPP初值成功丢PPP
     connect(mshowModuledata.data(),
             &displayChanneldata::CompleteGetAnemiaValue,
             m_pdoingTesting.data(),
-            &TestProjectProcess::throwAnemiaCup);
+            &TestProjectProcess::throwAnemiaCup,
+            Qt::QueuedConnection);
+
+    connect(mshowModuledata.data(), &displayChanneldata::testingLogHint,
+            this, [this](const QString& text) {
+        emit ReminderTextOut(TESTINGLOG, text);
+    }, Qt::QueuedConnection);
 
     //空试管被夹起
     connect(m_pdoingTesting.data(),&TestProjectProcess::EmptyTubeCatched,
             mptesting.data(), &Testing::EmptyTubeClipMoved,
             Qt::QueuedConnection);
+
+    connect(m_pdoingTesting.data(), &TestProjectProcess::bloodSuck2EmptyTube,
+            mptesting.data(), &Testing::recvBloodSuck2EmptyTube,
+            Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(), &TestProjectProcess::giveupSampleHolesChanged,
+            mptesting.data(), &Testing::giveupSampleShowHole,
+            Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(), &TestProjectProcess::giveupChannelFlash,
+            mptesting.data(), &Testing::giveupSampleChannelFlash,
+            Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(), &TestProjectProcess::allSamplesFinished,
+            mptesting.data(), &Testing::allSampleTested,
+            Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(), &TestProjectProcess::allSamplesFinished,
+            this, [this]() {
+        if (QLabel *lab = ui->StatusBar->findChild<QLabel*>(QStringLiteral("label_focusTask")))
+            setFocusTaskStatusText(lab, tr("待机"));
+    }, Qt::QueuedConnection);
+
+    connect(mshowModuledata.data(), &displayChanneldata::signalShowPPPError,
+            m_pdoingTesting.data(), &TestProjectProcess::handlePppBaselineInvalid,
+            Qt::QueuedConnection);
+    connect(mshowModuledata.data(), &displayChanneldata::signalPrpReadFailed,
+            m_pdoingTesting.data(), &TestProjectProcess::handlePrpBaselineInvalid,
+            Qt::QueuedConnection);
+    connect(mshowModuledata.data(), &displayChanneldata::signalPppZeroGiveUp,
+            this, [this](int sampleId, quint8 channel) {
+        emit ReminderTextOut(TESTINGLOG,
+            tr("样本%1 PPP读初值连续8次为0，已停止该样本").arg(sampleId));
+        CustomMessageBox box(
+                    tr("PPP读初值异常"),
+                    tr("样本%1 的PPP通道读数连续 8 次为 0。\n\n点击确定后将丢弃该通道PPP，并放弃该样本（后续PRP不再测试）。")
+                        .arg(sampleId),
+                    QMessageBox::Warning, QMessageBox::Ok, nullptr);
+        box.setWindowModality(Qt::ApplicationModal);
+        box.setWindowFlags(Qt::Dialog | Qt::WindowStaysOnTopHint);
+        if (const QScreen *screen = QGuiApplication::primaryScreen()) {
+            box.adjustSize();
+            box.move(screen->availableGeometry().center() - box.rect().center());
+        }
+        box.raise();
+        box.activateWindow();
+        box.exec();
+        if (m_pdoingTesting) {
+            m_pdoingTesting->handlePppZeroGiveUp(sampleId, channel);
+        }
+    }, Qt::QueuedConnection);
+    connect(mshowModuledata.data(), &displayChanneldata::signalPrpZeroSkipReagent,
+            this, [this](int sampleId, quint8 reagent, quint8 focusActive) {
+        const QString reagentName = GlobalData::mapIndexReagentnames(reagent);
+        emit ReminderTextOut(TESTINGLOG,
+            tr("样本%1 %2 PRP读初值连续8次为0，将丢弃当前试剂杯")
+                .arg(sampleId).arg(reagentName));
+        CustomMessageBox box(
+                    tr("PRP读初值异常"),
+                    tr("样本%1 的%2 PRP通道读数连续 8 次为 0。\n\n点击确定后将丢弃当前试剂杯；若该样本还有其他试剂，将继续测试。")
+                        .arg(sampleId).arg(reagentName),
+                    QMessageBox::Warning, QMessageBox::Ok, nullptr);
+        box.setWindowModality(Qt::ApplicationModal);
+        box.setWindowFlags(Qt::Dialog | Qt::WindowStaysOnTopHint);
+        if (const QScreen *screen = QGuiApplication::primaryScreen()) {
+            box.adjustSize();
+            box.move(screen->availableGeometry().center() - box.rect().center());
+        }
+        box.raise();
+        box.activateWindow();
+        box.exec();
+        if (m_pdoingTesting) {
+            m_pdoingTesting->handlePrpZeroSkipReagent(sampleId, reagent, focusActive);
+        }
+    }, Qt::QueuedConnection);
+    connect(mshowModuledata.data(), &displayChanneldata::signalPrpReadFailed,
+            this, [this]() {
+        if (!cglobal::g_PauseTesting.load() && cglobal::g_StartTesting.load()) {
+            cglobal::g_PauseTesting = true;
+            QToolButton *pPauseBtn = ui->toolButton_quality_sample;
+            if (pPauseBtn) {
+                pPauseBtn->setText(tr("继续"));
+                pPauseBtn->setIcon(m_continueIcon);
+                pPauseBtn->setStyleSheet(mPauseSateQss);
+            }
+        }
+        emit ReminderTextOut(TESTINGLOG,
+            tr("PRP初值异常（须大于0且小于该通道PPP），测试已暂停，点「继续」后按当前焦点重读"));
+        if (INI_File().getexperimentalMode()) {
+            CustomMessageBox::warning(this, tr("PRP异常警告"),
+                tr("未读到有效PRP初值（须大于0，且小于该通道PPP）。\n已暂停测试，请处理后再点「继续」重读。"));
+        }
+    }, Qt::QueuedConnection);
 
 
     //获取通道富血的初值 ==>获取到富血值后 吐试剂
@@ -777,6 +1040,9 @@ void MainWindow::initTestTaskThread()
     connect(m_pdoingTesting.data(),&TestProjectProcess::openTestChnTest,
             mshowModuledata.data(),&displayChanneldata::slotopenTestChnTest,
             Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(), &TestProjectProcess::stopChannelAcquisition,
+            mshowModuledata.data(), &displayChanneldata::slotStopChannelAcquisition,
+            Qt::QueuedConnection);
 
     //样本吐出试剂开始测试清洗针
     connect(mshowModuledata.data(), &displayChanneldata::addSampmeTestCleanPin,
@@ -785,10 +1051,12 @@ void MainWindow::initTestTaskThread()
 
     //通道完成测试
     connect(mshowModuledata.data(),&displayChanneldata::testComplete,
-            m_pdoingTesting.data(),&TestProjectProcess::SampleReagTestFinish);
+            m_pdoingTesting.data(),&TestProjectProcess::SampleReagTestFinish,
+            Qt::QueuedConnection);
 
     connect(this,&MainWindow::resumeaTestTask,m_pdoingTesting.data(),
-            &TestProjectProcess::handleResumeaTestTask);
+            &TestProjectProcess::handleResumeaTestTask,
+            Qt::QueuedConnection);
 
     //测试中添加样本
     connect(mptesting.data(),&Testing::testingaddsample,
@@ -798,20 +1066,44 @@ void MainWindow::initTestTaskThread()
     connect(mshowModuledata.data(),&displayChanneldata::finishtestProgress,
             m_graphplot.data(),&GraphPlot::CompleteOneSample);
 
+    //查询删除样本 分配了任务没测试的也要删掉
+    auto *inquireData = FullyAutomatedPlatelets::pinstanceInquiredata();
+    if (inquireData) {
+        connect(inquireData, &Inquire_Sql_Info::sycnDelTestSample,
+                mptesting.data(),&Testing::onsycnDelTestSample);
+    }
+
+
 
     connect(m_pdoingTesting.data(),&TestProjectProcess::setprogressinitboolwaittext,
-            mptesting.data(),&Testing::updateChannelProgressAndStatus);
+            mptesting.data(),&Testing::updateChannelProgressAndStatus,
+            Qt::QueuedConnection);
 
     connect(m_pdoingTesting.data(),&TestProjectProcess::sycn_SampleTestingChangInitColor,
-            mptesting.data(),&Testing::slot_sycn_SampleTestingChangInitColor);
+            mptesting.data(),&Testing::SampleTestingChangInitColor,
+            Qt::QueuedConnection);
+
+    connect(m_pdoingTesting.data(),&TestProjectProcess::bloodSampleHintStage,
+            mptesting.data(),&Testing::updateBloodHoleHintStage,
+            Qt::QueuedConnection);
 
     /*弃杯成功*/
     connect(m_pdoingTesting.data(),&TestProjectProcess::throwtesttube,
-            mptesting.data(),&Testing::slotThrowtesttube);
+            mptesting.data(),&Testing::slotThrowtesttube,
+            Qt::QueuedConnection);
 
     //断线重连
     connect(mlocalSerial.data(),&SuoweiSerialPort::connectEquipmentagin,
             m_pdoingTesting.data(),&TestProjectProcess::slot_connectEquipmentagin);
+    connect(this, &MainWindow::instrumentWentOffline,
+            m_pdoingTesting.data(), &TestProjectProcess::handleInstrumentOffline,
+            Qt::QueuedConnection);
+    connect(this, &MainWindow::instrumentCameOnline,
+            m_pdoingTesting.data(), &TestProjectProcess::handleInstrumentCameOnline,
+            Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(), &TestProjectProcess::abortAllOpenChannelAcquisition,
+            mshowModuledata.data(), &displayChanneldata::slotAbortAllOpenChannelAcquisition,
+            Qt::QueuedConnection);
 
 
     //测试过程中抓手吸 吐试杯失败
@@ -830,12 +1122,28 @@ void MainWindow::initTestTaskThread()
     // 在主窗口类中连接信号
     connect(mshowModuledata.data(), &displayChanneldata::signalShowPPPError,
             this, [this](int value) {
-        if(!INI_File().getexperimentalMode()) return;
-
-        on_toolButton_quality_sample_clicked();//暂停
-        QMessageBox::warning(this,  "PPP异常警告",
-            QString("检测到PPP异常值: %1\n正常范围: 2000-3000\n机器已停止测试").arg(value));
-    });
+        if (!cglobal::g_PauseTesting.load() && cglobal::g_StartTesting.load()) {
+            cglobal::g_PauseTesting = true;
+            QToolButton *pPauseBtn = ui->toolButton_quality_sample;
+            if (pPauseBtn) {
+                pPauseBtn->setText(tr("继续"));
+                pPauseBtn->setIcon(m_continueIcon);
+                pPauseBtn->setStyleSheet(mPauseSateQss);
+            }
+        }
+        emit ReminderTextOut(TESTINGLOG,
+            tr("PPP初值异常: %1（正常 %2-%3），测试已暂停，点「继续」后按当前焦点重读")
+                .arg(value)
+                .arg(GlobalData::kPppBaselineMin)
+                .arg(GlobalData::kPppBaselineMax));
+        if (INI_File().getexperimentalMode()) {
+            CustomMessageBox::warning(this, tr("PPP异常警告"),
+                tr("检测到PPP异常值: %1\n正常范围: %2-%3\n已暂停测试，请处理后再继续")
+                    .arg(value)
+                    .arg(GlobalData::kPppBaselineMin)
+                    .arg(GlobalData::kPppBaselineMax));
+        }
+    }, Qt::QueuedConnection);
 
 
 }
@@ -843,27 +1151,24 @@ void MainWindow::initTestTaskThread()
 
 void MainWindow::pauseObtainmodulecommand(const QString& info, bool pauseRequested)
 {
-    if (!m_moduletimerThread) {
+    if (!m_moduletimerThread || !m_boardData) {
         QLOG_WARN() << "无法控制模块数据采集 - 定时器线程未初始化(模组和主板)";
         return;
     }
-	QString action;
-    if(m_moduletimerThread && m_ObtainMainBoardData)
-    {
-        //模组暂停||主板暂停
-        if(pauseRequested){
-            emit stopObatinMachineInfo();
-            action = tr("暂停");
-        }
-        else
-        {
-            emit aNewconnectMachine();
-            action = tr("恢复");
-        }
-    }
-    QString message = QString("%1获取%2数据").arg(action)
-                      .arg(m_ObtainMainBoardData ? tr("模组和主板") : tr("模组"));
 
+    //模组暂停||主板暂停
+    if(pauseRequested){
+        emit stopObatinMachineInfo();
+        pauseBoardAcquisition();
+    }
+    else
+    {
+        emit aNewconnectMachine();
+        resumeBoardAcquisition();
+    }
+
+    QString action = pauseRequested ? tr("暂停") : tr("恢复");
+    QString message = QString("%1获取主板/模组数据").arg(action);
     emit ReminderTextOut(PROMPTLOG, message);
     QLOG_INFO() << info << " - " << message;
 }
@@ -927,6 +1232,10 @@ void MainWindow::stopListenToUsb()
 void MainWindow::onDeviceConnected(usbDevice dev)
 {
     QLOG_DEBUG()<<"仪器重连类型:"<<dev.type;
+    if (QTimer *debounce = usbUnplugDebounceTimer(this)) {
+        debounce->stop();
+        debounce->disconnect(this);
+    }
     emit requestReconnect();
     emit ReminderTextOut(PROMPTLOG, tr("USB仪器设备连接!"));
     return;
@@ -939,15 +1248,17 @@ void MainWindow::recvprepareReconnectGetData() {
 void MainWindow::onDeviceDisconnected(usbDevice dev)
 {
     QLOG_DEBUG()<<"仪器掉线类型:"<<dev.type;
-    QString usbDisconnect = QString("仪器断线:%1").arg(dev.type);
-    const QString ErrOut = "仪器USB掉线,请检查接口!";
-    ThreadSafeReminder(usbDisconnect, ErrOut);
-    //设置状态 关闭串口
-    slotconnectionStateChanged(false);
-    emit cleanModuleBuffData(); //清空模组缓存数据
-    emit disConnectCloseSerial();
-    emit ReminderTextOut(ERRORLOG, ErrOut);
-    return;
+    QTimer *debounce = usbUnplugDebounceTimer(this);
+    debounce->disconnect(this);
+    connect(debounce, &QTimer::timeout, this, [this, dev]() {
+        QString usbDisconnect = QString("仪器断线:%1").arg(dev.type);
+        const QString ErrOut = "仪器USB掉线,请检查接口!";
+        slotconnectionStateChanged(false);
+        emit disConnectCloseSerial();
+        emit ReminderTextOut(ERRORLOG, ErrOut);
+        CustomMessageBox::warning(this, usbDisconnect, ErrOut);
+    });
+    debounce->start();
 }
 
 
@@ -1011,9 +1322,12 @@ void MainWindow::initchnstate()
 
 void MainWindow::deleteExitSoftware()
 {
-    this->setAttribute(Qt::WA_DeleteOnClose);
-    QApplication::exit(0);
-    return;
+    QLOG_WARN() << "退出软件：关闭主窗口并退出进程";
+    if (m_systemTray) {
+        m_systemTray->hide();
+    }
+    hide();
+    QApplication::quit();
 }
 
 
@@ -1043,9 +1357,11 @@ void MainWindow::onReminderRequested(QString title_, QString outputText) {
 
 void MainWindow::RealReminderImpl(QString title, QString outputText)
 {
-    QWriteLocker locker(&m_reminderLock);
-    //快速判断标题是否已存在（QSet优化查询效率）
-    if (m_reminderTitleStr.contains(title)) return;
+    {
+        QWriteLocker locker(&m_reminderLock);
+        //快速判断标题是否已存在（QSet优化查询效率）
+        if (m_reminderTitleStr.contains(title)){ return;}
+    }
 
 
     //使用QPointer跟踪弹窗对象生命周期（避免悬空指针）
@@ -1121,8 +1437,12 @@ void  MainWindow::reminderFunctionWidget(QString title,QString outputtext_,QList
         emit controlallchnstate(false); //关闭所有通道旋转
         if(m_MachineAlreadyInitCleanned == false)
         {
-           emit  FullyAutomatedPlatelets::pinstanceWirteBoard()->closeSerial();
-           FullyAutomatedPlatelets::mainWindow()->deleteExitSoftware();
+           if (auto *writer = FullyAutomatedPlatelets::pinstanceWirteBoard()) {
+               emit writer->closeSerial();
+           }
+           if (auto *mw = FullyAutomatedPlatelets::mainWindow()) {
+               mw->deleteExitSoftware();
+           }
         }
         else
         {
@@ -1164,7 +1484,8 @@ bool MainWindow::checkCleanFluidSufficiency()
 // 辅助函数：显示坐标同步错误
 void MainWindow::showAxisSyncErrorDialog()
 {
-    ThreadSafeReminder("开机初始化失败", "未完成坐标同步，请重新联机后启动软件.");
+    CustomMessageBox::warning(this,"开机初始化失败", "未完成坐标同步，请重新联机后启动软件...");
+    //ThreadSafeReminder("开机初始化失败", "未完成坐标同步，请重新联机后启动软件.");
 }
 
 void MainWindow::FirstConnectCleanEquipment()
@@ -1176,7 +1497,8 @@ void MainWindow::FirstConnectCleanEquipment()
         // 2. 检查坐标同步状态
         bool isAxisSyncFinished = getbAxisSycnFinished();
         if (!isAxisSyncFinished) {
-           ThreadSafeReminder("开机初始化失败","未连机同步坐标,请联机重新打开软件!");
+           //ThreadSafeReminder("开机初始化失败","未连机同步坐标,请联机重新打开软件!");
+           CustomMessageBox::warning(this,"开机初始化失败", "未完成坐标同步，请重新联机后启动软件...");
            return;
         }
 
@@ -1187,7 +1509,8 @@ void MainWindow::FirstConnectCleanEquipment()
 
     } catch (const std::exception& e) {
         qCritical() << "Initialization failed:" << e.what();
-        ThreadSafeReminder("严重错误", "初始化过程中发生异常，请联系技术支持。");
+        //ThreadSafeReminder("严重错误", "初始化过程中发生异常，请联系技术支持。");
+        CustomMessageBox::warning(this,"严重错误", "初始化过程中发生异常，请联系技术支持。");
     }
     return;
 }
@@ -1197,8 +1520,6 @@ void MainWindow::FirstConnectCleanEquipment()
 void MainWindow::serialConnection()
 {
     mlocalSerial = FullyAutomatedPlatelets::pinstanceserialusb();
-    mlocalSerial.data()->suoweiportthreadbegin();
-
     const auto serial = mlocalSerial.data();
 
     //重新连接
@@ -1221,7 +1542,8 @@ void MainWindow::serialConnection()
     connect(serial,&SuoweiSerialPort::BufferFullState,this,[=](int _addr){
         QString reminder_;
         QUIUtils::reminderfullcoder(_addr,reminder_);
-        ThreadSafeReminder("指令异常",reminder_);
+        //ThreadSafeReminder("指令异常",reminder_);
+        CustomMessageBox::warning(this,"指令异常", reminder_);
     });
 
 
@@ -1237,7 +1559,8 @@ void MainWindow::serialConnection()
     //串口异常消息提示
     connect(serial,&SuoweiSerialPort::outRminderWidget,
             this,[=](QString title, QString reminderInfo){
-        ThreadSafeReminder(title,reminderInfo);
+        //ThreadSafeReminder(title,reminderInfo);
+        CustomMessageBox::warning(this,title, reminderInfo);
         return;
     });
 
@@ -1253,92 +1576,260 @@ void MainWindow::serialConnection()
         return;
 
     });
+
+    // 先接信号再开线程，避免打开成功的 connectionStateChanged 被丢掉
+    serial->suoweiportthreadbegin();
     return;
 }
 
 void MainWindow::creatbeginreadmodule()
 {
-    QLOG_DEBUG() << "UI thread id:" << QThread::currentThreadId();
+    QLOG_DEBUG() << "获取模组数据线程ID:" << QThread::currentThreadId();
 
     m_moduletimerThread = new moduletimerThread();
     m_moduletimerThread->moveToThread(&m_threadModule);
 
-    connect(&m_threadModule, &QThread::started, m_moduletimerThread, &moduletimerThread::createTimer);
+    // 线程开始时：获取当前模组数量，设置定时器，启动所有模组
+    connect(&m_threadModule, &QThread::started, this, [this]() {
+        // 获取实际模组数量（根据您的硬件配置）
+        quint8 moduleCount = 0,indexType = KS1200;
+        SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, indexType);
+        switch(indexType){
+            case KS600: moduleCount = 1; break;
+            case KS800: moduleCount = 2; break;
+            case KS1200: moduleCount = 3; break;
+            default: moduleCount = 3; break;
+        }
+        QMetaObject::invokeMethod(m_moduletimerThread, [this, moduleCount]() {
+            m_moduletimerThread->setModuleCount(moduleCount);
+            m_moduletimerThread->startAll();
+        }, Qt::QueuedConnection);
+    });
+
+    // 线程结束时清理对象
     connect(&m_threadModule, &QThread::finished, m_moduletimerThread, &QObject::deleteLater);
 
-    connect(this, &MainWindow::stopObatinMachineInfo,
-            m_moduletimerThread, &moduletimerThread::stopObtainMachineInfo);
+    // 连接信号：工作线程请求发送某个模组的数据 -> 主线程实际执行
+    connect(m_moduletimerThread, &moduletimerThread::requestSendModuleData,
+            this, &MainWindow::sendOneModuleData, Qt::QueuedConnection);
 
+    // 可选：外部停止/启动控制（保留原有信号接口）
+    connect(this, &MainWindow::stopObatinMachineInfo,
+            m_moduletimerThread, &moduletimerThread::stopAll);
     connect(this, &MainWindow::aNewconnectMachine,
-            m_moduletimerThread, &moduletimerThread::startObtainMachineInfo);
+            m_moduletimerThread, &moduletimerThread::startAll);
 
     m_threadModule.start();
-    return;
 }
 
-void MainWindow::ObtainModuleData()
+
+
+void MainWindow::sendOneModuleData(int moduleIndex)
 {
-    if(!cglobal::gserialConnecStatus) return;
-
-    quint8 index_equipment = 0;
-    QByteArray* pModuleDataarry = NULL;
-    Monitor_TrayTest *pobtainModuledata = FullyAutomatedPlatelets::pinstanceobtainModuledata();
-    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,index_equipment);
-    pModuleDataarry = new QByteArray[index_equipment + 1];
-    for(int i = 0; i <= index_equipment; i++)
-    {
-        pobtainModuledata->sycnmoduledata(i + 1,pModuleDataarry[i]);
-        QThread::msleep(TIME_SEND_MODULECODER);
-        emit sendOneDirectives(pModuleDataarry[i],"获取模组数据");
-        //QLOG_DEBUG()<<"定时获取模组数据线程id:" << QThread::currentThreadId();
+    if (!cglobal::gserialConnecStatus){
+        return;
     }
-    delete [] pModuleDataarry;
+
+    // 模组索引有效性检查（原协议中模组编号为 1~3）
+    if (moduleIndex < 1 || moduleIndex > 3) {
+        QLOG_WARN() << "Invalid module index:" << moduleIndex << ", expected 1~3";
+        return;
+    }
+
+    Monitor_TrayTest* pobtainModuledata = FullyAutomatedPlatelets::pinstanceobtainModuledata();
+    if (!pobtainModuledata) {
+        QLOG_WARN() << "Failed to obtain Monitor_TrayTest instance";
+        return;
+    }
+
+    QByteArray moduleData;
+    // 注意：原 sycnmoduledata 第一个参数是模组编号（可能是 1-based）
+    pobtainModuledata->sycnmoduledata(static_cast<quint8>(moduleIndex), moduleData);
+    emit sendOneDirectives(moduleData, QString("获取模组%1数据").arg(moduleIndex));
 }
 
-//定时读取模组消息
+
+
+
+
 void MainWindow::Traverse_through_ModuleReadInfo()
 {
-    //定时检测模组数据MODULE_DATA
-    Monitor_TrayTest*_pobtainModuledata = FullyAutomatedPlatelets::pinstanceobtainModuledata();
-    _pobtainModuledata->_start(); //开启线程
+    // 获取单例实例（假设该方法返回有效指针）
+    Monitor_TrayTest* pobtainModuledata = FullyAutomatedPlatelets::pinstanceobtainModuledata();
+    if (!pobtainModuledata) {
+        QLOG_WARN() << "Failed to obtain Monitor_TrayTest instance";
+        return;
+    }
 
-    connect(_pobtainModuledata,&Monitor_TrayTest::sendreadModuleCommd,
-            mlocalSerial.data(),
-            &SuoweiSerialPort::slotwrite_instructions_group);
+    // 启动监控线程
+    pobtainModuledata->_start();
 
-    //MachineSetting* pequipmentconfig = FullyAutomatedPlatelets::pinstanceequipmentconfig();
-
-    connect(this,&MainWindow::controlallchnstate,
-            _pobtainModuledata,
-            &Monitor_TrayTest::open_orclose_chn);
-
-    return;
+    // 防止重复连接（避免多次调用导致槽被重复触发）
+    static bool isConnected = false;
+    if (!isConnected) {
+        connect(this, &MainWindow::controlallchnstate,
+                pobtainModuledata, &Monitor_TrayTest::open_orclose_chn);
+        isConnected = true;
+    }
 }
 
+
+
+
+
+/*主界面底栏：USB / 温度 / 耗材 统一成状态条*/
+void MainWindow::applyStatusBarStyle()
+{
+    ensureFocusTaskLabel(ui);
+    ui->StatusBar->setFixedHeight(64);
+    ui->StatusBar->setStyleSheet(QStringLiteral(
+        "QWidget#StatusBar{"
+        "  background-color:#F4F8FB;"
+        "  border:none;"
+        "  border-top:1px solid #D4E4EE;"
+        "  border-radius:0px;"
+        "}"));
+    ui->horizontalLayout_status->setSpacing(8);
+    ui->horizontalLayout_status->setContentsMargins(8, 4, 8, 4);
+
+    const QString cardStyle = QStringLiteral(
+        "background:transparent; border:none;");
+    ui->widget_usbstate->setAttribute(Qt::WA_StyledBackground, true);
+    ui->widget_ModulI->setAttribute(Qt::WA_StyledBackground, true);
+    ui->widget_ModulII->setAttribute(Qt::WA_StyledBackground, true);
+    ui->widget_ModulIII->setAttribute(Qt::WA_StyledBackground, true);
+    ui->widget_usbstate->setStyleSheet(cardStyle);
+    ui->widget_ModulI->setStyleSheet(
+        QStringLiteral("QWidget#widget_ModulI{background:#FFFFFF;border:1px solid #E2EEF4;border-radius:8px;}"));
+    ui->widget_ModulII->setStyleSheet(
+        QStringLiteral("QWidget#widget_ModulII{background:#FFFFFF;border:1px solid #E2EEF4;border-radius:8px;}"));
+    ui->widget_ModulIII->setStyleSheet(
+        QStringLiteral("QWidget#widget_ModulIII{background:#FFFFFF;border:1px solid #E2EEF4;border-radius:8px;}"));
+    ui->widget_ReminderLiqune->setStyleSheet(
+        QStringLiteral("QWidget#widget_ReminderLiqune{background:transparent;border:none;color:#334E5E;}"));
+    ui->widget_ReminderLiqune->setMinimumWidth(380);
+
+    ui->widget_usbstate->setMinimumSize(118, 32);
+    ui->horizontalLayout_2->setContentsMargins(10, 4, 12, 4);
+    ui->horizontalLayout_2->setSpacing(8);
+
+    ui->label_machineStaus_show->setFixedSize(12, 12);
+    ui->label_machineStaus_show->setScaledContents(false);
+    ui->label_machineStaus_show->clear();
+
+    const QString nameStyle = QStringLiteral(
+        "border:none;background:transparent;color:#5A7384;"
+        "font-family:'Microsoft YaHei';font-size:13px;padding:0px;");
+    ui->label_Module1->setStyleSheet(nameStyle);
+    ui->label_Module1_2->setStyleSheet(nameStyle);
+    ui->label_Module1_3->setStyleSheet(nameStyle);
+    ui->label_Module1->setText(tr("模组1"));
+    ui->label_Module1_2->setText(tr("模组2"));
+    ui->label_Module1_3->setText(tr("模组3"));
+    ui->label_Module1->setMinimumWidth(44);
+    ui->label_Module1->setMaximumWidth(56);
+    ui->label_Module1_2->setMinimumWidth(44);
+    ui->label_Module1_2->setMaximumWidth(56);
+    ui->label_Module1_3->setMinimumWidth(44);
+    ui->label_Module1_3->setMaximumWidth(56);
+
+    ui->label_connectstate->setStyleSheet(QStringLiteral(
+        "border:none;background:transparent;font-family:'Microsoft YaHei';"
+        "font-size:14px;font-weight:bold;"));
+
+    ui->gridLayout->setHorizontalSpacing(6);
+    ui->gridLayout->setVerticalSpacing(3);
+    ui->gridLayout->setContentsMargins(4, 2, 4, 2);
+
+    if (ui->MachineAxisValue) {
+        ui->MachineAxisValue->hide();
+    }
+
+    const int wasteIdx = ui->horizontalLayout_status->indexOf(ui->show_wastlique);
+    if (wasteIdx >= 0) {
+        bool hasStretch = false;
+        for (int i = 0; i < ui->horizontalLayout_status->count(); ++i) {
+            if (ui->horizontalLayout_status->itemAt(i)
+                    && ui->horizontalLayout_status->itemAt(i)->spacerItem()) {
+                hasStretch = true;
+                break;
+            }
+        }
+        if (!hasStretch) {
+            ui->horizontalLayout_status->insertStretch(wasteIdx, 1);
+        }
+    }
+
+    updateConnectionUI(cglobal::gserialConnecStatus);
+}
+
+QString MainWindow::consumableChipCaption(int reagentIndex) const
+{
+    switch (reagentIndex) {
+    case INDEX_AA_CONSUMABLE:          return QStringLiteral("AA L");
+    case INDEX_AA_1_CONSUMABLE:        return QStringLiteral("AA R");
+    case INDEX_ADP_CONSUMABLE:         return QStringLiteral("ADP L");
+    case INDEX_ADP_1_CONSUMABLE:       return QStringLiteral("ADP R");
+    case INDEX_EPI_CONSUMABLE:         return QStringLiteral("EPI L");
+    case INDEX_EPI_1_CONSUMABLE:       return QStringLiteral("EPI R");
+    case INDEX_COL_CONSUMABLE:         return QStringLiteral("COL L");
+    case INDEX_COL_1_CONSUMABLE:       return QStringLiteral("COL R");
+    case INDEX_RIS_CONSUMABLE:         return QStringLiteral("RIS L");
+    case INDEX_RIS_1_CONSUMABLE:       return QStringLiteral("RIS R");
+    case INDEX_CLEANLINQUE_CONSUMABLE: return tr("清洗");
+    default: return QString();
+    }
+}
+
+void MainWindow::applyConsumableChipStyle(QLabel* label, double percent, quint8 threshold)
+{
+    if (!label) {
+        return;
+    }
+    QString bg = QStringLiteral("#E6F6EA");
+    QString fg = QStringLiteral("#1B7A3D");
+    if (percent <= 0.0 || percent <= static_cast<double>(threshold)) {
+        bg = QStringLiteral("#FDE8E8");
+        fg = QStringLiteral("#C62828");
+    } else if (percent <= 30.0) {
+        bg = QStringLiteral("#FFF4D6");
+        fg = QStringLiteral("#9A6B00");
+    }
+
+    label->setMinimumSize(58, 22);
+    label->setMaximumHeight(26);
+    label->setAlignment(Qt::AlignCenter);
+    label->setStyleSheet(QStringLiteral(
+        "QLabel{border:none;border-radius:8px;padding:1px 6px;"
+        "font-family:'Microsoft YaHei';font-size:12px;font-weight:bold;"
+        "background-color:%1;color:%2;}")
+                             .arg(bg, fg));
+}
 
 /*主界面UI显示仪器连接状态*/
 void  MainWindow::updateConnectionUI(bool connected)
 {
-    if(!m_iconsLoaded) return;
+    // 状态点 + 短文案
+    ui->label_machineStaus_show->setPixmap(QPixmap());
+    ui->label_machineStaus_show->setFixedSize(12, 12);
+    ui->label_machineStaus_show->setStyleSheet(connected
+        ? QStringLiteral("border:none;border-radius:6px;background-color:#2E9B57;")
+        : QStringLiteral("border:none;border-radius:6px;background-color:#D32F2F;"));
 
-    // 设置状态图标
-    ui->label_machineStaus_show->setPixmap(connected ? m_connectedIcon : m_disconnectedIcon);
+    ui->widget_usbstate->setStyleSheet(connected
+        ? QStringLiteral("QWidget#widget_usbstate{background:#E8F6EE;border:none;border-radius:16px;}")
+        : QStringLiteral("QWidget#widget_usbstate{background:#FDECEC;border:none;border-radius:16px;}"));
 
-    // 配置文本样式
-    QPalette palette;
-    const QString stateText = connected ? tr("仪器状态:已连接")
-                                        : tr("仪器状态:离线");
-    const QColor textColor = connected ? Qt::black : Qt::red;
-
-    // 应用样式设置
-    palette.setColor(QPalette::WindowText, textColor);
-    ui->label_connectstate->setPalette(palette);
-    ui->label_connectstate->setText(stateText);
+    ui->label_connectstate->setStyleSheet(QStringLiteral(
+        "border:none;background:transparent;font-family:'Microsoft YaHei';"
+        "font-size:14px;font-weight:bold;color:%1;")
+            .arg(connected ? QStringLiteral("#1B7A3D") : QStringLiteral("#C62828")));
+    ui->label_connectstate->setText(connected ? tr("已连接") : tr("离线"));
 }
 
 void  MainWindow::slotconnectionStateChanged(bool connected)
 {
-    // 优先更新全局状态（如果需要）
+    const bool wasConnected = cglobal::gserialConnecStatus.load();
     cglobal::gserialConnecStatus = connected;
 
     // 更新UI元素
@@ -1346,6 +1837,14 @@ void  MainWindow::slotconnectionStateChanged(bool connected)
 
     // 触发声音提醒
     emit AlarmReminderSound(!connected);
+
+    if (!connected && wasConnected) {
+        emit cleanModuleBuffData();
+        emit instrumentWentOffline();
+    } else if (connected) {
+        // 重连时串口线程可能已先把 gserialConnecStatus 置 true，不能只靠边沿
+        emit instrumentCameOnline();
+    }
 }
 
 
@@ -1392,56 +1891,86 @@ bool MainWindow::getbAxisSycnFinished()
 
 void MainWindow::CreatActionExecution()
 {
+    static bool initialized = false;
+    if (initialized) return;
+    initialized = true;
 
     USB_InitConnect* mpSingleactive = FullyAutomatedPlatelets::pinstanceSingleactive();
     SuoweiSerialPort* mpserialusbinfo = FullyAutomatedPlatelets::pinstanceserialusb();
 
-    connect(mpSingleactive,&USB_InitConnect::writeCommand,
-            mpserialusbinfo,&SuoweiSerialPort::writedataToEquipment,
+    auto equipmentConfig = FullyAutomatedPlatelets::pinstanceequipmentconfig();
+    auto instrument = FullyAutomatedPlatelets::pinstanceinstrument();
+
+
+    // 线程间命令发送
+    connect(mpSingleactive, &USB_InitConnect::writeCommand,
+            mpserialusbinfo, &SuoweiSerialPort::writedataToEquipment,
             Qt::QueuedConnection);
 
-    connect(this,&MainWindow::CeratActionDate,
-            mpSingleactive,&USB_InitConnect::slotCeratActionDate,
+    // 界面动作触发数据处理
+    connect(this, &MainWindow::CeratActionDate,
+            mpSingleactive, &USB_InitConnect::onCeratActionData,
             Qt::QueuedConnection);
 
-    connect(mpserialusbinfo,&SuoweiSerialPort::serialrecvedata,
-            mpSingleactive,&USB_InitConnect::Recv_serialdata,
+    // 串口数据接收转发
+    connect(mpserialusbinfo, &SuoweiSerialPort::serialrecvedata,
+            mpSingleactive, &USB_InitConnect::recvSerialdata,
             Qt::QueuedConnection);
 
-    //开机清洗
-    connect(mpSingleactive,&USB_InitConnect::bootInitCleanFinished,
-            this,&MainWindow::slotbootInitCleanFinished,
+    // 开机清洗完成通知
+    connect(mpSingleactive, &USB_InitConnect::bootInitCleanFinished,
+            this, &MainWindow::slotbootInitCleanFinished,
             Qt::QueuedConnection);
 
-     //清洗进度
-    connect(mpSingleactive,&USB_InitConnect::CleaningProgress,
-            this,&MainWindow::slotCleaningProgress);
+    connect(mpSingleactive, &USB_InitConnect::smartCupClearFinished,
+            this, &MainWindow::slotSmartCupClearFinished,
+            Qt::QueuedConnection);
 
-     //单个任务断线重连
-     connect(mpserialusbinfo,&SuoweiSerialPort::Disconnectandreconnect,
-             mpSingleactive,&USB_InitConnect::slotDisconnectandreconnect);
+    // 清洗进度
+    connect(mpSingleactive, &USB_InitConnect::CleaningProgress,
+            this, &MainWindow::slotCleaningProgress,
+            Qt::QueuedConnection);
 
-     //复位按钮完成复位
-     connect(mpSingleactive,&USB_InitConnect::btn_resetComplete,this,[=](){
-         ui->toolButton_quality_reset->setEnabled(true);
-         QLOG_DEBUG()<<"按钮复位完成!";
-     });
+    // 断线重连
+    connect(mpserialusbinfo, &SuoweiSerialPort::Disconnectandreconnect,
+            mpSingleactive, &USB_InitConnect::slotDisconnectandreconnect,
+            Qt::QueuedConnection);
 
-     connect(mpSingleactive,&USB_InitConnect::finishviewdownheigh,
-             this,[this](int index_){
-                FullyAutomatedPlatelets::pinstanceequipmentconfig()
-                        ->_finishmovetestdownhigh(index_);
-     });
+    // 复位按钮完成
+    connect(mpSingleactive, &USB_InitConnect::btn_resetComplete, this,
+            [this]() {
+                ui->toolButton_quality_reset->setEnabled(true);
+                QLOG_DEBUG() << "按钮复位完成!";
+            },
+            Qt::QueuedConnection);
 
-     //按钮清洗完成
-     connect(mpSingleactive,&USB_InitConnect::btn_CleanComplete,this,[=]()
-     {
-         //按钮清洗完成
-         FullyAutomatedPlatelets::pinstanceinstrument()->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE,2);
+    // 运动下位高度完成
+    connect(mpSingleactive, &USB_InitConnect::finishviewdownheigh, this,
+            [equipmentConfig](int index_) {
+                if (index_ == EQUIPMENT_GRIPPER_AIR_CALIB) {
+                    equipmentConfig->onGripperAirMotionFinished();
+                } else {
+                    equipmentConfig->_finishmovetestdownhigh(index_);
+                }
+            },
+            Qt::QueuedConnection);
 
-     });
+    // 按钮清洗完成（扣除试剂）
+    connect(mpSingleactive, &USB_InitConnect::btn_CleanComplete, this,
+            [instrument]() {
+                instrument->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE, 2);
+            },
+            Qt::QueuedConnection);
 
-     FullyAutomatedPlatelets::pinstanceSingleactive()->_startthread();
+    // 任务执行失败提示
+    connect(mpSingleactive, &USB_InitConnect::taskErrorOccurred, this,
+            [this](const QString& errorMsg) {
+                CustomMessageBox::warning(this, "动作执行失败", errorMsg);
+            },
+            Qt::QueuedConnection);
+
+    // 启动工作线程
+    mpSingleactive->_startthread();
 }
 
 
@@ -1502,7 +2031,7 @@ void MainWindow::setTrayIcon()
 void MainWindow::checkTrayAvailability()
 {
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {
-        QMessageBox::critical(this,
+        CustomMessageBox::warning(this,
                             tr("系统托盘"),
                             tr("系统不支持托盘功能！\n请确保系统托盘服务正在运行."));
         QCoreApplication::exit(EXIT_FAILURE);
@@ -1573,9 +2102,9 @@ void MainWindow::createTrayActions()
          openSettingsDialog();
      }, true); // 添加分隔符
 
-     addTrayAction(tr("退出系统"), [] {
-         qApp->closeAllWindows();
-         //qApp->quit();
+     addTrayAction(tr("退出系统"), [this] {
+         m_forceQuit = true;
+         writeConsumablesExit();
      });
 }
 
@@ -1660,7 +2189,9 @@ void MainWindow::InitMainUiLayout()
 
 
     //测试界面
-    mptesting = FullyAutomatedPlatelets::pinstanceTesting();
+    auto *testFucn = FullyAutomatedPlatelets::pinstanceTesting();
+    if (testFucn)
+        mptesting = testFucn;
     mptesting.data()->initequipmentKind(minstrumentType);
 
     //设置界面
@@ -1670,6 +2201,7 @@ void MainWindow::InitMainUiLayout()
     //测试曲线
     m_graphplot = new GraphPlot(this);
     m_graphplot.data()->innitKindequipment();
+
 
     MachineSetting*pequipmentconfig = FullyAutomatedPlatelets::pinstanceequipmentconfig();
     connect(mtestmoduleprotocol.data(),&theTestModuleProtocol::sendReminder,
@@ -1688,6 +2220,7 @@ void MainWindow::InitMainUiLayout()
                 this, &MainWindow::onStartTestClicked);
 
     setupMainInterface();
+    applyStatusBarStyle();
 
     ui->tabWidget_Main->setCurrentIndex((int)MainInterfaceSubscripted::FunctionBlock_Testing); //默认显示主页
     GlobalData::mainseledview(ui->toolButton_sampleTest_1,true);
@@ -1708,78 +2241,65 @@ void MainWindow::ChannelValueshow(QStringList moduleData)
 
 
 
-void MainWindow::initializeAltimeterHardware(){
-
-    if(!mAltimetertrigger){
-        mAltimetertrigger = new opencvfindHeigh();
-
-        // 立即设置线程亲和性
-        mAltimetertrigger->moveToThread(&mTesthighThread);
-
-        // 连接所有信号槽
-        setupAltimeterConnections();
-
-        mTesthighThread.start();
-
-        // 等待线程启动完成
-        waitForThreadStart();
+void MainWindow::initializeAltimeterHardware()
+{
+    if (!m_altimeterDelayTimer) {
+        m_altimeterDelayTimer = new QTimer(this);
+        m_altimeterDelayTimer->setSingleShot(true);
+        connect(m_altimeterDelayTimer, &QTimer::timeout, this, [this]() {
+            Q_EMIT triggerTestHeight();
+            QLOG_INFO() << "[测高拍照] 延时结束，开始取图";
+        });
     }
+}
 
+void MainWindow::bindAltimeterVision(TestOpcv *vision)
+{
+    if (!vision) {
+        return;
+    }
+    m_altimeter = vision;
+    setupAltimeterConnections();
     initCameras();
 }
 
 void MainWindow::setupAltimeterConnections()
 {
-    if (!mAltimetertrigger) return;
-
-    connect(&mTesthighThread, &QThread::started,
-            mAltimetertrigger, &opencvfindHeigh::Start);
-    connect(&mTesthighThread, &QThread::finished,
-            mAltimetertrigger, &opencvfindHeigh::deleteLater);
+    if (!m_altimeter || m_altimeterBound) {
+        return;
+    }
+    m_altimeterBound = true;
 
     connect(this, &MainWindow::triggerTestHeight,
-            mAltimetertrigger, &opencvfindHeigh::handleTriggerTestHeight,
+            m_altimeter, &TestOpcv::triggerCaptureAndRecognize,
             Qt::QueuedConnection);
 
-    connect(mAltimetertrigger, &opencvfindHeigh::FindFailed, this,
+    connect(m_altimeter, &TestOpcv::captureFailed, this,
             [this](QString titles, QString contentstr) {
-                ThreadSafeReminder(titles, contentstr);
+                CustomMessageBox::warning(this, titles, contentstr);
             });
 
-
-    connect(this, &MainWindow::findCameraIndexByDevicePath, mAltimetertrigger,
-            &opencvfindHeigh::recvfindCameraIndexByDevicePath,
+    connect(this, &MainWindow::findCameraIndexByDevicePath, m_altimeter,
+            &TestOpcv::recvfindCameraIndexByDevicePath,
             Qt::QueuedConnection);
 
-
-    connect(mAltimetertrigger, &opencvfindHeigh::obtainPRPImage,
-            FullyAutomatedPlatelets::pinstanceTesting(), &Testing::HandleObtainPRPImage,
-            Qt::QueuedConnection);
-
-    //重测
-    connect(mAltimetertrigger, &opencvfindHeigh::reOpencvImageTubePRP,
-            FullyAutomatedPlatelets::pinstanceTesting(), &Testing::HandleReopencvImageTubePRP,
-            Qt::QueuedConnection);
-
-
-    // 测高蜂鸣器提示
-    connect(mAltimetertrigger, &opencvfindHeigh::Testheightfinish,
+    connect(m_altimeter, &TestOpcv::captureFinished,
             this, &MainWindow::TestHeightFinish,
             Qt::QueuedConnection);
 
-    // 重测
     connect(FullyAutomatedPlatelets::pinstanceTesting(), &Testing::sendRepPrpheight,
-            mAltimetertrigger, &opencvfindHeigh::handleRepPrpheight,
+            m_altimeter, &TestOpcv::handleRepPrpheight,
+            Qt::QueuedConnection);
+
+    connect(this, &MainWindow::altimeterCameraPower,
+            m_altimeter, &TestOpcv::setCameraPower,
             Qt::QueuedConnection);
 }
-void MainWindow::waitForThreadStart()
-{
-    QEventLoop loop;
-    QTimer::singleShot(100, &loop, &QEventLoop::quit); // 超时保护
-    connect(&mTesthighThread, &QThread::started, &loop, &QEventLoop::quit);
-    loop.exec();
-}
 
+void MainWindow::setAltimeterCameraPower(bool enable)
+{
+    emit altimeterCameraPower(enable);
+}
 
 void MainWindow::initCameras()
 {
@@ -1831,8 +2351,10 @@ void MainWindow::PromptInfo(const quint8 Index, const QString ReminderStr, const
 }
 
 
-void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagent,
-                                           quint8 totalnum,const QString datetime){
+void MainWindow::handlecardSwipeSuccessful(const QString tips,
+                                        quint8 indexReagent,
+                                        quint8 totalnum,
+                                        const QString datetime){
     if (mReminder) {
         disconnect(mReminder.data(), nullptr, nullptr, nullptr);
         mReminder.reset();
@@ -1841,17 +2363,23 @@ void MainWindow::handlecardSwipeSuccessful(const QString tips,quint8 indexReagen
     mReminder.reset(new CustomHighData(tips, CONSUMABLES_READ_SUCESSFULLY,
                                           indexReagent, totalnum, this));
 
-    connect(mReminder.data(), &CustomHighData::AddSupplies,
-            FullyAutomatedPlatelets::pinstanceinstrument(),
-            &QualityControl::sltoAddConsumables,
-            Qt::UniqueConnection);
-
     connect(mReminder.data(), &CustomHighData::closeDelWidget, this, [this]() {
          cleanupReminder();
     });
 
     saveWritingconsumablebatchnumber(indexReagent, datetime);
     mReminder->show();
+
+    // 主板 RFID 写窗口很短：立刻发确认，并暂停 0xFE 轮询避免读命令冲掉写卡
+    pauseMainboardPollForRecharge();
+    const int rechargeGen = m_rechargePollGeneration;
+    if (QualityControl *instrument = FullyAutomatedPlatelets::pinstanceinstrument()) {
+        instrument->sltoAddConsumables(indexReagent, totalnum);
+    }
+    QTimer::singleShot(4000, this, [this, rechargeGen]() {
+        if (m_rechargePollGeneration == rechargeGen)
+            resumeMainboardPollAfterRecharge();
+    });
 }
 void MainWindow::cleanupReminder() {
     if (mReminder) {
@@ -1866,9 +2394,8 @@ void MainWindow::cleanupReminder() {
 
 
 //保存写入耗材批号信息
-void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,const QString& batchDateNum){
-
-
+void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,const QString& batchDateNum)
+{
     FileManager fileManager;
     const QString filefolder = "ConsumableBatchNumber";
     const QString consumableName = GenericFunctions::BiteMapingConsumablesName(indexConsu) +".txt";//耗材类型
@@ -1893,6 +2420,7 @@ void MainWindow::saveWritingconsumablebatchnumber(const quint8 indexConsu,const 
 void MainWindow::handleswipeCardSuccessfullyWritten(QString tips, int addindexReag, quint8 addBottle)
 {
     QLOG_DEBUG()<<"确认充值成功"<<tips;
+    resumeMainboardPollAfterRecharge();
     emit rechargesuccessful(addindexReag,addBottle);
     return;
 }
@@ -1901,20 +2429,78 @@ void MainWindow::handleswipeCardSuccessfullyWritten(QString tips, int addindexRe
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    if (m_forceQuit) {
+        event->accept();
+        return;
+    }
+
+    if (preminder && preminder->isVisible()) {
+        event->ignore();
+        return;
+    }
+
     event->ignore();
 
-    // 检查是否有正在进行的测试
-    QString warningText,titleText;
+    QString warningText, titleText;
+    if (cglobal::g_StartTesting) {
+       warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
+       titleText = tr("操作提示");
+    } else {
+       warningText = tr("确定退出并关闭软件？");
+       titleText = tr("关闭软件");
+    }
+
+    if (preminder) {
+        delete preminder.data();
+        preminder = nullptr;
+    }
+    preminder = new FunctionCustomWidget(titleText, warningText, this);
+
     QList<QString> btnText;
     btnText << tr("取消退出") << tr("清洗后退出") << tr("确定退出");
-    if (cglobal::g_StartTesting) {
-         warningText = tr("样本测试中...强行退出可能导致测试异常，请等待测试完成！");
-         titleText  = tr("操作提示");
-    }else{
-        warningText = tr("确定退出并关闭软件？");
-        titleText  = tr("关闭软件");
+    for (int i = 0; i < btnText.size(); ++i) {
+        preminder->setTextbtnfunction(i, btnText[i]);
     }
-    reminderFunctionWidget(titleText, warningText, btnText);
+
+    connect(preminder, &FunctionCustomWidget::sender_1function_, this, [this]() {
+        QLOG_WARN() << "退出软件：用户取消退出";
+        emit ReminderTextOut(NORMALLOG, tr("取消退出软件"));
+        if (preminder) {
+            preminder->close();
+        }
+    });
+
+    connect(preminder, &FunctionCustomWidget::sender_2function_, this, [this]() {
+        QLOG_WARN() << "退出软件：用户选择清洗后退出，已初始化清洗"
+                    << m_MachineAlreadyInitCleanned;
+        emit ReminderTextOut(NORMALLOG, tr("清洗后退出软件"));
+        if (preminder) {
+            preminder->close();
+        }
+        emit controlallchnstate(false);
+        if (!m_MachineAlreadyInitCleanned) {
+            m_forceQuit = true;
+            writeConsumablesExit();
+        } else {
+            m_shutdownClean = true;
+            equipmentinitActive(false, m_shutdownClean);
+        }
+    });
+
+    connect(preminder, &FunctionCustomWidget::sender_3function_, this, [this]() {
+        QLOG_WARN() << "退出软件：用户确定退出";
+        emit ReminderTextOut(NORMALLOG, tr("确定退出软件"));
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        if (preminder) {
+            preminder->close();
+        }
+        m_forceQuit = true;
+        writeConsumablesExit();
+    });
+
+    preminder->setWindowModality(Qt::ApplicationModal);
+    preminder->move(QApplication::desktop()->screen()->rect().center() - preminder->rect().center());
+    preminder->show();
 }
 
 
@@ -2031,6 +2617,9 @@ void MainWindow::switchMainTab(MainInterfaceSubscripted index)
     if (tabIndex >= 0 && tabIndex < ui->tabWidget_Main->count()) {
         ui->tabWidget_Main->setCurrentIndex(tabIndex);
         highlightActiveButton(tabIndex);
+        if (index == MainInterfaceSubscripted::FunctionBlock_PreviewResults) {
+            FullyAutomatedPlatelets::pinstancepatientdata()->onPreviewPageShown();
+        }
     }
 }
 
@@ -2052,6 +2641,9 @@ void MainWindow::highlightActiveButton(int index)
     }
 }
 
+
+
+
 void MainWindow::setupUtilityButtons()
 {
     // 设备设置按钮
@@ -2060,15 +2652,18 @@ void MainWindow::setupUtilityButtons()
 
     // 关于按钮
     connect(ui->toolButton_about, &QPushButton::clicked, this, [this] {
-        auto aboutDialog = FullyAutomatedPlatelets::paboutinstance();
-        aboutDialog->sycnMd5Value(QCoreApplication::applicationFilePath());
-        aboutDialog->sycnVersion(VERSIONALLNUM);
-        aboutDialog->sycnEquipment(minstrumentType);
+        if (m_aboutMachine.isNull()) {
+            m_aboutMachine = new AboutMachine(this);
+        }
+        //m_aboutMachine->sycnMd5Value(QCoreApplication::applicationFilePath());
+        m_aboutMachine->sycnVersion(VERSIONALLNUM);
+        m_aboutMachine->sycnEquipment(minstrumentType);
+        m_aboutMachine->sycnSerialname(cglobal::gserialPortName);
 
-        aboutDialog->sycnSerialname(cglobal::gserialPortName);
-        aboutDialog->show();
-        aboutDialog->raise();
-        aboutDialog->activateWindow();
+        m_aboutMachine->show();
+        m_aboutMachine->raise();
+        m_aboutMachine->activateWindow();
+
     });
 
     //退出
@@ -2146,6 +2741,10 @@ void MainWindow::handleFunctionButtonClick(const int indexed)
     // 更新按钮状态
     updateButtonSelectionState(indexed);
 
+    if (indexed == static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewResults)) {
+        FullyAutomatedPlatelets::pinstancepatientdata()->onPreviewPageShown();
+    }
+
     // 记录操作日志
     logTabSwitchEvent(indexed);
 }
@@ -2167,7 +2766,7 @@ void MainWindow::openSettingsDialog()
         pEquipment->activateWindow();
     }
 
-    pEquipment->updatepara(cglobal::g_StartTesting);
+    pEquipment->updatepara(cglobal::g_StartTesting.load());
     pEquipment->show();
 
     // Connect signals only once
@@ -2321,6 +2920,11 @@ void MainWindow::on_sStatusInfo_clicked()
 void MainWindow::on_toolButton_quality_cleaning_clicked()
 {
     if(!cglobal::gserialConnecStatus) return;
+    if (cglobal::g_StartTesting) {
+        CustomMessageBox::warning(this, tr("操作禁止"),
+                                  tr("仪器正在测试中，不能清洗。"));
+        return;
+    }
 
     QByteArrayList CleanBtnarry; CleanBtnarry.clear();
     QUIUtils::cleaningDoubleNeedleAction(CleanBtnarry,1);  //清洗(吸清洗剂吐出)
@@ -2332,9 +2936,22 @@ void MainWindow::on_toolButton_quality_cleaning_clicked()
 void MainWindow::on_toolButton_quality_reset_clicked()
 {
     if(!cglobal::gserialConnecStatus) return;
-    QByteArrayList btn_originloc;
-    QUIUtils::_equipmentbackoriginloc(btn_originloc);
-    emit CeratActionDate(EQUIPMENT_BTN_REAET,btn_originloc);
+    if (cglobal::g_StartTesting) {
+        CustomMessageBox::warning(this, tr("操作禁止"),
+                                  tr("仪器正在测试中，不能复位。"));
+        return;
+    }
+
+    QPoint locAxis(0,0);
+    auto *pconfAxis = SingletonAxis::GetInstance();
+    if(!pconfAxis)
+    {
+        QLOG_WARN()<<"调试界面复位坐标系为NULL";
+    }
+    pconfAxis->originPos(READ_OPERRAT,locAxis);
+
+    Q_EMIT CeratActionDate(EQUIPMENT_BTN_REAET,QUIUtils::backZAxisandmoveOrigin(locAxis));
+
     return;
 }
 
@@ -2379,44 +2996,21 @@ void MainWindow::on_sStatusInfo_text_clicked()
 /*耗材试剂消耗同步界面显示*/
 void MainWindow::DisplaySycnMainUiLosserSuppile(int IndexReagent,double Remainingratio)
 {
-    // 常量定义
-    constexpr quint8 kCriticalThreshold = 0; // 预设阈值
-    constexpr int kPrecision = 2;           // 显示精度
-    const QColor kNormalColor =  Qt::black;  // 常规颜色
-    const QColor kWarningColor = Qt::red;    // 警告颜色
-
-    // 获取试剂阈值配置
-    quint8 threshold = kCriticalThreshold;
+    quint8 threshold = 0;
     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,IndexReagent,threshold);
     QLOG_DEBUG()<<"试剂:"<<GlobalData::mapReagentNames(IndexReagent)<<"报警限制值"<<threshold;
 
-    // 查找对应显示控件
     auto labelIt = displayRatioLab.constFind(IndexReagent);
     if (labelIt != displayRatioLab.constEnd() && *labelIt) {
         QLabel* displayLabel = *labelIt;
-
-        bool isCritical = false;
-        if (Remainingratio > 0 && Remainingratio >= threshold)
-            isCritical = false;
-        else if (qFuzzyIsNull(Remainingratio) || Remainingratio < threshold)
-            isCritical = true;
-
-        // 原子化UI更新
         QSignalBlocker blocker(displayLabel);
-
-        QPalette palette = displayLabel->palette();
-        palette.setColor(QPalette::WindowText, isCritical ? kWarningColor : kNormalColor);
-        displayLabel->setPalette(palette);
-
-        // 构建显示文本
-        const QString originalText = displayLabel->text();
-        const QString baseText = originalText.section(':', 0, 0).trimmed();
-        const QString displayValue = QString::number(Remainingratio, 'f', kPrecision);
-
-        const QString displayText = baseText.isEmpty() ?
-            QString("%1%").arg(displayValue) :
-            QString("%1: %2%").arg(baseText, displayValue);
-            displayLabel->setText(displayText);
+        const QString caption = consumableChipCaption(IndexReagent);
+        const QString displayValue = (Remainingratio < 10.0)
+                ? QString::number(Remainingratio, 'f', 1)
+                : QString::number(Remainingratio, 'f', 0);
+        displayLabel->setText(QString("%1  %2%").arg(caption, displayValue));
+        displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(displayValue));
+        applyConsumableChipStyle(displayLabel, Remainingratio, threshold);
     }
     return;
 }
@@ -2451,7 +3045,8 @@ void  MainWindow::ReminderPauseConsumables_alarm(const int Index)
     // 查找报警信息
     if (consumableAlarmMap.contains(Index)) {
         const auto& info = consumableAlarmMap[Index];
-        ThreadSafeReminder(info.first, info.second);
+        //ThreadSafeReminder(info.first, info.second);
+        CustomMessageBox::warning(this,info.first, info.second);
     } else {
         // 处理未知耗材类型
         QLOG_WARN() << "Unknown consumable index:" << Index;
@@ -2464,8 +3059,6 @@ void MainWindow::DisplaysConsumablesRemaining()
 {
     // 常量定义
     constexpr float kMaxRatioSwitch = 100.0f;
-    const QColor kWarningColor(178,34, 34);
-    const QColor kNormalColor(Qt::black);
 
     // 初始化控件映射表
     const QVector<QPair<int, QLabel*>> consumableWidgets {
@@ -2506,22 +3099,15 @@ void MainWindow::DisplaysConsumablesRemaining()
 
            // 计算显示比例
            const float ratio = static_cast<float>(currentRatio) * kMaxRatioSwitch / MAX_RATIO_SWITCT;
-           const bool isWarning = ratio <= threshold;
-
-           // 构建显示文本
-           const QString baseText = displayLabel->text().section(':', 0, 0).trimmed();
-           const QString displayValue = QString::number(ratio, 'f', 2);
-           const QString fullText = baseText.isEmpty()
-                                   ? QString("%1%").arg(displayValue)
-                                   : QString("%1: %2%").arg(baseText, displayValue);
-
-           // 更新UI
-           QPalette palette = displayLabel->palette();
-           palette.setColor(QPalette::WindowText, isWarning ? kWarningColor : kNormalColor);
+           const QString caption = consumableChipCaption(reagentIndex);
+           const QString displayValue = (ratio < 10.0f)
+                   ? QString::number(static_cast<double>(ratio), 'f', 1)
+                   : QString::number(static_cast<double>(ratio), 'f', 0);
 
            QSignalBlocker blocker(displayLabel);
-           displayLabel->setPalette(palette);
-           displayLabel->setText(fullText);
+           displayLabel->setText(QString("%1  %2%").arg(caption, displayValue));
+           displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(displayValue));
+           applyConsumableChipStyle(displayLabel, static_cast<double>(ratio), threshold);
     }
     return;
 }
@@ -2530,16 +3116,25 @@ void MainWindow::DisplaysConsumablesRemaining()
 //机器位置复位
 void MainWindow::backOriginTestFinished()
 {
-    cglobal::g_StartTesting = false;
     ui->toolButton_quality_start->setEnabled(true);
     ui->toolButton_quality_reset->setEnabled(true);
     ui->toolButton_quality_cleaning->setEnabled(true);
+    cglobal::g_PauseTesting = false;
+    if (QToolButton *pPauseBtn = ui->toolButton_quality_sample) {
+        pPauseBtn->setText(tr("暂停"));
+        pPauseBtn->setIcon(m_pauseIcon);
+        pPauseBtn->setStyleSheet(minitTopBtnQss);
+    }
 
+    QPoint locAxis(0,0);
+    auto *pconfAxis = SingletonAxis::GetInstance();
+    if(!pconfAxis)
+    {
+        QLOG_WARN()<<"调试界面复位坐标系为NULL";
+    }
+    pconfAxis->originPos(READ_OPERRAT,locAxis);
 
-    QByteArrayList btn_originloc;
-    QUIUtils::_equipmentbackoriginloc(btn_originloc);
-    emit CeratActionDate(EQUIPMENT_BTN_REAET,btn_originloc);
-
+    Q_EMIT CeratActionDate(EQUIPMENT_BTN_REAET,QUIUtils::backZAxisandmoveOrigin(locAxis));
     return;
 }
 
@@ -2555,18 +3150,19 @@ void MainWindow::SendCode_2_Serial(QByteArrayList arrycode)
 void  MainWindow::TestHeightFinish(const bool finished)
 {
     emit ConfigUsedBuzzerMark(true);
-    auto *ptask = Testing::m_TaskDll;
+    auto *ptask = Testing::getTaskDll();
     QByteArray openarry = ptask->_buzzerControl(true);
     QByteArray closearry = ptask->_buzzerControl(false);
 
     // 封装蜂鸣动作
-    auto beepAction = [=](const QString& log, int duration, int times) {
-        int* count = new int(0); // 动态分配计数器
+    auto beepAction = [=](const QString& log, int duration, int times, int gapMs) {
+        int* count = new int(0);
         auto timer = new QTimer;
         timer->setSingleShot(true);
         QObject::connect(timer, &QTimer::timeout, [=]() mutable {
                if (*count >= times) {
                    emit ReminderTextOut(PROMPTLOG, log);
+                   emit ConfigUsedBuzzerMark(false);
                    delete count;
                    timer->deleteLater();
                    return;
@@ -2575,24 +3171,21 @@ void  MainWindow::TestHeightFinish(const bool finished)
             QTimer::singleShot(duration, [=]() {
                 emit sendOneDirectives(closearry, "关闭蜂鸣");
                 (*count)++;
-                timer->start(100); // 间隔100ms后触发下一次蜂鸣
+                timer->start(gapMs);
             });
         });
         timer->start(0);
     };
 
     if (finished) {
-        // 成功：单次蜂鸣
-        beepAction(tr("测高成功！"), 30,1);
-    }
-    else {
-        beepAction(tr("测高失败！"), 30,3);
+        beepAction(tr("测高成功！"), 80, 1, 120);
+    } else {
+        beepAction(tr("测高失败！"), 120, 3, 180);
         emit ReminderTextOut(PROMPTLOG, tr("测高失败!"));
-
     }
-    emit ConfigUsedBuzzerMark(false);
-    return;
 }
+
+
 //TestHeightFinish（）
 
 
@@ -2605,7 +3198,8 @@ void MainWindow::equipment_will_test_num(bool &bgoto_testing)
     if(had_wait_testsample <= 0)
     {
         bgoto_testing = false;
-        ThreadSafeReminder("开始失败","样本任务为空,请添加测试样本!");
+        CustomMessageBox::warning(this,"开始失败","样本任务为空,请添加测试样本!");
+        //ThreadSafeReminder("开始失败","样本任务为空,请添加测试样本!");
     }
     else
         bgoto_testing = true;
@@ -2617,13 +3211,61 @@ void MainWindow::testingchnEnough(bool &benoughChn){
 
 void MainWindow::begingTesting()
 {
+    if (cglobal::g_StartTesting.load()) {
+        CustomMessageBox::information(this, tr("开始无效"), tr("测试已在进行中，请勿重复开始。"));
+        return;
+    }
+    // P0 开测门禁
+    if (!cglobal::gserialConnecStatus.load()) {
+        CustomMessageBox::warning(this, tr("开始失败"), tr("仪器离线，请先连接串口!"));
+        return;
+    }
+
+    int sampleTotal = 0;
+    StructInstance::getInstance()->SampleTotal(sampleTotal);
+    if (sampleTotal <= 0) {
+        CustomMessageBox::warning(this, tr("开始失败"), tr("无待测样本，请先添加任务!"));
+        return;
+    }
+
+    if (!cglobal::g_controldimmingfinished.load()) {
+        bool dimmingOk = false;
+        if (auto *dim = FullyAutomatedPlatelets::pinstancedimming()) {
+            dim->getdimming_status(dimmingOk);
+        }
+        if (!dimmingOk) {
+            CustomMessageBox::warning(this, tr("开始失败"), tr("调光未完成，请等待调光结束后再开始!"));
+            return;
+        }
+    }
+
+    // 清洗液余量门禁
+    quint16 cleanRatio = 0;
+    ConsumablesOper::getCleanLinqueAllowance(cleanRatio);
+    quint8 cleanLimit = 0;
+    ConsumablesOper::updateReagentLimit(READ_OPERRAT, INDEX_CLEANLINQUE_CONSUMABLE, cleanLimit);
+    if (cleanRatio < cleanLimit) {
+        CustomMessageBox::warning(this, tr("开始失败"),
+            tr("清洗液余量不足(当前%1%，限位%2%)，请更换后再开始!").arg(cleanRatio).arg(cleanLimit));
+        return;
+    }
+
     bool benoughChn_ = false; //用通道空闲
     testingchnEnough(benoughChn_);
     if(!benoughChn_){
-        ThreadSafeReminder("开始失败","模组无可用通道!");
+        CustomMessageBox::warning(this,"开始失败","模组无可用通道!");
         return;
     }
     mptesting.data()->TotalTaskProgress(); //总任务进度试管杯
+    cglobal::g_PauseTesting = false;
+    if (QToolButton *pPauseBtn = ui->toolButton_quality_sample) {
+        pPauseBtn->setText(tr("暂停"));
+        pPauseBtn->setIcon(m_pauseIcon);
+        pPauseBtn->setStyleSheet(minitTopBtnQss);
+    }
+    if (USB_InitConnect *act = FullyAutomatedPlatelets::pinstanceSingleactive()) {
+        QMetaObject::invokeMethod(act, "abortPendingActions", Qt::BlockingQueuedConnection);
+    }
     cglobal::g_StartTesting = true; //开始测试标志
 
 
@@ -2638,7 +3280,8 @@ void MainWindow::begingTesting()
 void MainWindow::on_toolButton_quality_sample_clicked()
 {
     if(!cglobal::g_StartTesting){
-        ThreadSafeReminder(tr("无效暂停操作"),tr("未开始测试暂停无效"));
+        //ThreadSafeReminder(tr("无效暂停操作"),tr("未开始测试暂停无效"));
+        CustomMessageBox::warning(this,tr("无效暂停操作"),tr("未开始测试暂停无效"));
         return;
     }
 
@@ -2678,8 +3321,7 @@ void MainWindow::on_toolButton_quality_sample_clicked()
 bool MainWindow::reagentReplacementComplete(const int& indexReagent){
 
     quint16 allowanceRatio = 0; //剩余比例
-    ConsumablesOper* consumables = ConsumablesOper::GetpInstance();
-    consumables->updateReplaceLocRatio(READ_OPERRAT, indexReagent, allowanceRatio);
+    ConsumablesOper::updateReplaceLocRatio(READ_OPERRAT, indexReagent, allowanceRatio);
     return (allowanceRatio >= MAX_RATIO_SWITCT)? true: false;
 }
 
@@ -2718,8 +3360,7 @@ void MainWindow::equipmentinitActive(const bool enoughReagent,bool closeClean)
 {
     uint perfusion_leng = 0;
 
-    //初始化抓通道杯子
-    static const bool binitGrabcups = INI_File().rConfigPara(INITGRABCUPS).toBool();
+    const bool binitGrabcups = INI_File().rConfigPara(INITGRABCUPS).toBool();
 
     //开机灌注清洗双针
     int cleanntime = INI_File().getWashesTime();
@@ -2814,6 +3455,26 @@ int MainWindow::getChannelTestVal(const quint8& indexChannel){
     return 0;
 }
 
+quint32 MainWindow::getChannelPositiveFilterSeq(const quint8& indexChannel)
+{
+    if (mshowModuledata) {
+        return mshowModuledata.data()->GetPositiveFilterSeq(indexChannel);
+    }
+    return 0;
+}
+
+bool MainWindow::getStablePositiveChannelVal(const quint8& indexChannel, quint32 minSeq,
+                                             int& value, quint32& currentSeq)
+{
+    value = 0;
+    currentSeq = 0;
+    if (mshowModuledata) {
+        return mshowModuledata.data()->GetStablePositiveChannelValue(
+                    indexChannel, minSeq, value, currentSeq);
+    }
+    return false;
+}
+
 void MainWindow::updateModuleVisibilityBasedOnInstrumentType()
 {
     const QMap<int, QWidget*> moduleWidgets = {
@@ -2868,39 +3529,100 @@ void MainWindow::DestructionSerialclass()
 
 
 /* 定时检测机器主板信息获取刷卡耗材 MAINBOARD_CONSUMABLES*/
-void MainWindow::Traverse_through_motherboard_information()
+void MainWindow::initBoardDataAcquisition()
 {
-    if(nullptr == m_ObtainMainBoardData){
-        m_ObtainMainBoardData = new ObtainMainBoardData();
-        m_ObtainMainBoardData->moveToThread(&m_threadMainBoard);
+    if (m_boardData) {
+        QLOG_WARN() << "Board data acquisition already initialized";
+        return;
+    }
 
-        connect(&m_threadMainBoard, &QThread::started,
-                       m_ObtainMainBoardData, &ObtainMainBoardData::createTimer);
-       connect(&m_threadMainBoard, &QThread::finished,
-               m_ObtainMainBoardData, &QObject::deleteLater);
+    m_boardData = new ObtainMainBoardData();
+    m_boardData->moveToThread(&m_boardThread);
 
-       connect(this, &MainWindow::stopObatinMachineInfo,
-                       m_ObtainMainBoardData, &ObtainMainBoardData::stopDataAcquisition);
-       connect(this, &MainWindow::aNewconnectMachine,
-               m_ObtainMainBoardData, &ObtainMainBoardData::startDataAcquisition);
+    // 线程启动时在工作线程中调用 start()
+    connect(&m_boardThread, &QThread::started, m_boardData, &ObtainMainBoardData::start);
+    // 线程结束时安全销毁工作对象
+    connect(&m_boardThread, &QThread::finished, m_boardData, &QObject::deleteLater);
 
-       m_threadMainBoard.start();
-       QLOG_INFO() << "Main board data acquisition thread started";
+    // 接收数据信号（在主线程中处理）
+    connect(m_boardData, &ObtainMainBoardData::boardDataReady,
+            this, &MainWindow::handleBoardData);
+
+    // 可选错误处理
+    //connect(m_boardData, &ObtainMainBoardData::errorOccurred,
+            //this, &MainWindow::onBoardError);
+
+    m_boardThread.start();
+}
+
+
+void MainWindow::handleBoardData(const QByteArray &data)
+{
+    // 此函数在主线程中运行，可以安全地更新 UI、发送信号等
+    if (!data.isEmpty()) {
+        emit sendOneDirectives(data, "同步主板信息");
     }
 }
 
-void  MainWindow::timeoutObtainMainboadData()
+void MainWindow::pauseBoardAcquisition()
 {
-    if(cglobal::gserialConnecStatus){
-        QByteArray _readMainBoard;
-        QUIUtils::Traverse_the_motherboard(_readMainBoard);
-        emit sendOneDirectives(_readMainBoard,"同步主板信息");
+    if (m_boardData) {
+        // 跨线程安全调用 pause 槽
+        QMetaObject::invokeMethod(m_boardData, "pause", Qt::QueuedConnection);
     }
-    return;
 }
 
+void MainWindow::resumeBoardAcquisition()
+{
+    if (m_boardData) {
+        QMetaObject::invokeMethod(m_boardData, "resume", Qt::QueuedConnection);
+    }
+}
+
+void MainWindow::pauseMainboardPollForRecharge()
+{
+    ++m_rechargePollGeneration;
+    if (m_rechargePollPaused)
+        return;
+    m_rechargePollPaused = true;
+    pauseBoardAcquisition();
+    QLOG_INFO() << "刷卡充值：暂停主板状态轮询";
+}
+
+void MainWindow::resumeMainboardPollAfterRecharge()
+{
+    ++m_rechargePollGeneration;
+    if (!m_rechargePollPaused)
+        return;
+    m_rechargePollPaused = false;
+    resumeBoardAcquisition();
+    QLOG_INFO() << "刷卡充值：恢复主板状态轮询";
+}
+void MainWindow::shutdownBoardThread()
+{
+    if (m_boardThread.isRunning()) {
+        // 停止工作对象
+        if (m_boardData) {
+            QMetaObject::invokeMethod(m_boardData, "stop", Qt::BlockingQueuedConnection);
+        }
+        // 退出线程事件循环（禁止 terminate，避免堆损坏/UAF）
+        m_boardThread.quit();
+        if (!m_boardThread.wait(5000)) {
+            QLOG_WARN() << "Board thread still running after wait; skip terminate to avoid heap corruption";
+        }
+    }
+}
 
 void MainWindow::writeConsumablesExit(){
+
+    m_forceQuit = true;
+    QLOG_WARN() << "退出软件：写入耗材后关闭串口";
+    emit ReminderTextOut(NORMALLOG, tr("正在保存耗材并退出"));
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    if (m_systemTray) {
+        m_systemTray->hide();
+    }
+    hide();
 
     //停止USB 监听
     toggleUsbListening(false);
@@ -2916,20 +3638,23 @@ void MainWindow::writeConsumablesExit(){
 
 
     emit sendOneDirectives(buffer,"写入缓存耗材数据");
-    QTimer::singleShot(1000, this, [=]() { // 1000毫秒=1秒延时
-           emit FullyAutomatedPlatelets::pinstanceWirteBoard()->closeSerial();
-           FullyAutomatedPlatelets::mainWindow()->deleteExitSoftware();
+    QTimer::singleShot(1000, this, [this]() {
+        if (auto *writer = FullyAutomatedPlatelets::pinstanceWirteBoard()) {
+            emit writer->closeSerial();
+        }
+        if (auto *mw = FullyAutomatedPlatelets::mainWindow()) {
+            mw->deleteExitSoftware();
+        }
     });
 }
 
 void MainWindow::slotbootInitCleanFinished()
 {
-    if (!m_pProgress.isNull()) {
-        m_pProgress->close();  // 自动触发 delete 并置空 m_pProgress
-        qApp->processEvents(); // 可选：处理界面残留
-    }
-
     if(m_shutdownClean){
+        if (!m_pProgress.isNull()) {
+            m_pProgress->close();
+            qApp->processEvents();
+        }
         writeConsumablesExit();
         return;
     }
@@ -2940,7 +3665,7 @@ void MainWindow::slotbootInitCleanFinished()
     FullyAutomatedPlatelets::pinstanceWirteBoard()->Start();
 
     //开始每秒读取主板耗材信息
-    Traverse_through_motherboard_information(); //遍历主板线程
+    initBoardDataAcquisition(); //遍历主板线程
 
     creatbeginreadmodule();//开始读取模组线程数据
 
@@ -2951,15 +3676,37 @@ void MainWindow::slotbootInitCleanFinished()
     //开机初始化清洗完成
     FullyAutomatedPlatelets::pinstanceinstrument()->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE,2);
 
+    showModuleWarmupWait();
     return;
 }
 
 
 
-void MainWindow::slotsycnPaintentInfo(QString id_,QString addtime,QString barcode_,QString testProject)
+void MainWindow::slotsycnPaintentInfo(QString id, QString addtime, QString barcode,
+                                      QString testProject, bool isEmergency)
 {
-    Calibrate* paddTaskCol = FullyAutomatedPlatelets::pinstancepatientdata();
-    paddTaskCol->_addpatientsqltable(id_,addtime,barcode_,testProject);
+    auto *paddTaskCol = FullyAutomatedPlatelets::pinstancepatientdata();
+    if(paddTaskCol)
+        paddTaskCol->addpatientsqltable(id, addtime, barcode, testProject, isEmergency);
+}
+
+void MainWindow::showModuleWarmupWait()
+{
+    if (cglobal::g_controldimmingfinished.load()) {
+        if (!m_pProgress.isNull()) {
+            m_pProgress->close();
+        }
+        return;
+    }
+
+    if (m_pProgress.isNull()) {
+        m_pProgress = new customProgresscontrols(this);
+    }
+    m_pProgress->_settitle(tr("模组升温"));
+    m_pProgress->setBusyWait(tr("模组正在升温，请稍候..."));
+    if (!m_pProgress->isVisible()) {
+        m_pProgress->show();
+    }
 }
 
 void MainWindow::initcreatprogressingDimming(bool bdimming)
@@ -2975,15 +3722,18 @@ void MainWindow::initcreatprogressingDimming(bool bdimming)
             if (m_pProgress.isNull()) return;
 
             // 3. 原子操作读取全局状态（避免竞态）
-            const bool isFinished = /*qAtomicLoad(&*/cglobal::g_controldimmingfinished/*)*/;
+            const bool isFinished = cglobal::g_controldimmingfinished.load();
 
             if (bdimming) {
                 m_pProgress->_settitle(tr("等待仪器调光"));
-                m_pProgress->_setprogressRand(0, 0);
-                m_pProgress->_setlabletext(tr("请等待仪器控温调光中..."));
+                m_pProgress->setBusyWait(tr("开始调光"));
 
                 // 4. 状态驱动显示逻辑
-                isFinished ? m_pProgress->close() : m_pProgress->show();
+                if (isFinished) {
+                    m_pProgress->close();
+                } else {
+                    m_pProgress->show();
+                }
             } else {
                 m_pProgress->close();
             }
@@ -2996,8 +3746,17 @@ void MainWindow::slotCleaningProgress(quint8 index, quint8 total)
     // 确保在主线程执行 UI 操作
    QMetaObject::invokeMethod(this, [this, index, total]() {
        if (!m_pProgress.isNull()) {
-           m_pProgress->_setprogresstotalnum(total);
-           m_pProgress->_setprogressvalue("初始清洗进度:", index + 1);
+           const int safeTotal = qMax(1, static_cast<int>(total));
+           const int safeStep = qBound(0, static_cast<int>(index), safeTotal);
+           m_pProgress->_setprogresstotalnum(safeTotal);
+           QString progressLabel = m_pProgress->windowTitle();
+           if (progressLabel.isEmpty()) {
+               progressLabel = tr("开机清洗进度");
+           }
+           if (!progressLabel.endsWith(QLatin1Char(':'))) {
+               progressLabel.append(QLatin1Char(':'));
+           }
+           m_pProgress->_setprogressvalue(progressLabel, safeStep);
            static bool isusbListen = false;
            if(index > 10 && index < 40 && !isusbListen){
                isusbListen = true;
@@ -3093,6 +3852,7 @@ void MainWindow::initErrorDisplayMap()
 //优化
 void MainWindow::handleErrorNotification(quint8 index_, const QString& errinfo)
 {
+    Q_UNUSED(errinfo);
     auto it = m_errorInfoMap.find(index_);
     if(it != m_errorInfoMap.end()) {
         auto& info = it.value();
@@ -3185,38 +3945,57 @@ void MainWindow::setupDimmingConnections(
     const QList<quint8>& failedChn,
     QPointer<MainWindow> safeThis)
 {
-    // 重新调光信号
+    auto finishByDisable = [widget, failedChn, safeThis]() {
+        if (!safeThis) {
+            return;
+        }
+        if (!cglobal::g_controldimmingfinished.load()) {
+            safeThis->commingfaileddisablechn(failedChn);
+            cglobal::g_controldimmingfinished = true;
+            safeThis->dimmingprogress(false);
+            QLOG_DEBUG() << "调光失败禁用通道并结束:" << failedChn;
+            emit safeThis->ReminderTextOut(PROMPTLOG,
+                MainWindow::tr("模组调光完成(已禁用失败通道)"));
+        }
+        widget->close();
+    };
+
+    // 取消=取出杯子后重检空通道 AD（不改 LED）
     QObject::connect(widget.data(), &ControltheModuletemp::re_dimming, [safeThis]() {
-        if(safeThis) {
+        if (safeThis) {
             FullyAutomatedPlatelets::pinstancedimming()->theEndDimmingActive();
         }
     });
 
-    // 删除提示信号
+    // 仅清理标题集合，结束逻辑由 disableusechn / close 兜底
     QObject::connect(widget.data(), &ControltheModuletemp::deletedimming,
-        [widget, safeThis](const QString& title) {
-            if(safeThis) {
+        [safeThis](const QString& title) {
+            if (safeThis) {
                 safeThis->m_reminderTitleStr.remove(title);
             }
-            widget->close();
     });
 
-    // 禁用通道信号
-    QObject::connect(widget.data(), &ControltheModuletemp::disableusechn,
-        [widget, failedChn, safeThis]() {
-            if(!safeThis) return;
-
-            safeThis->commingfaileddisablechn(failedChn);
-            safeThis->dimmingprogress(false);
-            cglobal::g_controldimmingfinished = true;
-
-            QLOG_DEBUG() << "调光失败直接禁用通道(调光完成):" << failedChn;
-            emit safeThis->ReminderTextOut(PROMPTLOG, "模组调光完成end");
-
-            widget->close();
-    });
+    // 确定 / 关闭：禁用失败通道并结束
+    QObject::connect(widget.data(), &ControltheModuletemp::disableusechn, finishByDisable);
 }
 
+void MainWindow::recvRequestSmartCupClear(const QList<quint8>& failedChn1Based)
+{
+    QByteArrayList actions;
+    QUIUtils::appendThrowCupsForChannels(failedChn1Based, actions);
+    if (actions.isEmpty()) {
+        FullyAutomatedPlatelets::pinstancedimming()->theEndDimmingActive();
+        return;
+    }
+    emit ReminderTextOut(PROMPTLOG, tr("正在自动清理遗留测试杯，请勿操作抓手…"));
+    emit CeratActionDate(EQUIPMENT_SMART_CUP_CLEAR, actions);
+}
+
+void MainWindow::slotSmartCupClearFinished()
+{
+    emit ReminderTextOut(PROMPTLOG, tr("自动清理测试杯完成，重新检测空通道AD…"));
+    FullyAutomatedPlatelets::pinstancedimming()->theEndDimmingActive();
+}
 
 void MainWindow::recvshowDimmingFailedChn(const QList<quint8>& failedChn)
 {
@@ -3242,7 +4021,10 @@ void MainWindow::recvshowDimmingFailedChn(const QList<quint8>& failedChn)
     });
 
     // 优化4: 统一界面设置逻辑
-    popWidget->settipstext(QString("调光失败通道%1是否直接禁用").arg(failedList), dimmingTitle);
+    popWidget->settipstext(
+        tr("通道 %1 空杯AD未对齐3300。\n已尝试自动清理仍失败，请手动取出杯子或检查光路。\n取消：重新检测    确定 / 关闭：禁用这些通道")
+            .arg(failedList),
+        dimmingTitle);
     centerWindow(popWidget.data()); // 封装窗口居中逻辑
     popWidget->setWindowModality(Qt::NonModal);
     popWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -3295,12 +4077,17 @@ void MainWindow::commingfaileddisablechn(QList<quint8> dimmingFiledChnList)
 void MainWindow::handletheGripperFailed(const int sampleid, const QString outstr,const quint8 indexActive){
 
     if (m_suppressGripperPrompt) {
-        QLOG_DEBUG() << "Gripper prompt suppressed for sample" << sampleid;
+        QLOG_WARN() << "[抓手异常] 样本" << sampleid
+                    << "| 弹窗已经在，这次不再重复弹出 | " << outstr;
         return;
     }
+    QLOG_WARN() << "[抓手异常] 样本" << sampleid
+                << "| 弹出人工确认 | 焦点步骤" << indexActive
+                << "| 原因:" << outstr;
 
     QString titlename = tr("抓杯异常");
-    QString dispalyWarmming = QString("样本%1%2请擦拭抓手洗盘后重试,或放弃当前样本!").arg(sampleid).arg(outstr);
+    QString dispalyWarmming = tr("样本%1 %2。请擦拭抓手吸盘后再点「再次测试」，或「放弃样本」。")
+            .arg(sampleid).arg(outstr);
 
     QPointer<ConnectToInstrument> phansErrWidget = new ConnectToInstrument(titlename, dispalyWarmming);
     m_suppressGripperPrompt = true;
@@ -3314,9 +4101,10 @@ void MainWindow::handletheGripperFailed(const int sampleid, const QString outstr
 
     connect(phansErrWidget, &ConnectToInstrument::giveupTestSample, this,
         [this, phansErrWidget,indexActive]() {
+        QLOG_WARN() << "[抓手异常] 人工选择:放弃样本 焦点步骤" << indexActive;
+        m_suppressGripperPrompt = false;
         emit gripErrGiveupSample(true, indexActive);
         if (phansErrWidget) {
-            m_suppressGripperPrompt = false;
             delete phansErrWidget;
         }
     });
@@ -3324,9 +4112,10 @@ void MainWindow::handletheGripperFailed(const int sampleid, const QString outstr
 
     connect(phansErrWidget, &ConnectToInstrument::tryAgainTestSample, this,
             [this,phansErrWidget, indexActive]() {
+        QLOG_INFO() << "[抓手异常] 人工选择:再次测试 焦点步骤" << indexActive;
+        m_suppressGripperPrompt = false;
         emit gripErrGiveupSample(false,indexActive);
         if (phansErrWidget){
-            m_suppressGripperPrompt = false;
             delete phansErrWidget;
         }
 
@@ -3360,7 +4149,8 @@ void MainWindow::handleControlChannelRevolve(const quint8&channelNum,const bool&
 }
 
 void MainWindow::handleoutErrInfo(const QString titles,const QString errStr){
-    ThreadSafeReminder(titles,errStr);
+    //ThreadSafeReminder(titles,errStr);
+    CustomMessageBox::warning(this,titles, errStr);
 }
 
 
@@ -3389,8 +4179,10 @@ void MainWindow::recvModuleTemperature(const quint8 IndexMode, const double temp
         return;
     }
 
-    // 格式化温度值
-    QString temperatureText = QString::number(tempValue, 'f', 2)/* + " °C"*/;
+    // 格式化温度值（未控温时显示占位）
+    const QString temperatureText = (tempValue < 1.0)
+            ? QStringLiteral("--")
+            : QString::number(tempValue, 'f', 1) + QChar(0x2103);
 
     // 根据模块索引更新对应的UI标签
     updateTemperatureDisplay(IndexMode, temperatureText, tempValue);
@@ -3414,12 +4206,7 @@ void MainWindow::updateTemperatureDisplay(quint8 moduleIndex, const QString& dis
         return;
     }
     targetLabel->setText(displayText);
-
-    //setTemperatureColorSafe(targetLabel, tempValue);
-
-    // 记录温度值
-    //m_moduleTemperatures[moduleIndex] = tempValue;
-    //QLOG_DEBUG() << "模块" << moduleIndex << "温度更新:" << tempValue << "°C";
+    setTemperatureColorSafe(targetLabel, tempValue);
 }
 
 
@@ -3429,37 +4216,29 @@ void MainWindow::updateTemperatureDisplay(quint8 moduleIndex, const QString& dis
 
 void MainWindow::setTemperatureColorSafe(QLabel* label, double temperature)
 {
-    // 可以根据温度值动态调整字号
-    int fontSize = getFontSizeForTemperature(temperature);
-    QString color = getTemperatureColor(temperature);
-    QString fontWeight = (temperature < 35.0 || temperature > 38.0) ? "bold" : "normal";
-
-    QString newStyle = QString("QLabel { "
-                                 "color: %1; "
-                                 "font-weight: %2; "
-                                 "border: none; "
-                                 "background: transparent; "
-                                 "font-size: %3px; "
-                                 "}")
-                          .arg(color)
-                          .arg(fontWeight)
-                          .arg(fontSize);
-    // 只有当样式真正改变时才设置
-   if (m_labelStyleCache.value(label) != newStyle) {
-       label->setStyleSheet(newStyle);
-       m_labelStyleCache[label] = newStyle;
-   }
+    const QString color = getTemperatureColor(temperature);
+    const bool abnormal = (temperature >= 1.0) && (temperature < 36.5 || temperature > 37.5);
+    const QString newStyle = QStringLiteral(
+                "QLabel{color:%1;font-weight:%2;border:none;background:transparent;"
+                "font-family:'Microsoft YaHei';font-size:%3px;}")
+            .arg(color)
+            .arg(abnormal ? QStringLiteral("bold") : QStringLiteral("normal"))
+            .arg(abnormal ? 17 : 15);
+    if (m_labelStyleCache.value(label) != newStyle) {
+        label->setStyleSheet(newStyle);
+        m_labelStyleCache[label] = newStyle;
+    }
 }
-
 
 QString MainWindow::getTemperatureColor(double temperature)
 {
-    if (temperature < 35.0) return "blue";
-    if (temperature < 36.0) return "#6464FF";
-    if (temperature <= 37.5) return "green";
-    if (temperature <= 38.0) return "orange";
-    if (temperature <= 40.0) return "#FF4500";
-    return "red";
+    if (temperature < 1.0)  return QStringLiteral("#8AA0B0");
+    if (temperature < 35.0) return QStringLiteral("#2F6FED");
+    if (temperature < 36.5) return QStringLiteral("#4A8CFF");
+    if (temperature <= 37.5) return QStringLiteral("#1B8A4A");
+    if (temperature <= 38.0) return QStringLiteral("#D48A00");
+    if (temperature <= 40.0) return QStringLiteral("#E85D04");
+    return QStringLiteral("#C62828");
 }
 int MainWindow::getFontSizeForTemperature(double temperature)
 {
@@ -3520,21 +4299,24 @@ void MainWindow::handleNonWholeBloodMode()
     QString title = tr("模式限制");
 
     emit ReminderTextOut(PROMPTLOG, message);
-    ThreadSafeReminder(title, message);
-
+    CustomMessageBox::warningNonModal(this, title, message);
     QLOG_WARN() << message;
 }
 
 
 bool MainWindow::checkCameraAvailability()
 {
+    if (m_altimeter && m_altimeter->hasOpenedCamera()) {
+        return true;
+    }
+
     QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
 
     if (cameras.isEmpty()) {
         QString errorMsg = tr("未检测到可用的摄像设备");
         QString title = tr("硬件错误");
 
-        ThreadSafeReminder(title, errorMsg);
+        CustomMessageBox::warning(this,title, errorMsg);
         QLOG_ERROR() << errorMsg;
         return false;
     }
@@ -3546,56 +4328,55 @@ bool MainWindow::checkCameraAvailability()
 
 bool MainWindow::checkAltimeterStatus()
 {
-    if (!mAltimetertrigger) {
+    if (!m_altimeter) {
+        if (Height_Data *hd = FullyAutomatedPlatelets::pinstanceAddsampletest()) {
+            bindAltimeterVision(hd->vision());
+        }
+    }
+    if (!m_altimeter) {
         QString errorMsg = tr("测高模块未初始化或初始化失败");
         QString title = tr("模块错误");
-
-        ThreadSafeReminder(title, errorMsg);
+        CustomMessageBox::warning(this,title, errorMsg);
         QLOG_ERROR() << errorMsg;
-
-        // 可选：尝试重新初始化
-        if (initializeAltimeter()) {
-            QLOG_INFO() << "测高模块重新初始化成功";
-            return true;
-        }
         return false;
     }
-
     return true;
 }
 
 bool MainWindow::initializeAltimeter()
 {
-    // 测高模块初始化逻辑
-    // 这里应该是实际的初始化代码
-    try {
-        // 模拟初始化过程
-        //mAltimetertrigger = initializeAltimeterHardware();
-        if (mAltimetertrigger) {
-            QLOG_INFO() << "测高模块初始化成功";
-            return true;
-        } else {
-            QLOG_ERROR() << "测高模块初始化失败";
-            return false;
-        }
-    } catch (const std::exception& e) {
-        QLOG_ERROR() << "测高模块初始化异常:" << e.what();
-        return false;
+    if (Height_Data *hd = FullyAutomatedPlatelets::pinstanceAddsampletest()) {
+        bindAltimeterVision(hd->vision());
     }
+    if (m_altimeter) {
+        QLOG_INFO() << "测高模块初始化成功";
+        return true;
+    }
+    QLOG_ERROR() << "测高模块初始化失败";
+    return false;
 }
 
 
 void MainWindow::triggerHeightMeasurement()
 {
     try {
-        QLOG_INFO() << "开始触发测高测试";
-        // 发射测高触发信号
-        emit triggerTestHeight();
-        QLOG_DEBUG() << "测高触发信号已发射";
-
+        if (mptesting) {
+            mptesting.data()->ensureAddSampleWindowVisible();
+        }
+        if (!m_altimeterDelayTimer) {
+            m_altimeterDelayTimer = new QTimer(this);
+            m_altimeterDelayTimer->setSingleShot(true);
+            connect(m_altimeterDelayTimer, &QTimer::timeout, this, [this]() {
+                Q_EMIT triggerTestHeight();
+                QLOG_INFO() << "[测高拍照] 延时结束，开始取图";
+            });
+        }
+        // 重复触发则重新计时，等试管插稳再拍。
+        m_altimeterDelayTimer->start(500);
+        QLOG_INFO() << "[测高拍照] 收到触发，500ms 后再取图";
     } catch (const std::exception& e) {
         QLOG_ERROR() << "触发测高过程中发生异常:" << e.what();
-        ThreadSafeReminder(tr("系统错误"), tr("测高触发失败"));
+        CustomMessageBox::warning(this,tr("系统错误"), tr("测高触发失败"));
     }
 }
 
@@ -3609,7 +4390,8 @@ void MainWindow::onStartTestClicked()
     emit ReminderTextOut(PROMPTLOG,"点击开始测试按键");
 
     if(!cglobal::gserialConnecStatus){
-        ThreadSafeReminder("开始失败","仪器未连接!");
+        //ThreadSafeReminder("开始失败","仪器未连接!");
+        CustomMessageBox::warning(this,"开始失败","仪器未连接!");
         return;
     }
 
@@ -3625,5 +4407,18 @@ void MainWindow::onStartTestClicked()
 }
 
 
+//测试摄像头扫码
+void MainWindow::initScanBarcode(){
+    m_readerCode = std::make_unique<QRCodeReader>(nullptr); // 不设置父对象
+    connect(m_readerCode.get(), &QRCodeReader::decodingFinished,
+        this, &MainWindow::onDecodingFinished);
+	m_readerCode->readFromFile("C:/barcode.jpg");
+}
 
-
+void MainWindow::onDecodingFinished(bool success, const QString &result)
+{
+	if (success)
+		CustomMessageBox::information(this,"识别成功", result);
+    else
+        CustomMessageBox::warning(this, "识别失败", result);
+}

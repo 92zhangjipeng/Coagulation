@@ -6,6 +6,8 @@
 #include <QProgressBar>
 #include <QSqlDatabase>
 #include <QTableWidget>
+#include <QList>
+#include <QVector>
 
 typedef  struct
 {
@@ -23,13 +25,13 @@ typedef  struct
     char ReagEPIresult[120];
     char ReagCOLresult[120];
     char ReagRISresult[120];
-//    char ReferencevaluesAAMax[120];
-//    char ReferencevaluesADPMax[120];
-//    char ReferencevaluesEPIMax[120];
-//    char ReferencevaluesCOLMax[120];
-//    char ReferencevaluesRISMax[120];
 }InqueryDatastu_t;
 Q_DECLARE_METATYPE(InqueryDatastu_t)//注册结构体
+
+typedef QList<InqueryDatastu_t*> InquireRowList;
+Q_DECLARE_METATYPE(InquireRowList)
+
+struct PatientInformationStu;
 
 
 
@@ -42,6 +44,7 @@ public:
 
 signals:
     void LoadInquierdata(int numtotal, int n_ing,InqueryDatastu_t *pdata); //查询到的结果输出到界面
+    void LoadInquierdataList(InquireRowList rows);
 
     void clearTableWidget(); //查询前先清空查询界面
 
@@ -61,6 +64,8 @@ private:
     void SycnAllDataResult();//查询全部
 
     void insertStructData(InqueryDatastu_t* pFindedResult,quint8 stuId,QString data);
+    InqueryDatastu_t* makeInquireStu(const PatientInformationStu *pinquered);
+    void emitInquireRows(const QVector<PatientInformationStu *> &painterInfovec);
 
 public slots:
     void _startSycnData();

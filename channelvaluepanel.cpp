@@ -1,4 +1,8 @@
-﻿#include "channelvaluepanel.h"
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
+#include "channelvaluepanel.h"
+#include <QFont>
 
 ChannelvaluePanel::ChannelvaluePanel(QWidget *parent) : QWidget(parent)
 {
@@ -248,11 +252,24 @@ void ChannelvaluePanel::drawValue(QPainter *painter)
 {
     int radius = 100;
     painter->save();
-    painter->setPen(QColor(255, 255, 255));
-    painter->setFont(QFont("Arial", 22, 22, true));
+    QFont valueFont(QStringLiteral("Microsoft YaHei"), 18, QFont::Bold);
+    painter->setFont(valueFont);
 
-    QRectF textRect(-radius, -radius, radius * 2, radius * 2);
+    QRectF textRect(-radius, -52, radius * 2, 56);
     QString strValue = QString("%1").arg((double)value, 0, 'f', 0);
+
+    QPen outline(QColor(20, 50, 80, 180));
+    outline.setWidthF(2.0);
+    painter->setPen(outline);
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            painter->drawText(textRect.translated(dx, dy), Qt::AlignCenter, strValue);
+        }
+    }
+    painter->setPen(QColor(255, 255, 255));
     painter->drawText(textRect, Qt::AlignCenter, strValue);
 
     painter->restore();
@@ -262,12 +279,26 @@ void ChannelvaluePanel::drawUnit(QPainter *painter)
 {
     int radius = 100;
     painter->save();
-    painter->setPen(QColor(255, 255, 255));
-    painter->setFont(QFont("Arial", 15, 20, true));
+    QFont labelFont(QStringLiteral("Microsoft YaHei"), 11, QFont::DemiBold);
+    painter->setFont(labelFont);
 
-    QRectF textRect(-radius, -radius + 30, radius * 2, radius * 2);
-    QString reminder = QString("通道:%1").arg(channelnumindex);
-    painter->drawText(textRect, Qt::AlignCenter, reminder);
+    QRectF textRect(-radius, 6, radius * 2, 36);
+    const QString reminder = QString::fromUtf8("\xE9\x80\x9A\xE9\x81\x93 %1").arg(channelnumindex);
+
+    painter->setPen(QColor(255, 255, 255));
+    QFont outlineFont(QStringLiteral("Microsoft YaHei"), 10, QFont::Bold);
+    painter->setFont(outlineFont);
+    painter->setPen(QColor(20, 50, 80, 200));
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            painter->drawText(textRect.translated(dx, dy), Qt::AlignHCenter | Qt::AlignTop, reminder);
+        }
+    }
+    painter->setPen(QColor(255, 248, 220));
+    painter->drawText(textRect, Qt::AlignHCenter | Qt::AlignTop, reminder);
 
     painter->restore();
 }

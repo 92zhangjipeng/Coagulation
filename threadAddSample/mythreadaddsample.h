@@ -15,6 +15,7 @@ struct  WAIT_TEST_SAMPLE_DATA
     QString _barcode;
     QString _addtime;
     bool  wholeBloodMode;
+    bool  _bemergency = false;  // 急诊优先
 };
 Q_DECLARE_METATYPE(WAIT_TEST_SAMPLE_DATA)
 typedef QList<WAIT_TEST_SAMPLE_DATA* > AddSampleDataList;
@@ -38,6 +39,7 @@ static const QStringList BIND_NAMES = {
 };
 
 
+
 class mythreadaddsample : public QObject
 {
     Q_OBJECT
@@ -51,10 +53,13 @@ public:
 
     void Start();
 
+
+
 signals:
    void addprogress(int index,int total_);
    void updatetestui(QList<quint8> marktube,QString sample_name,quint8 anemiahole,int index_add,int all_add_task);
-   void _sycnPaintentInfo(QString,QString,QString,QString);
+   void _sycnPaintentInfo(QString, QString, QString, QString, bool isEmergency);
+   void suckPosInvalid(const QString& message);
 
 private slots:
     void Tmain();
@@ -62,12 +67,13 @@ private slots:
 public slots:
     void waittestsampledata(QString samplename, QString savedtime, QString barcode_str,
                               double bottomBloodHeight, QString project_, quint8 CurrRichHole,
-                              int _total, bool insertWholeBloodMode);
+                              int _total, bool insertWholeBloodMode, bool isEmergency = false);
 
 private:
-    void   SycnAddTaskTestHoleAndCommder(int total_);
+    void   SycnAddTaskTestHoleAndCommder(int totalSample);
 
     quint8 BackPutOutMinHoleEmptyHole(QMap<quint8, bool >& EmptySQLTubeState);
+    quint8 GetNextTube(QMap<quint8, QList<quint8>>& diskMap);
 
 
     /*添加的任务任务详细存到数据库表*/
@@ -81,6 +87,8 @@ private:
 private:
     AddSampleDataList m_WaitTestStuList;
     int m_totalnum;
+    quint8 m_currentTray = 0;
+
 };
 
 #endif // MYTHREADADDSAMPLE_H

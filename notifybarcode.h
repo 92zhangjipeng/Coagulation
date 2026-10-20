@@ -1,6 +1,8 @@
 ﻿#ifndef NOTIFYBARCODE_H
 #define NOTIFYBARCODE_H
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 
 #include <QWidget>
 namespace Ui {
@@ -21,9 +23,8 @@ protected:
 signals:
     void savebarcode(unsigned int row,quint8 cols,QString noityBarcode);
 private slots:
-
+    void onLineEditReturnPressed();
     void on_toolButton_save_clicked();
-
     void on_toolButton_cancel_clicked();
 
 private:

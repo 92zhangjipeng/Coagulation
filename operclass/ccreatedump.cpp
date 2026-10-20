@@ -1,125 +1,228 @@
 ﻿#include "ccreatedump.h"
 
-//#include "stdafx.h"
 #include <Windows.h>
-//#include "CCreateDump.h"
 #include <DbgHelp.h>
-#include <codecvt>
+#include <csignal>
+#include <exception>
+#include <new>
+#include <stdio.h>
+#include <stdlib.h>
 
-#pragma comment(lib,  "dbghelp.lib")
+#ifdef _MSC_VER
+#pragma comment(lib, "dbghelp.lib")
+#endif
 
 CCreateDump* CCreateDump::__instance = NULL;
-std::string CCreateDump::strDumpFile = "";
+wchar_t CCreateDump::s_dumpDir[MAX_PATH] = { 0 };
+volatile long CCreateDump::s_dumping = 0;
+void* CCreateDump::s_vectoredContinue = NULL;
 
 CCreateDump::CCreateDump()
 {
 }
 
-CCreateDump::~CCreateDump(void)
+CCreateDump::~CCreateDump()
 {
-
 }
 
-long  CCreateDump::UnhandleExceptionFilter(_EXCEPTION_POINTERS* ExceptionInfo)
+bool CCreateDump::InitDumpDirectory()
 {
-    std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converterX;
-    std::wstring dumpFile = converterX.from_bytes(strDumpFile.c_str());
-    HANDLE hFile = CreateFile(dumpFile.c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile != INVALID_HANDLE_VALUE)
-    {
-        MINIDUMP_EXCEPTION_INFORMATION   ExInfo;
-        ExInfo.ThreadId = ::GetCurrentThreadId();
-        ExInfo.ExceptionPointers = ExceptionInfo;
-        ExInfo.ClientPointers = FALSE;
-        //   write   the   dump
-        BOOL   bOK = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &ExInfo, NULL, NULL);
-        CloseHandle(hFile);
-        if (!bOK)
-        {
-            DWORD dw = GetLastError();
-            //写dump文件出错处理,异常交给windows处理
-            return EXCEPTION_CONTINUE_SEARCH;
-        }
-        else
-        {    //在异常处结束
-            return EXCEPTION_EXECUTE_HANDLER;
-        }
-    }
-    else
-    {
-        return EXCEPTION_CONTINUE_SEARCH;
+    wchar_t modulePath[MAX_PATH] = { 0 };
+    if (GetModuleFileNameW(NULL, modulePath, MAX_PATH) == 0) {
+        return false;
     }
 
+    wchar_t* slash = wcsrchr(modulePath, L'\\');
+    if (slash == NULL) {
+        return false;
+    }
+    *slash = L'\0';
+
+    if (swprintf_s(s_dumpDir, MAX_PATH, L"%s\\CrashDumps", modulePath) < 0) {
+        return false;
+    }
+
+    if (!CreateDirectoryW(s_dumpDir, NULL)) {
+        const DWORD err = GetLastError();
+        if (err != ERROR_ALREADY_EXISTS) {
+            wchar_t tempPath[MAX_PATH] = { 0 };
+            if (GetTempPathW(MAX_PATH, tempPath) == 0) {
+                OutputDebugStringA("CreateDirectoryW CrashDumps failed");
+                return false;
+            }
+            if (swprintf_s(s_dumpDir, MAX_PATH, L"%sCoagulationCrashDumps", tempPath) < 0) {
+                return false;
+            }
+            if (!CreateDirectoryW(s_dumpDir, NULL)) {
+                const DWORD tempErr = GetLastError();
+                if (tempErr != ERROR_ALREADY_EXISTS) {
+                    OutputDebugStringA("CreateDirectoryW temp CrashDumps failed");
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+void CCreateDump::WriteMiniDump(_EXCEPTION_POINTERS* ExceptionInfo)
+{
+    if (InterlockedCompareExchange(&s_dumping, 1, 0) != 0) {
+        return;
+    }
+
+    if (s_dumpDir[0] == L'\0') {
+        InitDumpDirectory();
+    }
+
+    wchar_t dumpPath[MAX_PATH] = { 0 };
+    SYSTEMTIME syt;
+    GetLocalTime(&syt);
+    if (swprintf_s(dumpPath, MAX_PATH,
+                   L"%s\\Coagulation_%04d%02d%02d_%02d%02d%02d.dmp",
+                   s_dumpDir,
+                   syt.wYear, syt.wMonth, syt.wDay,
+                   syt.wHour, syt.wMinute, syt.wSecond) < 0) {
+        return;
+    }
+
+    HANDLE hFile = CreateFileW(dumpPath, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        OutputDebugStringA("CreateFileW dump failed");
+        return;
+    }
+
+    MINIDUMP_EXCEPTION_INFORMATION exInfo;
+    MINIDUMP_EXCEPTION_INFORMATION* pExInfo = NULL;
+    if (ExceptionInfo != NULL) {
+        exInfo.ThreadId = GetCurrentThreadId();
+        exInfo.ExceptionPointers = ExceptionInfo;
+        exInfo.ClientPointers = FALSE;
+        pExInfo = &exInfo;
+    }
+
+    const MINIDUMP_TYPE dumpType = static_cast<MINIDUMP_TYPE>(
+                MiniDumpNormal
+                | MiniDumpWithThreadInfo
+                | MiniDumpWithUnloadedModules
+                | MiniDumpIgnoreInaccessibleMemory);
+
+    MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile,
+                      dumpType, pExInfo, NULL, NULL);
+    FlushFileBuffers(hFile);
+    CloseHandle(hFile);
+}
+
+long CCreateDump::UnhandleExceptionFilter(_EXCEPTION_POINTERS* ExceptionInfo)
+{
+    WriteMiniDump(ExceptionInfo);
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-
-bool CCreateDump::DeclarDumpFile(const std::string& dmpFileName)
+long CCreateDump::VectoredContinueHandler(_EXCEPTION_POINTERS* ExceptionInfo)
 {
-	try {
-		// 获取当前时间
-		SYSTEMTIME syt;
-		GetLocalTime(&syt);
+    if (ExceptionInfo == NULL || ExceptionInfo->ExceptionRecord == NULL) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+    if (IsDebuggerPresent()) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
 
-		// 格式化时间字符串
-		char timeStr[MAX_PATH] = { 0 };
-		int result = snprintf(timeStr, MAX_PATH, "%04d_%02d_%02d_%02d_%02d_%02d",
-			syt.wYear, syt.wMonth, syt.wDay,
-			syt.wHour, syt.wMinute, syt.wSecond);
-
-		if (result <= 0 || result >= MAX_PATH) {
-			OutputDebugStringA("Failed to format time string for dump file");
-			return false;
-		}
-
-		// 构建dump文件名
-		strDumpFile = timeStr;
-		if (!dmpFileName.empty()) {
-			strDumpFile += dmpFileName;
-		}
-		strDumpFile += ".dmp";
-
-		// 设置未处理异常过滤器
-		LPTOP_LEVEL_EXCEPTION_FILTER previousFilter =
-			SetUnhandledExceptionFilter(UnhandleExceptionFilter);
-
-		if (previousFilter == nullptr) {
-			OutputDebugStringA("Failed to set unhandled exception filter");
-			return false;
-		}
-
-		return true;
-	}
-	catch (const std::exception& e) {
-		OutputDebugStringA("Exception in DeclarDumpFile: ");
-		OutputDebugStringA(e.what());
-		return false;
-	}
-	catch (...) {
-		OutputDebugStringA("Unknown exception in DeclarDumpFile");
-		return false;
-	}
+    const DWORD code = ExceptionInfo->ExceptionRecord->ExceptionCode;
+    switch (code) {
+    case EXCEPTION_ACCESS_VIOLATION:
+    case EXCEPTION_STACK_OVERFLOW:
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+    case EXCEPTION_IN_PAGE_ERROR:
+    case EXCEPTION_NONCONTINUABLE_EXCEPTION:
+    case EXCEPTION_PRIV_INSTRUCTION:
+    case 0xC0000374: // STATUS_HEAP_CORRUPTION
+    case 0xC0000409: // STATUS_STACK_BUFFER_OVERRUN / fastfail
+        WriteMiniDump(ExceptionInfo);
+        break;
+    default:
+        break;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 
-//void CCreateDump::DeclarDumpFile(std::string dmpFileName)
-//{
-//    SYSTEMTIME syt;
-//    GetLocalTime(&syt);
-//    char c[MAX_PATH];
-//    sprintf_s(c, MAX_PATH, "%04d_%02d_%02d_%02d_%02d_%02d", syt.wYear, syt.wMonth, syt.wDay, syt.wHour, syt.wMinute, syt.wSecond);
-//    strDumpFile = std::string(c);
-//    if (!dmpFileName.empty())
-//    {
-//        strDumpFile += dmpFileName;
-//    }
-//    strDumpFile += std::string(".dmp");
-//    SetUnhandledExceptionFilter(UnhandleExceptionFilter);
-//}
+void CCreateDump::SignalAbortHandler(int)
+{
+    WriteMiniDump(NULL);
+    _exit(3);
+}
+
+void CCreateDump::InvalidParameterHandler(const wchar_t*, const wchar_t*,
+                                          const wchar_t*, unsigned int, uintptr_t)
+{
+    WriteMiniDump(NULL);
+    _exit(3);
+}
+
+void CCreateDump::PureCallHandler()
+{
+    WriteMiniDump(NULL);
+    _exit(3);
+}
+
+void CCreateDump::TerminateHandler()
+{
+    WriteMiniDump(NULL);
+    _exit(3);
+}
+
+bool CCreateDump::ReinstallFilter()
+{
+    SetUnhandledExceptionFilter(UnhandleExceptionFilter);
+    return true;
+}
+
+bool CCreateDump::DeclarDumpFile(const std::string&)
+{
+    try {
+        if (!InitDumpDirectory()) {
+            OutputDebugStringA("Failed to init CrashDumps directory");
+            return false;
+        }
+
+        ULONG stackSize = 64 * 1024;
+        SetThreadStackGuarantee(&stackSize);
+
+        SetErrorMode(SEM_FAILCRITICALERRORS);
+        ReinstallFilter();
+
+        if (s_vectoredContinue == NULL) {
+            s_vectoredContinue = AddVectoredContinueHandler(1, VectoredContinueHandler);
+        }
+
+        signal(SIGABRT, SignalAbortHandler);
+        _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+        _set_invalid_parameter_handler(InvalidParameterHandler);
+        _set_purecall_handler(PureCallHandler);
+        std::set_terminate(TerminateHandler);
+        std::set_new_handler([]() {
+            WriteMiniDump(NULL);
+            _exit(3);
+        });
+
+        return true;
+    } catch (...) {
+        OutputDebugStringA("Unknown exception in DeclarDumpFile");
+        return false;
+    }
+}
+
+const wchar_t* CCreateDump::dumpDirectory()
+{
+    return s_dumpDir;
+}
 
 CCreateDump* CCreateDump::Instance()
 {
-    if (__instance == NULL)
-    {
+    if (__instance == NULL) {
         __instance = new CCreateDump;
     }
     return __instance;
@@ -127,10 +230,8 @@ CCreateDump* CCreateDump::Instance()
 
 void CCreateDump::Del_Instance()
 {
-    if (__instance)
-    {
+    if (__instance) {
         delete __instance;
         __instance = nullptr;
     }
-    return;
 }

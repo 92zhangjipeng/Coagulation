@@ -95,11 +95,11 @@ void TubeContinueDoing::AllZaxisBack()
 {
     mStarArry.clear();
     quint8 conde_num = 0;
-    QByteArray back_z_hands = Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotortongs,0,TRAY_TESTCHANNEL,conde_num,false);
+    QByteArray back_z_hands = Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotortongs,0,TRAY_TESTCHANNEL,conde_num,false);
     mStarArry.push_back(back_z_hands);
-    QByteArray back_z_reagentneedle = Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorReagent,0,TRAY_TESTCHANNEL,conde_num,false);
+    QByteArray back_z_reagentneedle = Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorReagent,0,TRAY_TESTCHANNEL,conde_num,false);
     mStarArry.push_back(back_z_reagentneedle);
-    QByteArray back_z_bloodNeedle = Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_TESTCHANNEL,conde_num,false);
+    QByteArray back_z_bloodNeedle = Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_TESTCHANNEL,conde_num,false);
     mStarArry.push_back(back_z_bloodNeedle);
 }
 
@@ -130,13 +130,13 @@ QByteArrayList TubeContinueDoing::creatAbsorbReagentCommand()
     GenericFunctions::Determinethereagentbalance(bUesdAsideLoc,currindex,bReagentUsedEnd,ReagentPosLoc);
 
     QByteArray OnceCommand;
-    OnceCommand = Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(ReagentPosLoc, ReagentNeddle , TRAY_TESTCHANNEL,conde_num);
+    OnceCommand = Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(ReagentPosLoc, ReagentNeddle , TRAY_TESTCHANNEL,conde_num);
     mStarArry.push_back(OnceCommand);
 
-    OnceCommand = Testing::m_TaskDll->SmallBenActive(true,SuckAirVol,DIS_WASHES_PUMPS,conde_num,0); //吸一段空气
+    OnceCommand = Testing::getTaskDll()->SmallBenActive(true,SuckAirVol,DIS_WASHES_PUMPS,conde_num,0); //吸一段空气
     mStarArry.push_back(OnceCommand);
 
-    OnceCommand = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorReagent, falilinquehigh,TRAY_TESTCHANNEL,
+    OnceCommand = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorReagent, falilinquehigh,TRAY_TESTCHANNEL,
                                                                  conde_num,true,falilinquehigh,false,GRIPPERNORMAL); //(吸试剂液面探测)
     mStarArry.push_back(OnceCommand);
     //SMALL_BEN_INHALE_ARI
@@ -149,11 +149,11 @@ QByteArrayList TubeContinueDoing::creatAbsorbReagentCommand()
 
     (suck_ul > 7200)? suck_ul = 0 : suck_ul+= 0;
 
-    OnceCommand = Testing::m_TaskDll->SmallBenActive(true,suck_ul,DIS_WASHES_PUMPS,conde_num,0);
+    OnceCommand = Testing::getTaskDll()->SmallBenActive(true,suck_ul,DIS_WASHES_PUMPS,conde_num,0);
     mStarArry.push_back(OnceCommand);
 
 
-    OnceCommand = Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorReagent,0,TRAY_TESTCHANNEL,conde_num,false);
+    OnceCommand = Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorReagent,0,TRAY_TESTCHANNEL,conde_num,false);
     mStarArry.push_back(OnceCommand);
     //吐试剂
     int Channelnum = ui->comboBox_Channel->currentIndex();
@@ -176,11 +176,11 @@ QByteArrayList TubeContinueDoing::creatAbsorbReagentCommand()
 	QPoint spitreagentposChannel(0,0);
     SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,MOTOR_REAGNET_INDEX, Channelnum, spitreagentposChannel);
 
-    mStarArry.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(spitreagentposChannel, ReagentNeddle , TRAY_TESTCHANNEL,conde_num));
-    mStarArry.push_back(Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorReagent,Downmm,TRAY_TESTCHANNEL,
+    mStarArry.push_back(Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(spitreagentposChannel, ReagentNeddle , TRAY_TESTCHANNEL,conde_num));
+    mStarArry.push_back(Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorReagent,Downmm,TRAY_TESTCHANNEL,
                                                                        conde_num,false,Downmm,false,GRIPPERNORMAL));
-    mStarArry.push_back(Testing::m_TaskDll->SmallBenActive(false,absorbValue,DIS_WASHES_PUMPS,conde_num,0));
-    mStarArry.push_back(Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorReagent,0,TRAY_TESTCHANNEL,conde_num,false));
+    mStarArry.push_back(Testing::getTaskDll()->SmallBenActive(false,absorbValue,DIS_WASHES_PUMPS,conde_num,0));
+    mStarArry.push_back(Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorReagent,0,TRAY_TESTCHANNEL,conde_num,false));
 
 
 
@@ -204,51 +204,51 @@ QByteArrayList TubeContinueDoing::creatAnaemiaCommand()
     double   proportionalValue   = INI_File().GetPPPConversionScale();/*转换比例*/
 
     //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
-    QPoint BloodAreaPos(0,0); //血样针到血样区的坐标
+    QPoint BloodAreaPos(0,0); //样本针到血样区的坐标
     SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,ui->spinBox_Hole->value(),BloodAreaPos);
 
 
     /*XY 移动到血样区对应位置*/
-    QByteArray EncodedArray = Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(BloodAreaPos, BloodNddle , TRAY_BLOOD,conde_num);
+    QByteArray EncodedArray = Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(BloodAreaPos, BloodNddle , TRAY_BLOOD,conde_num);
     mStarArry.push_back(EncodedArray);
 
     /*吸一段空气*/
-    EncodedArray = Testing::m_TaskDll->BigBenActive(true, BIG_BEN_INHALE_ARI,conde_num,DIS_WASHES_PUMPS,0); //true 吸 false 吐
+    EncodedArray = Testing::getTaskDll()->BigBenActive(true, BIG_BEN_INHALE_ARI,conde_num,DIS_WASHES_PUMPS,0); //true 吸 false 吐
     mStarArry.push_back(EncodedArray);
 
-    /*下血样针液面探测吸贫血*/
-    EncodedArray = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorBlood,LeveldetectionFailed,TRAY_BLOOD,
+    /*下样本针液面探测吸贫血*/
+    EncodedArray = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorBlood,LeveldetectionFailed,TRAY_BLOOD,
                                                                   conde_num,true,LeveldetectionFailed,false,GRIPPERNORMAL);
     mStarArry.push_back(EncodedArray);
 
     //吸贫血量 + 空气量
     int suck_ul = suckmiter * proportionalValue + BIG_BEN_INHALE_ARI;
-    EncodedArray = Testing::m_TaskDll->BigBenActive(true,suck_ul,conde_num,DIS_WASHES_PUMPS,0);
+    EncodedArray = Testing::getTaskDll()->BigBenActive(true,suck_ul,conde_num,DIS_WASHES_PUMPS,0);
     mStarArry.push_back(EncodedArray);
 
-    EncodedArray = Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_BLOOD,conde_num,false);
+    EncodedArray = Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_BLOOD,conde_num,false);
     mStarArry.push_back(EncodedArray);
 
     //吐PPP 到试管
-    int emptyAreaDownmm = INI_File().GetEmptyTubeDownHigh();                /*血样针在空试管区下降高度*/
+    int emptyAreaDownmm = INI_File().GetEmptyTubeDownHigh();/*样本针在空试管区下降高度*/
 
     QPoint EmptytubeAreaPos(0,0);
     SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,ui->spinBox_emptyHole->value(),MOTOR_BLOOD_INDEX,EmptytubeAreaPos);
 
 
 
-    QByteArray spitOutAnemia = Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(EmptytubeAreaPos, BloodNddle , TRAY_TESTENPTY,conde_num);
+    QByteArray spitOutAnemia = Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(EmptytubeAreaPos, BloodNddle , TRAY_TESTENPTY,conde_num);
     mStarArry.push_back(spitOutAnemia);
 
-    spitOutAnemia = Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorBlood,emptyAreaDownmm,TRAY_TESTENPTY,
+    spitOutAnemia = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorBlood,emptyAreaDownmm,TRAY_TESTENPTY,
                                                                    conde_num,false,emptyAreaDownmm,false,GRIPPERNORMAL);
     mStarArry.push_back(spitOutAnemia);
 
     int spit_ul =  BIG_BEN_INHALE_ARI/2; //吐出贫血剩一半空气
-    spitOutAnemia = Testing::m_TaskDll->BigBenActive(false,spit_ul,conde_num,DIS_WASHES_PUMPS,0);
+    spitOutAnemia = Testing::getTaskDll()->BigBenActive(false,spit_ul,conde_num,DIS_WASHES_PUMPS,0);
     mStarArry.push_back(spitOutAnemia);
 
-    spitOutAnemia = Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_TESTENPTY,conde_num,false);
+    spitOutAnemia = Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_TESTENPTY,conde_num,false);
     mStarArry.push_back(spitOutAnemia);
 
     QByteArrayList SuckAction = mStarArry;
@@ -279,11 +279,11 @@ void TubeContinueDoing::on_toolButton_cruveCreat_clicked()
     quint8   conde_num                   =  mStarArry.size() % 255;
     int      LeveldetectionFailed        =  INI_File().GetFailedLinqueHigh(); /*液面探测失败下降高度*/
     double   proportionalValue           =  INI_File().GetPPPConversionScale();  /*转换比例*/
-    int      down_spit                   =  INI_File().GetEmptyTubeDownHigh();   /*血样针在空试管区下降高度*/
+    int      down_spit                   =  INI_File().GetEmptyTubeDownHigh();   /*样本针在空试管区下降高度*/
 
     QPoint spit_pos(0,0);
 
-    //血样针到血样区的坐标
+    //样本针到血样区的坐标
     QPoint suck_pos(0,0);
     SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,suck_hole,suck_pos);
 
@@ -301,12 +301,12 @@ void TubeContinueDoing::on_toolButton_cruveCreat_clicked()
     auto iter_ = spit_holeList.begin();
     while(iter_ != spit_holeList.end()){
         quint8 spithole = *iter_;
-        mStarArry.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(suck_pos, BloodNddle , TRAY_BLOOD,conde_num)); /*XY 移动到血样区对应位置*/
+        mStarArry.push_back(Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(suck_pos, BloodNddle , TRAY_BLOOD,conde_num)); /*XY 移动到血样区对应位置*/
 
-        mStarArry.push_back(Testing::m_TaskDll->BigBenActive(true, BIG_BEN_INHALE_ARI,conde_num,DIS_WASHES_PUMPS,0));//吸一段空气true 吸 false 吐
+        mStarArry.push_back(Testing::getTaskDll()->BigBenActive(true, BIG_BEN_INHALE_ARI,conde_num,DIS_WASHES_PUMPS,0));//吸一段空气true 吸 false 吐
 
-        /*下血样针液面探测吸贫血*/
-        mStarArry.push_back(Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorBlood,LeveldetectionFailed,TRAY_BLOOD,
+        /*下样本针液面探测吸贫血*/
+        mStarArry.push_back(Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorBlood,LeveldetectionFailed,TRAY_BLOOD,
                                                                            conde_num,true,LeveldetectionFailed,false,GRIPPERNORMAL));
 
         //吸贫血量 + 空气量
@@ -315,22 +315,22 @@ void TubeContinueDoing::on_toolButton_cruveCreat_clicked()
         QLOG_WARN()<<printText<<endl;
         //FullyAutomatedPlatelets::pinstanceinfowidget()->InsertText(USERACTIONS,printText);
 
-        mStarArry.push_back(Testing::m_TaskDll->BigBenActive(true,suck_ul,conde_num,DIS_WASHES_PUMPS,0));
+        mStarArry.push_back(Testing::getTaskDll()->BigBenActive(true,suck_ul,conde_num,DIS_WASHES_PUMPS,0));
 
-        mStarArry.push_back(Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_BLOOD,conde_num,false));
+        mStarArry.push_back(Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_BLOOD,conde_num,false));
 
         //吐出的孔号坐标
         SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,spithole,spit_pos);
 
-        mStarArry.push_back(Testing::m_TaskDll->DLL_XYMoveSpecifiedPosition(spit_pos, BloodNddle , TRAY_TESTENPTY,conde_num));
+        mStarArry.push_back(Testing::getTaskDll()->DLL_XYMoveSpecifiedPosition(spit_pos, BloodNddle , TRAY_TESTENPTY,conde_num));
 
-        mStarArry.push_back(Testing::m_TaskDll->DLL_ZMoveSpecifiedPosition(ZMotorBlood,down_spit,TRAY_TESTENPTY,
+        mStarArry.push_back(Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorBlood,down_spit,TRAY_TESTENPTY,
                                                                            conde_num,false,down_spit,false,GRIPPERNORMAL));
 
         int spit_ul =  0; //吐出贫血剩一半空气
-        mStarArry.push_back(Testing::m_TaskDll->BigBenActive(false,spit_ul,conde_num,DIS_WASHES_PUMPS,0));
+        mStarArry.push_back(Testing::getTaskDll()->BigBenActive(false,spit_ul,conde_num,DIS_WASHES_PUMPS,0));
 
-        mStarArry.push_back(Testing::m_TaskDll->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_TESTENPTY,conde_num,false));
+        mStarArry.push_back(Testing::getTaskDll()->DLL_ZAxis_Reset(ZMotorBlood,0,TRAY_TESTENPTY,conde_num,false));
 
         iter_++;
     }

@@ -4,12 +4,15 @@
 #include <QPaintEvent>
 #include <QWidget>
 #include <QPropertyAnimation>
-#include <QScreen> // 添加屏幕支持
-#include <QGuiApplication> // 添加应用支持
+#include <QScreen>
+#include <QGuiApplication>
+#include <QTimer>
 
 namespace Ui {
 class customProgresscontrols;
 }
+
+class HexPlateProgressBar;
 
 class customProgresscontrols : public QWidget
 {
@@ -24,6 +27,7 @@ public:
     void    _setprogressRand(int min,int max);
     void    _setprogresstotalnum(int numtotal);
     void    _setlabletext(const QString reminder);
+    void    setBusyWait(const QString &hint);
     void    _setMinvalue(int val);
     void    _setMaxvalue(int val);
     int     _getprogressdata();
@@ -38,6 +42,7 @@ private:
 
 private:
     Ui::customProgresscontrols *ui;
+    HexPlateProgressBar *m_capsuleBar;
     int m_totalnum;
 
     QScopedPointer <QPropertyAnimation> m_showAnimation;

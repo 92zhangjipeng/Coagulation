@@ -1,59 +1,203 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 
 #include "customprogresscontrols.h"
 #include "ui_customprogresscontrols.h"
 #include "cglobal.h"
 #include  "QsLog/include/QsLog.h"
 #include <QPainter>
+#include <QPainterPath>
 #include <QGuiApplication>
 #include <QMouseEvent>
+#include <QTimer>
 #include <globaldata.h>
+
+namespace {
+const char *kRatioLabelCss =
+        "QLabel#label_ratio {"
+        "    background: transparent;"
+        "    border: none;"
+        "    color: #3A5366;"
+        "    font-family: 'Microsoft YaHei';"
+        "    font-size: 16px;"
+        "    font-weight: 600;"
+        "}";
+
+const int kPlateAlpha = 191;
+
+QPainterPath hexPlatePath(const QRectF &r)
+{
+    const qreal cut = qBound(10.0, r.height() * 0.42, r.width() * 0.12);
+    QPainterPath path;
+    path.moveTo(r.left() + cut, r.top());
+    path.lineTo(r.right() - cut, r.top());
+    path.lineTo(r.right(), r.center().y());
+    path.lineTo(r.right() - cut, r.bottom());
+    path.lineTo(r.left() + cut, r.bottom());
+    path.lineTo(r.left(), r.center().y());
+    path.closeSubpath();
+    return path;
+}
+
+void fillHexPlate(QPainter &painter, const QRectF &r, const QBrush &brush)
+{
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(brush);
+    painter.drawPath(hexPlatePath(r));
+}
+
+}
+
+class HexPlateProgressBar : public QWidget
+{
+public:
+    explicit HexPlateProgressBar(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground, true);
+        setAttribute(Qt::WA_OpaquePaintEvent, false);
+        setAutoFillBackground(false);
+        setFixedHeight(20);
+        setMinimumWidth(120);
+        m_timer.setInterval(16);
+        connect(&m_timer, &QTimer::timeout, this, [this]() {
+            m_phase += 0.012;
+            if (m_phase > 1.0) {
+                m_phase -= 1.0;
+            }
+            update();
+        });
+    }
+
+    void setBusy(bool busy)
+    {
+        m_busy = busy;
+        if (busy) {
+            if (!m_timer.isActive()) {
+                m_timer.start();
+            }
+        } else {
+            m_timer.stop();
+        }
+        update();
+    }
+
+    void setPercent(int percent)
+    {
+        m_percent = qBound(0, percent, 100);
+        if (!m_busy) {
+            update();
+        }
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+
+        const QRectF track = QRectF(rect()).adjusted(1.0, 3.0, -1.0, -3.0);
+        fillHexPlate(painter, track, QColor(176, 192, 204, 165));
+        painter.setPen(QPen(QColor(148, 168, 184, 170), 1.0));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawPath(hexPlatePath(track));
+
+        if (m_busy) {
+            qreal ping = (m_phase < 0.5) ? (m_phase * 2.0) : (2.0 - m_phase * 2.0);
+            ping = ping * ping * (3.0 - 2.0 * ping);
+            const qreal sliderW = qMax(36.0, track.height() * 2.4);
+            const qreal travel = qMax(0.0, track.width() - sliderW);
+            const QRectF slider(track.left() + ping * travel,
+                                track.top(),
+                                sliderW,
+                                track.height());
+            QLinearGradient g(slider.topLeft(), slider.topRight());
+            g.setColorAt(0.0, QColor(168, 206, 222, 40));
+            g.setColorAt(0.45, QColor(156, 204, 224, 210));
+            g.setColorAt(1.0, QColor(168, 206, 222, 40));
+            fillHexPlate(painter, slider, g);
+            return;
+        }
+
+        if (m_percent <= 0) {
+            return;
+        }
+        painter.save();
+        painter.setClipPath(hexPlatePath(track));
+        const qreal fillW = track.width() * m_percent / 100.0;
+        QRectF fill(track.left(), track.top(), fillW, track.height());
+        QLinearGradient g(fill.topLeft(), fill.topRight());
+        g.setColorAt(0.0, QColor(168, 208, 226, 200));
+        g.setColorAt(1.0, QColor(126, 178, 204, 210));
+        painter.fillRect(fill, g);
+        painter.restore();
+    }
+
+private:
+    QTimer m_timer;
+    bool m_busy = false;
+    int m_percent = 0;
+    qreal m_phase = 0.0;
+};
 
 customProgresscontrols::customProgresscontrols(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::customProgresscontrols)
+    ui(new Ui::customProgresscontrols),
+    m_capsuleBar(nullptr)
 {
     ui->setupUi(this);
 
-    // 基础设置
-    setAttribute(Qt::WA_TransparentForMouseEvents, true); // 鼠标事件穿透
+    setAttribute(Qt::WA_TransparentForMouseEvents, true);
     setWindowFlags(Qt::Widget | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint
                              | Qt::WindowDoesNotAcceptFocus | Qt::NoDropShadowWindowHint);
-    setWindowOpacity(0.9);
+    setWindowOpacity(1.0);
 
-    setAttribute(Qt::WA_StyledBackground);
-    setAutoFillBackground(true);
+    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_StyledBackground, false);
+    setAutoFillBackground(false);
+
+    setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    setFixedSize(540, 118);
+    setStyleSheet(QString());
+
+    if (ui->verticalLayout) {
+        ui->verticalLayout->setContentsMargins(52, 22, 52, 22);
+        ui->verticalLayout->setSpacing(12);
+    }
 
     m_totalnum = 1;
-    ui->label_ratio->setStyleSheet("border: none;");
-    ui->progressBar_ratio->setStyleSheet("QProgressBar{text-align:center;background-color:#DDDDDD;border: 1px solid #DDDDDD;border-radius:5px;}"
-                                          "QProgressBar::chunk{background-color:#05B8CC;border-radius:5px; width:6px;margin:0.5px;}");
-    ui->progressBar_ratio->setValue(0);
-    ui->progressBar_ratio->setRange(0,100);
-    ui->progressBar_ratio->setOrientation(Qt::Horizontal);
+    ui->label_ratio->setStyleSheet(QLatin1String(kRatioLabelCss));
+    ui->label_ratio->setMinimumHeight(28);
+    ui->label_ratio->setMaximumHeight(36);
+    QFont labelFont(QString::fromUtf8("Microsoft YaHei"), 16);
+    labelFont.setBold(true);
+    ui->label_ratio->setFont(labelFont);
 
-    // 初始化动画对象
+    ui->progressBar_ratio->hide();
+    m_capsuleBar = new HexPlateProgressBar(this);
+    if (ui->verticalLayout) {
+        const int barIndex = ui->verticalLayout->indexOf(ui->progressBar_ratio);
+        ui->verticalLayout->insertWidget(barIndex >= 0 ? barIndex : 2, m_capsuleBar);
+    }
+
     if(m_showAnimation.isNull()){
         m_showAnimation.reset(new QPropertyAnimation(this, "geometry"));
     }
 
-    //m_showAnimation = new QPropertyAnimation(this, "geometry");
-    m_showAnimation->setDuration(500); // 500ms动画时长
-    m_showAnimation->setEasingCurve(QEasingCurve::OutCubic); // 平滑动画曲线
+    m_showAnimation->setDuration(500);
+    m_showAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
-    //m_closeAnimation = new QPropertyAnimation(this, "geometry");
     if(m_closeAnimation.isNull()){
         m_closeAnimation.reset(new QPropertyAnimation(this, "geometry"));
     }
     m_closeAnimation->setDuration(500);
-    m_closeAnimation->setEasingCurve(QEasingCurve::InCubic);// 带加速效果
+    m_closeAnimation->setEasingCurve(QEasingCurve::InCubic);
 
-    // 连接动画结束信号
     connect(m_closeAnimation.data(), &QPropertyAnimation::finished, this, [=](){
-        QWidget::close(); // 动画结束后真正关闭窗口
+        QWidget::close();
     });
 
-    // 设置初始位置为屏幕左侧外
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect screenGeometry = screen->availableGeometry();
     setGeometry(-width(),
@@ -72,24 +216,36 @@ customProgresscontrols::~customProgresscontrols()
 }
 
 void customProgresscontrols::paintEvent(QPaintEvent *event) {
-    //QPainter painter(this);
-    //painter.fillRect(event->rect(), Qt::transparent); // 填充透明背景
-    // 添加自定义绘制代码（如进度条）
-    QWidget::paintEvent(event);
+    Q_UNUSED(event);
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const QRectF plate = QRectF(rect()).adjusted(2.0, 2.0, -2.0, -2.0);
+    const QPainterPath path = hexPlatePath(plate);
+
+    QLinearGradient body(plate.topLeft(), plate.bottomLeft());
+    body.setColorAt(0.0, QColor(246, 250, 252, kPlateAlpha));
+    body.setColorAt(1.0, QColor(226, 234, 240, kPlateAlpha));
+    painter.fillPath(path, body);
+
+    painter.setPen(QPen(QColor(156, 176, 192, 170), 1.4));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(path);
+
+    QRectF inner = plate.adjusted(5.0, 5.0, -5.0, -5.0);
+    painter.setPen(QPen(QColor(176, 192, 206, 110), 1.0));
+    painter.drawPath(hexPlatePath(inner));
 }
 
 void customProgresscontrols::showEvent(QShowEvent *event) {
     if (!m_isAnimating) {
         m_isAnimating = true;
 
-        // 获取屏幕尺寸
         QScreen *screen = QGuiApplication::primaryScreen();
         QRect screenGeometry = screen->availableGeometry();
 
-        // 初始位置：左侧屏幕外
         QRect startRect = geometry();
 
-        // 目标位置：屏幕中央
         QRect endRect = QRect(
             (screenGeometry.width() - width()) / 2,
             (screenGeometry.height() - height()) / 2,
@@ -97,7 +253,6 @@ void customProgresscontrols::showEvent(QShowEvent *event) {
             height()
         );
 
-        // 设置动画参数
         m_showAnimation->setStartValue(startRect);
         m_showAnimation->setEndValue(endRect);
         m_showAnimation->start();
@@ -108,17 +263,14 @@ void customProgresscontrols::showEvent(QShowEvent *event) {
 
 void customProgresscontrols::closeEvent(QCloseEvent *event) {
     if (!m_isAnimating) {
-        event->ignore(); // 阻止立即关闭
+        event->ignore();
         m_isAnimating = true;
 
-        // 获取屏幕尺寸
         QScreen *screen = QGuiApplication::primaryScreen();
         QRect screenGeometry = screen->availableGeometry();
 
-        // 当前位置
         QRect startRect = geometry();
 
-        // 目标位置：右侧屏幕外
         QRect endRect = QRect(
             screenGeometry.width(),
             startRect.y(),
@@ -126,14 +278,12 @@ void customProgresscontrols::closeEvent(QCloseEvent *event) {
             height()
         );
 
-        // 设置关闭动画
         m_closeAnimation->setStartValue(startRect);
         m_closeAnimation->setEndValue(endRect);
         m_closeAnimation->start();
     }
 }
 
-// 添加鼠标拖动支持
 void customProgresscontrols::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         m_dragPosition = event->globalPos() - frameGeometry().topLeft();
@@ -156,15 +306,19 @@ void customProgresscontrols::_settitle(const QString title)
 
 void customProgresscontrols::_setprogressvalue(const QString info,int numstep)
 {
-    ui->progressBar_ratio->setValue(numstep*100/m_totalnum);
-    ui->label_ratio->setText(QString("%1%2%").arg(info).arg(numstep*100/m_totalnum));
-    ui->progressBar_ratio->setFormat("");
-    ui->progressBar_ratio->update();
+    const int percent = (m_totalnum == 0) ? 0 : (numstep * 100 / m_totalnum);
+    ui->label_ratio->setText(QString("%1%2%").arg(info).arg(percent));
+    if (m_capsuleBar) {
+        m_capsuleBar->setBusy(false);
+        m_capsuleBar->setPercent(percent);
+    }
 }
 
 void customProgresscontrols::_setprogressRand(int min,int max)
 {
-    ui->progressBar_ratio->setRange(min,max);
+    if (m_capsuleBar) {
+        m_capsuleBar->setBusy(min == max);
+    }
 }
 
 
@@ -179,10 +333,19 @@ void customProgresscontrols::_setlabletext(const QString reminder)
     ui->label_ratio->setText(reminder);
 }
 
-void customProgresscontrols::_setMinvalue(int val){ ui->progressBar_ratio->setMinimum(val); }
+void customProgresscontrols::setBusyWait(const QString &hint)
+{
+    ui->label_ratio->setText(hint);
+    if (m_capsuleBar) {
+        m_capsuleBar->setBusy(true);
+    }
+}
 
-void  customProgresscontrols::_setMaxvalue(int val){ ui->progressBar_ratio->setMaximum(val); }
+void customProgresscontrols::_setMinvalue(int) { }
 
-int  customProgresscontrols::_getprogressdata(){ return ui->progressBar_ratio->value(); }
+void  customProgresscontrols::_setMaxvalue(int) { }
 
-
+int  customProgresscontrols::_getprogressdata()
+{
+    return 0;
+}

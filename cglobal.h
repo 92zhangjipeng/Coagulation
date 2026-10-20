@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QString>
 #include <QMetaType>
+#include <atomic>
 
 #define PID_NUM                         22336
 #define VID_NUM                         1155
@@ -53,7 +54,12 @@
 #define STATS                     8
 
 
-#define TEMP_CONVERSION_RATIO     0.0625  //温度转换率
+#define TEMP_CONVERSION_RATIO     0.0625  //温度转换率（协议：实际温度=原始值*0.0625）
+
+// 检测模组协议 V1.1.0：cmd_func=00001 时后8字节为调光值，有效范围 2000~3300
+#define MODULE_LED_DIMMING_MIN     2000
+#define MODULE_LED_DIMMING_MAX     3300
+#define MODULE_LED_DIMMING_DEFAULT 2650
 #define INIT_CLEAN_RATIO          0.6     //灌注血样蹦拉满比例
 
 #define VERSION_RELEASE           "V1"
@@ -68,7 +74,7 @@
 #define TRROW_POORBLOOD                        2            //丟贫血
 #define MACHINE_BACKORIGIN                     10            //机器回原点
 #define EMPTYAREA_SCRATCHPOORBLOOD             11           //在试管区抓贫血试管
-#define SPITREAGENT_CLEANNINGBLOOD             12           //吐试剂&&清洗血样针
+#define SPITREAGENT_CLEANNINGBLOOD             12           //吐试剂&&清洗样本针
 #define EMPTYAREA_SCPATCHTUBE                  13           //在试管区夹试管
 #define PUTDOWNTUBE_INCHANNEL                  14           //在测试通道放下试管
 #define TESTCHANNEL_THROWTUBE                  15           //丟测试通道中的贫血
@@ -82,14 +88,33 @@
 #define EQUIPMENT_BOOT_CLEAN                   100         //仪器开机清洗
 #define EQUIPMENT_BTN_REAET                    101         //按钮复位
 #define EQUIPMENT_BTN_CLEAN                    102         //按钮清洗
+#define EQUIPMENT_SMART_CUP_CLEAR              104         //调光前按通道自动丢杯(勿与103坐标微调冲突)
+#define EQUIPMENT_GRIPPER_AIR_CALIB            105         //抓手负压主动判定动作
 #define COORDINATE_FINE_TUNING_TEST            103         //坐标微调测试动作
-//点击QLable
-#define BLOODPINDOWNHEIGH                     30            //血样针下降高度
-#define BLOODPINDOWNHEIGH_CLEANLINQUEFAILED   31            //血样针液面探测失败下降高度(清洗液)
-#define BLOODPINDOWNHEIGH_SERUMMODEL          32            //血样针血浆模式下针高度
-#define BLOODPINDOWNHEIGH_ANEMIALINQUEFAILED  33            //血样针液面探测失败下降高度(贫血)
 
-#define REAGPIN_CLEANLINQUE_DOWN               40            //血样针在清洗液探测失败高度
+
+//++
+#define AXIS_TESTCATCHCUPS                     5           //抓杯测试
+#define AXIS_BACKRESET                         6           //复位
+#define AXIS_ORIGIN                            7           //调试坐标-原点位置
+#define AXIS_BLOODPIN_OFF_BLOOD                8           //样本针血样区
+#define AXIS_HANDS_OFF_TARY                    9           //抓手试管盘
+#define AXIS_BlOODPIN_OFF_TARY                 10          //样本针试管盘
+#define AXIS_REAGENTPIN                        11          //试剂针试剂区
+#define AXIS_OFF_CHANNEL                       12          // 通道
+#define AXIS_OFF_CLEANING                      13          //清洗区
+#define AXIS_OFF_THROW                         14          //弃杯区
+#define AXIS_OFF_CAMERA                        15          //摄像头位置
+#define AXIS_TEST_SUCKPRP                      16          //测试吸PRP
+
+
+
+#define BLOODPINDOWNHEIGH                     30            //样本针下降高度
+#define BLOODPINDOWNHEIGH_CLEANLINQUEFAILED   31            //样本针液面探测失败下降高度(清洗液)
+#define BLOODPINDOWNHEIGH_SERUMMODEL          32            //样本针血浆模式下针高度
+#define BLOODPINDOWNHEIGH_ANEMIALINQUEFAILED  33            //样本针液面探测失败下降高度(贫血)
+
+#define REAGPIN_CLEANLINQUE_DOWN               40            //样本针在清洗液探测失败高度
 #define REAGPIN_REAGLINQUE_FAILEDDOWN          41            //试剂针试剂位液面探测失败高度
 #define REAGPIN_DOWNHEIGH_IN_AA                42            //试剂针在测试AA时下针高度
 #define REAGPIN_DOWNHEIGH_IN_ADP               43            //试剂针在测试ADP时下针高度
@@ -169,7 +194,7 @@
 #define R_MODULE_LED               108  //读模组LED
 #define W_SAVEMODULESETTING        109  //保存模组调整 设置界面
 
-#define W_MODULE_LED_DIMMING       110    //写模组LED 调光
+#define W_MODULE_LED_DIMMING         110    //写模组LED 调光
 #define W_SAVEMODULESETTING_DIMMING  111  //保存模组调整 调光
 
 
@@ -219,8 +244,8 @@
 
 
 //测高模块的参照物高度 mm
-#define  REFERENCE_HEIGHT		 20 
-#define  REFERENCE_TO_BOTTOM     26.8   //51.8    //26.8
+#define  REFERENCE_HEIGHT		 20
+#define  RAISETHERULER           2   //刻度尺垫高了2mm
 
 //读取耗材卡状态
 #define CONSUMABLES_READ_NORMAL       0x00  //正常(读取)
@@ -231,11 +256,6 @@
 #define RECHARGE_SUCESSFULLY          0x05  //充值成功(充值写入)
 #define RECHARGE_FAIL				  0x06  //充值失败(刷卡写入失败)
 #define BUFFER_WRITE                  0x07  //缓存区写入
-
-
-
-
-
 
 
 #define CHANNEL_TESTING               true   //通道测试中
@@ -276,6 +296,10 @@
 #define HANDS_SUCK_NUM                200
 #define HANDS_SPLIT_NUM               201
 
+
+#define SAMPLENEEDLERESETSPEED    50 //样本针复位速度
+#define REAGENTNEEDLERESETSPEED   50 //试剂针复位速度
+
 //XY运动(相对)Z轴
 #define OFFSET_ZBLOOD                 0
 #define OFFSET_ZREAGNET               1
@@ -308,7 +332,7 @@
 
 
 #define WASH_DOUBLE_NEDDLES           0  //清洗双针
-#define WASH_BLLODSAMPLE_NEDDLES      1  //清洗血样针
+#define WASH_BLLODSAMPLE_NEDDLES      1  //清洗样本针
 #define WASH_REAGENT_NEDDLES          2  //试剂针
 #define THROW_CUPS_END                3 //丟杯后
 
@@ -457,23 +481,22 @@ public:
     ~cglobal();
 public:
 
-
-
-        static  bool gserialConnecStatus;   //串口连接状态
+        static  std::atomic<bool> gserialConnecStatus;   //串口连接状态（跨线程）
         static QString gserialPortName;     //连接串口号
         static QString g_UserName_str;
 
         static bool g_QualityControlhighValue; //质控高低值
-        static bool g_quality_start;
-        static bool g_StartTesting;             //开始测试
-        static bool g_PauseTesting;             //暂停
+        static std::atomic<bool> g_quality_start;
+        static std::atomic<bool> g_StartTesting;             //开始测试（跨线程）
+        static std::atomic<bool> g_PauseTesting;             //暂停（跨线程）
+        static std::atomic<bool> g_controldimmingfinished;   //调光完成（跨线程）
 
 
         static QColor g_LineColor;              //线的颜色
 
         static QColor g_SamllBgmColor;          //内圆背景色 --初始状态
 		static QColor g_PoorBloodColor;         //贫血颜色
-		static QColor g_RichBloodColor;        //富血颜色
+        static QColor g_RichBloodColor;         //富血颜色
 		static QColor g_OutResult;
         static QColor g_TextColorBlack;        //文字颜色(外部颜色字体)
         static QColor g_TextColorRoorblood;    //贫血文字颜色
@@ -483,7 +506,7 @@ public:
 		static QColor g_InnerRing_Checked;		//血样区 内圆环选中状态颜色
 		static QColor g_InnerRing_absorbed;     //血样区 内圆血样被吸走颜色
 
-        static QColor g_OuterRingColor;         //外圆环颜色
+        static QColor g_OuterRingColor;          //外圆环颜色
         static QColor g_ReminderBloodHoleColor;  //选用血样孔外环提示颜色
 
         static QColor g_SelectColor;            //选中试管颜色
@@ -491,8 +514,6 @@ public:
         static QColor g_MoveedColor;            //移动试管颜色
 
         static quint16 g_cmd_num;               //命令编号
-
-        static bool g_controldimmingfinished;    //调光完成标志
 
         static bool g_moduleIdisconnected;   //模组I - III 掉线状态
         static bool g_moduleIIdisconnected;

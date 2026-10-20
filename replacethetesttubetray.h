@@ -86,7 +86,7 @@ private:
     void disableAllButtons();  // 禁用所有按钮
     QVector<int> getActiveChannels() const;
 
-    QMap<QString,quint8> getColumnValues(QTableWidget *table);
+    QMap<QString,quint8> getColumnValues(QTableWidget *table, bool *insertOk = nullptr);
 	bool isKeyExists(const QString &key);
 
     void inittestingwidget(QTableWidget *ptable);

@@ -12,17 +12,16 @@ CommandExceptional::CommandExceptional(char index,QString InfoRemid,QWidget *par
     setWindowFlags(Qt::Tool |
                    Qt::FramelessWindowHint |
                    Qt::WindowStaysOnTopHint);
-    //setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-    mFucn = index;  // 0:未联机提示 1:配置仪器类型  2: 命令异常提示 3:耗材报警提示 4:同步本地坐标文件  5: 提示关闭软件  6:更换试管 7:更缓试剂耗材
-    //QUIUtils::QLabeldisplayIcon(ui->label_titlename,":/Picture/reminderalarm.png",InfoRemid,5);
 
-    QPixmap *pixmap = new QPixmap(":/Picture/reminderalarm.png");
-    pixmap->scaled(ui->labelimage->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    ui->labelimage->setScaledContents(true);
-    ui->labelimage->setPixmap(*pixmap);
+    mFucn = index;
+    // 0:未联机提示 1:配置仪器类型  2: 命令异常提示 3:耗材报警提示 4:同步本地坐标文件
+    //5: 提示关闭软件  6:更换试管 7:更缓试剂耗材
+    QPixmap pixmap(":/Picture/reminderalarm.png");
+    ui->labelimage->setPixmap(pixmap.scaled(ui->labelimage->size(),
+                                             Qt::KeepAspectRatio,
+                                             Qt::SmoothTransformation));
     ui->label_titlename->setText(InfoRemid);
-    delete pixmap;
-    pixmap = nullptr;
+
     if(mFucn == 1)
     {
        ui->label_ErrInfo->hide();

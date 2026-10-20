@@ -1,8 +1,6 @@
 ﻿// 在文件最开头添加宏定义
 #define ACCESS_MASK ACCESS_MASK
 
-#pragma execution_character_set("utf-8")
-
 #include "height_data.h"
 #include "ui_height_data.h"
 #include <QCheckBox>
@@ -11,44 +9,69 @@
 #include <QHBoxLayout>
 #include <QScrollBar>
 #include <QStyledItemDelegate>
-#include <QTextStream>
-#include <QTextCodec>
-#include <string>
 #include <QFile>
-#include <QDir>
+#include <QMenu>
+#include <algorithm>
 #include "crc/include/vld.h"
 #include <QCoreApplication>
-#include <QDateTime>
-#include <QtConcurrent>
-#include <QFuture>
 #include "globaldata.h"
 #include "loginui.h"
 #include "testing.h"
 #include <operclass/fullyautomatedplatelets.h>
-#include <QMetaType>
+#include <custom_style/custommessagebox.h>
 
-#define WHOLEBLOODMODE  QColor(160, 82, 45) //全血模式
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
 
+// 全血模式行背景色（与 addSampleIdToRow 中保持一致）
+#define WHOLEBLOOD_BG_COLOR   QColor(160, 82, 45)// 棕色
+// 血浆模式行背景色
+#define PLASMA_BG_COLOR       QColor(135, 206, 250)// 浅蓝色
 
+// 医疗淡蓝色主题色系常量
+namespace MedicalTableColors {
+    const QString BG_LIGHT = "#F0F7FC";      // 窗口背景色
+    const QString TABLE_BG = "#FFFFFF";       // 表格背景色
+    const QString HEADER_BG = "#E8F4FD";      // 表头背景色
+    const QString HEADER_TEXT = "#2C5F8A";    // 表头文字色
+    const QString ROW_HOVER = "#E8F4FD";      // 行悬停色
+    const QString ROW_SELECTED = "#7EC8F0";   // 行选中色
+    const QString ROW_SELECTED_HOVER = "#5BB8E8"; // 选中行悬停色
+    const QString GRID_COLOR = "#D4EAF5";     // 网格线色
+    const QString BORDER_FOCUS = "#5BB8E8";   // 聚焦边框色
+}
 
 Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
     ui(new Ui::Height_Data)
     ,m_Barcodestr("")
     ,m_repTestOpencvId("")
     ,m_isreplaceopencv(false)
+    ,m_titleBar(nullptr)
 {
     ui->setupUi(this);
-    setWindowFlags(this->windowFlags()& ~Qt::WindowMaximizeButtonHint& ~Qt::WindowMinimizeButtonHint | Qt::WindowStaysOnTopHint
-                         | Qt::WindowDoesNotAcceptFocus);
-    this->setWindowTitle(tr("任务列表"));
+    this->installEventFilter(this);
+    // 确保控件可以获得焦点
+    this->setFocusPolicy(Qt::StrongFocus);
+    this->setFocus();
+
+
+    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint);
+
+    // 设置窗口背景色
+    setStyleSheet(QString("QWidget { background-color: %1; }").arg(MedicalTableColors::BG_LIGHT));
+
+    // 初始化自定义标题栏
+    initCustomTitleBar();
+
+    setWindowTitle(tr("任务列表"));
     this->setMinimumWidth(800);
-    this->setMinimumHeight(440);
+    this->setMinimumHeight(450);
     ui->widget_ShowErrImage->show();
     m_selbloodholetemp.clear();
 
-
     //测高模式
-    mtestmodebox = new QButtonGroup;
+    mtestmodebox = new QButtonGroup(this);
     mtestmodebox->setExclusive(true); //设置是否互斥
     mtestmodebox->addButton(ui->checkBox_wholeblood,0);
     mtestmodebox->addButton(ui->checkBox_plasma,1);
@@ -64,10 +87,25 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
 
     ui->Sample_Data_tablewidget->setContextMenuPolicy(Qt::CustomContextMenu);
 
-
     GlobalData::QCheckboxSheet(ui->checkBox_wholeblood,tr("全血模式"));
     GlobalData::QCheckboxSheet(ui->checkBox_plasma,tr("血浆模式"));
 
+    // 急诊优先：与模式勾选同区，开测时 SortemergencyattheTop 置顶
+    if (ui->checkBox_plasma && ui->checkBox_plasma->parentWidget()) {
+        m_checkBoxEmergency = new QCheckBox(tr("急诊优先"), ui->checkBox_plasma->parentWidget());
+        m_checkBoxEmergency->setMinimumHeight(30);
+        if (auto *layout = qobject_cast<QVBoxLayout*>(ui->checkBox_plasma->parentWidget()->layout())) {
+            layout->addWidget(m_checkBoxEmergency);
+        }
+        GlobalData::QCheckboxSheet(m_checkBoxEmergency, tr("急诊优先"));
+        m_checkBoxEmergency->setToolTip(tr(
+            "勾选：把当前选中行标为急诊（没有选中则标全部行）。\n"
+            "取消勾选：按同样范围取消急诊。\n"
+            "开测时急诊样本插到待吸队列最前；测试中再加急诊也会插队。"));
+        connect(m_checkBoxEmergency, &QCheckBox::toggled, this, [this](bool on) {
+            applyEmergencyToSelectedOrAll(on);
+        });
+    }
 
     QString toolBtnQss;
     QFile styleFileToolBtn(":/Picture/SetPng/wholeToolButton.qss");
@@ -89,23 +127,6 @@ Height_Data::Height_Data(QWidget *parent) : QWidget(parent),
          toolbutton->setText(text);
     }
 
-    if(!m_correctdata)
-        m_correctdata =  new Correct_Data(0, 0 ,"");
-
-    connect(m_correctdata,&Correct_Data::ConfigureData,
-            this,&Height_Data::Slot_ConfigureData);
-
-
-
-    //重新测试高度
-    connect(m_correctdata,&Correct_Data::repTestHeight,this,[=](const QString sampleid){
-        FullyAutomatedPlatelets::pinstanceTesting()->repPrpheight(sampleid,true);
-    });
-
-
-    connect(m_correctdata, &Correct_Data::NotifyTestHeight,
-            this,&Height_Data::SlotNotifyTestHeight);//修改测高值
-
 }
 
 Height_Data::~Height_Data()
@@ -114,56 +135,104 @@ Height_Data::~Height_Data()
 
     cleanupThread();
 
-    if(mtestmodebox)
-    {
-        delete mtestmodebox;
-        mtestmodebox = nullptr;
-    }
-
-    delete m_correctdata;
-    m_correctdata = nullptr;
-
-
-
     delete m_threadaddsample;
     m_threadaddsample = nullptr;
 
     delete ui;
 }
 
-bool Height_Data::eventFilter(QObject *obj, QEvent *event)
-{
-    //屏蔽 spinbox 和 combobox 的滚轮事件
-     if(obj->inherits("QAbstractSpinBox") || obj->inherits("QComboBox")) {
-            if(event->type() == QEvent::Wheel)
-                return true;
-    }
-    return false;
-}
 
-void  Height_Data::clickBloodmode(int clickid)
+void Height_Data::showEvent(QShowEvent *event)
 {
-    auto &ini = INI_File();
-    QWidget* pshowImage = ui->widget_ShowErrImage;
-    QCheckBox *btn = qobject_cast<QCheckBox*> (mtestmodebox->button(clickid));
-    btn->setChecked(true);
-    if(clickid == 0){
-        ini.SetWholeBloodModel(true);
-        pshowImage->show();
-    } else{
-         ini.SetWholeBloodModel(false);
-         pshowImage->hide();
+    QWidget::showEvent(event);
+    QTableWidget *table = ui ? ui->Sample_Data_tablewidget : nullptr;
+    if (!table) {
+        return;
+    }
+    for (int row = 0; row < table->rowCount(); ++row) {
+        QWidget *widget = table->cellWidget(row, RICHBLOOD_HOLE);
+        auto *box = qobject_cast<QComboBox *>(widget);
+        if (!box) {
+            continue;
+        }
+        const int hole = box->currentText().toInt();
+        if (hole > 0) {
+            Q_EMIT reminderPPPandPRPputHole(static_cast<quint8>(hole));
+        }
     }
 }
 
-void  Height_Data::initcreat()
+
+
+void Height_Data::clickBloodmode(int clickid)
 {
+   auto &ini = INI_File();
+   QWidget* pshowImage = ui->widget_ShowErrImage;
+   QCheckBox *btn = qobject_cast<QCheckBox*> (mtestmodebox->button(clickid));
+   btn->setChecked(true);
+
+   if (clickid == 0) {  // 全血模式
+       ini.SetWholeBloodModel(true);
+       pshowImage->show();
+
+       // 关键修复：强制设置图片区域固定宽度，防止被压缩
+       pshowImage->setFixedWidth(360);
+       pshowImage->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+
+       // 计算所需最小窗口宽度（表格最小宽度 + 图片宽度 + 布局间距和边距）
+       int tableMinWidth = ui->Sample_Data_tablewidget->minimumSize().width(); // 应为1050
+       int imageWidth = pshowImage->width(); // 固定360
+       int spacing = ui->horizontalLayout_3->spacing();
+       int margins = ui->horizontalLayout_3->contentsMargins().left() +
+                     ui->horizontalLayout_3->contentsMargins().right();
+       int totalMinWidth = tableMinWidth + imageWidth + spacing + margins;
+
+       setMinimumWidth(totalMinWidth);
+       if (width() < totalMinWidth) {
+           resize(totalMinWidth, height());
+       }
+
+       // 强制刷新布局
+       pshowImage->raise();
+       ui->horizontalLayout_3->invalidate();
+       ui->horizontalLayout_3->activate();
+
+   } else {  // 血浆模式
+       ini.SetWholeBloodModel(false);
+       pshowImage->hide();
+
+       // 恢复图片控件尺寸策略（避免影响后续显示）
+       pshowImage->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+
+       // 恢复窗口最小宽度为表格所需宽度
+       int tableMinWidth = ui->Sample_Data_tablewidget->minimumSize().width();
+       setMinimumWidth(tableMinWidth);
+       if (width() < tableMinWidth) {
+           resize(tableMinWidth, height());
+       }
+   }
+   ui->widget_Task->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+   adjustTableColumnWidths();
+   updateTableHeaderText();
+
+   this->adjustSize();
+   this->update();
+   emit requestAltimeterCamera(clickid == 0);
+}
+
+void Height_Data::initcreat()
+{
+    if (m_actionsBound) {
+        return;
+    }
+    m_actionsBound = true;
+
     initNumAnaemiaHole();
 
-    FullyAutomatedPlatelets::pinstanceTestproject()->_initstyle();
+    FullyAutomatedPlatelets::pinstanceTestproject()->initstyle();
 
     QObject::connect(FullyAutomatedPlatelets::pinstanceTestproject(),
-                     &ConfigureProjectItem::_setallsampletestproject,this,[=](QString text){
+                     &ConfigureProjectItem::setallsampletestproject,this,[=](QString text){
         QList<int> item_List;
         obtainSelectedSample(item_List);
         for(int i = 0 ; i< item_List.size() ;i++){
@@ -197,7 +266,6 @@ void  Height_Data::initcreat()
         batchAddTask();
     });
 
-
     if(!m_threadaddsample)
     {
         m_threadaddsample = new mythreadaddsample();
@@ -214,294 +282,508 @@ void  Height_Data::initcreat()
                 this,&Height_Data::slotupdatetestui);
 
         connect(m_threadaddsample,&mythreadaddsample::_sycnPaintentInfo,
-                FullyAutomatedPlatelets::mainWindow(),&MainWindow::slotsycnPaintentInfo);
+                FullyAutomatedPlatelets::mainWindow(),&MainWindow::slotsycnPaintentInfo,
+                Qt::QueuedConnection);
+
+        connect(m_threadaddsample, &mythreadaddsample::suckPosInvalid,
+                this, [this](const QString& msg) {
+            emit ReminderTextOut(ERRORLOG, msg);
+            CustomMessageBox::warning(this, tr("吸样位置错误"), msg);
+        }, Qt::QueuedConnection);
 
         m_threadaddsample->Start();
     }
-
 }
 
-
-void  Height_Data::initNumAnaemiaHole()
+void Height_Data::fillPressedHoles(int totalHole)
 {
-    try{
-        m_pressedhole.clear();
-        m_selbloodholetemp.clear();
+    m_pressedhole.clear();
+    m_selbloodholetemp.clear();
+    for (int n = 0; n < totalHole; ++n) {
+        m_pressedhole.insert(QString::number(2 * n + 1), false);
+    }
+}
 
+void Height_Data::initNumAnaemiaHole()
+{
+    try {
         quint8 totalHole = 0;
         quint8 kindEquipment = 0;
-
-        // 添加错误处理
         SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, kindEquipment);
-
-        // 使用更清晰的逻辑结构
         switch (kindEquipment) {
         case KS600:
-            totalHole = 30;
+            totalHole = 30; // 6 组 × 5 对 PPP+PRP
             break;
         case KS800:
-            totalHole = 45;
+            totalHole = 40; // 8 组 × 5 对 PPP+PRP（旧值 45 会多出不存在的孔）
             break;
         case KS1200:
-            totalHole = 60;
+            totalHole = 60; // 12 组 × 5 对 PPP+PRP
             break;
         default:
             totalHole = 60;
             QLOG_DEBUG() << "Unknown equipment kind:" << kindEquipment << ", using default 60 holes";
             break;
         }
-        // 预分配内存提高性能
-        //m_pressedhole.reserve(totalHole);
-
-        // 使用更高效的循环和避免字符串转换开销
-        for (int n = 0; n < totalHole; ++n) {
-            // 使用QString::number的静态版本，或者考虑使用整数作为键
-            QString key = QString::number(2 * n + 1);
-            m_pressedhole.insert(key, false);
-        }
-
-        // 确保容器被清空
-        m_selbloodholetemp.clear();
-
-    }catch (const std::exception& e) {
+        fillPressedHoles(totalHole);
+    } catch (const std::exception& e) {
         QLOG_ERROR() << "Exception in _initNumAnaemiaHole:" << e.what();
-        // 确保在异常情况下也有合理的状态
-        m_pressedhole.clear();
-        m_selbloodholetemp.clear();
-
-        // 设置默认值
-        for (int n = 0; n < 60; ++n) {
-            m_pressedhole.insert(QString::number(2 * n + 1), false);
-        }
+        fillPressedHoles(60);
     } catch (...) {
         QLOG_ERROR() << "Unknown exception in _initNumAnaemiaHole";
-        m_pressedhole.clear();
-        m_selbloodholetemp.clear();
-
-        for (int n = 0; n < 60; ++n) {
-            m_pressedhole.insert(QString::number(2 * n + 1), false);
-        }
+        fillPressedHoles(60);
     }
 }
 
+void Height_Data::restoreHoleOccupancy(quint8 hole)
+{
+    auto tubeIt = m_pressedhole.find(QString::number(hole));
+    if (tubeIt == m_pressedhole.end()) {
+        return;
+    }
+    tubeIt.value() = false;
+    for (auto it = m_selbloodholetemp.begin(); it != m_selbloodholetemp.end(); ) {
+        if (it.value() == hole) {
+            it = m_selbloodholetemp.erase(it);
+            break;
+        }
+        ++it;
+    }
+}
 
 //补回用掉的试管孔
 void Height_Data::Makeuptubenum(quint8 canceltube)
 {
-    // 仅处理奇数孔位（直接返回偶数孔位）
     if (canceltube % 2 == 0) {
         return;
     }
+    QLOG_INFO() << "Recovering tube hole:" << canceltube;
+    restoreHoleOccupancy(canceltube);
+}
 
-    QString tubeKey = QString::number(canceltube);
-    auto tubeIt = m_pressedhole.find(tubeKey);
+//测试界面取消 补回血样孔
+void Height_Data::backcancelhole(const quint8 index)
+{
+    QLOG_DEBUG() << "测试界面删除样本孔号补回" << index;
+    restoreHoleOccupancy(index);
+    Q_EMIT reminderPPPandPRPputHoleNotify(index, 255);
+}
 
-    if(tubeIt != m_pressedhole.end()){
-        QLOG_INFO() << "Recovering tube hole:" << canceltube;
-        tubeIt.value() = false; // 标记为可用
-
-        for(auto it = m_selbloodholetemp.begin(); it != m_selbloodholetemp.end(); ){
-            if(it.value() == canceltube){
-                it = m_selbloodholetemp.erase(it);
-                break;
-            } else{
-                ++it;
+void Height_Data::resizeEvent(QResizeEvent* event){
+    QWidget::resizeEvent(event);
+    // 全血模式下，强制保持图片区域不被压缩
+    if (INI_File().GetWholeBloodModel()) {
+        QWidget* pshowImage = ui->widget_ShowErrImage;
+        if (pshowImage && pshowImage->isVisible()) {
+            int desiredWidth = 360;
+            if (pshowImage->width() != desiredWidth) {
+                pshowImage->setFixedWidth(desiredWidth);
+                ui->horizontalLayout_3->invalidate();
+                ui->horizontalLayout_3->activate();
             }
         }
     }
 }
 
-
-//测试界面取消 补回血样孔
-void Height_Data::backcancelhole(const quint8 index)
+void Height_Data::adjustTableColumnWidths()
 {
-    QString backhole = QString::number(index);
+    QTableWidget *table = ui->Sample_Data_tablewidget;
+    if (!table) return;
 
-    auto iter = m_pressedhole.find(backhole);
-    if (iter == m_pressedhole.end()) {
-        return;
-    }
-
-    QLOG_DEBUG() << "测试界面删除样本孔号补回" << backhole;
-    iter.value() = false; // 标记孔位为可用
-
-    for (auto it = m_selbloodholetemp.begin(); it != m_selbloodholetemp.end(); ) {
-       if (it.value() == index) {
-           it = m_selbloodholetemp.erase(it);
-           break; // 找到并删除后立即退出
-       } else {
-           ++it;
-       }
-   }
-}
-
-
-
-void Height_Data::resizeEvent(QResizeEvent* event){
-    QWidget::resizeEvent(event);
-
+    table->horizontalHeader()->setSectionResizeMode(CHECK_ROW, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(SAMLPE_NAME, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(HEIGHT_DATA, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(RICHBLOOD_HOLE, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(PROJECT_ITEM, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(BARCODE, QHeaderView::Stretch);
+    table->horizontalHeader()->resizeSection(CHECK_ROW, 50);
+    table->horizontalHeader()->update();
+    table->update();
 }
 void Height_Data::closeEvent(QCloseEvent *event)
 {
     emit Taskconfigcloe();
-    ReminderPutBloodHole(-1);
+
+    if (m_titleBar && isMaximized()) {
+        m_titleBar->updateMaximizeButton(false);
+    }
+
     event->accept();
 }
 
+bool Height_Data::eventFilter(QObject *obj, QEvent *event)
+{
+     // 1. 全局屏蔽 SpinBox / ComboBox 的滚轮事件
+     if (event->type() == QEvent::Wheel &&
+         (obj->inherits("QAbstractSpinBox") || obj->inherits("QComboBox")))
+     {
+         return true;  // 丢弃滚轮事件
+     }
 
-void Height_Data::keyPressEvent(QKeyEvent *scanData){
-    if (!INI_File().rConfigPara(SCANCODEBAR).toBool()) {
-        QLOG_DEBUG()<<"扫码功能未打开!";
-        return;
+     // 2. 只处理当前控件的键盘按下事件
+    if (obj != this || event->type() != QEvent::KeyPress)
+        return QWidget::eventFilter(obj, event);
+
+    auto *keyEvent = static_cast<QKeyEvent*>(event);
+
+    // 2.1 检查扫码功能是否开启（避免频繁读取配置文件）
+    static bool isScanEnabled = INI_File().rConfigPara(SCANCODEBAR).toBool();
+    if (!isScanEnabled)
+    {
+        QLOG_DEBUG() << "扫码功能未打开!";
+        return true;  // 吞掉事件
     }
 
-    if(scanData->key() != Qt::Key_Return){
-        QString inputText  = scanData->text();
-        if(!inputText.isEmpty()){
-            m_Barcodestr += inputText;
-            QLOG_DEBUG()<<"当前缓存:"<<m_Barcodestr;
+    // 2.2 非回车 → 累积条码字符（加长度限制，防止内存爆炸）
+    if (keyEvent->key() != Qt::Key_Return)
+    {
+        QString inputText = keyEvent->text();
+        if (!inputText.isEmpty())
+        {
+            constexpr int MAX_BARCODE_LEN = 1024;  // 根据实际条码最大长度调整
+            if (m_Barcodestr.length() + inputText.length() <= MAX_BARCODE_LEN)
+                m_Barcodestr += inputText;
+            else
+                QLOG_WARN() << "条码超过最大长度限制，已忽略后续输入";
         }
-        return;
+        return true;  // 事件已处理
     }
 
-    QString _output = QString("扫码QrCode结果:%1").arg(m_Barcodestr);
-    QLOG_DEBUG()<<_output;
-
-    const int rowCount = ui->Sample_Data_tablewidget->rowCount();
-    if(rowCount >= 1){
-        int rowIndex = rowCount - 1;
-        QTableWidgetItem* itembarcode = ui->Sample_Data_tablewidget->item(rowIndex, BARCODE);
-        if (!itembarcode) {
-            itembarcode = new QTableWidgetItem();  // 创建新Item
-            ui->Sample_Data_tablewidget->setItem(rowIndex, BARCODE, itembarcode);
-        }
-        // 设置文本及属性
-        itembarcode->setText(m_Barcodestr);
-        itembarcode->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable); // 按需选择标志位
-        itembarcode->setTextAlignment(Qt::AlignCenter); // 合并水平和垂直居中
-    }
-
-    // 5. 增加空值检查和Trim处理 [[6]]
-    if (m_Barcodestr.trimmed().isEmpty()) {
+    // 2.3 回车 → 处理完整条码
+    // 验证内容
+    if (m_Barcodestr.trimmed().isEmpty())
+    {
+        QLOG_DEBUG() << "扫码内容为空或仅含空白字符";
         emit ReminderTextOut(ERRORLOG, tr("扫码失败: 内容为空或仅含空白字符"));
-        m_Barcodestr.clear(); // 清空无效输入
-        return;
+        m_Barcodestr.clear();
+        return true;
     }
 
+    // 记录日志
+    QLOG_DEBUG() << "扫码QrCode结果:" << m_Barcodestr;
+
+    // 写入表格（重构为小函数，避免 eventFilter 过长）
+    writeBarcodeToTable(m_Barcodestr);
+
+    // 清空缓存并通知完成
     m_Barcodestr.clear();
     FullyAutomatedPlatelets::mainWindow()->TestHeightFinish(true);
+
+    return true;
 }
 
+void Height_Data::writeBarcodeToTable(const QString &barcode)
+{
+    int rowCount = ui->Sample_Data_tablewidget->rowCount();
+    if (rowCount <= 0) return;
+
+    int rowIndex = rowCount - 1;
+    QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(rowIndex, BARCODE);
+    if (!item)
+    {
+        item = new QTableWidgetItem();
+        ui->Sample_Data_tablewidget->setItem(rowIndex, BARCODE, item);
+    }
+    item->setText(barcode);
+    item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+    item->setTextAlignment(Qt::AlignCenter);
+}
+
+
+
+void Height_Data::updateVerticalHeaderRowNumbers()
+{
+    int rowCount = ui->Sample_Data_tablewidget->rowCount();
+    QTableWidget* table = ui->Sample_Data_tablewidget;
+
+    for (int row = 0; row < rowCount; ++row) {
+        // 检查 verticalHeaderItem 是否存在，如果不存在则创建
+        QTableWidgetItem* headerItem = table->verticalHeaderItem(row);
+        if (!headerItem) {
+            headerItem = new QTableWidgetItem();
+            table->setVerticalHeaderItem(row, headerItem);
+        }
+        headerItem->setText(QString::number(row + 1));
+    }
+
+}
+void Height_Data::updateTableHeaderText()
+{
+    if (!ui || !ui->Sample_Data_tablewidget) return;
+
+    bool isWholeBlood = INI_File().GetWholeBloodModel();
+    QString headerText = isWholeBlood ? tr("红细胞高度") : tr("吸样高度");
+
+    QStringList headers;
+    headers << tr("测试选项") << tr("样本号") << headerText
+            << tr("血样孔号") << tr("测试项目") << tr("条形码");
+
+    ui->Sample_Data_tablewidget->setHorizontalHeaderLabels(headers);
+}
 
 void Height_Data::InitTablewidget()
 {
     QStringList header;
     header<<tr("测试选项")<<tr("样本号")<<tr("测高值")<<tr("血样孔号")<<tr("测试项目")<<tr("条形码");
-    ui->Sample_Data_tablewidget->setColumnCount(6); //初始化列
+    ui->Sample_Data_tablewidget->setColumnCount(6);
     ui->Sample_Data_tablewidget->setHorizontalHeaderLabels(header);
-    QFont font;
-    font.setPixelSize(22);
-    font.setFamily("楷体");
-    font.setBold(true);
 
-    ui->Sample_Data_tablewidget->horizontalHeader()->setFont(font);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setStretchLastSection(true); //设置充满表宽度
-    ui->Sample_Data_tablewidget->setFrameShape(QFrame::Box); //设置无边框
-    ui->Sample_Data_tablewidget->setShowGrid(true); //设置不显示格子线
-    ui->Sample_Data_tablewidget->verticalHeader()->setVisible(false); //设置垂直头不可见//隐藏行表头(行号)
-    ui->Sample_Data_tablewidget->setSelectionMode(QAbstractItemView::SingleSelection);  //可多选（Ctrl、Shift、  Ctrl+A都可以）
-    ui->Sample_Data_tablewidget->setSelectionBehavior(QAbstractItemView::SelectRows);  //设置选择行为时每次选择一行
-    ui->Sample_Data_tablewidget->setEditTriggers(QAbstractItemView::NoEditTriggers); //设置不可编辑
-    ui->Sample_Data_tablewidget->verticalHeader()->setResizeContentsPrecision(QHeaderView::Stretch);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setHighlightSections(false);
-    ui->Sample_Data_tablewidget->setFocusPolicy(Qt::NoFocus);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setSectionResizeMode(CHECK_ROW, QHeaderView::ResizeToContents);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setSectionResizeMode(SAMLPE_NAME, QHeaderView::Stretch);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setSectionResizeMode(HEIGHT_DATA, QHeaderView::Stretch);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setSectionResizeMode(RICHBLOOD_HOLE, QHeaderView::Stretch);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setSectionResizeMode(PROJECT_ITEM, QHeaderView::Stretch);
-    QHeaderView *header1 = ui->Sample_Data_tablewidget->verticalHeader();
-    header1->setHidden(true);
-    ui->Sample_Data_tablewidget->verticalHeader()->setDefaultSectionSize(40); //设置行高
+    // 启用垂直表头并设置行号
+    ui->Sample_Data_tablewidget->verticalHeader()->setVisible(true);
+    ui->Sample_Data_tablewidget->verticalHeader()->setDefaultSectionSize(60);
+
+    // 设置行号列的宽度
+    ui->Sample_Data_tablewidget->verticalHeader()->setFixedWidth(50);
+    ui->Sample_Data_tablewidget->verticalHeader()->setDefaultAlignment(Qt::AlignCenter);
+    // 设置行号字体样式
+    QFont headerFont;
+    headerFont.setPixelSize(14);
+    headerFont.setFamily("Microsoft YaHei");
+    ui->Sample_Data_tablewidget->verticalHeader()->setFont(headerFont);
+
+    // 设置行号背景色（可选）
+    ui->Sample_Data_tablewidget->verticalHeader()->setStyleSheet(
+        "QHeaderView::section {"
+        "   background-color: #E8F4FD;"
+        "   color: #2C5F8A;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-right: 1px solid #D4EAF5;"
+        "   padding: 0px;"
+        "   text-align: center;"
+        "}"
+    );
+
+    ui->Sample_Data_tablewidget->horizontalHeader()->setFont(headerFont);
+    ui->Sample_Data_tablewidget->horizontalHeader()->setStretchLastSection(true);
+    ui->Sample_Data_tablewidget->setFrameShape(QFrame::NoFrame);
+    ui->Sample_Data_tablewidget->setShowGrid(false);
+
+    ui->Sample_Data_tablewidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    ui->Sample_Data_tablewidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->Sample_Data_tablewidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->Sample_Data_tablewidget->verticalHeader()->setDefaultSectionSize(60);
     ui->Sample_Data_tablewidget->horizontalHeader()->setDefaultSectionSize(30);
-    ui->Sample_Data_tablewidget->horizontalHeader()->resizeSection(CHECK_ROW,30); //设置表头第一列的宽度为
-    ui->Sample_Data_tablewidget->horizontalHeader()->resizeSection(SAMLPE_NAME,250);
-    ui->Sample_Data_tablewidget->horizontalHeader()->resizeSection(HEIGHT_DATA,200);
-    ui->Sample_Data_tablewidget->horizontalHeader()->resizeSection(RICHBLOOD_HOLE,200);
-    ui->Sample_Data_tablewidget->horizontalHeader()->resizeSection(PROJECT_ITEM,100); //设置表头第一列的宽度为
-    ui->Sample_Data_tablewidget->horizontalHeader()->setFixedHeight(40); //设置表头的高度
-    ui->Sample_Data_tablewidget->horizontalHeader()->setStretchLastSection(true); //使行列头自适应宽度，所有列平均分来填充空白部分
-    ui->Sample_Data_tablewidget->setAlternatingRowColors(true); //隔行换色
-    ui->Sample_Data_tablewidget->verticalHeader()->show();// 显示行号
-    //ui->Sample_Data_tablewidget->setSortingEnabled(true);//排序
+    ui->Sample_Data_tablewidget->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed); // 固定高度
+    adjustTableColumnWidths();
+    ui->Sample_Data_tablewidget->horizontalHeader()->setFixedHeight(45);
+    ui->Sample_Data_tablewidget->setAlternatingRowColors(true);
 
+    QFont tableFont;
+    tableFont.setPointSize(14);
+    tableFont.setFamily("Microsoft YaHei");
+    ui->Sample_Data_tablewidget->setFont(tableFont);
+    // 应用医疗主题样式
+    ui->Sample_Data_tablewidget->setStyleSheet(getMedicalTableStyle());
+    ui->Sample_Data_tablewidget->horizontalHeader()->setStyleSheet(getMedicalHeaderStyle());
 
-    ui->Sample_Data_tablewidget->setStyleSheet(InitTalbe_css);
-    ui->Sample_Data_tablewidget->horizontalHeader()->setStyleSheet("QHeaderView::section{background-color:rgb(188, 187, 186);\
-                                                                    font:14pt '楷体';color: black;};");
-    //设置水平、垂直滚动条样式
-    ui->Sample_Data_tablewidget->horizontalScrollBar()->setStyleSheet("QScrollBar{background:transparent; height:10px;}"
-    "QScrollBar::handle{background:lightgray; border:2px solid transparent; border-radius:5px;}"
-    "QScrollBar::handle:hover{background:gray;}"
-    "QScrollBar::sub-line{background:transparent;}"
-    "QScrollBar::add-line{background:transparent;}");
-
-    QString VScroBarCss =
-            "QScrollBar:vertical {width: 18px; background: transparent; margin: 0px,0px,0px,0px; padding-top: 18px;padding-bottom: 18px;} "
-            "QScrollBar::handle:vertical {width: 18px; background: rgba(0,0,0,25%);border-radius: 4px;min-height: 20;}"
-            "QScrollBar::handle:vertical:hover {width: 8px;background: rgba(0,0,0,50%);border-radius: 4px; min-height: 20;}"
-            "QScrollBar::add-line:vertical {height: 18px;width: 18px;border-image: url(:/Picture/minus.png);subcontrol-position: bottom;}"
-            "QScrollBar::sub-line:vertical {height: 18px;width: 18px;border-image: url(:/Picture/Quality.png);subcontrol-position: top;}"
-            "QScrollBar::add-line:vertical:hover {height: 18px;width: 18px;border-image: url(:/Picture/minus.png);subcontrol-position: bottom;}"
-            "QScrollBar::sub-line:vertical:hover {height: 18px;width: 18px;border-image: url(:/Picture/Quality.png);subcontrol-position: top;}"
-            "QScrollBar::sub-page:vertical {background: rgb(178,180,180); border-radius: 0px;}"
-            "QScrollBar::add-page:vertical {background: rgb(178,180,180); border-radius: 0px;}";
-
-    ui->Sample_Data_tablewidget->verticalScrollBar()->setStyleSheet(VScroBarCss);
+    // 设置滚动条样式
+    ui->Sample_Data_tablewidget->horizontalScrollBar()->setStyleSheet(getMedicalScrollBarStyle());
+    ui->Sample_Data_tablewidget->verticalScrollBar()->setStyleSheet(getMedicalScrollBarStyle());
 
     connect(ui->Sample_Data_tablewidget, SIGNAL(cellClicked(int,int)), this, SLOT(tableItemClicked(int,int)));
-
-    connect(ui->Sample_Data_tablewidget->horizontalHeader(),SIGNAL(sectionClicked(int )),this, SLOT(sortByColumn(int)));
+    connect(ui->Sample_Data_tablewidget->horizontalHeader(), SIGNAL(sectionClicked(int)), this, SLOT(sortByColumn(int)));
+    connect(ui->Sample_Data_tablewidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(on_Sample_Data_tablewidget_customContextMenuRequested(QPoint)));
+    updateTableHeaderText();
     return;
 }
 
+// 医疗主题样式函数实现
+QString Height_Data::getMedicalTableStyle() const
+{
+    static const QString kStyle = QString(
+        "QTableWidget {"
+        "   background-color: %1;"
+        "   border: none;"
+        "   border-radius: 8px;"
+        "   gridline-color: %2;"
+        "   outline: 0px;"
+        "}"
+        "QTableWidget::item {"
+        "   padding: 2px;"
+        "   border-bottom: 1px solid %2;"
+        "   border-right: none;"
+        "   font-size: 14px;"           // 添加这一行，调整字体大小
+        "   font-family: 'Microsoft YaHei';"  // 可选，设置字体
+        "}"
+        "QTableWidget::item:hover {"
+        "   background-color: %3;"
+        "   color: #2C5F8A;"
+        "}"
+        "QTableWidget::item:selected {"
+        "   background-color: %4;"
+        "   color: #FFFFFF;"
+        "}"
+        "QTableWidget::item:selected:hover {"
+        "   background-color: %5;"
+        "}"
+        "QTableWidget::item:!selected:hover {"
+        "   background-color: %3;"
+        "}"
+        "QTableCornerButton::section {"
+        "   background-color: %6;"
+        "   border: none;"
+        "   border-radius: 0px;"
+        "}"
+    ).arg(MedicalTableColors::TABLE_BG,
+          MedicalTableColors::GRID_COLOR,
+          MedicalTableColors::ROW_HOVER,
+          MedicalTableColors::ROW_SELECTED,
+          MedicalTableColors::ROW_SELECTED_HOVER,
+          MedicalTableColors::HEADER_BG);
+    return kStyle;
+}
 
+QString Height_Data::getMedicalHeaderStyle() const
+{
+    static const QString kStyle = QString(
+        "QHeaderView::section {"
+        "   background-color: %1;"
+        "   color: %2;"
+        "   font: 14pt 'Microsoft YaHei';"
+        "   font-weight: bold;"
+        "   padding: 10px;"
+        "   border: none;"
+        "   border-right: 1px solid %3;"
+        "   border-bottom: 2px solid #7EC8F0;"
+        "}"
+        "QHeaderView::section:last {"
+        "   border-right: none;"
+        "}"
+        "QHeaderView::section:hover {"
+        "   background-color: #D4EAF5;"
+        "}"
+        "QHeaderView {"
+        "   background-color: %1;"
+        "   border: none;"
+        "}"
+    ).arg(MedicalTableColors::HEADER_BG,
+          MedicalTableColors::HEADER_TEXT,
+          MedicalTableColors::GRID_COLOR);
+    return kStyle;
+}
+
+QString Height_Data::getMedicalScrollBarStyle() const
+{
+    static const QString kStyle = QString(
+        "QScrollBar:horizontal {"
+        "   height: 10px;"
+        "   background: %1;"
+        "   border-radius: 5px;"
+        "   margin: 0px;"
+        "}"
+        "QScrollBar::handle:horizontal {"
+        "   background: #7EC8F0;"
+        "   border-radius: 5px;"
+        "   min-width: 30px;"
+        "}"
+        "QScrollBar::handle:horizontal:hover {"
+        "   background: #5BB8E8;"
+        "}"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
+        "   border: none;"
+        "   background: none;"
+        "}"
+        "QScrollBar:vertical {"
+        "   width: 10px;"
+        "   background: %1;"
+        "   border-radius: 5px;"
+        "   margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "   background: #7EC8F0;"
+        "   border-radius: 5px;"
+        "   min-height: 30px;"
+        "}"
+        "QScrollBar::handle:vertical:hover {"
+        "   background: #5BB8E8;"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "   border: none;"
+        "   background: none;"
+        "}"
+    ).arg(MedicalTableColors::BG_LIGHT);
+    return kStyle;
+}
+
+QString Height_Data::getMedicalComboxStyle() const
+{
+    static const QString kStyle = QString(
+        "QComboBox {"
+        "   font-family: 'Microsoft YaHei';"
+        "   font-size: 14px;"
+        "   color: #2C5F8A;"
+        "   background-color: #FFFFFF;"
+        "   border: 1px solid #B8DFF7;"
+        "   border-radius: 6px;"
+        "   padding: 5px 10px;"
+        "}"
+        "QComboBox:hover {"
+        "   border-color: #7EC8F0;"
+        "   background-color: #F0F9FF;"
+        "}"
+        "QComboBox:focus {"
+        "   border-color: #5BB8E8;"
+        "}"
+        "QComboBox::drop-down {"
+        "   border: none;"
+        "   width: 25px;"
+        "}"
+        "QComboBox::down-arrow {"
+        "   image: url(:/Picture/SetPng/commbox.png);"
+        "   width: 16px;"
+        "   height: 16px;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "   background-color: #FFFFFF;"
+        "   border: 1px solid #B8DFF7;"
+        "   border-radius: 6px;"
+        "   selection-background-color: #7EC8F0;"
+        "   selection-color: #FFFFFF;"
+        "   outline: 0px;"
+        "}"
+        "QComboBox QAbstractItemView::item {"
+        "   height: 35px;"
+        "   padding: 5px;"
+        "}"
+        "QComboBox QAbstractItemView::item:hover {"
+        "   background-color: #E8F4FD;"
+        "   color: #2C5F8A;"
+        "}"
+    );
+    return kStyle;
+}
+
+QCheckBox *Height_Data::rowSelectCheckBox(int row) const
+{
+    QWidget *cellWidget = ui->Sample_Data_tablewidget->cellWidget(row, CHECK_ROW);
+    if (!cellWidget) {
+        return nullptr;
+    }
+    return qobject_cast<QCheckBox *>(cellWidget->children().value(1, nullptr));
+}
 
 void Height_Data::obtainSelectedSample(QList<int> &itemList)
 {
     itemList.clear();
-    itemList.reserve(ui->Sample_Data_tablewidget->rowCount()); // 预分配内存
+    itemList.reserve(ui->Sample_Data_tablewidget->rowCount());
 
     const int totalRows = ui->Sample_Data_tablewidget->rowCount();
     for (int row = 0; row < totalRows; ++row) {
-        if (QWidget* cellWidget = ui->Sample_Data_tablewidget->cellWidget(row, CHECK_ROW)) {
-            // 使用静态转换提高性能（如果确定类型）
-            QCheckBox* checkbox = static_cast<QCheckBox*>(
-                cellWidget->children().value(1, nullptr));
-
-            if (checkbox && checkbox->isChecked()) {
-                itemList.append(row);
-            }
+        QCheckBox *checkbox = rowSelectCheckBox(row);
+        if (checkbox && checkbox->isChecked()) {
+            itemList.append(row);
         }
     }
 }
 
-
-
-
-
-//修改单个item
-// 判断是否需要忽略点击
 bool Height_Data::shouldIgnoreClick(int col) const {
     return ui->Sample_Data_tablewidget->rowCount() == 0 ||
            col == static_cast<int>(CHECK_ROW) ||
            col == static_cast<int>(RICHBLOOD_HOLE);
 }
 
-
-// 保存原始值
 void Height_Data::saveOriginalValue(int row, int col) {
-    // 参数有效性检查
     if (row < 0 || col < 0) {
         QLOG_WARN() << "Invalid row or column index:" << row << col;
         return;
@@ -513,30 +795,23 @@ void Height_Data::saveOriginalValue(int row, int col) {
         return;
     }
 
-    // 检查行列范围
     if (row >= tableWidget->rowCount() || col >= tableWidget->columnCount()) {
         QLOG_WARN() << "Index out of range - row:" << row << "/" << tableWidget->rowCount()
                    << ", col:" << col << "/" << tableWidget->columnCount();
         return;
     }
 
-    // 获取单元格项
     QTableWidgetItem* item = tableWidget->item(row, col);
     if (!item) {
-        // 可选：如果单元格为空，可以创建新项目或处理为空的情况
-        QLOG_DEBUG() << "No item at row:" << row << "col:" << col;
-        m_OriginallyValue.clear(); // 清空原始值
+        m_OriginallyValue.clear();
         return;
     }
 
-    // 保存原始值
     m_OriginallyValue = item->text();
     QLOG_DEBUG() << "Saved original value:" << m_OriginallyValue << "at [" << row << "," << col << "]";
 }
 
-// 处理样本名称和高度数据列点击
 void Height_Data::handleSampleOrHeightClick(int row, int col) {
-    // 参数有效性检查
     if (row < 0 || col < 0) {
         qWarning() << "Invalid row or column index:" << row << col;
         return;
@@ -548,21 +823,12 @@ void Height_Data::handleSampleOrHeightClick(int row, int col) {
         return;
     }
 
-
-    // 检查行列范围
     if (row >= tableWidget->rowCount() || col >= tableWidget->columnCount()) {
         qWarning() << "Index out of range - row:" << row << "/" << tableWidget->rowCount()
                    << ", col:" << col << "/" << tableWidget->columnCount();
         return;
     }
 
-    // 检查 m_correctdata 指针有效性
-    if (!m_correctdata) {
-        qCritical() << "m_correctdata pointer is null!";
-        return;
-    }
-
-    // 只在点击样本名称列时处理
     if (col == static_cast<int>(SAMLPE_NAME) || col == static_cast<int>(HEIGHT_DATA)) {
         QTableWidgetItem* nameItem = tableWidget->item(row, col);
         if (!nameItem) {
@@ -576,23 +842,11 @@ void Height_Data::handleSampleOrHeightClick(int row, int col) {
             return;
         }
 
-        // 设置校正数据
-        m_correctdata->ClickSamplename(sampleName);
-        m_correctdata->setrows(row);
-        m_correctdata->setcols(col);
-        m_correctdata->setorigindata(m_OriginallyValue);
-
-        qDebug() << "Sample name clicked:" << sampleName << "at row:" << row;
+        showCorrectDialog(row,col,sampleName);
     }
 
-    // 显示校正窗口
-    m_correctdata->show();
-    m_correctdata->raise();    // 确保窗口在最前面
-    m_correctdata->activateWindow(); // 激活窗口
 }
 
-
-// 处理项目项点击
 void Height_Data::handleProjectItemClick(int row, int col) {
     auto* projectWindow = FullyAutomatedPlatelets::pinstanceTestproject();
     projectWindow->setWindowModality(Qt::NonModal);
@@ -604,10 +858,9 @@ void Height_Data::handleProjectItemClick(int row, int col) {
     projectWindow->show();
 }
 
-// 处理条码点击
 void Height_Data::handleBarcodeClick(int row, int col) {
     if (!m_Notifycode) {
-        m_Notifycode = new NotifyBarCode(this);  // 设置父对象自动管理内存
+        m_Notifycode = new NotifyBarCode(this);
         connect(m_Notifycode, &NotifyBarCode::savebarcode, this, &Height_Data::slotsavebarcode);
     }
     m_Notifycode->changerowAndCol(row, col, m_OriginallyValue);
@@ -615,7 +868,6 @@ void Height_Data::handleBarcodeClick(int row, int col) {
 }
 
 void Height_Data::tableItemClicked(int row,int col){
-
     if (shouldIgnoreClick(col)) return;
 
     saveOriginalValue(row, col);
@@ -639,124 +891,113 @@ void Height_Data::tableItemClicked(int row,int col){
     return;
 }
 
-
 void Height_Data::slotsavebarcode(unsigned int row,quint8 cols,QString noityBarcode)
 {
-    ui->Sample_Data_tablewidget->item(row,cols)->setText(noityBarcode);
+    QTableWidget *table = ui->Sample_Data_tablewidget;
+    if (!table) {
+        QLOG_ERROR() << "slotsavebarcode: table is nullptr";
+        return;
+    }
+
+    // 检查行是否有效
+    if (row >= (unsigned int)table->rowCount()) {
+        QLOG_ERROR() << QString("slotsavebarcode: 无效行号 - row=%1, 总行数=%2").arg(row).arg(table->rowCount());
+        return;
+    }
+
+    // 检查列是否有效
+    if (cols >= (quint8)table->columnCount()) {
+        QLOG_ERROR() << QString("slotsavebarcode: 无效列号 - col=%1, 总列数=%2").arg(cols).arg(table->columnCount());
+        return;
+    }
+
+    // 获取或创建表格项
+    QTableWidgetItem* item = table->item(row, cols);
+    if (!item) {
+        QLOG_WARN() << QString("slotsavebarcode: 创建新的表格项 - row=%1, col=%2").arg(row).arg(cols);
+        item = new QTableWidgetItem();
+        table->setItem(row, cols, item);
+    }
+
+    // 设置条形码文本
+    item->setText(noityBarcode);
+    item->setTextAlignment(Qt::AlignCenter);
+    item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+
+    // 确保表格刷新显示
+	table->viewport()->update();  // 刷新表格内容区域
+    table->update();
 }
 
-//修改测高值手动
-void Height_Data::SlotNotifyTestHeight(int Rows, int cols, QString Value)
+void Height_Data::onNotifyTestHeight(int Rows, int cols, QString Value)
 {
     SetColumnText(Rows, cols, Value);
     return;
 }
 
-//修改样本重复校验
-void Height_Data::Slot_ConfigureData(unsigned int Rows,int cols,QString data)
+
+
+bool Height_Data::validateSampleUniqueness(const QString &sampleData,const bool isfollowUp)
 {
-    // 数据校验
-    if (data.isEmpty()) {
-        showErrorReminder(tr("修改样本id失败"), tr("样本号不能为空!"));
-        restoreOriginalValue(Rows, cols);
-        return;
-    }
-
-    // 重复性检查
-    if (!validateSampleUniqueness(data)) {
-        restoreOriginalValue(Rows, cols);
-        return;
-    }
-
-    // 更新创建时间映射
-    updateCreationTimeMapping(Rows,data);
-
-    // 更新表格显示
-    SetColumnText(Rows, cols, data);
-}
-
-bool Height_Data::validateSampleUniqueness(const QString &sampleData)
-{
-    // 检查任务列表中的重复
     if (!repeatData(sampleData)) {
-        showErrorReminder(tr("修改样本id失败"),
-                         tr("任务列表样本号已存在,请勿重复!"));
+        CustomMessageBox::warning(this,tr("修改样本id失败"),"任务列表样本号已存在,请勿重复!");
         return false;
     }
 
-    // 检查数据库中的重复
-    if (SQLTheSameItem(sampleData)) {
-        showErrorReminder(tr("修改样本id失败"),
-                         tr("样本数据库号已存在,请勿重复!"));
+    if (SQLTheSameItem(sampleData,isfollowUp)) {
+        CustomMessageBox::warning(this,tr("修改样本id失败"),"样本数据库号已存在,请勿重复!");
         return false;
     }
 
     return true;
 }
+
 void Height_Data::updateCreationTimeMapping(unsigned int rows,const QString &newSampleData)
 {
-    // 移除旧的创建时间记录
     if (m_sampleCreateTime.contains(m_OriginallyValue)) {
         m_sampleCreateTime.remove(m_OriginallyValue);
     }
-    // 获取样本名称 - 添加安全检查
+
     QTableWidgetItem *sampleNameItem = ui->Sample_Data_tablewidget->item(rows, SAMLPE_NAME);
     if (!sampleNameItem) {
-		QLOG_WARN() << "无法获取样本名称，行:" << rows << "列:" << SAMLPE_NAME;
+        QLOG_WARN() << "无法获取样本名称，行:" << rows << "列:" << SAMLPE_NAME;
         return;
     }
 
-    QString sampleName = sampleNameItem->text();
-
-    // 添加新的创建时间记录
+    QString sampleName = newSampleData;//sampleNameItem->text();
     QString currentTime = QDateTime::currentDateTime().toString("MM.dd hh:mm:ss");
     m_sampleCreateTime.insert(sampleName, currentTime);
 
     QLOG_DEBUG() << "更新创建时间映射 - 样本:" << sampleName << "时间:" << currentTime;
 }
 
-
 void Height_Data::restoreOriginalValue(unsigned int rows, int cols)
 {
     SetColumnText(rows, cols, m_OriginallyValue);
 }
-void Height_Data::showErrorReminder(const QString &title, const QString &message)
-{
-    FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder(title, message);
-}
 
 
 
-
-
-
-
-//修改样本号 遍历表任务中是否有相同号
 bool Height_Data::repeatData(QString textChange)
 {
-    // 空值检查
    if (textChange.isEmpty()) {
        QLOG_WARN() << "重复检查: 输入文本为空";
-       return false; // 空字符串视为重复（根据业务逻辑调整）
+       return false;
    }
 
     const int rowCount = ui->Sample_Data_tablewidget->rowCount();
 
-   // 提前返回空表情况
    if (rowCount == 0) {
        return true;
    }
 
-   // 遍历检查重复
    for (int row = 0; row < rowCount; ++row) {
        QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
 
-       // 空项安全检查
        if (!item || item->text().isEmpty()) {
            continue;
        }
 
-       // 字符串比较（考虑大小写敏感性）
        if (textChange.compare(item->text(), Qt::CaseSensitive) == 0) {
            QLOG_DEBUG() << "发现重复数据 - 行:" << row << "值:" << textChange;
            return false;
@@ -765,73 +1006,177 @@ bool Height_Data::repeatData(QString textChange)
    return true;
 }
 
-//修改样本号 遍历数据库表任务中是否有相同号
-bool Height_Data::SQLTheSameItem(QString textchange)
+bool Height_Data::SQLTheSameItem(QString textchange, const bool isfollowUp)
 {
     QString date;
     int idsample = 0;
     GlobalData::apartSampleId(textchange,date, idsample);
-    QVector<int> todaySampleid;
-    todaySampleid = FullyAutomatedPlatelets::pinstancesqlData()->getTodayAllSampleid(date);
-    return todaySampleid.contains(idsample);
+    QSet<QString> todaySampleid;
+    todaySampleid = FullyAutomatedPlatelets::pinstancesqlData()->getTodayAllSampleid(date,isfollowUp);
+    if (isfollowUp) {
+        const QString reviewId = textchange.endsWith(QLatin1Char('F'))
+                ? textchange : (textchange + QLatin1Char('F'));
+        return todaySampleid.contains(reviewId);
+    }
+    return todaySampleid.contains(textchange);
 }
 
-
-
-//点击表头
 void Height_Data::sortByColumn(int col)
 {
-    // 安全检查：确保表格有数据
     if (ui->Sample_Data_tablewidget->rowCount() == 0) {
         return;
     }
 
      if(col != PROJECT_ITEM) return;
 
-    // 获取项目选择窗口实例
     ConfigureProjectItem *projectWindow = FullyAutomatedPlatelets::pinstanceTestproject();
     if (!projectWindow) {
         QLOG_ERROR() << "无法获取项目选择窗口实例";
         return;
     }
 
-    // 设置窗口属性
     projectWindow->setWindowModality(Qt::NonModal);
     projectWindow->setWindowFlags(Qt::Window | Qt::FramelessWindowHint |
                                  Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
 
-    // 显示窗口
     projectWindow->show();
 
-    // 发送初始化信号
     projectWindow->Slot_ChangeSingleItem(0, PROJECT_ITEM, false);
 }
 
-
 void Height_Data::SetColumnText(int row,int col,QString text)
 {
-    QColor originbgc(188,187,186);
-    QTableWidgetItem *existingItem = ui->Sample_Data_tablewidget->item(row, col);
-    if (existingItem) {
-        originbgc = existingItem->background().color();
-    }
+    QTableWidgetItem *oldItem = ui->Sample_Data_tablewidget->item(row, col);
+    const QVariant oldEmergency = (oldItem && col == SAMLPE_NAME) ? oldItem->data(RoleEmergency) : QVariant();
+    const QVariant oldFollowUp = (oldItem && col == SAMLPE_NAME) ? oldItem->data(RoleFollowUp) : QVariant();
+    const QBrush oldBg = (oldItem && col == SAMLPE_NAME) ? oldItem->background() : QBrush();
 
-    // 创建表格项并设置文本和对齐方式
     QTableWidgetItem *item = new QTableWidgetItem(text);
-    item->setTextAlignment(Qt::AlignCenter); // 使用AlignCenter简化代码
+    item->setTextAlignment(Qt::AlignCenter);
 
-    // 根据列类型设置不同的背景色
+    QFont cellFont = item->font();
+    cellFont.setPointSize(14);
+    cellFont.setFamily("Microsoft YaHei");
+    item->setFont(cellFont);
+
     if (col == HEIGHT_DATA) {
         setHeightDataBackground(item, text);
-    } else if(col == PROJECT_ITEM){
+    } else if (col == PROJECT_ITEM) {
         item->setTextColor(QColor(0,0,0));
-    }else {
-        // 为其他列设置默认背景色（可选）
-        item->setBackground(originbgc);
+    } else if (col == SAMLPE_NAME) {
+        if (oldItem) {
+            item->setBackground(oldBg);
+            item->setData(RoleEmergency, oldEmergency);
+            item->setData(RoleFollowUp, oldFollowUp);
+        }
     }
 
-    // 设置表格项
     ui->Sample_Data_tablewidget->setItem(row, col, item);
+    if (col == SAMLPE_NAME) {
+        applySampleRowMarks(row);
+    }
+}
+
+void Height_Data::applySampleRowMarks(int row)
+{
+    QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+    if (!item) {
+        return;
+    }
+    const bool emergency = item->data(RoleEmergency).toBool();
+    const bool followUp = item->data(RoleFollowUp).toBool();
+    QString tip;
+    if (emergency) {
+        tip += tr("急诊优先");
+    }
+    if (followUp) {
+        if (!tip.isEmpty()) {
+            tip += tr(" / ");
+        }
+        tip += tr("复查（结果入库号后加F）");
+    }
+    item->setToolTip(tip);
+
+    QFont font = item->font();
+    font.setBold(emergency || followUp);
+    item->setFont(font);
+    if (emergency) {
+        item->setTextColor(QColor(192, 57, 43));
+    } else if (followUp) {
+        item->setTextColor(QColor(41, 128, 185));
+    } else {
+        item->setTextColor(QColor(0, 0, 0));
+    }
+}
+
+bool Height_Data::isRowEmergency(int row) const
+{
+    QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+    return item && item->data(RoleEmergency).toBool();
+}
+
+bool Height_Data::isRowFollowUp(int row) const
+{
+    QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+    return item && item->data(RoleFollowUp).toBool();
+}
+
+void Height_Data::setRowEmergency(int row, bool on)
+{
+    QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+    if (!item) {
+        return;
+    }
+    item->setData(RoleEmergency, on);
+    applySampleRowMarks(row);
+}
+
+void Height_Data::setRowFollowUp(int row, bool on)
+{
+    QTableWidgetItem *item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+    if (!item) {
+        return;
+    }
+    item->setData(RoleFollowUp, on);
+    applySampleRowMarks(row);
+}
+
+void Height_Data::applyEmergencyToSelectedOrAll(bool on)
+{
+    QList<int> rows;
+    obtainSelectedSample(rows);
+    if (rows.isEmpty() && ui->Sample_Data_tablewidget) {
+        for (int r = 0; r < ui->Sample_Data_tablewidget->rowCount(); ++r) {
+            rows.append(r);
+        }
+    }
+    for (int row : rows) {
+        setRowEmergency(row, on);
+    }
+}
+
+bool Height_Data::validateSelectedRowsForSave(const QList<int> &selectedRows)
+{
+    for (int row : selectedRows) {
+        QTableWidgetItem *sampleItem = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+        if (!sampleItem) {
+            continue;
+        }
+        const QString sampleId = sampleItem->text().trimmed();
+        const bool followUp = isRowFollowUp(row);
+        if (followUp) {
+            if (SQLTheSameItem(sampleId, true)) {
+                CustomMessageBox::warning(this, tr("添加测试样本失败"),
+                    tr("复查号已存在：%1F\n请更换样本号或确认今日尚未复查过该号。").arg(sampleId));
+                return false;
+            }
+        } else if (SQLTheSameItem(sampleId, false)) {
+            CustomMessageBox::warning(this, tr("添加测试样本失败"),
+                tr("今日已有样本 %1。\n若要重测某个项目：点该样本号 → 复查 → 只勾选要重测的试剂。").arg(sampleId));
+            return false;
+        }
+    }
+    return true;
 }
 
 void Height_Data::setHeightDataBackground(QTableWidgetItem *item, const QString &text)
@@ -839,16 +1184,12 @@ void Height_Data::setHeightDataBackground(QTableWidgetItem *item, const QString 
     bool conversionOk = false;
     double value = text.toDouble(&conversionOk);
 
-    // 检查转换是否成功且数值有效
     if (!conversionOk || value <= 0.0) {
-        item->setBackground(QColor(255, 0, 0)); // 红色表示无效或非正值
+        item->setBackground(QColor(255, 0, 0));
     } else {
-        item->setBackground(QColor(255, 255, 255)); // 白色表示有效值
+        item->setBackground(QColor(255, 255, 255));
     }
 }
-
-
-
 
 bool Height_Data::SameSampleandtube(QList<int> TaskList, QTableWidget *TaskWidget)
 {
@@ -861,7 +1202,7 @@ bool Height_Data::SameSampleandtube(QList<int> TaskList, QTableWidget *TaskWidge
            samplenum_ = itemtext;
        else
        {
-           FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("添加测试样本失败","保存失败样本号重复,请重设!");
+           CustomMessageBox::warning(this,tr("添加测试样本失败"),"保存失败样本号重复,请重设!");
            bhandsame_ = true;
            break;
        }
@@ -876,17 +1217,14 @@ bool Height_Data::validateTableItems(QTableWidget* taskWidget, const QList<int>&
         return false;
     }
 
-    //const int totalColumns = taskWidget->columnCount();
     for (int row : selectedRows) {
-        // 检查行号有效性
         if (row < 0 || row >= taskWidget->rowCount()) {
             qWarning() << "Invalid row number:" << row;
             return false;
         }
 
-        // 检查指定列（跳过第3列）
         for (int col = 1; col <= 5; ++col) {
-            if (col == 3) continue; // 跳过第3列
+            if (col == 3) continue;
 
             QTableWidgetItem* item = taskWidget->item(row, col);
             if (!item || item->text().trimmed().isEmpty()) {
@@ -898,9 +1236,8 @@ bool Height_Data::validateTableItems(QTableWidget* taskWidget, const QList<int>&
     return true;
 }
 
-//添加样本的血样孔号存在相同??
 bool Height_Data::TheSameBloodHole()
-{ 
+{
     bool bhadSame = false;
     int  totalRows = ui->Sample_Data_tablewidget->rowCount();
     QString outtext = "";
@@ -928,13 +1265,11 @@ bool Height_Data::TheSameBloodHole()
         }
     }
     if (bhadSame) {
-        showReminder("添加测试样本失败",outtext);
+        CustomMessageBox::warning(this,tr("添加测试样本失败"),outtext);
     }
     return bhadSame;
 }
 
-
-//++样本试管是否够
 bool Height_Data::NeedTubeEnouthTesting(const int hadtube,int &needtube ,QList<int> selItems)
 {
     int tmpneedTube = 0;
@@ -944,11 +1279,11 @@ bool Height_Data::NeedTubeEnouthTesting(const int hadtube,int &needtube ,QList<i
         int  Sel_Row = TaskItem;
         QString reagentItem = ui->Sample_Data_tablewidget->item(Sel_Row,PROJECT_ITEM)->text();
         QStringList ProjectList = reagentItem.split("|");
-        tmpneedTube  = tmpneedTube + (ProjectList.size() + 1); //富血 + 贫血
+        tmpneedTube  = tmpneedTube + (ProjectList.size() + 1);
     }
     needtube = tmpneedTube;
 
-    QString _putlog = QString("仪器剩余试管数=%1 [加样所需试管数=%2]").arg(hadtube).arg(needtube);
+    const QString _putlog = tr("仪器剩余试管数=%1 [加样所需试管数=%2]").arg(hadtube).arg(needtube);
     emit this->ReminderTextOut(PROMPTLOG,_putlog);
     QLOG_DEBUG()<<_putlog<<endl;
 
@@ -963,28 +1298,21 @@ void Height_Data::on_toolButton_Cancel_clicked()
 
 void Height_Data::DeleteAllItems(QTableWidget * tableWidget)
 {
-    while (tableWidget->rowCount() > 0)
-    {
-        tableWidget->removeRow(0);
+    if (tableWidget) {
+        tableWidget->setRowCount(0);
     }
-    return;
 }
 
-
-
-//返回是否还有待测试血样的血样位置
 bool Height_Data::hasAvailableSampleHole(QStringList &availableHoleList)
 {
     availableHoleList.clear();
 
-    //首先收集所有未使用的孔位（m_pressedhole中标记为false的）
     for (auto iter = m_pressedhole.constBegin(); iter != m_pressedhole.constEnd(); ++iter) {
-        if (!iter.value()) {  // 如果孔位未被使用
+        if (!iter.value()) {
             availableHoleList.append(iter.key());
         }
     }
 
-    //按数字顺序排序
     std::sort(availableHoleList.begin(), availableHoleList.end(),
               [](const QString& s1, const QString& s2) {
                   return s1.toInt() < s2.toInt();
@@ -992,16 +1320,6 @@ bool Height_Data::hasAvailableSampleHole(QStringList &availableHoleList)
 
     return !availableHoleList.isEmpty();
 }
-
-
-
-void  Height_Data::ReminderPutBloodHole(int RichHolenum)
-{
-    emit ReminderHole(RichHolenum);
-    return;
-}
-
-
 
 
 
@@ -1014,146 +1332,92 @@ void Height_Data::updateotherinserthole(int _rows, QString index_)
         QWidget * widget = ui->Sample_Data_tablewidget->cellWidget(r, RICHBLOOD_HOLE);
         QComboBox *combox = qobject_cast<QComboBox*>(widget);
         if (!combox) continue;
-
-        QString selectedText = combox->currentText();
-
-
-        // 1. 获取可选项
-        QStringList items;
-        for(int i = 0; i < combox->count(); ++i) {
-            items.append(combox->itemText(i));
+        if (combox->findText(index_) >= 0) {
+            continue;
         }
 
-		if (!items.contains(index_)) {
-			items.append(index_);
-
-            // 自定义排序（按数值升序）
-            std::sort(items.begin(), items.end(), [](const QString &a, const QString &b) {
-                return a.toInt() < b.toInt();  // 数值升序
-            });
-
-            // 4. 重新填充
-            combox->blockSignals(true);
-            combox->clear();
-            combox->addItems(items);
-
-            // 查找原选中项的新位置
-            int newIndex = combox->findText(selectedText);
-            if (newIndex != -1) {
-                combox->setCurrentIndex(newIndex);
-            } else {
-                // 可选：若原项不存在，设置默认选中项（如第0项）
-                combox->setCurrentIndex(0);
+        const int hole = index_.toInt();
+        int insertAt = combox->count();
+        for (int i = 0; i < combox->count(); ++i) {
+            if (combox->itemText(i).toInt() > hole) {
+                insertAt = i;
+                break;
             }
-            combox->blockSignals(false);
         }
+        combox->blockSignals(true);
+        combox->insertItem(insertAt, index_);
+        combox->blockSignals(false);
     }
-    update();
 }
 
 void Height_Data::selectPPPholeChange(const QString& index_) {
-    // 1. 坐标转换优化
-        QComboBox *member = (QComboBox*)sender();
-        const QPoint globalPos = member->mapToGlobal(QPoint(0, 0));
-        const QPoint tablePos = ui->Sample_Data_tablewidget->mapFromGlobal(globalPos);
-        const QModelIndex index_item = ui->Sample_Data_tablewidget->indexAt(tablePos);
+	QComboBox *member = qobject_cast<QComboBox*>(sender());
+	if (!member) {
+		QLOG_ERROR() << "selectPPPholeChange: sender is not a QComboBox";
+		return;
+	}
 
-        quint8 changeHole = index_.toInt();
-        QTableWidget *ptable = ui->Sample_Data_tablewidget;
+	quint8 changeHole = index_.toInt();
+	QTableWidget *ptable = ui->Sample_Data_tablewidget;
+	if (!ptable) {
+		QLOG_ERROR() << "selectPPPholeChange: ptable is nullptr";
+		return;
+	}
 
-        // 2. 获取行列数据
-        const int row = index_item.row();
-        const int column = index_item.column();
+	int row = -1;
+	int column = -1;
+	for (int r = 0; r < ptable->rowCount(); ++r) {
+		if (ptable->cellWidget(r, RICHBLOOD_HOLE) == member) {
+			row = r;
+			column = RICHBLOOD_HOLE;
+			break;
+		}
+	}
 
-        // 原值
-        QString sampleidChnage;
-        QTableWidgetItem *item = ptable->item(row, SAMLPE_NAME);
-        if(item != nullptr)
-            sampleidChnage = ptable->item(row, SAMLPE_NAME)->text();
+	// 如果方法1失败，尝试方法2：坐标转换
+	if (row == -1) {
+		const QPoint globalPos = member->mapToGlobal(QPoint(0, 0));
+		const QPoint tablePos = ptable->mapFromGlobal(globalPos);
+		const QModelIndex index_item = ptable->indexAt(tablePos);
+		row = index_item.row();
+		column = index_item.column();
+	}
 
-        if (column == RICHBLOOD_HOLE) {
-            if(m_selbloodholetemp.contains(sampleidChnage)) {
-                auto ittmp = m_selbloodholetemp.find(sampleidChnage);
-                quint8 oldPPPhole = ittmp.value();
+	// 检查索引是否有效
+	if (row < 0 || row >= ptable->rowCount() || column < 0 || column >= ptable->columnCount()) {
+		QLOG_ERROR() << QString("selectPPPholeChange: 无效索引 - row=%1, column=%2").arg(row).arg(column);
+		return;
+	}
 
-                // 释放旧孔位
-                if (m_pressedhole.contains(QString::number(oldPPPhole))) {
-                    m_pressedhole[QString::number(oldPPPhole)] = false;
-                }
+    QString sampleidChnage;
+    QTableWidgetItem *item = ptable->item(row, SAMLPE_NAME);
+    if(item != nullptr)
+        sampleidChnage = ptable->item(row, SAMLPE_NAME)->text();
 
-                // 占用新孔位
-                ittmp.value() = changeHole;
-                if (m_pressedhole.contains(QString::number(changeHole))) {
-                    m_pressedhole[QString::number(changeHole)] = true;
-                }
+    if (column == RICHBLOOD_HOLE) {
+        if(m_selbloodholetemp.contains(sampleidChnage)) {
+            auto ittmp = m_selbloodholetemp.find(sampleidChnage);
+			quint8 oldPPPhole = ittmp.value();
 
-                // 注意：这里不再调用 updateAllHoleSelectors，保持其他行的孔号不变
-
-                QLOG_DEBUG() << "孔号已更改: 行" << row
-                             << "从" << oldPPPhole << "改为" << changeHole;
+            if (m_pressedhole.contains(QString::number(oldPPPhole))) {
+                m_pressedhole[QString::number(oldPPPhole)] = false;
             }
+
+            ittmp.value() = changeHole;
+            if (m_pressedhole.contains(QString::number(changeHole))) {
+                m_pressedhole[QString::number(changeHole)] = true;
+            }
+
+			Q_EMIT reminderPPPandPRPputHoleNotify(oldPPPhole, changeHole);
+            QLOG_DEBUG() << "孔号已更改: 行" << row
+                         << "从" << oldPPPhole << "改为" << changeHole;
         }
-
-        // 提醒放置的血样孔
-        emit ReminderHole(changeHole);
-        return;
-//	// 1. 坐标转换优化
-//	QComboBox *member = (QComboBox*)sender();
-//    const QPoint globalPos = member->mapToGlobal(QPoint(0, 0));
-//    const QPoint tablePos = ui->Sample_Data_tablewidget->mapFromGlobal(globalPos);
-//    const QModelIndex index_item = ui->Sample_Data_tablewidget->indexAt(tablePos);
-
-//	quint8 changeHole = index_.toInt();
-//    QTableWidget *ptable = ui->Sample_Data_tablewidget;
+    }
+	
    
-//    // 2. 获取行列数据
-//    const int row = index_item.row();
-//    const int column = index_item.column();
-
-//    //原值
-//    QString sampleidChnage;
-//    QTableWidgetItem *item = ptable->item(row, SAMLPE_NAME);
-//	if(item != nullptr)
-//        sampleidChnage = ptable->item(row, SAMLPE_NAME)->text();
-
-
-//	if (column == RICHBLOOD_HOLE) {
-//        if(m_selbloodholetemp.contains(sampleidChnage)) {
-//            auto ittmp = m_selbloodholetemp.find(sampleidChnage);
-//			quint8 oldPPPhole = ittmp.value();
-
-//             // 释放旧孔位
-//            if (m_pressedhole.contains(QString::number(oldPPPhole))) {
-//				m_pressedhole[QString::number(oldPPPhole)] = false;
-//			}
-
-//            // 占用新孔位
-//			ittmp.value() = changeHole;
-//            if (m_pressedhole.contains(QString::number(changeHole))) {
-//				m_pressedhole[QString::number(changeHole)] = true;
-//			}
-
-//            QSignalBlocker blocker(member);
-
-//            // 更新所有行的孔位选项（包括当前行）其它行的富血孔项
-//            //updateotherinserthole(row,QString::number(oldPPPhole));
-//		}
-//	}
-
-//	//提醒放置的血样孔
-//	emit ReminderHole(changeHole);
-//	return;
+    return;
 }
 
-
-
-
-
-/**
- * @brief 更新表格项
- * @param id 样本ID
- * @param heightValue 高度值
- */
 void Height_Data::updateTableItem(const QString& id, double heightValue)
 {
     QTableWidget* table = ui->Sample_Data_tablewidget;
@@ -1176,44 +1440,23 @@ void Height_Data::updateTableItem(const QString& id, double heightValue)
     }
 }
 
-/**
- * @brief 处理样本添加逻辑
- * @param heightValue 测量高度值
- */
 void Height_Data::handleSampleAddition(const double heightValue)
 {
-    // 检查加样孔位状态
     QStringList availableHoles;
     if (!hasAvailableSampleHole(availableHoles)) {
         showHoleWarning(availableHoles);
         return;
     }
 
-    // 常规添加模式
-    addNewSample(heightValue, availableHoles);
+    addOneTestSample(INI_File().GetWholeBloodModel(), heightValue, availableHoles, "null");
 }
 
 void Height_Data::showHoleWarning(const QStringList& holes)
 {
     QString errorMsg =  QString("可用孔位: %1\n%2").arg(holes.join(",")).arg("无可用加样位置");
-    // 确保在主线程中显示提示
-    QMetaObject::invokeMethod(FullyAutomatedPlatelets::mainWindow(),
-        "ThreadSafeReminder",
-        Qt::QueuedConnection,
-        Q_ARG(QString, tr("添加样本失败")),
-        Q_ARG(QString, errorMsg));
+    CustomMessageBox::warning(this,tr("添加样本失败"),errorMsg);
 }
 
-
-
-void Height_Data::addNewSample(double value, const QStringList& holes)
-{
-    const bool wholeBloodMode = INI_File().GetWholeBloodModel();
-    addOneTestSample(wholeBloodMode, value, holes, "null");
-}
-
-
-//菜单栏
 void Height_Data::on_Sample_Data_tablewidget_customContextMenuRequested(const QPoint &)
 {
     QMenu menu;
@@ -1237,78 +1480,58 @@ void Height_Data::on_Sample_Data_tablewidget_customContextMenuRequested(const QP
     menu.exec(QCursor::pos());
 }
 
-//全选
 void Height_Data::selectAllItem(const bool bselAll)
 {
-    quint16 totalItem = ui->Sample_Data_tablewidget->rowCount();
-    quint16 irows = 0;
-    QCheckBox *pcheckbox = nullptr;
-    for(;irows < totalItem ;irows++)
-    {
-       if(QWidget *pwidgetCall = ui->Sample_Data_tablewidget->cellWidget(irows, CHECK_ROW))
-       {
-           pcheckbox = qobject_cast<QCheckBox*>(pwidgetCall->children().at(1));
-           if(pcheckbox){
-               pcheckbox->setChecked(bselAll);
-           }
-       }
-    }
-}
-//反选
-void Height_Data::selectInverseItem()
-{
-    quint16 totalItem = ui->Sample_Data_tablewidget->rowCount();
-    quint16 irows = 0;
-    QCheckBox *pcheckbox = nullptr;
-    for(;irows < totalItem ;irows++)
-    {
-       if(QWidget *pwidgetCall = ui->Sample_Data_tablewidget->cellWidget(irows, CHECK_ROW))
-       {
-           pcheckbox = qobject_cast<QCheckBox*>(pwidgetCall->children().at(1));
-           if(pcheckbox){
-               if(pcheckbox->checkState() == Qt::Checked)
-                   pcheckbox->setChecked(false);
-               else if(pcheckbox->checkState() == Qt::Unchecked)
-                   pcheckbox->setChecked(true);
-           }
-       }
-    }
-}
-
-//计算出下一个样本ID
-QString Height_Data::generateSampleId(){
-    QString todayLast = GlobalData::ObatinCreatSampleTime();
-    const int countRows = ui->Sample_Data_tablewidget->rowCount() - 1;
-
-    // 尝试从表格最后一行获取样本号
-    if (countRows > 0) {
-        QTableWidgetItem* item = ui->Sample_Data_tablewidget->item(countRows - 1, SAMLPE_NAME);
-        if (item && !item->text().isEmpty()) {
-            QString sampleid = item->text();
-            QString datefind;
-            int setsampleNum = 0;
-
-			GlobalData::apartSampleId(sampleid, datefind, setsampleNum);
-            return GlobalData::groupDateAndID(todayLast, setsampleNum + 1);
-            
+    const int totalItem = ui->Sample_Data_tablewidget->rowCount();
+    for (int irows = 0; irows < totalItem; ++irows) {
+        if (QCheckBox *pcheckbox = rowSelectCheckBox(irows)) {
+            pcheckbox->setChecked(bselAll);
         }
     }
-
-    // 回退方案：从数据库获取最大ID
-    int maxid = FullyAutomatedPlatelets::pinstancesqlData()->getMaxSampleID(todayLast);
-    return GlobalData::groupDateAndID(todayLast, maxid + 1);
 }
 
+void Height_Data::selectInverseItem()
+{
+    const int totalItem = ui->Sample_Data_tablewidget->rowCount();
+    for (int irows = 0; irows < totalItem; ++irows) {
+        if (QCheckBox *pcheckbox = rowSelectCheckBox(irows)) {
+            pcheckbox->setChecked(!pcheckbox->isChecked());
+        }
+    }
+}
 
+QString Height_Data::generateSampleId(){
+    QString todayLast = GlobalData::ObatinCreatSampleTime();
 
+    int maxSeqInTable = getMaxSequenceFromTable(todayLast);
+    int maxSeqInDB = FullyAutomatedPlatelets::pinstancesqlData()->getMaxSampleID(todayLast);
+    int maxSeq = qMax(maxSeqInTable, maxSeqInDB);
 
-/// 添加一个样本到表格
-int Height_Data::addOneTestSample(const bool isWholeBloodMode,double testHeight,
+    return GlobalData::groupDateAndID(todayLast, maxSeq + 1);
+}
+
+int Height_Data::getMaxSequenceFromTable(const QString& date) {
+    int maxSeq = 0;
+    int rowCount = ui->Sample_Data_tablewidget->rowCount();
+
+    for(int row = 0; row < rowCount; row++) {
+        auto* item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+        if(item && !item->text().isEmpty()) {
+            QString itemDate;
+            int seqNum = 0;
+            GlobalData::apartSampleId(item->text(), itemDate, seqNum);
+            if(itemDate == date && seqNum > maxSeq) {
+                maxSeq = seqNum;
+            }
+        }
+    }
+    return maxSeq;
+}
+
+int Height_Data::addOneTestSample(const bool isWholeBloodMode, double testHeight,
                                    const QStringList &availableHoles,
                                    const QString &barcode)
 {
-
-    // 参数验证
     if (!ui || !ui->Sample_Data_tablewidget) {
         QLOG_ERROR() << "addOneTestSample: UI组件未初始化";
         return -1;
@@ -1324,128 +1547,98 @@ int Height_Data::addOneTestSample(const bool isWholeBloodMode,double testHeight,
 
     try{
         sampleTable->insertRow(currentRow);
-        // 1. 添加复选框列
+
+        // 添加垂直表头项（这是关键！）
+        QTableWidgetItem* headerItem = new QTableWidgetItem(QString::number(currentRow + 1));
+        sampleTable->setVerticalHeaderItem(currentRow, headerItem);
+
         if (!addCheckBoxToRow(sampleTable, currentRow)) {
             throw std::runtime_error("添加复选框失败");
         }
 
-
-        // 2. 生成样本号并添加到表格
         QString sampleId = generateSampleId();
         if (!addSampleIdToRow(sampleTable, currentRow, sampleId, isWholeBloodMode)) {
             throw std::runtime_error("添加样本号失败");
         }
 
-        // 3. 添加测高值
         double heightValue = calculateHeightValue(isWholeBloodMode, testHeight);
-        if (!addHeightValueToRow(sampleTable, currentRow, heightValue,
-                                  isWholeBloodMode && testHeight <= 0)) {
+        if (!addHeightValueToRow(sampleTable, currentRow, heightValue, isWholeBloodMode)) {
             throw std::runtime_error("添加测高值失败");
         }
 
-        // 4. 添加孔号选择器
         int selectedHole = selectDefaultHole(availableHoles);
         if (!addHoleSelectorToRow(sampleTable, currentRow, sampleId,
                                    availableHoles, selectedHole)) {
             throw std::runtime_error("添加孔号选择器失败");
         }
 
-        // 5. 添加条码
         if (!addBarcodeToRow(sampleTable, currentRow, barcode)) {
             throw std::runtime_error("添加条码失败");
         }
 
-        // 6. 记录样本数据
         recordSampleData(sampleId, selectedHole);
 
-        // 7. 调整表格显示
-        sampleTable->resizeRowToContents(currentRow);
+        //sampleTable->resizeRowToContents(currentRow);
         sampleTable->scrollToBottom();
 
         QLOG_DEBUG() << "成功添加样本:" << sampleId << "孔号:" << selectedHole;
 
     } catch (const std::exception &e) {
         QLOG_ERROR() << "addOneTestSample 异常:" << e.what();
-        // 回滚：删除已插入的行
         if (currentRow < sampleTable->rowCount()) {
             sampleTable->removeRow(currentRow);
         }
         return -1;
     }
     return currentRow;
-
-//    QTableWidget *paddsampleTable = ui->Sample_Data_tablewidget;
-//    int countRows = paddsampleTable->rowCount();
-//	paddsampleTable->insertRow(countRows);
-
-//    /*血样框孔号*/
-//    QComboBox *bloodHoleSel = new QComboBox(this);
-//    GlobalData::QCommboxSheet(bloodHoleSel);
-//    bloodHoleSel->setFixedHeight(40);
-//    connect(bloodHoleSel,static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::currentTextChanged),
-//            this,&Height_Data::selectPPPholeChange);
-
-
-
-//    QStyledItemDelegate* itemDelegate = new QStyledItemDelegate(this);
-//    bloodHoleSel->setItemDelegate(itemDelegate);
-//    bloodHoleSel->installEventFilter(this);
-//    bloodHoleSel->addItems(availableHoles);
-
-//    // 查找最小孔号
-//    if(!availableHoles.isEmpty()){
-//        QString minHole = *std::min_element(availableHoles.begin(),availableHoles.end(),
-//                                            [](const QString &a,const QString &b){
-//            return a.toInt() < b.toInt();
-//        });
-//        bloodHoleSel->blockSignals(true);
-//        bloodHoleSel->setCurrentText(minHole);
-//        bloodHoleSel->blockSignals(false);
-//    }
-
-//    paddsampleTable->setCellWidget(countRows,RICHBLOOD_HOLE, bloodHoleSel);
-//    paddsampleTable->resizeRowToContents(countRows);
-//    paddsampleTable->scrollToBottom();
-
-//    m_selbloodholetemp.insert(addSampleid,bloodHoleSel->currentText().toInt());
-
-
-
-
-
 }
 
-
-//=============================================================================
-// 添加复选框到指定行
-//=============================================================================
 bool Height_Data::addCheckBoxToRow(QTableWidget *table, int row)
 {
     if (!table || row < 0) return false;
 
-    // 创建容器widget（设置table为父对象）
     QWidget *container = new QWidget(table);
+    container->setStyleSheet("background: transparent;");
     QHBoxLayout *layout = new QHBoxLayout(container);
 
-    // 创建复选框（设置container为父对象）
     QCheckBox *checkBox = new QCheckBox(container);
     checkBox->setChecked(true);
 
-    // 设置样式
-    const QString styleSheet =
+    static const QString styleSheet =
         "QCheckBox::indicator {"
-        "   width: 40px;"
-        "   height: 40px;"
+        "   width: 20px;"
+        "   height: 20px;"
+        "   border-radius: 4px;"
+        "   border: 2px solid #7FB3D5;"
+        "   background-color: transparent;"
         "}"
         "QCheckBox::indicator:unchecked {"
-        "   image: url(:/Picture/SetPng/checkbox-blank.png);"
+        "   background-color: transparent;"
         "}"
         "QCheckBox::indicator:checked {"
-        "   image: url(:/Picture/SetPng/checkbox-fill.png);"
+        "   background-color: #2E86C1;"
+        "   border: 2px solid #2E86C1;"
+        "   image: none;"
+        "}"
+        "QCheckBox::indicator:checked::after {"
+        "   content: \"✓\";"
+        "   color: white;"
+        "   font-size: 14px;"
+        "   font-weight: bold;"
+        "   position: relative;"
+        "   left: 2px;"
+        "   top: -1px;"
+        "}"
+        "QCheckBox::indicator:hover {"
+        "   border-color: #2E86C1;"
+        "   background-color: rgba(46, 134, 193, 0.2);;"
+        "}"
+        "QCheckBox::indicator:checked:hover {"
+        "   background-color: #1B6D9E;"
+        "   border-color: #1B6D9E;"
         "}";
     checkBox->setStyleSheet(styleSheet);
 
-    // 布局设置
     layout->addWidget(checkBox);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setAlignment(checkBox, Qt::AlignCenter);
@@ -1454,10 +1647,6 @@ bool Height_Data::addCheckBoxToRow(QTableWidget *table, int row)
     return true;
 }
 
-
-//=============================================================================
-// 添加样本号到指定行
-//=============================================================================
 bool Height_Data::addSampleIdToRow(QTableWidget *table, int row,
                                     const QString &sampleId, bool isWholeBloodMode)
 {
@@ -1466,50 +1655,38 @@ bool Height_Data::addSampleIdToRow(QTableWidget *table, int row,
     QTableWidgetItem *item = new QTableWidgetItem(sampleId);
     item->setTextAlignment(Qt::AlignCenter);
 
-    // 设置背景色
-    QColor backgroundColor = isWholeBloodMode ?
-                            QColor(255, 228, 225) :  // 全血模式：浅红色
-                            QColor(135, 206, 250);    // 血浆模式：浅蓝色
+    QColor backgroundColor = isWholeBloodMode ? WHOLEBLOOD_BG_COLOR : PLASMA_BG_COLOR;
     item->setBackground(backgroundColor);
 
     table->setItem(row, SAMLPE_NAME, item);
+    if (m_checkBoxEmergency && m_checkBoxEmergency->isChecked()) {
+        setRowEmergency(row, true);
+    }
     return true;
 }
 
-
-//=============================================================================
-// 添加测高值到指定行
-//=============================================================================
 bool Height_Data::addHeightValueToRow(QTableWidget *table, int row,
                                        double heightValue, bool isInvalid)
 {
     if (!table || row < 0) return false;
+    Q_UNUSED(isInvalid);
 
-    QTableWidgetItem *item = new QTableWidgetItem(QString::number(heightValue, 'f', 2));
+    QString displayText = QString::number(heightValue, 'f', 2);
+    QTableWidgetItem *item = new QTableWidgetItem(displayText);
     item->setTextAlignment(Qt::AlignCenter);
-
-    if (isInvalid) {
-        item->setForeground(Qt::red);
-    }
-
     table->setItem(row, HEIGHT_DATA, item);
     return true;
 }
 
-//=============================================================================
-// 计算高度值
-//=============================================================================
 double Height_Data::calculateHeightValue(bool isWholeBloodMode, double testHeight) const
 {
     if (isWholeBloodMode) {
+        QLOG_DEBUG()<<"全血模式高度["<<testHeight<<"]";
         return testHeight;
     }
     return INI_File().GetAbsorbTubeBottom();
 }
 
-//=============================================================================
-// 添加条码到指定行
-//=============================================================================
 bool Height_Data::addBarcodeToRow(QTableWidget *table, int row, const QString &barcode)
 {
     if (!table || row < 0) return false;
@@ -1522,30 +1699,18 @@ bool Height_Data::addBarcodeToRow(QTableWidget *table, int row, const QString &b
     return true;
 }
 
-//=============================================================================
-// 记录样本数据
-//=============================================================================
 void Height_Data::recordSampleData(const QString &sampleId, int holeNumber)
 {
     if (sampleId.isEmpty() || holeNumber <= 0) return;
 
-    // 记录样本-孔号映射
-    //m_sampleHoleMap.insert(sampleId, holeNumber);
-
-    // 记录创建时间
     QString createTime = QDateTime::currentDateTime().toString("MM-dd hh:mm:ss");
     m_sampleCreateTime.insert(sampleId, createTime);
 }
 
-
-//=============================================================================
-// 选择默认孔号
-//=============================================================================
 int Height_Data::selectDefaultHole(const QStringList &availableHoles) const
 {
     if (availableHoles.isEmpty()) return -1;
 
-    // 获取当前表格中已使用的孔号
     QSet<int> usedHoles;
     const int rowCount = ui->Sample_Data_tablewidget->rowCount();
     for (int row = 0; row < rowCount; ++row) {
@@ -1558,7 +1723,6 @@ int Height_Data::selectDefaultHole(const QStringList &availableHoles) const
         }
     }
 
-    // 从availableHoles中找出最小的未被使用的孔号
     QList<int> availableInts;
     for (const QString& holeStr : availableHoles) {
         int hole = holeStr.toInt();
@@ -1569,86 +1733,70 @@ int Height_Data::selectDefaultHole(const QStringList &availableHoles) const
 
     if (availableInts.isEmpty()) return -1;
 
-    // 排序并返回最小的
     std::sort(availableInts.begin(), availableInts.end());
     return availableInts.first();
 }
 
-//=============================================================================
-// 添加孔号选择器到指定行
-//=============================================================================
 bool Height_Data::addHoleSelectorToRow(QTableWidget *table, int row,
                                         const QString &sampleId,
                                         const QStringList &availableHoles,
                                         int defaultHole)
 {
     if (!table || row < 0 || sampleId.isEmpty() || availableHoles.isEmpty()) {
-          return false;
-      }
+        return false;
+    }
 
-    // 创建下拉框（设置table为父对象）
     QComboBox *holeSelector = new QComboBox(table);
-    holeSelector->setFixedHeight(40);
+    holeSelector->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    // 可选：设置最小高度，避免过小
+    holeSelector->setMinimumHeight(30);
+    holeSelector->setStyleSheet(getMedicalComboxStyle());
 
-    // 设置样式
-    GlobalData::QCommboxSheet(holeSelector);
 
-    // 设置代理和事件过滤器
     QStyledItemDelegate *delegate = new QStyledItemDelegate(holeSelector);
     holeSelector->setItemDelegate(delegate);
     holeSelector->installEventFilter(this);
 
-    // 按数字排序后添加所有可用孔位
     QStringList sortedHoles = availableHoles;
     std::sort(sortedHoles.begin(), sortedHoles.end(),
               [](const QString &a, const QString &b) {
                   return a.toInt() < b.toInt();
               });
 
-    holeSelector->addItems(sortedHoles);
+    if (!sortedHoles.isEmpty()) {
+        QString firstHole = sortedHoles.first();  // 只获取，不移除
+        Q_EMIT reminderPPPandPRPputHole(firstHole.toInt());
+        holeSelector->addItems(sortedHoles);  // 添加完整的列表
+    }
 
-    // 设置默认选中的孔号
     QString defaultHoleStr = QString::number(defaultHole);
     if (sortedHoles.contains(defaultHoleStr)) {
         holeSelector->blockSignals(true);
         holeSelector->setCurrentText(defaultHoleStr);
         holeSelector->blockSignals(false);
-
-        // 更新孔位占用状态
         m_pressedhole[defaultHoleStr] = true;
     } else if (!sortedHoles.isEmpty()) {
-        // 如果默认孔不可用，选择第一个可用孔
         holeSelector->setCurrentIndex(0);
         QString firstHole = sortedHoles.first();
-
-        // 更新孔位占用状态
         m_pressedhole[firstHole] = true;
         defaultHole = firstHole.toInt();
     }
 
-    // 连接信号
     connect(holeSelector,
             static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::currentTextChanged),
             this, &Height_Data::selectPPPholeChange);
 
     table->setCellWidget(row, RICHBLOOD_HOLE, holeSelector);
-    table->resizeRowToContents(row);
+    //table->resizeRowToContents(row);
     table->scrollToBottom();
 
-    // 更新样本-孔号映射
     m_selbloodholetemp.insert(sampleId, defaultHole);
 
     return true;
 }
 
-
-
-
-
-//手动按钮添加//
 int Height_Data::Addtasksmanually()
 {
-    // 参数验证
     if (!ui || !ui->Sample_Data_tablewidget) {
         QLOG_ERROR() << "AddTasksManually: UI组件未初始化";
         return -1;
@@ -1656,49 +1804,27 @@ int Height_Data::Addtasksmanually()
 
     QStringList availableHoleList;
 
-    // 检查是否有可用孔位
     if (!hasAvailableSampleHole(availableHoleList)) {
-        QString errorMsg = tr("添加样本失败：血样孔已占满，无可用加样位置！");
-        //QString detailMsg = tr("可用孔位: %1").arg(availableHoleList.join(", "));
-
-        // 确保在主线程中显示提示
-        QMetaObject::invokeMethod(FullyAutomatedPlatelets::mainWindow(),
-            "ThreadSafeReminder",
-            Qt::QueuedConnection,
-            Q_ARG(QString, tr("添加样本失败")),
-            Q_ARG(QString, errorMsg));
-
-        QLOG_DEBUG() << "手动加样可选血样孔:" << availableHoleList;
+        CustomMessageBox::warning(this,tr("添加样本失败"),"血样孔已占满，无可用加样位置!");
         return -1;
     }
 
-    // 检查模式是否允许手动加样
     bool isWholeBloodMode = INI_File().GetWholeBloodModel();
     if (isWholeBloodMode) {
-        QMetaObject::invokeMethod(FullyAutomatedPlatelets::mainWindow(),
-            "ThreadSafeReminder",
-            Qt::QueuedConnection,
-            Q_ARG(QString, tr("添加样本失败")),
-            Q_ARG(QString, tr("手动加样请先切换到血浆模式！")));
+        CustomMessageBox::warning(this,tr("添加样本失败"),"手动加样请先切换到血浆模式!");
         return -1;
     }
 
-    // 添加样本（全血模式下TestHeight传0表示使用默认值）
     return addOneTestSample(false, 0.0, availableHoleList, QString("null"));
 }
 
-
-
-/** 保存样本任务
- * @brief Height_Data::handleEmptySelection
- */
 void Height_Data::handleEmptySelection()
 {
-    ReminderPutBloodHole(-1);
-    QLOG_DEBUG() << "保存添加测试样本为空";
-    emit ReminderTextOut(PROMPTLOG, tr("保存添加测试样本为空"));
+    Q_EMIT ReminderTextOut(PROMPTLOG, tr("保存添加测试样本为空"));
+
     close();
 }
+
 bool Height_Data::processSelectedSamples(const QList<int>& selectedRows)
 {
     try {
@@ -1706,21 +1832,16 @@ bool Height_Data::processSelectedSamples(const QList<int>& selectedRows)
         return true;
     } catch (const std::exception& e) {
         QLOG_ERROR() << "Failed to process samples:" << e.what();
-        showReminder("处理失败", "样本数据处理过程中发生错误");
+        CustomMessageBox::warning(this,tr("处理失败"),"样本数据处理过程中发生错误");
         return false;
     }
 }
+
 void Height_Data::cleanupAndClose()
 {
     DeleteAllItems(ui->Sample_Data_tablewidget);
     m_sampleCreateTime.clear();
     close();
-}
-void Height_Data::showReminder(const QString& title, const QString& message)
-{
-    if (auto* mainWindow = FullyAutomatedPlatelets::mainWindow()) {
-        mainWindow->ThreadSafeReminder(title, message);
-    }
 }
 
 
@@ -1734,53 +1855,100 @@ void Height_Data::savewaitTestSample()
         return ;
     }
 
-    //校验+样本的配置信息
+    // ========== 新增：模式一致性校验 ==========
+    bool currentWholeBloodMode = INI_File().GetWholeBloodModel();
+    for (int row : selectedRows) {
+        QTableWidgetItem* sampleItem = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME);
+        if (!sampleItem) continue;
+
+        QColor bgColor = sampleItem->background().color();
+        bool isTaskWholeBlood = (bgColor == WHOLEBLOOD_BG_COLOR);
+
+        // 任务模式与当前模式不匹配
+        if (isTaskWholeBlood != currentWholeBloodMode) {
+            QString msg;
+            if (currentWholeBloodMode) {
+                msg = tr("当前为全血模式，但选中的任务包含血浆模式下添加的样本。\n请切换回血浆模式后再保存，或删除不匹配的任务。");
+            } else {
+                msg = tr("当前为血浆模式，但选中的任务包含全血模式下添加的样本。\n请切换回全血模式后再保存，或删除不匹配的任务。");
+            }
+            CustomMessageBox::warning(this, tr("保存任务失败"), msg);
+            return;
+        }
+    }
+    // ========== 校验结束 ==========
+
+
+
     if(!validateTableItems(ui->Sample_Data_tablewidget,selectedRows)){
-        showReminder("添加测试样本失败","请检查样本配置信息!");
+        CustomMessageBox::warning(this,tr("添加测试样本失败"),"请检查样本配置信息!");
         return;
     }
 
-    //校验+样本 血样孔有相同
     if (TheSameBloodHole()){
         return;
     }
 
-    //校验相同样本号
     if (SameSampleandtube(selectedRows,ui->Sample_Data_tablewidget))
         return;
 
-    int needtube = 0; //所需试杯
+    int needtube = 0;
     quint8 remainder_tube =  FullyAutomatedPlatelets::pinstancesqlData()->BackEmptyTubeNum();
     bool  enoughTube = NeedTubeEnouthTesting(remainder_tube,needtube,selectedRows);
     if(!enoughTube)
     {
-        showReminder("添加测试样本失败","剩余试管不足添加新样本!");
+        CustomMessageBox::warning(this,tr("添加测试样本失败"),"剩余试管空不足!");
         return;
     }
 
     bool dimmingLED;
-    FullyAutomatedPlatelets::pinstancedimming()->getdimming_status(dimmingLED);
+    if (auto *dim = FullyAutomatedPlatelets::pinstancedimming()) {
+        dim->getdimming_status(dimmingLED);
+    } else {
+        dimmingLED = false;
+    }
     if(!dimmingLED){
         emit ReminderTextOut(PROMPTLOG,tr("调光未完成,稍后添加!"));
-        showReminder("添加测试样本失败","调光未完成,稍后添加!");
-        //return;
+        CustomMessageBox::warning(this,tr("添加测试样本失败"),tr("调光未完成,稍后添加!"));
+        return;
+    }
+
+    if (!validateSelectedRowsForSave(selectedRows)) {
+        return;
     }
 
     processSelectedSamples(selectedRows);
 
-    //配置成功删除任务行和关闭对话框
+    QTableWidget *table = ui->Sample_Data_tablewidget;
+    if (table) {
+        for (int row = 0; row < table->rowCount(); ++row) {
+            if (selectedRows.contains(row)) {
+                continue;
+            }
+            QWidget *widget = table->cellWidget(row, RICHBLOOD_HOLE);
+            auto *box = qobject_cast<QComboBox *>(widget);
+            if (!box) {
+                continue;
+            }
+            const quint8 hole = static_cast<quint8>(box->currentText().toInt());
+            if (hole > 0) {
+                Makeuptubenum(hole);
+                Q_EMIT reminderPPPandPRPputHoleNotify(hole, 255);
+            }
+        }
+    }
+
     cleanupAndClose();
+
     return;
 }
 
-void Height_Data::updateaddprogress(int index_,int _total)
+void Height_Data::updateaddprogress(int index, int total)
 {
     if (auto* mainWindow = FullyAutomatedPlatelets::mainWindow()) {
-        mainWindow->progressBarconfig(index_,_total);
+        mainWindow->progressBarconfig(index,total);
     }
 }
-
-
 
 void Height_Data::slotupdatetestui(QList<quint8> marktube, QString sample_name,
                                     quint8 anemiahole,int index_add, int all_add_task)
@@ -1792,142 +1960,115 @@ void Height_Data::slotupdatetestui(QList<quint8> marktube, QString sample_name,
     emit updateTestTubeSatus(QString::number(id),anemiahole,marktube,index_add,all_add_task);
 }
 
-
 void Height_Data::sycnstudata(QList<int> TaskList,QTableWidget *TaskWidget)
 {
-	if (!TaskWidget || TaskList.isEmpty()) return;
+    if (!TaskWidget || TaskList.isEmpty()) return;
 
-	const int totalTasks = TaskList.size();
-	const QString savedtime = QDateTime::currentDateTime().toString("MM.dd hh:mm:ss");
+    const int totalTasks = TaskList.size();
+    const QString savedtime = QDateTime::currentDateTime().toString("MM.dd hh:mm:ss");
 
-	for (int Sel_Row : TaskList) // 范围循环提升性能
-	{
-		// 1. 行索引有效性检查
-		if (Sel_Row < 0 || Sel_Row >= TaskWidget->rowCount()) continue;
+    for (int selRows : TaskList)
+    {
+        if (selRows < 0 || selRows >= TaskWidget->rowCount()) continue;
 
-		// 2. 集中获取单元格项，避免重复调用
-		QTableWidgetItem* sampleItem = TaskWidget->item(Sel_Row, SAMLPE_NAME);
-		QTableWidgetItem* barcodeItem = TaskWidget->item(Sel_Row, BARCODE);
-		QTableWidgetItem* heightItem = TaskWidget->item(Sel_Row, HEIGHT_DATA);
-		QTableWidgetItem* projectItem = TaskWidget->item(Sel_Row, PROJECT_ITEM);
+        QTableWidgetItem* sampleItem = TaskWidget->item(selRows, SAMLPE_NAME);
+        QTableWidgetItem* barcodeItem = TaskWidget->item(selRows, BARCODE);
+        QTableWidgetItem* heightItem = TaskWidget->item(selRows, HEIGHT_DATA);
+        QTableWidgetItem* projectItem = TaskWidget->item(selRows, PROJECT_ITEM);
 
-		// 3. 空指针检查
-		if (!sampleItem || !barcodeItem || !heightItem || !projectItem) continue;
+        if (!sampleItem || !barcodeItem || !heightItem || !projectItem) continue;
 
-		// 4. 简化背景色逻辑
-		bool insertWholeBloodMode = (sampleItem->background().color() == WHOLEBLOODMODE);
+        bool insertWholeBloodMode = (sampleItem->background().color() == WHOLEBLOOD_BG_COLOR);
 
-		// 5. 安全获取QComboBox数据
-		int CurrRichHole = 0;
-		QWidget* widget = TaskWidget->cellWidget(Sel_Row, RICHBLOOD_HOLE);
-		if (widget) {
-			QComboBox* combox = qobject_cast<QComboBox*>(widget); // 安全类型转换 [[5]]
-			if (combox) CurrRichHole = combox->currentText().toInt(); // 直接获取文本 [[1]]
-		}
-		// 6. 发射信号（使用预计算的totalTasks和savedtime）
+        int CurrRichHole = 0;
+        QWidget* widget = TaskWidget->cellWidget(selRows, RICHBLOOD_HOLE);
+        if (widget) {
+            QComboBox* combox = qobject_cast<QComboBox*>(widget);
+            if (combox) CurrRichHole = combox->currentText().toInt();
+        }
+
+        double needleDown = 0.0f;
+        if(INI_File().GetWholeBloodModel()){
+            const double wholeBloodmamode  = heightItem->text().toDouble();
+            needleDown = switchWholeModeHeight(wholeBloodmamode);
+			if (needleDown <= 0) {
+				CustomMessageBox::warning(this, tr("添加测试样本失败"), "下针吸PRP高度异常请");
+				return;
+			}
+            QLOG_DEBUG() << "全血模式，红细胞层高度:" << wholeBloodmamode<<"mm"<<"下针高度"<<needleDown<<"mm";
+        }else{
+            double Plasmamode  = heightItem->text().toDouble();
+            needleDown = Plasmamode;
+            QLOG_DEBUG() << "血浆模式，下针高度:" << needleDown;
+        }
+
         emit sycnwaittestsampledata(
-			sampleItem->text(),
-			savedtime,
-			barcodeItem->text(),
-			heightItem->text().toDouble(), // 减少临时QString创建
-			projectItem->text(),
-			CurrRichHole,
-			totalTasks,
-			insertWholeBloodMode
-			);
-	}
+            sampleItem->text(),
+            savedtime,
+            barcodeItem->text(),
+            needleDown,
+            projectItem->text(),
+            CurrRichHole,
+            totalTasks,
+            insertWholeBloodMode,
+            isRowEmergency(selRows)
+            );
+    }
 }
 
-
-
-
-//删除样本
 void Height_Data::deleteSelectedSample()
 {
     QList<int> selectedRows;
     obtainSelectedSample(selectedRows);
 
    if (selectedRows.isEmpty()) {
-       FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("删除任务失败", "请选择要删除任务!");
+       CustomMessageBox::warning(this,tr("删除任务失败"),tr("请选择要删除任务!"));
        return;
    }
 
-   // 按降序排序，以便从后往前删除，避免行号变化导致的问题
-    std::sort(selectedRows.begin(), selectedRows.end(), std::greater<int>());
+   std::sort(selectedRows.begin(), selectedRows.end(), std::greater<int>());
 
    for (int row : selectedRows) {
-       // 获取样本名称（如果需要记录日志或其他操作）
        QString sampleName;
        if (auto* item = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME)) {
            sampleName = item->text();
        }
 
-       // 处理富血小板孔位
+       quint8 currentHole = 0;
        if (QWidget* widget = ui->Sample_Data_tablewidget->cellWidget(row, RICHBLOOD_HOLE)) {
            if (auto* combobox = qobject_cast<QComboBox*>(widget)) {
-               quint8 currentHole = combobox->currentText().toInt();
+               currentHole = combobox->currentText().toInt();
                Makeuptubenum(currentHole);
+               Q_EMIT reminderPPPandPRPputHoleNotify(currentHole, 255);
+
+               // 关键修复：将释放的孔号添加回其他行的下拉列表
+              if (currentHole > 0) {
+                  updateotherinserthole(row, QString::number(currentHole));
+              }
            }
        }
 
-       // 删除行
        ui->Sample_Data_tablewidget->removeRow(row);
-
-       // 这里不需要手动删除item，removeRow()会自动处理
    }
 
-    /*QList<int> checklist;
-    checklist.clear();
-    obtainSelectedSample(checklist);
-    if(checklist.count() <= 0)
-    {
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder("删除任务失败","请选择要删除任务!");
-        return;
-    }
-    QList<QTableWidgetItem *> selItem;
-    QList<int>::iterator it = checklist.begin();
-    while (it != checklist.end())
-    {
-        int select_ = *it;
-        selItem.append(ui->Sample_Data_tablewidget->item(select_,SAMLPE_NAME)) ;
-        it++;
-    }
-    for(int i = 0 ;i < selItem.count();i++)
-    {
-        int row = ui->Sample_Data_tablewidget->row(selItem.at(i));
-        //删除任务--同步数据库任务删除样本号
-        //QString Samplename = ui->Sample_Data_tablewidget->item(row, SAMLPE_NAME)->text();
-
-        //删除列表同步显示的结果界面
-        QWidget * widget = ui->Sample_Data_tablewidget->cellWidget(row, RICHBLOOD_HOLE);//获得widget
-        QComboBox *combox = (QComboBox*)widget;//强制转化为QComboBox
-        quint8 curr  = combox->currentText().toInt();
-        Makeuptubenum(curr);
-
-        delete selItem.at(i);
-        if(row != -1)
-            ui->Sample_Data_tablewidget->removeRow(row);
-    }
-    return;*/
+   // 删除后重新编号
+    updateVerticalHeaderRowNumbers();
 }
 
-
-//批量添加任务
 void Height_Data::batchAddTask()
 {
     if(INI_File().GetWholeBloodModel()){
-        QMessageBox::warning(this,tr("批量添加失败"),tr("请切换血浆模式添加"));
+        CustomMessageBox::warning(this,tr("批量添加失败"),tr("请切换血浆模式添加"));
         return;
     }
 
     if(m_batchaddTestnumSample == nullptr){
         m_batchaddTestnumSample = new batchAddSample;
-        qRegisterMetaType<QVariant>("QVariant"); //写在构造函数里
+        qRegisterMetaType<QVariant>("QVariant");
 
         connect(m_batchaddTestnumSample.data(),
                 SIGNAL(send_askData(QVariant)),
                 this,SLOT(AF_DATA_REQUEST(QVariant)));
-
 
         connect(m_batchaddTestnumSample.data(),&batchAddSample::exitWidget,this,[=](){
           delete m_batchaddTestnumSample;
@@ -1937,9 +2078,9 @@ void Height_Data::batchAddTask()
     m_batchaddTestnumSample.data()->obtainSelectTestProject();
 
     if (m_batchaddTestnumSample->isMinimized()) {
-        m_batchaddTestnumSample->showNormal();  // 先恢复窗口标准状态
-        m_batchaddTestnumSample->raise();       // 确保窗口置顶
-        m_batchaddTestnumSample->activateWindow(); // 激活窗口焦点
+        m_batchaddTestnumSample->showNormal();
+        m_batchaddTestnumSample->raise();
+        m_batchaddTestnumSample->activateWindow();
     }
     m_batchaddTestnumSample.data()->show();
 }
@@ -1949,7 +2090,7 @@ void Height_Data::AF_DATA_REQUEST(QVariant sampleiddata)
      SAMPLEIDINFO askData;
      askData = sampleiddata.value<SAMPLEIDINFO>();
      QString  todayLast = GlobalData::ObatinCreatSampleTime();
-     QString addSampleid = GlobalData::groupDateAndID(todayLast,askData.idsample.toInt());
+     QString  addSampleid = GlobalData::groupDateAndID(todayLast,askData.idsample.toInt());
      int insertRows = Addtasksmanually();
      if(insertRows >= 0)
      {
@@ -1960,28 +2101,23 @@ void Height_Data::AF_DATA_REQUEST(QVariant sampleiddata)
      return;
 }
 
-
-
 void Height_Data::onImageoutResult(const QString redBloodCellHeigh){
+    double outTestResult = redBloodCellHeigh.toDouble();
+    const double wholeBloodHeigh = round(outTestResult * 100) / 100;
 
-    // 模块2: 表格数据替换模式 重测
     if (m_isreplaceopencv) {
-       updateTableItem(m_repTestOpencvId, redBloodCellHeigh.toDouble() );
+       updateTableItem(m_repTestOpencvId, wholeBloodHeigh);
        return;
     }
 
-    //样本添加逻辑
-    const double outTestResult = redBloodCellHeigh.toDouble();
-    handleSampleAddition(outTestResult);
+    handleSampleAddition(wholeBloodHeigh);
     return;
 }
 
-//准备就绪开始识别
-void  Height_Data::opencvFindImageLine(const QString &pathImage){
-
+void Height_Data::opencvFindImageLine(const QString &pathImage){
     if(m_testFindPrpHeigh){
         m_isreplaceopencv = false;
-        emit sycnOpendcvImage(pathImage);
+        m_testFindPrpHeigh->handleSycnOpendcvImage(pathImage);
     }
 }
 
@@ -1989,52 +2125,228 @@ void Height_Data::reTestOpencvId(const QString& reIdsample,const QString &pathIm
     m_repTestOpencvId = reIdsample;
     if(m_testFindPrpHeigh){
         m_isreplaceopencv = true;
-        emit sycnOpendcvImage(pathImage);
+        m_testFindPrpHeigh->handleSycnOpendcvImage(pathImage);
     }
 }
 
+TestOpcv *Height_Data::vision() const
+{
+    return m_testFindPrpHeigh;
+}
+
 void Height_Data::initLoadOpencvTestImag(){
-    // 清理现有资源
     cleanupThread();
 
-    // 创建对象（主线程创建）
     m_testFindPrpHeigh = new TestOpcv();
     ui->widget_ShowErrImage->layout()->addWidget(m_testFindPrpHeigh);
 
-    // 创建工作线程
-    m_workerThread = new QThread(this);
-
-    // 连接信号槽
-    connect(this,&Height_Data::sycnOpendcvImage,
-            m_testFindPrpHeigh,&TestOpcv::handleSycnOpendcvImage
-			,Qt::QueuedConnection);
-
-
     connect(m_testFindPrpHeigh, &TestOpcv::imageoutResult, this,
             &Height_Data::onImageoutResult);
+    connect(m_testFindPrpHeigh, &TestOpcv::beginNewMeasure, this, [this]() {
+        m_isreplaceopencv = false;
+    });
+    connect(m_testFindPrpHeigh, &TestOpcv::replaceSampleId, this, [this](const QString &id) {
+        m_repTestOpencvId = id;
+        m_isreplaceopencv = true;
+    });
 
-    // 线程安全退出处理
-    connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
-    connect(m_workerThread, &QThread::finished, m_testFindPrpHeigh, &QObject::deleteLater);
-
-    // 启动线程
-    m_workerThread->start();
     const bool prpMode = INI_File().GetWholeBloodModel();
     (prpMode)? ui->widget_ShowErrImage->show() : ui->widget_ShowErrImage->hide();
 }
 
 void Height_Data::cleanupThread()
 {
-    if (m_workerThread) {
-        m_workerThread->quit();
-        m_workerThread->wait();
-        m_workerThread = nullptr;
-    }
-
     if (m_testFindPrpHeigh) {
-        // 从布局中移除widget
-        ui->widget_ShowErrImage->layout()->removeWidget(m_testFindPrpHeigh);
+        if (ui && ui->widget_ShowErrImage && ui->widget_ShowErrImage->layout()) {
+            ui->widget_ShowErrImage->layout()->removeWidget(m_testFindPrpHeigh);
+        }
         delete m_testFindPrpHeigh;
         m_testFindPrpHeigh = nullptr;
     }
 }
+
+double Height_Data::switchWholeModeHeight(const double redBloodHeigh)
+{
+    auto &ini = INI_File();
+    double referenceToBottomDistance = ini.GetFixedHigh();
+    double safetyMargin = ini.GetTestDifference();
+    double rotb  =   ini.getRefBottomDistance();
+    return referenceToBottomDistance + rotb - redBloodHeigh - safetyMargin + RAISETHERULER;
+}
+
+//=============================================================================
+// 自定义标题栏相关函数
+//=============================================================================
+
+void Height_Data::initCustomTitleBar()
+{
+    // 获取现有的顶层布局（UI文件中设置的布局）
+    QLayout *existingLayout = layout();
+    if (!existingLayout) {
+        // 如果没有布局，则创建垂直布局，并将现有子控件添加进去（保持原有顺序）
+        QVBoxLayout *newLayout = new QVBoxLayout(this);
+        newLayout->setContentsMargins(0, 0, 0, 0);
+        newLayout->setSpacing(0);
+
+        // 获取所有直接子控件（按z-order排序，尽可能保持原有视觉顺序）
+        QList<QWidget*> children = this->findChildren<QWidget*>();
+        // 简单按tab顺序或几何位置排序，这里假设子控件顺序大致正确
+        for (QWidget* child : children) {
+            if (child->parent() == this && !qobject_cast<CustomTitleBar*>(child)) {
+                newLayout->addWidget(child);
+            }
+        }
+        existingLayout = newLayout;
+    }
+
+    // 创建标题栏
+    m_titleBar = new CustomTitleBar(this);
+    m_titleBar->setTitle(windowTitle());
+
+    connect(m_titleBar, &CustomTitleBar::closeRequested, this, &Height_Data::onCloseRequested);
+    connect(m_titleBar, &CustomTitleBar::minimizeRequested, this, &Height_Data::onMinimizeRequested);
+    connect(m_titleBar, &CustomTitleBar::maximizeRequested, this, &Height_Data::onMaximizeRequested);
+
+    // 将标题栏插入到布局的最前面（索引0）
+    // 注意：QLayout::insertWidget 需要在布局中添加，但标题栏的父对象必须是 this
+    // 如果 existingLayout 是 QBoxLayout（如 QVBoxLayout），可以直接 insertWidget(0, m_titleBar)
+    if (QBoxLayout *boxLayout = qobject_cast<QBoxLayout*>(existingLayout)) {
+        boxLayout->insertWidget(0, m_titleBar);
+    } else {
+        // 非 QBoxLayout 的情况（罕见），先删除原布局，再创建新布局
+        QWidget().setLayout(existingLayout); // 临时转移所有权
+        QVBoxLayout *newLayout = new QVBoxLayout(this);
+        newLayout->addWidget(m_titleBar);
+        // 将原布局中的所有控件转移过来
+        while (QLayoutItem *item = existingLayout->takeAt(0)) {
+            if (item->widget()) {
+                newLayout->addWidget(item->widget());
+            }
+            delete item;
+        }
+        delete existingLayout;
+        existingLayout = newLayout;
+    }
+
+    // 设置窗口边距，让内容区域不紧贴标题栏
+    existingLayout->setContentsMargins(0, 0, 0, 0);
+    existingLayout->setSpacing(0);
+}
+
+void Height_Data::onCloseRequested()
+{
+    close();
+}
+
+void Height_Data::onMinimizeRequested()
+{
+     showMinimized();
+}
+
+void Height_Data::onMaximizeRequested()
+{
+    if (isMaximized()) {
+        showNormal();
+        m_titleBar->updateMaximizeButton(false);
+    } else {
+        showMaximized();
+        m_titleBar->updateMaximizeButton(true);
+    }
+}
+
+void Height_Data::setWindowTitle(const QString &title)
+{
+    QWidget::setWindowTitle(title);
+    if (m_titleBar) {
+        m_titleBar->setTitle(title);
+    }
+}
+
+void Height_Data::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::ActivationChange) {
+        if (m_titleBar) {
+            m_titleBar->setActive(isActiveWindow());
+        }
+        static const QString activeSs = getMedicalTableStyle();
+        static const QString inactiveSs = activeSs
+                + QStringLiteral("QTableWidget::item:selected { background-color: #B8DFF7; }");
+        ui->Sample_Data_tablewidget->setStyleSheet(isActiveWindow() ? activeSs : inactiveSs);
+    }
+    QWidget::changeEvent(event);
+}
+
+void Height_Data::showCorrectDialog(unsigned int rows, int column, const QString& changeData)
+{
+    // 如果已有对话框，先关闭并释放
+    if (m_correctdata) {
+        m_correctdata->close();
+        delete m_correctdata;
+    }
+
+    // 创建新对话框，传递 this 作为 parent 确保窗口层级正确
+    m_correctdata = new Correct_Data(nullptr);
+    if (!m_correctdata) {
+        QLOG_ERROR() << "Failed to create Correct_Data dialog";
+        return;
+    }
+
+    m_correctdata->ClickSamplename(changeData);
+    m_correctdata->setrows(rows);
+    m_correctdata->setcols(column);
+    m_correctdata->setorigindata(m_OriginallyValue);
+
+    // 连接信号
+    connect(m_correctdata, &Correct_Data::ConfigureData,
+            this, &Height_Data::onDataConfigured);
+
+    //重新测试高度
+    connect(m_correctdata,&Correct_Data::repTestHeight,
+            this,[=](const QString sampleid){
+        if (auto* testing = FullyAutomatedPlatelets::pinstanceTesting()) {
+            testing->repPrpheight(sampleid, true);
+        }
+    });
+
+    //修改测高值
+    connect(m_correctdata, &Correct_Data::NotifyTestHeight,
+            this,&Height_Data::onNotifyTestHeight);
+
+    // 显示对话框
+    m_correctdata->setAttribute(Qt::WA_DeleteOnClose, true);
+    m_correctdata->show();
+}
+
+void Height_Data::onDataConfigured(unsigned int row, int col, const QString& data,const bool isfollowUp)
+{
+    if (data.isEmpty()) {
+        CustomMessageBox::warning(this,tr("修改样本id失败"),"样本号不能为空!");
+        restoreOriginalValue(row, col);
+        return;
+    }
+
+    if (!validateSampleUniqueness(data,isfollowUp)) {
+        restoreOriginalValue(row, col);
+        return;
+    }
+
+    updateCreationTimeMapping(row,data);
+
+    //复查样本号
+    if(isfollowUp){
+        auto *paddTaskCol = FullyAutomatedPlatelets::pinstancepatientdata();
+		if (paddTaskCol) {
+			paddTaskCol->addfollowUpSample(data);
+		}
+        setRowFollowUp(row, true);
+        CustomMessageBox::information(this, tr("已标记复查"),
+            tr("该样本将按复查入库（样本号后加F）。\n接下来请只勾选需要重测的试剂，再点确定加入任务。"));
+        handleProjectItemClick(row, PROJECT_ITEM);
+    }
+
+    SetColumnText(row, col, data);
+    if (isfollowUp) {
+        setRowFollowUp(row, true);
+    }
+}
+

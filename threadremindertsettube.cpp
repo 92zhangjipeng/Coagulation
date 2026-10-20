@@ -1,7 +1,13 @@
-﻿#include "cglobal.h"
+﻿#ifdef _MSC_VER
+#pragma warning(disable: 4819)
+#pragma execution_character_set("utf-8")
+#endif
+
+#include "cglobal.h"
 #include "loginui.h"
 #include "threadremindertsettube.h"
 #include "QsLog/include/QsLog.h"
+#include <QApplication>
 #include <unordered_map>
 #include <operclass/fullyautomatedplatelets.h>
 
@@ -126,67 +132,48 @@ bool ThreadReminderTsetTube::checkIfTestTubeZoneAllUsed(const int index_tray)
 
 void ThreadReminderTsetTube::showTestTubeZoneOneWarning( const int zoneNumber){
 
-    const QString zoneName = tr("试杯区%1").arg(zoneNumber);
-    const QString warningTemplate = tr("%1脱离试杯位");
-    const QString fullWarning = warningTemplate.arg(zoneName);
-    QLOG_INFO()<<fullWarning<<endl;
-    // 检查试杯区是否已用完
+    const QString zoneName = tr("试管盘%1").arg(zoneNumber);
+    QLOG_INFO() << tr("%1脱离位置").arg(zoneName);
+
     if (checkIfTestTubeZoneAllUsed(zoneNumber)) {
-        emit reminderMainUi(PROMPTLOG, tr("%1使用完，脱位不提示").arg(zoneName));
+        emit reminderMainUi(PROMPTLOG, tr("%1已用完，脱位不提示").arg(zoneName));
         return;
     }
 
-    // 假设 equipmentTipInfo 是一个枚举类型
-    messageBoxMap = {
-        { TEST_THE_TUBEREEL_1, messageBox_},
-        { TEST_THE_TUBEREEL_2, messageBox_II},
-        { TEST_THE_TUBEREEL_3, messageBox_III},
-        { TEST_THE_TUBEREEL_4, messageBox_IIII}
-    };
-
-    // 创建或更新提示框
     PMessageBox* pWidgetTube = ensureMessageBoxInitialized(zoneNumber);
+    if (!pWidgetTube)
+        return;
 
-    // 设置消息框内容
-	pWidgetTube->setindexTray(zoneNumber);
-	pWidgetTube->setWindowTitle(zoneName);
-   // messageBox_->setText(fullWarning);
-
-
-    // 连接信号槽（确保只连接一次）
+    pWidgetTube->setindexTray(zoneNumber);
+    pWidgetTube->setWindowTitle(zoneName);
     connectMessageBoxSignals(pWidgetTube);
-
-    // 显示消息框
     positionMessageBoxCentered(pWidgetTube);
     showMessageBox(pWidgetTube);
 }
 
-//辅助函数分解
 PMessageBox *ThreadReminderTsetTube::ensureMessageBoxInitialized(const int zoneNumber)
 {
     auto it = messageBoxMap.find(zoneNumber);
+    if (it != messageBoxMap.end() && it->second)
+        return it->second;
 
-    if (it != messageBoxMap.end() || !it->second) {
-            PMessageBox* pWidget = new PMessageBox(nullptr, zoneNumber);
-            pWidget->setAttribute(Qt::WA_DeleteOnClose);
-            connect(pWidget, &PMessageBox::destroyed, this, [this, zoneNumber]() {
-                messageBoxMap.erase(zoneNumber);
-            });
-            messageBoxMap[zoneNumber] = pWidget;
-    }
-    return messageBoxMap[zoneNumber];  // 返回Map中的最新指针
+    PMessageBox* pWidget = new PMessageBox(nullptr, zoneNumber);
+    pWidget->setAttribute(Qt::WA_DeleteOnClose);
+    connect(pWidget, &PMessageBox::destroyed, this, [this, zoneNumber]() {
+        messageBoxMap.erase(zoneNumber);
+    });
+    messageBoxMap[zoneNumber] = pWidget;
+    return pWidget;
 }
 
 void ThreadReminderTsetTube::connectMessageBoxSignals(PMessageBox *pWidget)
 {
-    //static bool connected = false;
-    //if (!connected) {
-        connect(pWidget, &PMessageBox::_makesureupdateTraytube,
-                this, &ThreadReminderTsetTube::handleTrayUpdateConfirmed);
-        connect(pWidget, &PMessageBox::_cancelupdateTraytube,
-                this, &ThreadReminderTsetTube::handleTrayUpdateCanceled);
-        //connected = true;
-   // }
+    connect(pWidget, &PMessageBox::_makesureupdateTraytube,
+            this, &ThreadReminderTsetTube::handleTrayUpdateConfirmed,
+            Qt::UniqueConnection);
+    connect(pWidget, &PMessageBox::_cancelupdateTraytube,
+            this, &ThreadReminderTsetTube::handleTrayUpdateCanceled,
+            Qt::UniqueConnection);
 }
 
 void ThreadReminderTsetTube::positionMessageBoxCentered(PMessageBox *pWidget)
@@ -202,8 +189,12 @@ void ThreadReminderTsetTube::positionMessageBoxCentered(PMessageBox *pWidget)
 
 void ThreadReminderTsetTube::showMessageBox(PMessageBox *pWidget)
 {
-    pWidget->setWindowModality(Qt::ApplicationModal);
+    pWidget->setWindowFlags(pWidget->windowFlags() | Qt::WindowStaysOnTopHint | Qt::Window);
+    pWidget->setWindowModality(Qt::NonModal);
     pWidget->show();
+    if (QApplication::activeModalWidget()) {
+        return;
+    }
     pWidget->raise();
     pWidget->activateWindow();
 }
@@ -230,18 +221,18 @@ void ThreadReminderTsetTube::recvequipmentReminder(const int Warmingindex)
     const auto handleTrayWarning = [&](int reelConstant, int number) {
         showTestTubeZoneOneWarning(reelConstant);
         testTubetrayisloose = true;
-        outlog = QString("试管盘%1").arg(number);
+        outlog = tr("试管盘%1").arg(number);
     };
 
     switch(Warmingindex) {
             case equipmentTipInfo::LinqueScrapFull:
                 Indicates_wastetankisfull();
-                outlog = "废液满";
+        outlog = tr("废液满");
                 break;
 
             case equipmentTipInfo::LinqueCleanShortage:
                 cleaningfluidbalanceisinsufficient();
-                outlog = "清洗液不足";
+                outlog = tr("清洗液不足");
                 break;
 
             case equipmentTipInfo::TestTubeTrayI:   handleTrayWarning(TEST_THE_TUBEREEL_1, 1); break;
@@ -252,17 +243,21 @@ void ThreadReminderTsetTube::recvequipmentReminder(const int Warmingindex)
             default: break;
         }
 
-    // 优化条件判断逻辑
+    MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
+    if (!mw) {
+        QLOG_WARN() << "mainWindow is null, skip tray reminder";
+        return;
+    }
+
     if (Q_LIKELY(testTubetrayisloose && cglobal::g_StartTesting)) {
-        FullyAutomatedPlatelets::mainWindow()->ThreadSafeReminder(
-            "测试暂停",
-            QString("%1测试中发生异位").arg(outlog)
+        mw->ThreadSafeReminder(
+            tr("测试暂停"),
+            tr("%1测试中发生异位").arg(outlog)
         );
         QLOG_DEBUG() << outlog << "测试中发生异位";
     }
 
-    // 使用RAII优化资源管理
-    QMetaObject::invokeMethod(FullyAutomatedPlatelets::mainWindow(),
+    QMetaObject::invokeMethod(mw,
                             &MainWindow::updateContinueButtonState,
                             Qt::QueuedConnection);
     return;

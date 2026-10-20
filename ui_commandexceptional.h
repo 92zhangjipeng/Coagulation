@@ -55,13 +55,13 @@ public:
             CommandExceptional->setObjectName(QStringLiteral("CommandExceptional"));
         CommandExceptional->resize(496, 175);
         QFont font;
-        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
         font.setPointSize(12);
         CommandExceptional->setFont(font);
         CommandExceptional->setWindowOpacity(0.95);
-        CommandExceptional->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border-top-color: rgb(0, 0, 0);"));
+        CommandExceptional->setStyleSheet(QString::fromUtf8("background-color: #E8F4F8;  /* \345\214\273\347\226\227\346\265\205\350\223\235\350\203\214\346\231\257 */\n"
+"border-color: #B8D9E8;\n"
+"border-top-color: #B8D9E8;"));
         verticalLayout_main = new QVBoxLayout(CommandExceptional);
         verticalLayout_main->setSpacing(0);
         verticalLayout_main->setObjectName(QStringLiteral("verticalLayout_main"));
@@ -70,9 +70,9 @@ public:
         widget_head->setObjectName(QStringLiteral("widget_head"));
         widget_head->setMaximumSize(QSize(16777215, 36));
         widget_head->setFont(font);
-        widget_head->setStyleSheet(QLatin1String("background-color: rgba(198,197,193);\n"
-"border-color: rgb(180, 180, 180);\n"
-"border: 1 px solid rgba(198,197,193);"));
+        widget_head->setStyleSheet(QString::fromUtf8("background-color: #D4EAF3;  /* \346\265\205\350\223\235\346\240\207\351\242\230\346\240\217 */\n"
+"border-color: #B8D9E8;\n"
+"border: 1px solid #D4EAF3;"));
         horizontalLayout_3 = new QHBoxLayout(widget_head);
         horizontalLayout_3->setSpacing(0);
         horizontalLayout_3->setObjectName(QStringLiteral("horizontalLayout_3"));
@@ -91,8 +91,9 @@ public:
         label_titlename->setMinimumSize(QSize(180, 0));
         label_titlename->setMaximumSize(QSize(16777215, 34));
         label_titlename->setFont(font);
-        label_titlename->setStyleSheet(QLatin1String("border-style: flat;\n"
-"background: transparent;"));
+        label_titlename->setStyleSheet(QString::fromUtf8("border-style: flat;\n"
+"background: transparent;\n"
+"color: #1A6B8A;  /* \346\267\261\350\223\235\346\226\207\345\255\227 */"));
 
         horizontalLayout_3->addWidget(label_titlename);
 
@@ -105,11 +106,11 @@ public:
         toolButton_close->setMinimumSize(QSize(0, 0));
         toolButton_close->setStyleSheet(QLatin1String("QToolButton\n"
 "{\n"
-"	border-style: flat;\n"
-"	background: transparent;\n"
+"        border-style: flat;\n"
+"        background: transparent;\n"
 "}"));
         QIcon icon;
-        icon.addFile(QString::fromUtf8(":/Picture/icon_title/\345\205\263\351\227\255.png"), QSize(), QIcon::Normal, QIcon::Off);
+        icon.addFile(QStringLiteral(":/Picture/error.png"), QSize(), QIcon::Normal, QIcon::Off);
         toolButton_close->setIcon(icon);
         toolButton_close->setIconSize(QSize(32, 32));
 
@@ -120,9 +121,9 @@ public:
 
         widget_2 = new QWidget(CommandExceptional);
         widget_2->setObjectName(QStringLiteral("widget_2"));
-        widget_2->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-color: rgb(180, 180, 180);\n"
-"border: 0 px solid rgba(198,197,193);"));
+        widget_2->setStyleSheet(QString::fromUtf8("background-color: #E8F4F8;  /* \345\214\273\347\226\227\346\265\205\350\223\235 */\n"
+"border-color: #B8D9E8;\n"
+"border: 0px solid #D4EAF3;"));
         verticalLayout_2 = new QVBoxLayout(widget_2);
         verticalLayout_2->setSpacing(5);
         verticalLayout_2->setObjectName(QStringLiteral("verticalLayout_2"));
@@ -138,17 +139,19 @@ public:
         label_ErrInfo->setMinimumSize(QSize(0, 25));
         label_ErrInfo->setMaximumSize(QSize(16777215, 25));
         QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font1.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
         font1.setPointSize(18);
         font1.setBold(false);
         font1.setItalic(false);
-        font1.setWeight(9);
+        font1.setWeight(6);
         label_ErrInfo->setFont(font1);
-        label_ErrInfo->setStyleSheet(QString::fromUtf8("font: 75 18pt '\346\245\267\344\275\223';\n"
-"background-color: rgba(188,187,183);\n"
-"border-radius:1px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
-"border-style: flat;background: transparent;"));
+        label_ErrInfo->setStyleSheet(QString::fromUtf8("font: 50 18pt '\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"background-color: rgba(232, 244, 248, 0);\n"
+"border-radius:1px;\n"
+"padding:2px 4px;\n"
+"color: #1A6B8A;  /* \345\214\273\347\226\227\346\267\261\350\223\235\350\211\262\346\226\207\345\255\227 */\n"
+"border-style: flat;\n"
+"background: transparent;"));
         label_ErrInfo->setAlignment(Qt::AlignCenter);
 
         verticalLayout->addWidget(label_ErrInfo);
@@ -158,76 +161,76 @@ public:
 
         widgetConfigEquipment = new QWidget(widget_2);
         widgetConfigEquipment->setObjectName(QStringLiteral("widgetConfigEquipment"));
-        widgetConfigEquipment->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border-top-color: rgb(0, 0, 0);"));
+        widgetConfigEquipment->setStyleSheet(QLatin1String("background-color: #E8F4F8;\n"
+"border-color: #B8D9E8;\n"
+"border-top-color: #B8D9E8;"));
         horizontalLayout = new QHBoxLayout(widgetConfigEquipment);
         horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
         pushButton_KS600 = new QPushButton(widgetConfigEquipment);
         pushButton_KS600->setObjectName(QStringLiteral("pushButton_KS600"));
-        pushButton_KS600->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_KS600{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QPushButton#pushButton_KS600:hover{     \n"
-" background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QPushButton#pushButton_KS600:pressed{  \n"
-"      background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        pushButton_KS600->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_KS600{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
+"}\n"
+"QPushButton#pushButton_KS600:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QPushButton#pushButton_KS600:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
 "}"));
 
         horizontalLayout->addWidget(pushButton_KS600);
 
         pushButton_KS800 = new QPushButton(widgetConfigEquipment);
         pushButton_KS800->setObjectName(QStringLiteral("pushButton_KS800"));
-        pushButton_KS800->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_KS800{  \n"
-"  border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QPushButton#pushButton_KS800:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QPushButton#pushButton_KS800:pressed{  \n"
-"      background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        pushButton_KS800->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_KS800{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
+"}\n"
+"QPushButton#pushButton_KS800:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QPushButton#pushButton_KS800:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
 "}"));
 
         horizontalLayout->addWidget(pushButton_KS800);
 
         pushButton_KS1200 = new QPushButton(widgetConfigEquipment);
         pushButton_KS1200->setObjectName(QStringLiteral("pushButton_KS1200"));
-        pushButton_KS1200->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_KS1200{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QPushButton#pushButton_KS1200:hover{     \n"
-"   background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QPushButton#pushButton_KS1200:pressed{  \n"
-"      background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        pushButton_KS1200->setStyleSheet(QString::fromUtf8("QPushButton#pushButton_KS1200{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
+"}\n"
+"QPushButton#pushButton_KS1200:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QPushButton#pushButton_KS1200:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
 "}"));
 
         horizontalLayout->addWidget(pushButton_KS1200);
@@ -247,25 +250,25 @@ public:
         toolButton_ok->setObjectName(QStringLiteral("toolButton_ok"));
         toolButton_ok->setMinimumSize(QSize(100, 0));
         QFont font2;
-        font2.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font2.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
         toolButton_ok->setFont(font2);
-        toolButton_ok->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_ok{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_ok:hover{     \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_ok:pressed{  \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButton_ok->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_ok{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
+"}\n"
+"QToolButton#toolButton_ok:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QToolButton#toolButton_ok:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
 "}"));
         toolButton_ok->setIconSize(QSize(32, 32));
         toolButton_ok->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -275,23 +278,23 @@ public:
         toolButton_Cancel = new QToolButton(widgetBtn);
         toolButton_Cancel->setObjectName(QStringLiteral("toolButton_Cancel"));
         toolButton_Cancel->setMinimumSize(QSize(100, 0));
-        toolButton_Cancel->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_Cancel{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_Cancel:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_Cancel:pressed{  \n"
-"   background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButton_Cancel->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_Cancel{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
+"}\n"
+"QToolButton#toolButton_Cancel:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QToolButton#toolButton_Cancel:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
 "}"));
         toolButton_Cancel->setIconSize(QSize(32, 32));
         toolButton_Cancel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);

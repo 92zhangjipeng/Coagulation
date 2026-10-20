@@ -1,73 +1,57 @@
 ﻿#include "custombutton.h"
 #include "ui_custombutton.h"
-#include <qpainter.h>
-#include "QsLog/include/QsLog.h"
+#include <QPainter>
+#include <QPainterPath>
 
 customButton::customButton(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::customButton)
 {
     ui->setupUi(this);
-	setWindowFlags(Qt::FramelessWindowHint);
-	installEventFilter(this);
-	setMouseTracking(true);
+    setWindowFlags(Qt::FramelessWindowHint);
+    setAutoFillBackground(false);
+    setStyleSheet(QStringLiteral("background: transparent; border: none;"));
+    installEventFilter(this);
+    setMouseTracking(true);
 
     m_fixWidth = 90;
-
     m_fixHeigh = 150;
 
-	m_minValue = 0;
-
-	m_maxValue = 100;
-
-	m_value = 0;
-
+    m_minValue = 0;
+    m_maxValue = 100;
+    m_value = 0;
     m_alarmValue = 1;
+    m_step = 5;
+    m_currentValue = 0;
+    m_bgRadius = 16;
+    m_isForward = false;
 
-	m_step = 5;
+    borderColor = QColor(70, 110, 140);
+    bottlecapColor = QColor(45, 62, 80);
+    bottleneckColor = QColor(160, 190, 210);
+    bottleColor = QColor(210, 230, 245, 90);
 
-	m_currentValue = 0;
+    m_borderColorStart = QColor(120, 160, 190, 160);
+    m_borderColorEnd = QColor(70, 110, 145, 200);
 
-    m_bgRadius = 18;
+    m_normalColorStart = QColor(72, 201, 176);
+    m_normalColorEnd = QColor(32, 156, 140);
 
-	m_isForward = false;
+    m_alarmColorStart = QColor(255, 140, 120);
+    m_alarmColorEnd = QColor(220, 60, 60);
 
-    borderColor = QColor(0, 0, 0);  
+    setFixedSize(m_fixWidth, m_fixHeigh);
 
-	bottlecapColor = QColor(0,0,0,100);
-
-	bottleneckColor = QColor(180,180,1800); //瓶颈颜色
-
-	bottleColor = QColor(86, 147, 198, 255);
-
-
-	m_borderColorStart = QColor(8, 8, 25, 140);
-
-	m_borderColorEnd = QColor(6, 28, 102, 226);
-
-	m_normalColorStart = QColor(50, 205, 51);
-
-	m_normalColorEnd = QColor(60, 179, 133);
-
-	m_alarmColorStart = QColor(250, 118, 113);
-
-	m_alarmColorEnd = QColor(204, 38, 38);
-
-
-    this->setFixedSize(m_fixWidth, m_fixHeigh);
-	
-
-	m_timer = new QTimer(this);
-	m_timer->setInterval(10);
-	connect(m_timer, SIGNAL(timeout()), this, SLOT(updateValue()));
-
+    m_timer = new QTimer(this);
+    m_timer->setInterval(12);
+    connect(m_timer, SIGNAL(timeout()), this, SLOT(updateValue()));
 }
 
 customButton::~customButton()
 {
-	if (m_timer->isActive()) {
-		m_timer->stop();
-	}
+    if (m_timer->isActive()) {
+        m_timer->stop();
+    }
     delete ui;
 }
 
@@ -81,332 +65,356 @@ void customButton::_setfixheigh(int _heigh)
     m_fixHeigh = _heigh;
 }
 
-
 void customButton::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter painter(this);
-	// 反走样
-	painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-	//绘制试剂瓶整体
-	drawBottlewhole(&painter);
-
-	//绘制背景
-	drawBg(&painter);
-
-	//绘制试剂瓶文字
-	drawBottleText(&painter);
-
+    drawBottlewhole(&painter);
+    drawBg(&painter);
+    drawBottleText(&painter);
 }
 
 void customButton::drawBottlewhole(QPainter *painter)
 {
-    int line_w = 2;
-	painter->setPen(QPen(borderColor, line_w));
-    //绘制瓶盖
-    int bottleCapWidth =   m_fixWidth/7*2; //瓶盖宽
-    int bottleCapHeight =  bottleCapWidth/5*2; //瓶盖高
-    //QLOG_DEBUG()<<"瓶盖宽"<<m_fixWidth<<"瓶盖高"<<m_fixHeigh<<"=="<<bottleCapWidth<<"=="<<bottleCapHeight;
+    const int lineW = 2;
 
-    int spaceTopY = m_fixHeigh/20;
-    int spaceLeftX = (m_fixWidth - bottleCapWidth)/2;
+    // Cap
+    const int bottleCapWidth = m_fixWidth * 2 / 7;
+    const int bottleCapHeight = qMax(10, bottleCapWidth * 2 / 5);
+    const int spaceTopY = m_fixHeigh / 22;
+    const int spaceLeftX = (m_fixWidth - bottleCapWidth) / 2;
     QRect rectCap(spaceLeftX, spaceTopY, bottleCapWidth, bottleCapHeight);
-    QBrush brushCap(bottlecapColor, Qt::NoBrush);
-    painter->setBrush(brushCap);
-    painter->drawRoundedRect(rectCap, 2, 2);
     m_rectCap = rectCap;
 
+    QLinearGradient capGrad(rectCap.topLeft(), rectCap.bottomLeft());
+    capGrad.setColorAt(0.0, QColor(90, 115, 140));
+    capGrad.setColorAt(0.45, bottlecapColor);
+    capGrad.setColorAt(1.0, QColor(30, 42, 55));
+    painter->setPen(QPen(QColor(25, 35, 48), 1));
+    painter->setBrush(capGrad);
+    painter->drawRoundedRect(rectCap, 4, 4);
 
-    //绘制瓶颈
-    int bottleNeckWidth = bottleCapWidth/3*2;
-    int bottleNeckHeight = bottleCapHeight/3*2;
-    int bottleneck_left_x = rectCap.center().x() - bottleNeckWidth / 2;
-    int bottleneck_y = rectCap.center().y() + rectCap.height() / 2 + line_w;
-    QRect  bottleneck(bottleneck_left_x, bottleneck_y, bottleNeckWidth, bottleNeckHeight);
-    //QBrush bottleneck_brush(bottlecapColor, Qt::SolidPattern);
-    painter->setBrush(QBrush(Qt::NoBrush));
-    painter->drawRoundedRect(bottleneck, 2, 2);
+    // Cap highlight
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(255, 255, 255, 70));
+    painter->drawRoundedRect(QRect(rectCap.x() + 3, rectCap.y() + 2,
+                                   rectCap.width() - 6, qMax(3, rectCap.height() / 3)), 2, 2);
+
+    // Neck
+    const int bottleNeckWidth = bottleCapWidth * 2 / 3;
+    const int bottleNeckHeight = qMax(8, bottleCapHeight * 2 / 3);
+    const int bottleneckLeftX = rectCap.center().x() - bottleNeckWidth / 2;
+    const int bottleneckY = rectCap.bottom() + 1;
+    QRect bottleneck(bottleneckLeftX, bottleneckY, bottleNeckWidth, bottleNeckHeight);
     m_bottleneck = bottleneck;
 
+    QLinearGradient neckGrad(bottleneck.topLeft(), bottleneck.topRight());
+    neckGrad.setColorAt(0.0, QColor(190, 215, 230, 180));
+    neckGrad.setColorAt(0.5, QColor(235, 245, 250, 210));
+    neckGrad.setColorAt(1.0, QColor(170, 200, 220, 180));
+    painter->setPen(QPen(borderColor, lineW));
+    painter->setBrush(neckGrad);
+    painter->drawRoundedRect(bottleneck, 3, 3);
 
-    //绘制瓶身
-    int BottlesWidth = m_fixWidth/7*4;
-    int BottlesHeight = (m_fixHeigh- bottleneck.height() - rectCap.height())/4*3;
-    int offsetx = rectCap.center().x() - BottlesWidth/2;
-    int Bottle_top = bottleneck.bottomLeft().y() + line_w;
-    QRect rectBottle(offsetx, Bottle_top, BottlesWidth, BottlesHeight);
-    painter->setBrush(QBrush(Qt::NoBrush));
-    painter->drawRoundedRect(rectBottle, m_bgRadius, m_bgRadius);
+    // Body outline + glass fill
+    const int bottlesWidth = m_fixWidth * 4 / 7;
+    const int bottlesHeight = (m_fixHeigh - bottleneck.height() - rectCap.height()) * 3 / 4;
+    const int offsetX = rectCap.center().x() - bottlesWidth / 2;
+    const int bottleTop = bottleneck.bottom() + 1;
+    QRect rectBottle(offsetX, bottleTop, bottlesWidth, bottlesHeight);
     m_rectBottle = rectBottle;
 
-    //擦除瓶颈位置
-    QColor colorbkg(188,187,183);
-    painter->setBrush(QBrush(colorbkg, Qt::Dense1Pattern   ));// Dense1Pattern NoBrush
-    painter->setPen(QPen(colorbkg, 0));
+    QLinearGradient glassGrad(rectBottle.topLeft(), rectBottle.topRight());
+    glassGrad.setColorAt(0.0, QColor(185, 215, 235, 70));
+    glassGrad.setColorAt(0.35, QColor(245, 250, 255, 40));
+    glassGrad.setColorAt(0.7, QColor(200, 225, 240, 55));
+    glassGrad.setColorAt(1.0, QColor(150, 185, 210, 80));
+    painter->setBrush(glassGrad);
+    painter->setPen(QPen(borderColor, lineW));
+    painter->drawRoundedRect(rectBottle, m_bgRadius, m_bgRadius);
 
-    int Xtopleft = m_bottleneck.bottomLeft().x();
-    int Ytopleft  = m_bottleneck.bottomLeft().y();
-    int wset = m_bottleneck.width();
+    // Left glass shine
+    QRect shineRect(rectBottle.x() + 5, rectBottle.y() + 8,
+                    qMax(4, rectBottle.width() / 6), rectBottle.height() - 16);
+    QLinearGradient shineGrad(shineRect.topLeft(), shineRect.topRight());
+    shineGrad.setColorAt(0.0, QColor(255, 255, 255, 90));
+    shineGrad.setColorAt(1.0, QColor(255, 255, 255, 0));
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(shineGrad);
+    painter->drawRoundedRect(shineRect, 4, 4);
 
-    painter->drawRect(Xtopleft,Ytopleft,wset,4);
-
+    // Smooth neck-body join (same glass tone, no gray patch)
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(220, 235, 245, 220));
+    painter->drawRect(m_bottleneck.x() + 1, m_bottleneck.bottom() - 1,
+                      m_bottleneck.width() - 2, 4);
 }
-
 
 void customButton::drawBottleText(QPainter *painter)
 {
-	painter->setPen(Qt::black);
-    painter->setFont(QFont("楷体", 11));
+    const QRect textArea = m_rectBottle.adjusted(4, 6, -4, -6);
+    if (!textArea.isValid()) {
+        return;
+    }
 
-    int spacing = 0;
-    int spacing_ratio = 0;
-    if(m_reagreminder.length() >= 6)
-    {
-        spacing = 5;
-    }
-    else if(m_reagreminder.length() == 2)
-    {
-        spacing = 12;
-    }
-    else if(m_reagreminder.length() > 2 && m_reagreminder.length() < 6)
-    {
-        spacing = 5;
-    }
-    QPoint poreag(m_rectBottle.topLeft().x() + spacing, m_rectBottle.center().y() - 5);
-	painter->drawText(poreag, m_reagreminder);
+    const bool lowLevel = (m_value <= m_alarmValue);
+    const QColor nameColor = lowLevel ? QColor(90, 30, 30) : QColor(35, 55, 75);
+    const QColor valueColor = lowLevel ? QColor(180, 40, 40) : QColor(25, 90, 110);
 
-	QString outshow = QString("%1%").arg(QString::number(m_value, 'f', 2));
-    if(outshow.length() == 5)
-        spacing_ratio = 5;
-    else if(outshow.length()  == 6)
-        spacing_ratio = 5;
-    else if(outshow.length()  == 7)
-        spacing_ratio = 2;
-    QPoint posratio(m_rectBottle.topLeft().x()+ spacing_ratio , m_rectBottle.center().y() + 15);
-	painter->drawText(posratio, outshow);
+    QFont nameFont(QStringLiteral("Microsoft YaHei"), 9, QFont::DemiBold);
+    QFont valueFont(QStringLiteral("Microsoft YaHei"), 9, QFont::Bold);
+    if (m_reagreminder.length() >= 6) {
+        nameFont.setPointSize(8);
+    }
+
+    painter->setFont(nameFont);
+    painter->setPen(QColor(255, 255, 255, 180));
+    painter->drawText(textArea.adjusted(1, 1, 1, 1), Qt::AlignHCenter | Qt::AlignTop, m_reagreminder);
+    painter->setPen(nameColor);
+    painter->drawText(textArea, Qt::AlignHCenter | Qt::AlignTop, m_reagreminder);
+
+    const QString percentText = QString("%1%").arg(QString::number(m_value, 'f', 1));
+    painter->setFont(valueFont);
+    painter->setPen(QColor(255, 255, 255, 180));
+    painter->drawText(textArea.adjusted(1, 1, 1, 1), Qt::AlignHCenter | Qt::AlignBottom, percentText);
+    painter->setPen(valueColor);
+    painter->drawText(textArea, Qt::AlignHCenter | Qt::AlignBottom, percentText);
 }
 
 void customButton::drawBg(QPainter *painter)
 {
-	if (m_value == m_minValue) {
-		return;
-	}
+    if (qFuzzyIsNull(m_currentValue - m_minValue) || m_rectBottle.height() <= 0) {
+        return;
+    }
 
-	painter->save();
+    painter->save();
 
-	QLinearGradient batteryGradient(QPointF(0, 0), QPointF(0, height()));
-	if (m_currentValue <= m_alarmValue)
-	{
-		batteryGradient.setColorAt(0.0, m_alarmColorStart);
-		batteryGradient.setColorAt(1.0, m_alarmColorEnd);
-	}
-	else
-	{
-		batteryGradient.setColorAt(0.0, m_normalColorStart);
-		batteryGradient.setColorAt(1.0, m_normalColorEnd);
-	}
+    const double ratio = qBound(0.0, m_currentValue / qMax(1.0, m_maxValue - m_minValue), 1.0);
+    const int inset = 2;
+    QRect inner = m_rectBottle.adjusted(inset, inset, -inset, -inset);
+    const int liquidH = qRound(inner.height() * ratio);
+    if (liquidH <= 0) {
+        painter->restore();
+        return;
+    }
 
-	double unit = m_rectBottle.height()  / 100;
-	double unit_ = (double(m_rectBottle.height() % 100)) /100;
-	double unit_rel = unit + unit_;
-	double heightdarw = m_currentValue * unit_rel;
-    //QLOG_DEBUG()<<"当前值"<<heightdarw<<"====="<<m_currentValue<<"*"<<unit_rel;
-    //if (m_currentValue == 100)
-        //heightdarw = m_rectBottle.topRight().y();//- m_bgRadius;
-    //QLOG_DEBUG() << "tt" << m_rectBottle.height()<<"fff"<< m_rectBottle.bottomRight().y() <<"top"<< m_rectBottle.topRight().y()<<"tf"<< m_rectBottle.topLeft().y();
-	QPoint topLeft(m_rectBottle.bottomLeft().x() , m_rectBottle.bottomRight().y() - heightdarw);
+    QRect liquidRect(inner.left(), inner.bottom() - liquidH + 1, inner.width(), liquidH);
 
-	QPoint bottomRight (m_rectBottle.bottomRight().x(), m_rectBottle.bottomRight().y());
+    QPainterPath clipPath;
+    clipPath.addRoundedRect(inner, m_bgRadius - 2, m_bgRadius - 2);
+    painter->setClipPath(clipPath);
 
-	QRect  rect(topLeft, bottomRight);
+    QLinearGradient liquidGrad(liquidRect.topLeft(), liquidRect.bottomLeft());
+    if (m_currentValue <= m_alarmValue) {
+        liquidGrad.setColorAt(0.0, m_alarmColorStart);
+        liquidGrad.setColorAt(0.55, m_alarmColorStart.lighter(115));
+        liquidGrad.setColorAt(1.0, m_alarmColorEnd);
+    } else {
+        QColor top = m_normalColorStart;
+        QColor mid = m_normalColorStart.lighter(118);
+        QColor bottom = m_normalColorEnd;
+        if (top == bottom) {
+            bottom = top.darker(130);
+        }
+        // Keep pale colors (e.g. S1) readable
+        if (top.lightness() > 220) {
+            top = QColor(90, 200, 220);
+            mid = QColor(130, 220, 235);
+            bottom = QColor(50, 160, 185);
+        }
+        liquidGrad.setColorAt(0.0, top);
+        liquidGrad.setColorAt(0.45, mid);
+        liquidGrad.setColorAt(1.0, bottom);
+    }
 
-	painter->setPen(Qt::NoPen);
-	painter->setBrush(batteryGradient);
-	painter->drawRoundedRect(rect, m_bgRadius, m_bgRadius);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(liquidGrad);
+    painter->drawRoundedRect(liquidRect, m_bgRadius - 2, m_bgRadius - 2);
 
-	painter->restore();
+    // Surface ripple highlight
+    if (liquidH > 8) {
+        QRect surface(liquidRect.left() + 2, liquidRect.top(), liquidRect.width() - 4, 6);
+        QLinearGradient surfaceGrad(surface.topLeft(), surface.bottomLeft());
+        surfaceGrad.setColorAt(0.0, QColor(255, 255, 255, 120));
+        surfaceGrad.setColorAt(1.0, QColor(255, 255, 255, 0));
+        painter->setBrush(surfaceGrad);
+        painter->drawRect(surface);
+    }
+
+    // Side caustic
+    QRect caustic(liquidRect.left() + 3, liquidRect.top() + 4,
+                  qMax(3, liquidRect.width() / 5), qMax(4, liquidRect.height() - 8));
+    QLinearGradient causticGrad(caustic.topLeft(), caustic.topRight());
+    causticGrad.setColorAt(0.0, QColor(255, 255, 255, 70));
+    causticGrad.setColorAt(1.0, QColor(255, 255, 255, 0));
+    painter->setBrush(causticGrad);
+    painter->drawRoundedRect(caustic, 3, 3);
+
+    painter->restore();
 }
 
 void customButton::_setBottlename(const QString info)
 {
-	m_reagreminder = info;
+    m_reagreminder = info;
 }
 
-//设置值
-void  customButton::setValue(double value)
+void customButton::setValue(double value)
 {
-	//值和当前值一致则无需处理
-	if (value == this->m_value) {
-		return;
-	}
+    if (qFuzzyCompare(value, this->m_value)) {
+        return;
+    }
 
-	//值小于最小值则取最小值,大于最大值则取最大值
-	if (value < m_minValue) {
-		value = m_minValue;
-	}
-	else if (value > m_maxValue) {
-		value = m_maxValue;
-	}
+    if (value < m_minValue) {
+        value = m_minValue;
+    } else if (value > m_maxValue) {
+        value = m_maxValue;
+    }
 
-	if (value > m_currentValue)
-	{
-		m_isForward = false;
-	}
-	else if (value < m_currentValue) 
-	{
-		m_isForward = true;
-	}
-	else 
-	{
-		this->m_value = value;
-		this->update();
-		return;
-	}
+    if (value > m_currentValue) {
+        m_isForward = false;
+    } else if (value < m_currentValue) {
+        m_isForward = true;
+    } else {
+        this->m_value = value;
+        this->update();
+        return;
+    }
 
-	this->m_value = value;
-	if (value < 100)
+    this->m_value = value;
+    if (value < 100) {
         m_currentValue = value;
-	this->update();
+    }
+    this->update();
 
-	emit valueChanged(value);
-	m_timer->stop();
-	m_timer->start();
+    emit valueChanged(value);
+    m_timer->stop();
+    m_timer->start();
 }
 
-void  customButton::setValue(int value)
+void customButton::setValue(int value)
 {
-	setValue((double)value);
-	this->update();
+    setValue(static_cast<double>(value));
+    this->update();
 }
 
 void customButton::updateValue()
 {
-	if (m_isForward)
-	{
-		m_currentValue -= m_step;
-		if (m_currentValue <= m_value) {
-			m_timer->stop();
-		}
-	}
-	else 
-	{
-		m_currentValue += m_step;
-		if (m_currentValue >= m_value) {
-			m_timer->stop();
-		}
-	}
+    if (m_isForward) {
+        m_currentValue -= m_step;
+        if (m_currentValue <= m_value) {
+            m_currentValue = m_value;
+            m_timer->stop();
+        }
+    } else {
+        m_currentValue += m_step;
+        if (m_currentValue >= m_value) {
+            m_currentValue = m_value;
+            m_timer->stop();
+        }
+    }
 
-	this->update();
+    this->update();
 }
 
-void customButton::_setwidgetfixsize(int _w,int _h)
+void customButton::_setwidgetfixsize(int _w, int _h)
 {
     m_fixWidth = _w;
     m_fixHeigh = _h;
-
     this->setFixedWidth(_w);
     this->setFixedHeight(_h);
 }
 
-
 void customButton::mousePressEvent(QMouseEvent* event)
 {
-	int press_x = event->x();
-	int press_y = event->y();
-	if (event->button() == Qt::LeftButton)
-	{
-		QPoint click_(press_x, press_y);
-		if (m_rectBottle.contains(click_))
-		{
-			emit btninnerIndexReag();
-		}
-		update();
-	}
-}
-void customButton::mouseMoveEvent(QMouseEvent *e)
-{
-	//this->setValue(e->pos().x());
+    const int press_x = event->x();
+    const int press_y = event->y();
+    if (event->button() == Qt::LeftButton) {
+        const QPoint click_(press_x, press_y);
+        if (m_rectBottle.contains(click_)) {
+            emit btninnerIndexReag();
+        }
+        update();
+    }
 }
 
+void customButton::mouseMoveEvent(QMouseEvent * /*e*/)
+{
+}
 
 void customButton::setRange(double minValue, double maxValue)
 {
-	//如果最小值大于或者等于最大值则不设置
-	if (minValue >= maxValue) {
-		return;
-	}
+    if (minValue >= maxValue) {
+        return;
+    }
 
-	this->m_minValue = minValue;
-	this->m_maxValue = maxValue;
+    this->m_minValue = minValue;
+    this->m_maxValue = maxValue;
 
-	//如果目标值不在范围值内,则重新设置目标值
-	//值小于最小值则取最小值,大于最大值则取最大值
-	if (m_value < minValue) {
-		setValue(minValue);
-	}
-	else if (m_value > maxValue) {
-		setValue(maxValue);
-	}
+    if (m_value < minValue) {
+        setValue(minValue);
+    } else if (m_value > maxValue) {
+        setValue(maxValue);
+    }
 
-	this->update();
+    this->update();
 }
 
 void customButton::setRange(int minValue, int maxValue)
 {
-	setRange((double)minValue, (double)maxValue);
+    setRange(static_cast<double>(minValue), static_cast<double>(maxValue));
 }
 
 void customButton::setMinValue(double minValue)
 {
-	setRange(minValue, m_maxValue);
+    setRange(minValue, m_maxValue);
 }
 
 void customButton::setMaxValue(double maxValue)
 {
-	setRange(m_minValue, maxValue);
+    setRange(m_minValue, maxValue);
 }
 
 void customButton::setAlarmValue(double alarmValue)
 {
-	if (this->m_alarmValue != alarmValue) {
-		this->m_alarmValue = alarmValue;
-		//QLOG_DEBUG()<<"set alarm="<<alarmValue;
-		this->update();
-	}
+    if (!qFuzzyCompare(this->m_alarmValue, alarmValue)) {
+        this->m_alarmValue = alarmValue;
+        this->update();
+    }
 }
 
 void customButton::setAlarmValue(int alarmValue)
 {
-	setAlarmValue((double)alarmValue);
-	this->update();
+    setAlarmValue(static_cast<double>(alarmValue));
+    this->update();
 }
 
 void customButton::setStep(double step)
 {
-	if (this->m_step != step) {
-		this->m_step = step;
-		this->update();
-	}
+    if (!qFuzzyCompare(this->m_step, step)) {
+        this->m_step = step;
+        this->update();
+    }
 }
 
 void customButton::setStep(int step)
 {
-	setStep((double)step);
-
+    setStep(static_cast<double>(step));
 }
 
 void customButton::setNormalColorStart(const QColor &normalColorStart)
 {
-	if (this->m_normalColorStart != normalColorStart) {
-		this->m_normalColorStart = normalColorStart;
-		this->update();
-	}
+    if (this->m_normalColorStart != normalColorStart) {
+        this->m_normalColorStart = normalColorStart;
+        this->update();
+    }
 }
 
 void customButton::setNormalColorEnd(const QColor &normalColorEnd)
 {
-	if (this->m_normalColorEnd != normalColorEnd) {
-		this->m_normalColorEnd = normalColorEnd;
-		this->update();
-	}
+    if (this->m_normalColorEnd != normalColorEnd) {
+        this->m_normalColorEnd = normalColorEnd;
+        this->update();
+    }
 }

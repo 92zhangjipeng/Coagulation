@@ -15,8 +15,8 @@
 #include <QtWidgets/QButtonGroup>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHeaderView>
-#include <QtWidgets/QTableWidget>
 #include <QtWidgets/QWidget>
+#include "pairframetablewidget.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -24,7 +24,7 @@ class Ui_Calibrate
 {
 public:
     QGridLayout *gridLayout;
-    QTableWidget *saveTaskWidgetList;
+    PairFrameTableWidget *saveTaskWidgetList;
 
     void setupUi(QWidget *Calibrate)
     {
@@ -37,7 +37,7 @@ public:
         gridLayout->setSpacing(1);
         gridLayout->setObjectName(QStringLiteral("gridLayout"));
         gridLayout->setContentsMargins(1, 1, 1, 1);
-        saveTaskWidgetList = new QTableWidget(Calibrate);
+        saveTaskWidgetList = new PairFrameTableWidget(Calibrate);
         saveTaskWidgetList->setObjectName(QStringLiteral("saveTaskWidgetList"));
         saveTaskWidgetList->setMinimumSize(QSize(450, 0));
         saveTaskWidgetList->setMaximumSize(QSize(999999, 16777215));

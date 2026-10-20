@@ -25,7 +25,6 @@
 #include <QCamera>
 #include <QVBoxLayout>
 #include <QWheelEvent>
-#include "cuestomtabstyle.h"
 #include <QTabBar>
 #include <QPrinter>
 #include <QKeyEvent>
@@ -45,7 +44,6 @@
 #include "instrumentalarmprompt.h"       /*仪器报警提示*/
 #include "passparameterinterface.h"
 #include  "pmessagebox.h"    //试管盘脱机插入
-#include  "opencvfindheigh.h"
 #include "USBListener.h"
 
 #include  "commandexceptional.h"
@@ -62,6 +60,8 @@
 #include  <modulethread/moduletimerThread.h>
 #include  <modulethread/obtainmainboarddata.h>
 #include  <custom_style/customprogresscontrols.h>
+
+#include "QRCodeReader.h" //扫码
 
 
 
@@ -102,6 +102,7 @@ class MainWindow;
 
 class moduletimerThread;
 class mainboardThread;
+class TestOpcv;
 
 class MainWindow : public QMainWindow, public PassparameterInterface
 {
@@ -111,7 +112,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void    init_style_all();
+    void    initStyleAll();
     void    ChannelValueshow(QStringList moduleData) override;
     void    displayPara(int Indexmodul, const double tempvalve) override;
     void    PromptInfo(const quint8 Index, const QString ReminderStr, const quint8 iActive) override;
@@ -139,6 +140,10 @@ public:
     void machineReposition();//复位
     void dimmingprogress(bool isDimmingInProgress); //调光中
     int  getChannelTestVal(const quint8& indexChannel);
+    quint32 getChannelPositiveFilterSeq(const quint8& indexChannel);
+    bool getStablePositiveChannelVal(const quint8& indexChannel, quint32 minSeq,
+                                     int& value, quint32& currentSeq);
+    void bindAltimeterVision(TestOpcv *vision);
 
 
 //优化
@@ -150,10 +155,9 @@ private:
     // 单例清理
     void cleanupSingletons();
 
-    //测高信号连接+等待线程启动完成+识别摄像头
+    //测高信号连接+识别摄像头
     void initCameras();
     void setupAltimeterConnections();
-    void waitForThreadStart();
 
     void initErrorDisplayMap();
 
@@ -175,6 +179,7 @@ private:
     void initProgressBar(const QString &title, bool isModal,bool ishow);
     void begingTesting(); //开始测试
     void creatbeginreadmodule();//构建并开始读取模组数据
+
 
 
     //提供一个切换监听状态的方法 断开USB监听
@@ -205,7 +210,8 @@ private:
     void DestructionSerialclass();
 
     //遍历主板
-    void Traverse_through_motherboard_information();
+    void initBoardDataAcquisition();   // 替换原来的 Traverse_through_motherboard_information
+    void shutdownBoardThread();
 
     //遍历模组数据
     void Traverse_through_ModuleReadInfo();
@@ -226,6 +232,7 @@ private:
 
     //构建进度条
     void initcreatprogressingDimming(bool bdimming);
+    void showModuleWarmupWait();
 
     //开始测试时是否需要控温
     bool requiresTemperatureControl(quint8 equipmentType);
@@ -267,6 +274,8 @@ public slots:
 
     //采集通道数据对比失败提示
     void recvshowDimmingFailedChn(const QList<quint8> &failedChn);
+    void recvRequestSmartCupClear(const QList<quint8> &failedChn1Based);
+    void slotSmartCupClearFinished();
 
     void recvprepareReconnectGetData();
     
@@ -283,13 +292,9 @@ public slots:
     void configReminderIcon(quint8 );
 
     //添加样本同步患者界面
-    void slotsycnPaintentInfo(QString id_, QString addtime, QString barcode_, QString testProject);
+    void slotsycnPaintentInfo(QString id, QString addtime, QString barcode,
+                              QString testProject, bool isEmergency);
 
-     //定时遍历模组
-    void ObtainModuleData();
-
-    //定时遍历主板
-    void timeoutObtainMainboadData();
 
     //串口连接状态提示
     void slotconnectionStateChanged(bool connected);
@@ -332,6 +337,7 @@ public slots:
 
     /*测高完成蜂鸣提示*/
     void TestHeightFinish(const bool finished);
+    void setAltimeterCameraPower(bool enable);
 
     void onDeviceConnected(usbDevice dev);
     void onDeviceDisconnected(usbDevice dev);
@@ -341,6 +347,7 @@ public slots:
     void onusbPowerContl(QString message, const quint8 istate);
 
     //void    on_toolButtonr_esult_tool_print_clicked();
+    void onDecodingFinished(bool success, const QString &result);
 
 signals:
     //质控获取通道值
@@ -397,6 +404,8 @@ signals:
 
     //断线清空模组缓存数据
     void cleanModuleBuffData();
+    void instrumentWentOffline();
+    void instrumentCameOnline();
 
     /***测试任务处理***/
     void syncModuleChannelData(const QStringList); /*解析到模组通道数据*/
@@ -406,8 +415,9 @@ signals:
     void OpenInstrumentCamera(const quint8);
 	void findCameraIndexByDevicePath(const QString& );
 
-    //触发到测高开始解析图片
+    //触发到测高开始拍照
     void triggerTestHeight();
+    void altimeterCameraPower(bool enable);
 
     //所有样本测试完成曲线界面复原
     void allCurveClear();
@@ -420,6 +430,15 @@ private slots:
 
     void onReminderRequested(QString, QString);
     void onStartTestClicked(); //开始测试
+
+    // 改为接收数据的槽
+    void handleBoardData(const QByteArray &data);
+    void pauseBoardAcquisition();
+    void resumeBoardAcquisition();
+    void pauseMainboardPollForRecharge();
+    void resumeMainboardPollAfterRecharge();
+
+    void sendOneModuleData(int moduleIndex);
 
     void on_sStatusInfo_clicked();
     void on_toolButton_quality_reset_clicked();
@@ -472,6 +491,9 @@ private:
 
 private:
     void updateConnectionUI(bool connected);
+    void applyStatusBarStyle();
+    void applyConsumableChipStyle(QLabel* label, double percent, quint8 threshold);
+    QString consumableChipCaption(int reagentIndex) const;
     QPixmap m_connectedIcon;
     QPixmap m_disconnectedIcon;
     bool m_iconsLoaded = false;
@@ -495,12 +517,13 @@ private:
     //USB监听
     QScopedPointer<USBListener> m_USBListener;
 
-
+    QPointer<AboutMachine> m_aboutMachine; //关于
 
     QPointer<Testing> mptesting; //测试界面
     QPointer<GraphPlot> m_graphplot; //测试曲线
     QPointer<SuoweiSerialPort> mlocalSerial; //串口类线程对象
     QPointer<FunctionCustomWidget> preminder;//退出软件对话框
+    bool m_forceQuit = false;
     QScopedPointer<CustomHighData> mReminder;    /*提示充值界面*/
     QPointer<displayChanneldata> mshowModuledata; //接收显示模组通道数据
     QPointer<ConfigureWriteParameter> WriteParameter;//命令参数写入仪器
@@ -532,8 +555,9 @@ private:
 
     //测高线程
     //Heightmeasurement * Altimetertrigger = nullptr;
-    QThread mTesthighThread;
-    opencvfindHeigh *mAltimetertrigger = nullptr;
+    QPointer<TestOpcv> m_altimeter;
+    QTimer *m_altimeterDelayTimer = nullptr;
+    bool m_altimeterBound = false;
 
     //SendMachineSportInfo *Machinesport = nullptr;
 
@@ -550,8 +574,10 @@ private:
     moduletimerThread* m_moduletimerThread = nullptr;
 
     //主板
-    QThread m_threadMainBoard;
-    ObtainMainBoardData* m_ObtainMainBoardData = nullptr;
+    QThread m_boardThread;
+    ObtainMainBoardData *m_boardData = nullptr;
+    bool m_rechargePollPaused = false;
+    int m_rechargePollGeneration = 0;
 
 
     bool m_warmwasteliquor = false;     //提示闪烁废液
@@ -591,6 +617,10 @@ private:
     QIcon m_iconError{ICON_ERROR};
     QIcon m_iconReminder{ICON_REMINDER};
     QIcon* m_currentIcon = nullptr; // 内存占用8字节
+
+
+    std::unique_ptr<QRCodeReader> m_readerCode;
+    void initScanBarcode();
 
 };
 

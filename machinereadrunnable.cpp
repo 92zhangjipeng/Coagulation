@@ -1,4 +1,6 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 
 #include "machinereadrunnable.h"
 #include "cglobal.h"
@@ -73,17 +75,17 @@ void ReadModulInfo::sycnpSerialPort(SuoweiSerialPort *pSerialpotr)
     //SingletonAxis *pconfAxis = SingletonAxis::GetInstance();
     SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,equipmentKind);
     m_modulcode.clear();
-    m_modulcode.push_back(Testing::m_TaskDll->_SetTestModeInfo(0, 0, 0, false));
+    m_modulcode.push_back(Testing::getTaskDll()->_SetTestModeInfo(0, 0, 0, false));
     switch(equipmentKind)
     {
         case KS600:
         break;
         case KS800:
-            m_modulcode.push_back(Testing::m_TaskDll->_SetTestModeInfo(1, 0, 0, false));
+            m_modulcode.push_back(Testing::getTaskDll()->_SetTestModeInfo(1, 0, 0, false));
         break;
         case KS1200:
-            m_modulcode.push_back(Testing::m_TaskDll->_SetTestModeInfo(1, 0, 0, false));
-            m_modulcode.push_back(Testing::m_TaskDll->_SetTestModeInfo(2, 0, 0, false));
+            m_modulcode.push_back(Testing::getTaskDll()->_SetTestModeInfo(1, 0, 0, false));
+            m_modulcode.push_back(Testing::getTaskDll()->_SetTestModeInfo(2, 0, 0, false));
         break;
     }
 

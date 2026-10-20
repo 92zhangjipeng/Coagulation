@@ -3,6 +3,7 @@
 
 #include <QTableWidget>
 #include <QWidget>
+#include <QShowEvent>
 #include "analyticaljson.h"
 #include "height_data.h"
 #include "qcommboxdelegate.h"
@@ -40,19 +41,35 @@ public:
     void initstyle();
 
     //添加任务同步添加患者数据库
-    void _addpatientsqltable(QString id_, QString addtime, QString barcode_, QString testProject);
+    void addpatientsqltable(QString sampleId, QString addtime, QString barcode,
+                            QString testProject, bool isEmergency = false);
+
+    void addfollowUpSample(const QString sampleidF);
+    void removefollowUpSample(const QString sampleidF){m_followUpSample.remove(sampleidF);}
+    bool hasfollowUpSample(const QString& name) { return m_followUpSample.contains(name); }
+    void clearfollowUpSample(){m_followUpSample.clear();}
 
     //取消任务Id
-    void cancelSampleResultItem(const QString &cancelId);
+    int cancelSampleResultItem(const QString &cancelId);
 
     void ImportTodayInfo();
+    void onPreviewPageShown();
+
+protected:
+    void showEvent(QShowEvent *event) override;
 
 private slots:
     void dgvDellClick(QTableWidgetItem* item);
 
+    void onTableAboutToEdit(QTableWidgetItem *item);
+
 
 private:
-    void _setNoteditableCol(QList<int> cols); //设置不可编辑列
+    void drawSamplePairFrame();   // 绘制配对样本框
+    void refreshPairFrame();
+    void rebuildPairRowsCache();  // 数据变化时重建配对行号缓存,绘制时直接取用
+
+    void setNoteditableCol(QList<int> cols); //设置不可编辑列
 
     void _setCommboxDelegate(QList<int> cols); //设置下拉框代理
 
@@ -60,13 +77,18 @@ private:
 
     void SetColumnText(QTableWidget * tablewiget,int row,int col,QString text);
 
+    void syncTableLayout();
+    void applyDefaultRowHeight(QTableWidget *table, int row);
+
     //行背景颜色
     void MarktableWidgetColor(QTableWidget * table, int row, int cols, const QString &text, const QColor &color);
 
 public slots:
-    void    updatecommboxInfo();//同步患者下拉信息
-    void    showContextpup(const QPoint &pos);
-    void    recvSampleTestingErr(const QString &ErrSampleid, const quint8 &channelIdx); //样本测试异常
+    void updatecommboxInfo();//同步患者下拉信息
+    void showContextpup(const QPoint &pos);
+    void recvSampleTestingErr(const QString &ErrSampleid, const quint8 &channelIdx); //样本测试异常
+    //查询界面删除相同ID 记录
+    void onsycnDelOthertableWidgetRow(const QString delSameId);
 
 signals:
     void hideCurveUi();
@@ -86,39 +108,16 @@ private:
     QList<TableItemDelegate*> m_eneditdelegate;
     QList<TableSelTimeDelegate* >m_pconfigtimedelegate;
 
+    QSet<QString> m_followUpSample;
 
+    //配对样本行号缓存:数据变化时由rebuildPairRowsCache重建,
+    //避免每次绘制都O(n²)重算配对关系(导致切到结果预览后界面卡死、内存持续上涨)
+    QSet<int> m_pairRowsCache;
 
-    QString mCSS = "QMenu {color:black;background-color:white; border-radius:3px;padding:5px;margin:6px;}"
-                   "QMenu::item:text { padding-left:10px;padding-right:10px;}"
-                   "QMenu::item:selected{ color:#1aa3ff;background-color: #e5f5ff;border-radius:3px;}";
+    static const QString VScroBarCss;
+    static const QString TableWidgetCss;
 
-    QString VScroBarCss =
-            "QScrollBar:vertical {width: 18px; background: transparent; margin: 0px,0px,0px,0px; padding-top: 18px;padding-bottom: 18px;} "
-            "QScrollBar::handle:vertical {width: 18px; background: rgba(0,0,0,25%);border-radius: 4px;min-height: 20;}"
-            "QScrollBar::handle:vertical:hover {width: 8px;background: rgba(0,0,0,50%);border-radius: 4px; min-height: 20;}"
-            "QScrollBar::add-line:vertical {height: 18px;width: 18px;border-image: url(:/Picture/minus.png);subcontrol-position: bottom;}"
-            "QScrollBar::sub-line:vertical {height: 18px;width: 18px;border-image: url(:/Picture/Quality.png);subcontrol-position: top;}"
-            "QScrollBar::add-line:vertical:hover {height: 18px;width: 18px;border-image: url(:/Picture/minus.png);subcontrol-position: bottom;}"
-            "QScrollBar::sub-line:vertical:hover {height: 18px;width: 18px;border-image: url(:/Picture/Quality.png);subcontrol-position: top;}"
-            "QScrollBar::sub-page:vertical {background: rgb(178,180,180); border-radius: 0px;}"
-            "QScrollBar::add-page:vertical {background: rgb(178,180,180); border-radius: 0px;}";
-
-    QString TableWidgetCss = "QTableWidget::item:hover{background-color:rgb(70 ,130 ,180)}"
-                             "QTableWidget::item:selected{background-color:rgb(135, 206, 250)}"
-                              "QTableView QTableCornerButton::section{color: white; background-color: rgb(188, 187, 186); "
-                              "border: 1px solid rgb(188, 187, 186);border-radius:0px; border-color: rgb(188, 187, 186);"
-                              "font: bold 1pt;padding:12px 0 0 10px}"
-                               "QHeaderView::section,QTableCornerButton:section{ \
-                               padding:3px; margin:0px; color:rgba(188, 187, 186, 255);  border:1px solid rgba(188, 187, 186, 255); \
-                               border-left-width:0px; border-right-width:1px; border-top-width:0px; border-bottom-width:1px; \
-                               background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #646464,stop:1 #525252); }"
-                               "QTableWidget{background-color:white;border:none;}"
-                               "QHeaderView::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
-                               stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}"
-                               "QTableView QTableCornerButton::section {background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,\
-                               stop:0 rgba(188, 187, 186, 255), stop: 0.5 rgba(188, 187, 186, 255),stop: 0.6 rgba(188, 187, 186, 255), stop:1 rgba(188, 187, 186, 255)); color: white;}";
-
-     enum verifierinfo{
+    enum verifierinfo{
          SAMPLEID,                              //样本号
          ADDSAMPLETIME,                         //添加时间
          BARCODESAMPLE,                         //条形码

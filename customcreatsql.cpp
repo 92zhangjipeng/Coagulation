@@ -103,6 +103,7 @@ void CustomCreatSql::initializeSQLTable()
     creat_statisticstable(m_statistics_table,m_statisticstablename,STATS);
 
     createTable();
+    initSampleInitBloodDb();
 
     return;
 }
@@ -908,6 +909,11 @@ void CustomCreatSql::_updateReferenceValue(QString key_,QString updatekey_,QStri
     query_sql.finish();
 }
 
+void CustomCreatSql::obtainPersondata(QString key_, QString &outMandata_, QString &outWomandata_)
+{
+    _obtainPersondata_(key_, outMandata_, outWomandata_);
+}
+
 //找男同学 && 女同学 参考值
 void CustomCreatSql::_obtainPersondata_(QString key_, QString& outMandata_, QString &outWomandata_)
 {
@@ -1668,6 +1674,27 @@ QMap<quint8, bool> CustomCreatSql::BackEmptyTubeNumMap()
 	return HadEmptyTube;
 }
 
+QMap<quint8, QList<quint8>> CustomCreatSql::GetEmptyTubeMap()
+{
+    QMap<quint8, QList<quint8>> byTray;
+    QSqlQuery query(m_MachineConfigdb);
+    const QString queryString = QString("select * from '%1' where State = '%2'")
+            .arg(m_MachineTubeState).arg(TESTTUBES_FREETIME);
+    if (query.exec(queryString)) {
+        while (query.next()) {
+            const quint8 indexTube = query.value(TubeNums).toUInt();
+            const quint8 tray = indexTube / 60;
+            const quint8 slot = indexTube % 60;
+            byTray[tray].append(slot);
+        }
+    }
+    for (auto it = byTray.begin(); it != byTray.end(); ++it) {
+        std::sort(it.value().begin(), it.value().end());
+    }
+    query.finish();
+    query.clear();
+    return byTray;
+}
 
 quint8 CustomCreatSql::BackFirstEmptyHole()
 {
@@ -3068,32 +3095,109 @@ int CustomCreatSql::getMaxSampleID(const QString datetoday)
     return biggestId;
 }
 
-QVector<int> CustomCreatSql::getTodayAllSampleid(const QString datetoday)
+QSet<QString> CustomCreatSql::getTodayAllSampleid(const QString datetoday, const bool isfollowUp)
 {
-	QVector<int> outtodaySample;
-	outtodaySample.clear();
-    if(!connectMyDB(m_database,SQL_PATH))
-    {
-        return outtodaySample;
+    Q_UNUSED(isfollowUp);
+    QSet<QString> ids;
+    if (!connectMyDB(m_database, SQL_PATH)) {
+        return ids;
     }
-
-    QString GETSAMPLEBASICRESULT_ID = QString("SELECT *FROM ResultData");
     QSqlQuery sql_query(m_database);
-    if(sql_query.exec(GETSAMPLEBASICRESULT_ID))
-    {
-        QSqlRecord rec;
-        QString Finddate;
-        int findid;
-        while(sql_query.next())
-        {
-            rec = sql_query.record();
-            QString id = sql_query.value(rec.indexOf("样本号")).toString();
-            GlobalData::apartSampleId(id,Finddate,findid);
-            if(datetoday == Finddate)
-                outtodaySample.push_back(findid);
+    if (!sql_query.exec(QStringLiteral("SELECT 样本号 FROM ResultData"))) {
+        return ids;
+    }
+    while (sql_query.next()) {
+        const QString id = sql_query.value(0).toString();
+        QString findDate;
+        int findId = 0;
+        GlobalData::apartSampleId(id, findDate, findId);
+        if (findDate == datetoday) {
+            ids.insert(id);
         }
     }
-    return outtodaySample;
+    return ids;
+}
+
+bool CustomCreatSql::setTestCurveDataChannel(QString id, int channelNo)
+{
+    return updateTestCurveDataTale(id, quint8(255), QString::number(channelNo));
+}
+
+bool CustomCreatSql::updateAnalysisResults(const QString idnum, const QString key,
+                                           const double AUC, const double MaxSlope,
+                                           const double TMA, const double Lag,
+                                           const double Adhesionrate)
+{
+    Q_UNUSED(idnum);
+    Q_UNUSED(key);
+    Q_UNUSED(AUC);
+    Q_UNUSED(MaxSlope);
+    Q_UNUSED(TMA);
+    Q_UNUSED(Lag);
+    Q_UNUSED(Adhesionrate);
+    return true;
+}
+
+void CustomCreatSql::initSampleInitBloodDb()
+{
+    QUIUtils::isDirExist(QUIUtils::getappload(QStringLiteral("SQLFile")));
+    const QString dbPath = QDir(QCoreApplication::applicationDirPath()).filePath(
+        QStringLiteral("SQLFile/SampleInitBlood.db"));
+    if (!m_sampleInitBloodDb.isValid()) {
+        m_sampleInitBloodDb = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                        QStringLiteral("SampleInitBlood"));
+    }
+    m_sampleInitBloodDb.setDatabaseName(dbPath);
+    if (!m_sampleInitBloodDb.open()) {
+        QLOG_WARN() << "SampleInitBlood.db open failed:" << m_sampleInitBloodDb.lastError().text();
+        return;
+    }
+    QSqlQuery q(m_sampleInitBloodDb);
+    q.exec(QStringLiteral(
+        "CREATE TABLE IF NOT EXISTS ppp_init_value ("
+        "sample_num INTEGER, channel INTEGER, ppp_init INTEGER, "
+        "PRIMARY KEY (sample_num, channel))"));
+    q.exec(QStringLiteral(
+        "CREATE TABLE IF NOT EXISTS prp_init_value ("
+        "sample_num INTEGER, reagent_index INTEGER, channel INTEGER, prp_init INTEGER, "
+        "PRIMARY KEY (sample_num, reagent_index, channel))"));
+}
+
+void CustomCreatSql::saveSamplePppInit(int sampleNum, int channel, int pppInit)
+{
+    if (!m_sampleInitBloodDb.isOpen()) {
+        initSampleInitBloodDb();
+    }
+    if (!m_sampleInitBloodDb.isOpen()) {
+        return;
+    }
+    QSqlQuery q(m_sampleInitBloodDb);
+    q.prepare(QStringLiteral(
+        "INSERT OR REPLACE INTO ppp_init_value (sample_num, channel, ppp_init) "
+        "VALUES (?, ?, ?)"));
+    q.addBindValue(sampleNum);
+    q.addBindValue(channel);
+    q.addBindValue(pppInit);
+    q.exec();
+}
+
+void CustomCreatSql::saveSamplePrpInit(int sampleNum, int reagentIndex, int channel, int prpInit)
+{
+    if (!m_sampleInitBloodDb.isOpen()) {
+        initSampleInitBloodDb();
+    }
+    if (!m_sampleInitBloodDb.isOpen()) {
+        return;
+    }
+    QSqlQuery q(m_sampleInitBloodDb);
+    q.prepare(QStringLiteral(
+        "INSERT OR REPLACE INTO prp_init_value (sample_num, reagent_index, channel, prp_init) "
+        "VALUES (?, ?, ?, ?)"));
+    q.addBindValue(sampleNum);
+    q.addBindValue(reagentIndex);
+    q.addBindValue(channel);
+    q.addBindValue(prpInit);
+    q.exec();
 }
 
 

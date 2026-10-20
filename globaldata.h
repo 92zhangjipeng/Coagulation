@@ -114,6 +114,9 @@ public:
      */
     static QByteArray ThrowCupstotryagain(const quint8 num, const int times);
 
+    /** 弃杯孔放杯失败时上抬 1mm 重试 */
+    static QByteArray ThrowCupsRaiseRetry(const quint8 num, const int times);
+
     /** 在试管盘处吸杯子
      * @brief GrabtheCupAttheTestTubeTray
      * @param num
@@ -135,12 +138,18 @@ public:
      */
     static bool isHandsSuckFinish(quint32 airvale);
 
+    /** 抬起后仍吸住（允许较抓杯阈略高的读数波动） */
+    static bool isHandsLiftStillHolding(quint32 airvale, bool isSuctionBit);
+
     /** 抓手吐杯状态
      * @brief HandsThrowCupFinish
      * @param airvale
      * @return
      */
     static bool isHandsThrowCupFinish(quint32 airvale);
+
+    /** 丢杯：已到空载阈，或已关负压且读数明显回升（传感器滞后） */
+    static bool isHandsCupReleased(quint32 airvale, bool isSuctionBit);
 
 
     /** 解析收到的从机地址
@@ -204,6 +213,9 @@ public:
      * @return
      */
     static QByteArray WriteModuleLedData(quint8 indexModule, quint8 FcunNum, quint16 Ledval);
+
+    /** 是否为模组通道 ADC 读帧（cmd_func=0 且 type=读）。写 LED/保存等应答不得当通道值显示 */
+    static bool isModuleChannelAdcFrame(const QStringList &moduleData);
 
     /**
      * @brief ReadModuleLedData 读LED
@@ -293,6 +305,11 @@ public:
       */
      static bool determineReagentontheleftIsSufficient(quint8 consumableIndex, quint8 reagentIndex);
 
+     static constexpr int kPppBaselineMin = 2000;
+     static constexpr int kPppBaselineMax = 3000;
+     static constexpr int kPppLowVolumeWarn = 1000;
+     static bool isPppBaselineValid(int value);
+
      /**  左边试剂不足 更换吸试剂位置
       * @brief replactSuckReagentLoc
       * @param num
@@ -309,17 +326,10 @@ public:
       */
      static QByteArrayList errMachineBackOrigin(const quint8 num, const int indexZAxis);
 
-     /** 输出吸试剂指令
-      * @brief outCommandSuckReagent
-      * @param indexReag
-      * @return
-      */
-     static QByteArrayList outCommandSuckReagent(const quint8 indexReag);
 
 
-     static QByteArrayList outSuckPRPtestReagentCup(int testChannel,
-													 quint8 suckHole,
-													 QPoint &PRPHoleAxis);
+
+
 
      //让xyz复位
      static QByteArrayList letallAxisBackOrigin(QList<quint8> &backnumList);

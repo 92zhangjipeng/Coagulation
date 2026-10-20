@@ -1,0 +1,19 @@
+{
+    "samples": [
+        {
+            "maxNegative": -7.575556193343223,
+            "sampleID": "202601220001",
+            "sinLength": 67
+        },
+        {
+            "maxNegative": -2.04319645399015,
+            "sampleID": "202601220002",
+            "sinLength": 50
+        },
+        {
+            "maxNegative": -13.284688933633872,
+            "sampleID": "202601220003",
+            "sinLength": 75
+        }
+    ]
+}

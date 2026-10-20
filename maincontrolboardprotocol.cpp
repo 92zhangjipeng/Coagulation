@@ -1,12 +1,34 @@
 ﻿#include "maincontrolboardprotocol.h"
-#include "mainwindow.h"
-#include "qualitycontrol.h"
 #include "QsLog/include/QsLog.h"
-#include "genericfunctions.h"
-#include "globaldata.h"
+#include "loadequipmentpos.h"
+#include <QMap>
+#include <QString>
+#include <QStringList>
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#pragma execution_character_set("utf-8")
+#endif
+
+static QString mappingConsumableName(quint8 kind)
+{
+    switch (kind) {
+    case INDEX_AA_CONSUMABLE:          return QString::fromUtf8("AA");
+    case INDEX_ADP_CONSUMABLE:         return QString::fromUtf8("ADP");
+    case INDEX_EPI_CONSUMABLE:         return QString::fromUtf8("EPI");
+    case INDEX_COL_CONSUMABLE:         return QString::fromUtf8("COL");
+    case INDEX_RIS_CONSUMABLE:         return QString::fromUtf8("RIS");
+    case INDEX_CLEANLINQUE_CONSUMABLE: return QString::fromUtf8("清洗剂S1(内)");
+    case INDEX_TESTTUBE_CONSUMABLE:    return QString::fromUtf8("测试试管");
+    case OUTSIDE_CLEANLINQUE_S2:       return QString::fromUtf8("清洗剂S2(外)");
+    default: return QString();
+    }
+}
 
 mainControlBoardProtocol::mainControlBoardProtocol(QObject *parent) : QObject(parent)
   ,mreadCardEvent(false)
+  ,m_lastFailCardState(0xFF)
+  ,m_lastFailCardType(0xFF)
+  ,m_lastFailCardQty(0xFF)
 {
     moveToThread(&m_thread);
     QObject::connect(&m_thread,&QThread::started,this,&mainControlBoardProtocol::_threadstart);
@@ -31,7 +53,7 @@ void mainControlBoardProtocol::_start(quint8 Equipment)
 
 void mainControlBoardProtocol::_threadstart()
 {
-    binitCreatSignals = false;
+
     m_BuzzerState = false;
     QLOG_DEBUG()<<"mainControlBoardProtocol  Thread ID:"<<QThread::currentThreadId();
 }
@@ -191,6 +213,67 @@ void  mainControlBoardProtocol::triggeredOutCleanInfo(const bool s2Cleanstatus)
 
 
 
+QString mainControlBoardProtocol::cardTypeLabel(quint8 typeCode, quint8 cardQty, bool treatZeroAsUnknown) const
+{
+    // 读失败时类型位常为0，0也是AA编码，不能把“没读到卡”显示成AA
+    if (treatZeroAsUnknown && typeCode == 0 && cardQty == 0) {
+        return QString::fromUtf8("未知(未读到卡信息)");
+    }
+    const QString name = mappingConsumableName(typeCode);
+    if (!name.isEmpty()) {
+        return name;
+    }
+    return QString::fromUtf8("未知(编码%1)").arg(static_cast<int>(typeCode));
+}
+
+QString mainControlBoardProtocol::cardFailReasonText(quint8 readCardState) const
+{
+    switch (readCardState) {
+        case CONSUMABLES_READ_FAIL:
+            return QString::fromUtf8("读卡失败");
+        case CONSUMABLES_READ_ABNORMAL:
+            return QString::fromUtf8("刷卡设备异常");
+        case RECHARGE_FAIL:
+            return QString::fromUtf8("充值写入失败");
+        default:
+            return QString::fromUtf8("未知原因(0x%1)")
+                    .arg(static_cast<int>(readCardState), 2, 16, QLatin1Char('0'));
+    }
+}
+
+void mainControlBoardProtocol::promptCardSwipeFailure(quint8 readCardState, quint8 typeCode, quint8 cardQty,
+                                                    const QString &reason, bool trustCardFields)
+{
+    if (m_lastFailCardState == readCardState
+            && m_lastFailCardType == typeCode
+            && m_lastFailCardQty == cardQty) {
+        return;
+    }
+    m_lastFailCardState = readCardState;
+    m_lastFailCardType = typeCode;
+    m_lastFailCardQty = cardQty;
+
+    // 读失败时主板常不刷新种类/数量，帧里仍是上一张成功卡，不能当真卡内容
+    const bool showCardFields = trustCardFields
+            && !(typeCode == 0 && cardQty == 0);
+    const QString typeName = showCardFields
+            ? cardTypeLabel(typeCode, cardQty, false)
+            : QString::fromUtf8("未知(未读到卡信息)");
+    const QString qtyText = showCardFields
+            ? QString::number(static_cast<int>(cardQty))
+            : QString::fromUtf8("未读到");
+    const QString tips = QString::fromUtf8("刷卡失败\n种类：%1\n卡内数量：%2\n原因：%3")
+            .arg(typeName)
+            .arg(qtyText)
+            .arg(reason);
+    QLOG_WARN() << tips
+                << "flagState=" << QString::number(readCardState, 16)
+                << "type=" << typeCode
+                << "qty=" << cardQty
+                << "trust=" << trustCardFields;
+    emit Abnormalcardswipingprompt(tips);
+}
+
 /**
  * @brief 检测抓板耗材刷卡状态
  * @param mainControlBoardData_suppileBit 刷卡状态字节
@@ -201,25 +284,35 @@ void mainControlBoardProtocol::DetectCardStatusofScratchingBoardConsumables(quin
                                                                                 quint8  mainControlBoardData_suppileTotal,
                                                                                 const QString &suppileDate)
 {
-
-    // 参数校验
-    if (mainControlBoardData_suppileTotal == 0) return;
-
-    // 二进制解析优化
     const quint8  readCardState = mainControlBoardData_suppileBit & 0x0F; //读卡状态
     const quint8  kindsuppilesbity = (mainControlBoardData_suppileBit & 0xF0) >> 4;
-    const QString kindsuppiles = GenericFunctions::BiteMapingConsumablesName(kindsuppilesbity);//耗材类型
+    const QString kindsuppiles = mappingConsumableName(kindsuppilesbity);
 
-    QString outTips;
-    const QMap<int,QString> statusPrefix{
-        {CONSUMABLES_READ_FAIL, "刷卡失败"},
-        {CONSUMABLES_READ_ABNORMAL, "刷卡设备异常"},
-        {RECHARGE_FAIL, "刷卡充值失败"}
-    };
-    if(statusPrefix.contains(readCardState)){
+    const bool isSuccessStatus = (readCardState == CONSUMABLES_READ_SUCESSFULLY
+                                  || readCardState == RECHARGE_SUCESSFULLY);
+
+    // 成功后主板会把卡余量清0，后续成功+数量0是清卡回读，不是失败
+    if (isSuccessStatus && mainControlBoardData_suppileTotal == 0) {
+        if (mreadCardEvent) {
+            QLOG_DEBUG() << "刷卡成功后卡余量已清0,忽略 type=" << kindsuppilesbity
+                         << "flag=" << QString::number(mainControlBoardData_suppileBit, 16);
+            return;
+        }
         configreadCardflag();
-        outTips = QString("%1: %2卡,请重试!").arg(statusPrefix.value(readCardState)).arg(kindsuppiles);
-        emit Abnormalcardswipingprompt(outTips);
+        promptCardSwipeFailure(readCardState, kindsuppilesbity, mainControlBoardData_suppileTotal,
+                             QString::fromUtf8("卡内数量为0"), true);
+        return;
+    }
+
+    if (readCardState == CONSUMABLES_READ_FAIL
+            || readCardState == CONSUMABLES_READ_ABNORMAL) {
+        configreadCardflag();
+        promptCardSwipeFailure(readCardState, kindsuppilesbity, mainControlBoardData_suppileTotal,
+                             cardFailReasonText(readCardState), false);
+    } else if (readCardState == RECHARGE_FAIL) {
+        configreadCardflag();
+        promptCardSwipeFailure(readCardState, kindsuppilesbity, mainControlBoardData_suppileTotal,
+                             cardFailReasonText(readCardState), true);
     }
 
     const QMap<int,QString> statusSucess{
@@ -227,11 +320,14 @@ void mainControlBoardProtocol::DetectCardStatusofScratchingBoardConsumables(quin
         {RECHARGE_SUCESSFULLY, "刷卡充值成功"}
     };
     if(statusSucess.contains(readCardState)){
+        m_lastFailCardState = 0xFF;
+        m_lastFailCardType = 0xFF;
+        m_lastFailCardQty = 0xFF;
 
-        outTips = QString("%1%2: 充值数量:%3 批号:%4")
+        QString outTips = QString("%1%2: 充值数量:%3 批号:%4")
                 .arg(kindsuppiles)
                 .arg(readCardState == 2 ? "刷卡成功" : "刷卡充值成功")
-                .arg(mainControlBoardData_suppileTotal)
+                .arg(static_cast<int>(mainControlBoardData_suppileTotal))
                 .arg(suppileDate);
         QLOG_DEBUG()<<"刷卡充提示;"<<outTips;
 
@@ -249,8 +345,10 @@ void mainControlBoardProtocol::DetectCardStatusofScratchingBoardConsumables(quin
         {BUFFER_WRITE, "缓存写入"}
     };
     if(statusNormal.contains(readCardState)){
-       //QLOG_DEBUG()<<statusNormal.find(readCardState).value();
        configreadCardflag();
+       m_lastFailCardState = 0xFF;
+       m_lastFailCardType = 0xFF;
+       m_lastFailCardQty = 0xFF;
     }
     return;
 }
@@ -373,6 +471,10 @@ void  mainControlBoardProtocol::triggeredTary_4_info(const bool ctrigger)
 void mainControlBoardProtocol::Detect_Externalcleaningfluid(const QStringList Boardmessages)
 {
     //0 试管盘4 状态 ==> 1 试管盘3 状态 ==> 2 试管盘3 状态 ==> 3  试管盘1状态 ==> 4 清洗液状态
+    if (Boardmessages.size() <= 4) {
+        QLOG_WARN() << "Detect_Externalcleaningfluid: frame too short, size=" << Boardmessages.size();
+        return;
+    }
     int mainboard_index_4_byte_Hex = QString(Boardmessages.at(4)).toInt(nullptr,16);
     QString str_data = QString("%1").arg(mainboard_index_4_byte_Hex, 8, 2, QLatin1Char('0'));
     QByteArray mainboard_index_4_byte =  str_data.toLatin1();
@@ -395,63 +497,87 @@ void mainControlBoardProtocol::Detect_Externalcleaningfluid(const QStringList Bo
 
 
 
-void mainControlBoardProtocol::recvmainControlBoardProtocol(const QStringList mainControlBoardData)
+void mainControlBoardProtocol::recvmainControlBoardProtocol(const QStringList &data)
 {
-    if(!binitCreatSignals)
-    {
-        QLOG_TRACE()<<"分析主板消息线程Id:"<< QThread::currentThreadId();
+    static bool binitCreatSignals = false;  // 或者使用 QAtomicInt
+    if (!binitCreatSignals) {
+        QLOG_TRACE() << "分析主板消息线程Id:" << QThread::currentThreadId();
         binitCreatSignals = true;
     }
 
-    QString hexstr;
-    bool ok;
-    hexstr = mainControlBoardData[IndexByte_5];
-    quint8 mainControlBoardData_5th = hexstr.toInt(&ok,HEX_SWITCH);
+    const int requiredIdx = IndexByte_14;
+    if (data.size() <= requiredIdx) {
+        QLOG_ERROR() << "数据长度不足，需要至少" << requiredIdx + 1;
+        return;
+    }
 
-    //收到测高的命令
-    TriggerAltimetryState(mainControlBoardData_5th);
+    auto toU8 = [&data](int idx, bool *ok = nullptr) -> quint8 {
+        return static_cast<quint8>(data[idx].toUShort(ok, HEX_SWITCH));
+    };
 
+    quint8 altimetryCmd = toU8(IndexByte_5);
+    TriggerAltimetryState(altimetryCmd);
 
-    hexstr = mainControlBoardData[IndexByte_8];
-    quint8 mainControlBoardData_suppileBit = hexstr.toInt(&ok,HEX_SWITCH);
+    quint8 supplyFlag = toU8(IndexByte_8);
+    quint8 supplyTotal = toU8(IndexByte_8 + 1);
 
-    hexstr = mainControlBoardData[IndexByte_8 + 1];
-    quint8 mainControlBoardData_suppileTotal = hexstr.toInt(&ok,HEX_SWITCH);
+    quint8 highByte = toU8(IndexByte_14);
+    quint8 lowByte  = toU8(IndexByte_13);
+    quint16 supplyDate = (highByte << 8) | lowByte;
+    QString datePara = QString::number(supplyDate);  // 十进制，如 "2026"
 
-    //耗材有效期
-    //hexstr = mainControlBoardData[IndexByte_14] + mainControlBoardData[IndexByte_13];
-    //QLOG_DEBUG()<<"批号日期"<<hexstr;
-    //quint16 suppileDate = hexstr.toInt(&ok,HEX_SWITCH);
+    DetectCardStatusofScratchingBoardConsumables(supplyFlag, supplyTotal, datePara);
+    Waste_detection(altimetryCmd);
 
-	quint8 highByte = mainControlBoardData[IndexByte_14].toUShort(&ok, HEX_SWITCH);
-	quint8 lowByte = mainControlBoardData[IndexByte_13].toUShort(&ok, HEX_SWITCH);
-	quint16 suppileDate = (highByte << 8) | lowByte;
-	QString datePara = QString::number(suppileDate, 16);
-    //QLOG_DEBUG() << "批号日期：" << datePara;
- 
-
-
-    //检测主板耗材刷卡状态
-    DetectCardStatusofScratchingBoardConsumables(mainControlBoardData_suppileBit,
-                                                 mainControlBoardData_suppileTotal,
-                                                 datePara);
-
-
-    Waste_detection(mainControlBoardData_5th); //废液状态
-
-
-    hexstr = mainControlBoardData[IndexByte_4];
-    quint8 mainControlBoardData_4thBit = hexstr.toInt(&ok,HEX_SWITCH);
-    DeviceStatus data4th = parseDeviceStatus(mainControlBoardData_4thBit);
-
-    //试管盘和S2清洗液
+    quint8 deviceByte = toU8(IndexByte_4);
+    DeviceStatus data4th = parseDeviceStatus(deviceByte);
     th4mainControlBoardData(data4th);
+
+
+//    QString hexstr;
+//    bool ok;
+//    hexstr = mainControlBoardData[IndexByte_5];
+//    quint8 mainControlBoardData_5th = hexstr.toInt(&ok,HEX_SWITCH);
+
+//    //收到测高的命令
+//    TriggerAltimetryState(mainControlBoardData_5th);
+
+
+//    hexstr = mainControlBoardData[IndexByte_8];
+//    quint8 mainControlBoardData_suppileBit = hexstr.toInt(&ok,HEX_SWITCH);
+
+//    hexstr = mainControlBoardData[IndexByte_8 + 1];
+//    quint8 mainControlBoardData_suppileTotal = hexstr.toInt(&ok,HEX_SWITCH);
+
+//    //耗材有效期
+//	quint8 highByte = mainControlBoardData[IndexByte_14].toUShort(&ok, HEX_SWITCH);
+//	quint8 lowByte = mainControlBoardData[IndexByte_13].toUShort(&ok, HEX_SWITCH);
+//	quint16 suppileDate = (highByte << 8) | lowByte;
+//	QString datePara = QString::number(suppileDate, 16);
+//    //QLOG_DEBUG() << "批号日期：" << datePara;
+
+
+
+//    //检测主板耗材刷卡状态
+//    DetectCardStatusofScratchingBoardConsumables(mainControlBoardData_suppileBit,
+//                                                 mainControlBoardData_suppileTotal,
+//                                                 datePara);
+
+
+//    Waste_detection(mainControlBoardData_5th); //废液状态
+
+
+//    hexstr = mainControlBoardData[IndexByte_4];
+//    quint8 mainControlBoardData_4thBit = hexstr.toInt(&ok,HEX_SWITCH);
+//    DeviceStatus data4th = parseDeviceStatus(mainControlBoardData_4thBit);
+
+//    //试管盘和S2清洗液
+//    th4mainControlBoardData(data4th);
 
     return;
 
 
     //Detect_Externalcleaningfluid(mainControlBoardData); //外部清洗液状态
-
     //return;
 }
 

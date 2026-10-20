@@ -4,7 +4,6 @@
 
 #include <QApplication>
 #include <QAbstractItemView>
-#include <aboutmachine.h>
 #include <alarm.h>
 #include <qualitycontrol.h>
 #include <suoweiserialport.h>
@@ -14,10 +13,10 @@
 #include <machinesetting.h>
 #include <inquire_sql_info.h>
 #include "operclass/controldimming.h"
-#include "configureprojectitem.h"   //配置项目
-#include "height_data.h"  //添加测试样本
-#include "instrumentalarmprompt.h" //耗材提示
-#include "threadAddSample/consumableswrite.h" //写入主板线程
+#include "configureprojectitem.h"
+#include "height_data.h"
+#include "instrumentalarmprompt.h"
+#include "threadAddSample/consumableswrite.h"
 
 #include "customcreatsql.h"
 
@@ -39,8 +38,6 @@ public:
     static MainWindow *mainWindow();
 
     static controldimming *pinstancedimming();
-
-    static AboutMachine *paboutinstance();
 
     static Alarm *pinstanceinfowidget();
 
@@ -76,7 +73,7 @@ public:
 
     static Inquire_Sql_Info* pinstanceInquiredata();
 
-    static Printthereport* pinstancePrintPdf();
+
 
 private:
 
@@ -84,9 +81,7 @@ private:
 
 	CustomCreatSql* _msqldata;
 
-    controldimming *_mcontroldimming; //控温调光
-
-    AboutMachine *_maboutequipment; //仪器关于信息
+    controldimming *mcontroldimming; //控温调光
 
     Alarm *_mreminderinfowidget; //仪器信息提示
 
@@ -99,9 +94,9 @@ private:
 
     Testing *_mtestingwidget; //测试界面
 
-    ConfigureProjectItem *_mpsetTestproject;
+    ConfigureProjectItem *mpsetTestproject;
 
-    Height_Data *_maddtestsamplecase;
+    Height_Data *maddtestsamplecase;
 
     instrumentAlarmPrompt* _msuppilereminder; //耗材提示框
 
@@ -122,8 +117,6 @@ private:
     Monitor_TrayTest* _mpobtainModuledata; //模组数据调光 调速
 
     MachineSetting *_mequipmentconfig; //仪器设置
-
-    Printthereport *_mprintPdf;
 
     bool _ready;
     void disconnectAllConnections();

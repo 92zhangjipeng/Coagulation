@@ -1,10 +1,13 @@
 ﻿#ifdef WIN32
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 #endif
 
 #include "querydatathread.h"
 #include <operclass/fullyautomatedplatelets.h>
 #include <globaldata.h>
+#include "customcreatsql.h"
 
 QueryDataThread::QueryDataThread(QObject *parent) : QObject(parent)
 {
@@ -81,158 +84,76 @@ void QueryDataThread::slotFindspecifiedData(QDateEdit *pdataStart,const int days
 
 void QueryDataThread::SycnDesignateDayDataResult(QList<QString> daysList)
 {
-    int numTotal;
-    int n = 1;
     QVector<PatientInformationStu *> painterInfovec;
-    painterInfovec.clear();
     FullyAutomatedPlatelets::pinstancesqlData()->getDesignateResultData(daysList,painterInfovec);
-
-    numTotal = painterInfovec.size();
-    if(numTotal == 0){
-        emit this->InquireEmpty();
-        return;
-    }
-    auto iter = painterInfovec.constBegin();
-    while(iter != painterInfovec.constEnd())
-    {
-        PatientInformationStu *pinquered = (*iter);
-        InqueryDatastu_t* pFindedResult = new InqueryDatastu_t;
-        insertStructData(pFindedResult, 0, pinquered->sampleId);
-        insertStructData(pFindedResult, 1, pinquered->AAResult);
-        insertStructData(pFindedResult, 2, pinquered->ADPResult);
-        insertStructData(pFindedResult, 3, pinquered->EPIResult);
-        insertStructData(pFindedResult, 4, pinquered->COLResult);
-        insertStructData(pFindedResult, 5, pinquered->RISResult);
-        insertStructData(pFindedResult,6,pinquered->sex_);
-        insertStructData(pFindedResult,7,pinquered->department_);
-        insertStructData(pFindedResult,8,pinquered->refertithedoctor_);
-        insertStructData(pFindedResult,9,pinquered->bednumber_);
-        insertStructData(pFindedResult,10,QString::number(pinquered->agesample));
-        insertStructData(pFindedResult,11,pinquered->AddsampleTime);
-        insertStructData(pFindedResult,12,pinquered->SampleName);
-        insertStructData(pFindedResult,13,pinquered->barcodesample);
-        emit this->LoadInquierdata(numTotal,n,pFindedResult);
-        n++;
-        iter++;
-    }
-    return;
+    emitInquireRows(painterInfovec);
 }
 
 void QueryDataThread::SycnDayDataResult(const QString Dateit)
 {
 	QVector<QSharedPointer<PatientInformationStu>> painterInfovec;
     FullyAutomatedPlatelets::pinstancesqlData()->getOneDayTestResultData(Dateit,painterInfovec);
-    int numTotal = painterInfovec.size();
-    if(numTotal == 0){
+    InquireRowList rows;
+    rows.reserve(painterInfovec.size());
+    for (int n = 0; n < painterInfovec.size(); ++n) {
+        if (painterInfovec[n])
+            rows.append(makeInquireStu(painterInfovec[n].data()));
+    }
+    if (rows.isEmpty()) {
         emit InquireEmpty();
         return;
     }
-
-	for (int n = 0; n < numTotal; ++n)
-	{
-		// 正确访问智能指针管理的对象
-		const auto& patientInfo = painterInfovec[n];
-
-		InqueryDatastu_t* pFindedResult = new InqueryDatastu_t;
-
-		// 直接通过智能指针访问成员
-        insertStructData(pFindedResult, 0, patientInfo->sampleId);
-		insertStructData(pFindedResult, 1, patientInfo->AAResult);
-		insertStructData(pFindedResult, 2, patientInfo->ADPResult);
-		insertStructData(pFindedResult, 3, patientInfo->EPIResult);
-		insertStructData(pFindedResult, 4, patientInfo->COLResult);
-		insertStructData(pFindedResult, 5, patientInfo->RISResult);
-		insertStructData(pFindedResult, 6, patientInfo->sex_);
-		insertStructData(pFindedResult, 7, patientInfo->department_);
-		insertStructData(pFindedResult, 8, patientInfo->refertithedoctor_);
-		insertStructData(pFindedResult, 9, patientInfo->bednumber_);
-		insertStructData(pFindedResult, 10, QString::number(patientInfo->agesample));
-		insertStructData(pFindedResult, 11, patientInfo->AddsampleTime);
-        insertStructData(pFindedResult, 12, patientInfo->SampleName);
-		insertStructData(pFindedResult, 13, patientInfo->barcodesample);
-
-		// 发射信号（n+1是为了保持原计数方式）
-		emit LoadInquierdata(numTotal, n + 1, pFindedResult);
-	}
+    emit LoadInquierdataList(rows);
 }
-
-
 
 void QueryDataThread::SycnMonthDataResult(const QString findDate)
 {
     QVector<PatientInformationStu *> painterInfovec;
-    painterInfovec.clear();
     FullyAutomatedPlatelets::pinstancesqlData()->getThisMonthResultData(findDate,painterInfovec);
-    int numTotal = painterInfovec.size();
-    if(numTotal == 0){
+    emitInquireRows(painterInfovec);
+}
+
+void QueryDataThread::SycnAllDataResult()
+{
+    QVector<PatientInformationStu *> painterInfovec;
+    FullyAutomatedPlatelets::pinstancesqlData()->getAllTestResultData(painterInfovec);
+    emitInquireRows(painterInfovec);
+}
+
+InqueryDatastu_t* QueryDataThread::makeInquireStu(const PatientInformationStu *pinquered)
+{
+    InqueryDatastu_t* pFindedResult = new InqueryDatastu_t();
+    insertStructData(pFindedResult, 0, pinquered->sampleId);
+    insertStructData(pFindedResult, 1, pinquered->AAResult);
+    insertStructData(pFindedResult, 2, pinquered->ADPResult);
+    insertStructData(pFindedResult, 3, pinquered->EPIResult);
+    insertStructData(pFindedResult, 4, pinquered->COLResult);
+    insertStructData(pFindedResult, 5, pinquered->RISResult);
+    insertStructData(pFindedResult, 6, pinquered->sex_);
+    insertStructData(pFindedResult, 7, pinquered->department_);
+    insertStructData(pFindedResult, 8, pinquered->refertithedoctor_);
+    insertStructData(pFindedResult, 9, pinquered->bednumber_);
+    insertStructData(pFindedResult,10, QString::number(pinquered->agesample));
+    insertStructData(pFindedResult,11, pinquered->AddsampleTime);
+    insertStructData(pFindedResult,12, pinquered->SampleName);
+    insertStructData(pFindedResult,13, pinquered->barcodesample);
+    return pFindedResult;
+}
+
+void QueryDataThread::emitInquireRows(const QVector<PatientInformationStu *> &painterInfovec)
+{
+    InquireRowList rows;
+    rows.reserve(painterInfovec.size());
+    for (PatientInformationStu *pinquered : painterInfovec) {
+        if (pinquered)
+            rows.append(makeInquireStu(pinquered));
+    }
+    qDeleteAll(painterInfovec);
+    if (rows.isEmpty()) {
         emit InquireEmpty();
         return;
     }
-	int n = 1;
-    auto iter = painterInfovec.constBegin();
-    while(iter != painterInfovec.constEnd())
-    {
-        PatientInformationStu *pinquered = (*iter);
-        InqueryDatastu_t* pFindedResult = new InqueryDatastu_t;
-        insertStructData(pFindedResult, 0, pinquered->sampleId);
-        insertStructData(pFindedResult, 1, pinquered->AAResult);
-        insertStructData(pFindedResult, 2, pinquered->ADPResult);
-        insertStructData(pFindedResult, 3, pinquered->EPIResult);
-        insertStructData(pFindedResult, 4, pinquered->COLResult);
-        insertStructData(pFindedResult, 5, pinquered->RISResult);
-        insertStructData(pFindedResult,6,pinquered->sex_);
-        insertStructData(pFindedResult,7,pinquered->department_);
-        insertStructData(pFindedResult,8,pinquered->refertithedoctor_);
-        insertStructData(pFindedResult,9,pinquered->bednumber_);
-        insertStructData(pFindedResult,10,QString::number(pinquered->agesample));
-        insertStructData(pFindedResult,11,pinquered->AddsampleTime);
-        insertStructData(pFindedResult,12,pinquered->SampleName);
-        insertStructData(pFindedResult,13,pinquered->barcodesample);
-        emit this->LoadInquierdata(numTotal,n,pFindedResult);
-        n++;
-        iter++;
-    }
-    return;
-}
-
-
-
-void QueryDataThread::SycnAllDataResult()//查询全部
-{
-    int numTotal;
-    int n = 1;
-    QVector<PatientInformationStu *> painterInfovec;
-    painterInfovec.clear();
-    FullyAutomatedPlatelets::pinstancesqlData()->getAllTestResultData(painterInfovec);
-    numTotal = painterInfovec.size();
-    if(numTotal == 0){
-        emit this->InquireEmpty();
-        return;
-    }
-    auto iter = painterInfovec.constBegin();
-    while(iter != painterInfovec.constEnd())
-    {
-        PatientInformationStu *pinquered = (*iter);
-        InqueryDatastu_t* pFindedResult = new InqueryDatastu_t;
-        insertStructData(pFindedResult, 0, pinquered->sampleId);
-        insertStructData(pFindedResult, 1, pinquered->AAResult);
-        insertStructData(pFindedResult, 2, pinquered->ADPResult);
-        insertStructData(pFindedResult, 3, pinquered->EPIResult);
-        insertStructData(pFindedResult, 4, pinquered->COLResult);
-        insertStructData(pFindedResult, 5, pinquered->RISResult);
-        insertStructData(pFindedResult,6,pinquered->sex_);
-        insertStructData(pFindedResult,7,pinquered->department_);
-        insertStructData(pFindedResult,8,pinquered->refertithedoctor_);
-        insertStructData(pFindedResult,9,pinquered->bednumber_);
-        insertStructData(pFindedResult,10,QString::number(pinquered->agesample));
-        insertStructData(pFindedResult,11,pinquered->AddsampleTime);
-        insertStructData(pFindedResult,12,pinquered->SampleName);
-        insertStructData(pFindedResult,13,pinquered->barcodesample);
-        emit this->LoadInquierdata(numTotal,n,pFindedResult);
-        n++;
-        iter++;
-    }
-    return;
+    emit LoadInquierdataList(rows);
 }
 
 void QueryDataThread::insertStructData(InqueryDatastu_t* pFindedResult,quint8 stuId,QString data)
@@ -307,10 +228,7 @@ void QueryDataThread::slotLocatethelookup(QString inquierId,   QString senddocto
                                             QString sectionkind, QString bbednum)
 {
     emit this->clearTableWidget(); //先清空
-    int numTotal;
-    int n = 1;
     QVector<PatientInformationStu *> painterInfovec;
-    painterInfovec.clear();
 
     QList<QString> FindKey;
     if(!inquierId.isEmpty() || !inquierId.isNull() || inquierId != "")
@@ -326,33 +244,5 @@ void QueryDataThread::slotLocatethelookup(QString inquierId,   QString senddocto
     if(bbednum != "")
         FindKey.push_back(bbednum);
     FullyAutomatedPlatelets::pinstancesqlData()->getDesignateTestResultData(FindKey,painterInfovec);
-    numTotal = painterInfovec.size();
-    if(numTotal == 0){
-        emit this->InquireEmpty();
-        return;
-    }
-    auto iter = painterInfovec.constBegin();
-    while(iter != painterInfovec.constEnd())
-    {
-        PatientInformationStu *pinquered = (*iter);
-        InqueryDatastu_t* pFindedResult = new InqueryDatastu_t;
-        insertStructData(pFindedResult, 0, pinquered->sampleId);
-        insertStructData(pFindedResult, 1, pinquered->AAResult);
-        insertStructData(pFindedResult, 2, pinquered->ADPResult);
-        insertStructData(pFindedResult, 3, pinquered->EPIResult);
-        insertStructData(pFindedResult, 4, pinquered->COLResult);
-        insertStructData(pFindedResult, 5, pinquered->RISResult);
-        insertStructData(pFindedResult,6,pinquered->sex_);
-        insertStructData(pFindedResult,7,pinquered->department_);
-        insertStructData(pFindedResult,8,pinquered->refertithedoctor_);
-        insertStructData(pFindedResult,9,pinquered->bednumber_);
-        insertStructData(pFindedResult,10,QString::number(pinquered->agesample));
-        insertStructData(pFindedResult,11,pinquered->AddsampleTime);
-        insertStructData(pFindedResult,12,pinquered->SampleName);
-        insertStructData(pFindedResult,13,pinquered->barcodesample);
-        emit this->LoadInquierdata(numTotal,n,pFindedResult);
-        n++;
-        iter++;
-    }
-    return;
+    emitInquireRows(painterInfovec);
 }

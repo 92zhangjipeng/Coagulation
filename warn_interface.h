@@ -3,7 +3,10 @@
 
 #include <QMouseEvent>
 #include <QWidget>
-#include "dilag/mybordercontainer.h"
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include "opencvFindRBC/customtitlebar.h"
 
 namespace Ui {
 class warn_interface;
@@ -19,48 +22,44 @@ public:
 
     // 新增静态方法封装弹窗逻辑
     static void showTransientWarning(const QString& title, const QString& message);
-
-	static void showTimeTransientWarning(const QString& title, const QString& message, int autoCloseMs = 3000);
+    static void showTimeTransientWarning(const QString& title, const QString& message, int autoCloseMs = 3000);
 
     void settitle(QString title_);
     void setremtext(QString outputText);
     void replaceSupplyIndex(const int Index);
 
 protected:
-    bool eventFilter(QObject *obj, QEvent *event);
-    void mouseMoveEvent(QMouseEvent *e);
-    void mousePressEvent(QMouseEvent *e);
-    void mouseReleaseEvent(QMouseEvent *);
-
+    void mouseMoveEvent(QMouseEvent *e) override;
+    void mousePressEvent(QMouseEvent *e) override;
+    void mouseReleaseEvent(QMouseEvent *) override;
     virtual void closeEvent(QCloseEvent* event) override;
 
-
-    void keyPressEvent(QKeyEvent *event){
-        if (event->key() == Qt::Key_Return){
-
-        }
-    }
 private slots:
-    void on_toolButton_clicked();
-	void onBtnMenuMaxClicked();
+    void onConfirmClicked();
+    void onMinimizeRequested();
+    void onMaximizeRequested();
+    void onCloseRequested();
 
 private:
-    void setConnectBtn();
-    void InitStyle();
+    void initUI();
+    void initStyle();
 
-signals:
-    void makesure(int, QString );
-private:
     Ui::warn_interface *ui;
-    MyBorderContainer *m_myborder;
+    CustomTitleBar *m_titleBar;
+
+    QWidget *m_centerWidget;
+    QVBoxLayout *m_mainLayout;
+    QVBoxLayout *m_centerLayout;
+
+    QLabel *m_warmTextLabel;
+    QPushButton *m_confirmBtn;
 
     int m_indexSuppiles;
+    bool m_isMaximized;
+    QRect m_normalGeometry;
 
-    bool max;
-    bool mousePressed;
-    QPoint mousePoint;
-    QRect location;
-
+signals:
+    void makesure(int, QString);
 };
 
 #endif // WARN_INTERFACE_H

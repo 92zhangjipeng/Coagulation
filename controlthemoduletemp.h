@@ -41,7 +41,7 @@ private:
     QColor bgmcColor;
     QPoint mouseStartPoint;
     QString m_dimmingText;
-
+    bool m_actionTaken = false;
 };
 
 #endif // CONTROLTHEMODULETEMP_H

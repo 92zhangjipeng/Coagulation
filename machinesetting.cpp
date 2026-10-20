@@ -474,7 +474,25 @@ void MachineSetting::setupChannelDimmingMaintenanceTab()
     hostLayout->addWidget(ui->widget_valuediaplay, 1);
 
     m_channelDimmingConfigTabIndex = ui->tabWidget_config->addTab(host, tr("通道调光"));
+    ensureChannelDimmingTabVisible();
+}
+
+void MachineSetting::ensureChannelDimmingTabVisible()
+{
+    if (m_channelDimmingConfigTabIndex < 0 || !ui->widget_valuediaplay) {
+        return;
+    }
+    if (QWidget *host = ui->tabWidget_config->widget(m_channelDimmingConfigTabIndex)) {
+        host->show();
+    }
     ui->widget_valuediaplay->show();
+    if (ui->tableWidget_controlChn) {
+        ui->tableWidget_controlChn->show();
+    }
+    if (auto *scroll = ui->widget_valuediaplay->findChild<QScrollArea *>(
+                QStringLiteral("channelDimmingTableScroll"))) {
+        scroll->show();
+    }
 }
 
 void MachineSetting::refreshChannelValuePageLayout()
@@ -782,6 +800,9 @@ void MachineSetting::showEvent(QShowEvent* event)
     this->setAttribute(Qt::WA_Mapped);
     QWidget::showEvent(event);
     reloadMaintenanceParamsFromIni();
+    if (ui->tabWidget_config->isVisible()) {
+        ensureChannelDimmingTabVisible();
+    }
     if (ui->lineEdit_maintenance->isVisible()) {
         ui->lineEdit_maintenance->setFocus(Qt::OtherFocusReason);
     }
@@ -871,7 +892,6 @@ void MachineSetting::closeEvent(QCloseEvent *event)
     Engineerinterfacelayout(false);
     emit LoginEngineerMode(false);
 
-    ui->widget_valuediaplay->hide();
     ui->lineEdit_maintenance->show();
     ui->label_maintenance->show();
     ui->pushButton_maintenance->setText("登入维护");
@@ -1604,6 +1624,7 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
 
                 if (parentText == tr("通用") && childIndex == 4 && m_channelDimmingConfigTabIndex >= 0) {
                     ui->tabWidget_config->setCurrentIndex(m_channelDimmingConfigTabIndex);
+                    ensureChannelDimmingTabVisible();
                 } else if (parentText == tr("通用") && childIndex == 3) {
                     ui->tabWidget_config->setCurrentIndex(0);
                 }
@@ -2260,6 +2281,16 @@ void MachineSetting::loadBloodPinExtendedUiFromIni()
     ui->spinBox_PRPdelay->setValue(ini.GetAfterSuckDelayMs());
     ui->spinBoxAddPrp->setValue(ini.GetAddSuckPRP());
     ui->doubleSpinBoxBottomHeigh->setValue(ini.getRefBottomDistance());
+
+    const QString addPrpTip = tr(
+                "仅「一次抽血、多个试剂/多试杯」吸 PRP 时生效。\n"
+                "在按杯分段吸样之后，再额外吸一段 PRP 留在样本针管路里（不直接吐进试杯），"
+                "用于补偿管路死体积；其中约 1/3 会折算加到最后两杯的吐量。\n"
+                "单项目吸 PRP 不走本项（与 PPP 同系数吸吐）。\n"
+                "INI: TestContl/AddSuckPRP，保存时同步到主板扩展参数。");
+    ui->labelAddPrp->setText(tr("多项目额外吸PRP"));
+    ui->labelAddPrp->setToolTip(addPrpTip);
+    ui->spinBoxAddPrp->setToolTip(addPrpTip);
 }
 
 void MachineSetting::reloadMaintenanceParamsFromIni()
@@ -2666,6 +2697,7 @@ void MachineSetting::onMaintenanceButtonClicked(){
         ui->tabWidgetSetconfigure->setCurrentIndex(TabMaintenance);
         if (m_channelDimmingConfigTabIndex >= 0) {
             ui->tabWidget_config->setCurrentIndex(m_channelDimmingConfigTabIndex);
+            ensureChannelDimmingTabVisible();
         }
         if (m_channelDimmingItem) {
             ui->MachineSetList->setCurrentItem(m_channelDimmingItem);
@@ -2697,6 +2729,7 @@ void MachineSetting::Engineerinterfacelayout(bool enterEngineerMode)
         m_channelDimmingItem->setHidden(!enterEngineerMode);
     }
     if (enterEngineerMode) {
+        ensureChannelDimmingTabVisible();
         // 延迟创建动画对象
         if (!m_propertyAnimation) {
             m_propertyAnimation = new QPropertyAnimation(ui->widget_loginpassword, "geometry");
@@ -2823,7 +2856,7 @@ void MachineSetting::configBloodpinparaSignals()
 
         std::make_tuple(ui->spinBoxAddPrp, [=]{
             INI_File().SetAddSuckPRP(ui->spinBoxAddPrp->value());
-        }, "PRP预留比")
+        }, tr("多项目额外吸PRP"))
     };
 
 	// 使用std::get替代结构化绑定
@@ -3722,6 +3755,9 @@ void MachineSetting::on_pushButtonopenSuck_clicked()
 
 void MachineSetting::handlebackHandssuck(bool issuck, int airval)
 {
+    if (m_gripperAirDetectStep == 1 && !issuck) {
+        ui->label_splitval->setText(tr("原点空载 %1").arg(airval));
+    }
     feedGripperAirSample(issuck, airval);
     if (m_gripperAirDetectStep != 0) {
         return;

@@ -39,7 +39,7 @@ signals:
     void _sendDirectivesList(const QByteArrayList &dataList,
                              const QString &info);
 
-    void _ShutdownApp();
+    void shutdownApp();
 
     void closeSerial();
 
@@ -62,7 +62,7 @@ private:
 
     void  _insterSTUtudata(const QByteArray lossCleanarry, quint8 indexcode_, quint8 indexreag);
 
-    void _shutdownWithError();
+    void shutdownWithError();
 
     //状态解析函数
     CardAnalysisResult analyzeCardData(quint8 byteData);

@@ -1,7 +1,9 @@
 ﻿#ifndef QUIUTILS_H
 #define QUIUTILS_H
 
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 
 #include <QObject>
 #include <QApplication>
@@ -13,12 +15,14 @@
 #include <algorithm>//调用sort()必须要使用这个头文件
 #include <QLabel>
 #include <QComboBox>
+#include <iostream>
+#include "pumppositionmanager.h"
+
 
 
 namespace QUIUtils
 {
     QString bitArray2String(QBitArray array);
-
 
 
     /** 截取小数点后N位的方法（不进行四舍五入）
@@ -343,7 +347,7 @@ namespace QUIUtils
 									quint8 (&HandsinnerModule)[3],
 									bool brebackCatch);
 
-    //血样针参数
+    //样本针参数
     void _writeParaNumBloodOrder(QByteArray &buffer,
                                   quint16 cleanLinqueblood,
                                   quint16 suckppporprp,
@@ -353,6 +357,10 @@ namespace QUIUtils
 
 
     void _writeParaBloodOtherOrder(QByteArray &buffer, quint8 (&bloodpara)[10]);
+
+    /** PPP/PRP 转换比 <-> 协议字节（0~4.00 映射 0~255，读写四舍五入到 0.01） */
+    quint8 scaleRatioToByte(double ratio);
+    double byteToScaleRatio(quint8 byteVal);
 
     //写试剂针参数 0x17-0x18
     void _writeReagPinParaDataOrder(QByteArray &bufferI,QByteArray &bufferII, quint8 (&ReagentSuck)[5], 
@@ -377,7 +385,18 @@ namespace QUIUtils
     QByteArray writeModuleDimmingVal0x1b(const quint16& dimmingValI, const quint16& dimmingValII,
                                          const quint16& dimmingValIII, const bool writeDirectly);
 
+    //0x1c 设置页后来加的样本针扩展参数（10字节 para）
+    QByteArray writeExtendedBloodPara0x1c(quint8 peAddPercent,
+                                          quint8 extraPrpPercent,
+                                          quint16 pppDelayMs,
+                                          quint16 prpDelayMs,
+                                          bool firstSuckAirs,
+                                          quint16 refBottomX10,
+                                          bool writeDirectly);
 
+    //0x1d 五种试剂加吸比例（×100 的 quint8）
+    QByteArray writeExtendedReagentPara0x1d(const quint8 addRatioX100[5],
+                                            bool writeDirectly);
 
     //group buffer 坐标
     void  get6_7NumcodeArry(QByteArray &x_Buffer, quint8 bufferState_x, QByteArray &y_Buffer,
@@ -481,34 +500,51 @@ namespace QUIUtils
     //试剂针清洗转转换称 微升量
     double reagent_pin_clean_deplete(int turn_);
 
-    //血样针清洗消耗清洗液
+    //样本针清洗消耗清洗液
     double bloody_pin_clean_deplete(int turn_);
 
+    /*
+     * 抓手在其它区域抓杯了 --弃杯动作
+     * @brief moveThrowCupCommands
+     * @param throwAxis
+     * @param downHeigh
+     * @return
+     */
+    QByteArrayList moveThrowCupCommands(const QPoint throwAxis,const int downHeigh);
 
 
-    //测试抓手抓取测试杯区试管准确度
-    void test_hands_catchtube_precise(QPoint form_axis, 
-									QPoint end_axis, 
-									int down_mm, 
-									QByteArrayList &directives_list);
+    //测试抓手抓取试杯区试管准确度
+    QByteArrayList testHandsCatchtubePrecise(QPoint formAxis, QPoint endAxis, int downMm );
 
-    /// \brief 开关机灌注动作
+    ///开关机灌注动作
     QByteArrayList perfusionAction(uint &back_leng,
-                                    const bool enoughReagent, const int cleantime);
+                                    const bool enoughReagent,
+                                    const int cleantime);
 
     //Z轴全部复位
     void allZAxisBackOrigin(QByteArrayList &ZbackOrigin,
 											quint8 hadsize);
 
-    //仪器复位==先速度模式复位原点==再位置模式到位置原点
-    void _equipmentbackoriginloc(QByteArrayList &_backOrigin);
-
     //灌注后清洗针
     void cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int reagent_total);
 
-    void _Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_, int down_);//定位原点下双针
+    //定位原点下双针
+    void _Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_, int down_);
 
-    //清洗血样针
+    //定位清洗孔位
+    QByteArrayList TargCleanLinqueHole(const quint8 indexPin, const int downHeigh, const QPoint axis, const bool isSucking);
+
+
+
+    /*
+     *  复位所有Z轴 --xy移动到原点 复位动作
+     * @brief QUIUtils::backZAxisandmoveOrigin
+     * @param cleanPos 移动到机器原点位置
+     * @return 复位命令字节数组列表
+     */
+    QByteArrayList backZAxisandmoveOrigin(const QPoint machineOriginAxis);
+
+    //清洗样本针
     void CleanBloodPinActionCommd(int HadPorjects, QByteArrayList &CleanActionarry);
 
     //清洗试剂针
@@ -516,39 +552,82 @@ namespace QUIUtils
 
 
 
-
-    /**
-    * @brief sampleSuckAnaemia  吸贫血-吐贫血
-    * @param indexSample        待测样本号
-    * @param suckAnaemia        吸富血命令
-    * @param SpitAnaemia        吐富血命令
-    * @param AnaemiaHole_num    贫血血样孔号
-    * @param AnaemiaAxis        贫血坐标
-    * @param AnaemiaoffTubeHole_num 贫血在空测试管孔号
-    * @param AnaemiainEmptyTubeAxis 贫血在空测试管坐标
-    */
-//    void sampleSuckAnaemia(const QString indexSample, QByteArrayList &suckAnaemia, QByteArrayList &SpitAnaemia,
-//                             quint8 &AnaemiaHole_num,QPoint &AnaemiaAxis,quint8 &AnaemiaoffTubeHole_num,
-//                             QPoint &AnaemiainEmptyTubeAxis);
-
-    /**
-    * @brief suckPPPEndSplitPPP     吸贫血-吐贫血 &&吸富血吐富血
-    * @param out_directives          输出指令
-    * @param suckPPPLoc              吸ppp坐标
-    * @param anemia_spit_pos         吐PPP坐标
-    */
-    int suckPPPEndSplitPPP(QByteArrayList &out_directives,
+    /** 吸贫血-吐贫血
+     * @brief suckPPPEndSplitPPP
+     * @param outDirectiveslist   输出指令
+     * @param suckPPPLoc          吸ppp坐标
+     * @param splitPPPloc         吐PPP坐标
+     * @param delayCommandSuck    吸PPP 延时
+     * @param delayCommandSplit   吐ppp延时
+     * @return
+     */
+    int suckPPPEndSplitPPP(QByteArrayList &outDirectiveslist,
                             const QPoint suckPPPLoc,
-                            const QPoint splitPPPloc);
+                            const QPoint splitPPPloc,
+                            QList<quint8> &delayCommandSuck,
+                            QList<quint8> &delayCommandSplit,
+                            bool singleProjectHoldPumpAt360 = false);
 
-    int SuckPRPandSpitoutPRP(QByteArrayList &out_directives,
-                            int Testheigt,
-                            QPoint sourcePosition ,
-                            const QList<QPoint> &targetPositions);
+    /** 加样：PPP位XY到位后Z复位预探测 + 通过后执行的吸吐PPP体 */
+    int buildAddSamplePppPreProbeSplit(QByteArrayList &prefixCommands,
+                                       QByteArrayList &pppTailCommands,
+                                       const QPoint suckPPPLoc,
+                                       const QPoint splitPPPloc,
+                                       QList<quint8> &delayCommandSuck,
+                                       QList<quint8> &delayCommandSplit,
+                                       quint8 &outPreProbeCmdIndex,
+                                       bool singleProjectHoldPumpAt360 = false);
+
+    /** Z轴回报第5字节：样本/试剂针液面是否已探测到（0=未探测到） */
+    bool isZAxisLiquidLevelDetected(const QStringList &recvData);
+
+    /** Z轴完成且为样本针复位模式(非液面探测下针)，用于PPP预探测应答识别 */
+    bool isBloodNeedleZPreProbeResetAck(const QStringList &recvData);
+
+    /** Z轴完成且为指定针复位(非液面探测)，用于吸清洗液/吸试剂前挂液预探测 */
+    bool isNeedleZHangPreProbeResetAck(const QStringList &recvData, quint8 motorIndex);
+
+    /** 液面下针前追加Z复位挂液预探测（误探仅提示擦针，液面失败仍走失败高度） */
+    quint8 appendNeedleZResetHangPreProbe(QByteArrayList &commands, quint8 motorIndex);
+
+    /** 在指定XY位置追加样本针Z复位，返回命令号(预探测) */
+    quint8 appendBloodNeedleZResetPreProbe(QByteArrayList &commands);
+
+    /** XY到PPP位 + 样本针Z复位预探测（洗针/擦针后从预探测重做） */
+    void appendPppPositionAndPreProbe(QByteArrayList &commands,
+                                      const QPoint &suckPppLoc,
+                                      quint8 &outPreProbeCmdIndex);
+
+    /** 血样区吸样点是否落在原点（未标定或缺孔时会读成(0,0)） */
+    bool isBloodSampleSuckAtOrigin(const QPoint &pos);
+
+    /** 吸样位置不对提示：血样区不会在原点 */
+    QString bloodSampleSuckOriginHint(int sampleId,
+                                      quint8 pppHole, const QPoint &pppPos,
+                                      quint8 prpHole, const QPoint &prpPos);
+
+
 
     /**
+     * @brief SuckPRPandSpitoutPRP
+     * @param outDirectiveslist
+     * @param Testheigt
+     * @param sourcePosition
+     * @param targetPositions
+     * @param suckPrpdelayCommand
+     * @param SpitPrpdelayCommand
+     * @return
+     */
+    int SuckPRPandSpitoutPRP(QByteArrayList &outDirectiveslist,int Testheigt,QPoint sourcePosition ,
+                               const QList<QPoint> &targetPositions,
+                               QList<quint8> &suckPrpdelayCommand,
+                               QList<quint8> &SpitPrpdelayCommand);
 
-    */
+
+
+
+
+
     /**
     * @brief sampleSuckBloody  吸富血-吐富血
     * @brief numarry           吸吐贫血命令条数
@@ -587,6 +666,33 @@ namespace QUIUtils
                               QPoint &AnemiainEmptyHoleAxis,
                               quint8 &suckBack, quint8 &splitBack);
 
+    /** 先下扎(无负压) -> 同高度开负压两次(稳压/判定) -> 不抬针 */
+    void appendGripperDescendThenOpenVacuum(QVector<QByteArray> &outarry,
+                                            int downMm,
+                                            bool bRepeatGrabCup);
+
+    /** 主板联锁：任意抓手 XY 前须样本针/试剂针 Z 已复位。cmdIndexBase 避免和已有命令号重复。 */
+    void appendBloodReagentNeedleResetBeforeGripperXy(QVector<QByteArray> &outarry,
+                                                      quint8 cmdIndexBase = 0);
+
+    /** 先下扎 -> 开负压两次 -> Z复位；outSuckBackNum 供 applyGripperVacuumAck 使用。
+     *  cmdIndexBase 与已有命令号错开，避免重试时按命令号排序后下抓排到 XY 前面。 */
+    void appendGripperDescendThenVacuumHold(QVector<QByteArray> &outarry,
+                                            int downMm,
+                                            bool bRepeatGrabCup,
+                                            quint8 &outSuckBackNum,
+                                            quint8 cmdIndexBase = 0);
+
+    /** 持杯到弃杯位先下扎 -> 关负压两次 -> Z复位；outSplitBackNum 供丢杯判定使用 */
+    void appendGripperDescendThenVacuumRelease(QVector<QByteArray> &outarry,
+                                               int throwMm,
+                                               quint8 &outSplitBackNum,
+                                               quint8 cmdIndexBase = 0);
+
+    /** 清洗结束后 Z 全复位 + XY 负速度回原点（与开机复位一致） */
+    void appendPostCleanMachineXyHome(QByteArrayList &commands);
+    void appendPostCleanMachineXyHome(QVector<QByteArray> &commands);
+
     /**
     * @brief ThrowTestChnCup 丢测试通道内杯子
     * @param indexChn
@@ -603,6 +709,8 @@ namespace QUIUtils
     */
     void initequipmentgrabcups(quint8 index_equipment,QByteArrayList &_throwthecups);
 
+    /** 为指定通道(1-based)追加丢杯动作并回原点，仅处理已启用通道 */
+    void appendThrowCupsForChannels(const QList<quint8> &channels1Based, QByteArrayList &outList);
 
     /** 吸试剂-夹杯-放到测试通道
      * @brief suckReagentClipTubetoChnPut
@@ -614,20 +722,32 @@ namespace QUIUtils
      * @param suckPRPindex
      * @param ktestPRPsuckBacknum
      * @param ktestPRPsplitBacknum
-     * @param nextSteOriginReagentNeedle 下一步 试剂针复位
+     * @param suckReagentwait 泵吸试剂动作
      */
     void suckReagentClipTubetoChnPut(quint8 indexReag, int TestChn, quint8 emptyHole, QVector<QByteArray> &outputArry,
                                        QPoint &bloodyHoleAxis, quint8 &suckPRPindex, quint8 &ktestPRPsuckBacknum,
-                                       quint8 &ktestPRPsplitBacknum, quint8 &nextSteOriginReagentNeedle);
+                                       quint8 &ktestPRPsplitBacknum, quint8 &suckReagentwait);
+
+    /** 试剂已吸完：双针Z复位 + 杯盘抓PRP + 放到测试通道（供抓杯失败重试/复位续跑） */
+    void buildPrpGripFromTrayToChannel(int testChn,
+                                       quint8 emptyHole,
+                                       const QPoint &bloodyHoleAxis,
+                                       QVector<QByteArray> &outputArry,
+                                       quint8 &suckPRPindex,
+                                       quint8 &ktestPRPsuckBacknum,
+                                       quint8 &ktestPRPsplitBacknum,
+                                       quint8 cmdIndexBase = 0,
+                                       bool fromXyOrigin = false);
 
     /**
     * @brief spitReanentToTestChn 向测试通道吐试剂
     * @param ChnIndex
     * @param SpitReagentActive
     */
-    void spitReanentToTestChn(const int ChnIndex, 
-								quint8 indexReagent,
-								QVector<QByteArray> &SpitReagentActive);
+    void spitReanentToTestChn(const int ChnIndex,
+                                quint8 indexReagent,
+                                QVector<QByteArray> &SpitReagentActive,
+                                QList<quint8> &spitReagentDelyTime);
 
     /**
     * @brief qualitysucksampleact  质控吸样
@@ -659,13 +779,12 @@ namespace QUIUtils
      * @param throwCupsList
      */
      void ThrowChannelCup(quint8 downsuck,const quint8 throwGipperHeigh,const QPoint channelAxis,const QPoint throwCupAxis, quint8 &throwSucknum,
-                            quint8 &throwSplitnum,QByteArrayList &throwCupsList)
-    ;
+                            quint8 &throwSplitnum,QByteArrayList &throwCupsList);
 
 
     void _mapConsumablesName(quint8 index_, QString& out_);  //映射耗材名字
 
-    QByteArrayList _controltestbloodpindownheigh(int  index_,int down_mm); //控制血样针下针高度命令
+    QByteArrayList _controltestbloodpindownheigh(int  index_,int down_mm); //控制样本针下针高度命令
 
     QByteArrayList _controlReagpindownheih(int  index_,int down_mm);//控制试剂针下针高度命令
 
@@ -704,6 +823,35 @@ namespace QUIUtils
                                         const QPoint &PEHeighValAxis,
                                         const QPoint &PEMidValAxis,
                                         const QPoint &PELowValAxis);
+
+    /** 从血样区指定孔各吸一次，分别加到试杯架对应试杯(五孔自配液) */
+    void peTransferFiveBloodHolesToTray(QByteArrayList &directives,
+                                        const QPoint bloodPos[5],
+                                        const QPoint trayPos[5]);
+
+
+
+
+
+
+
+    ////////////////////////////// 输出 单条指令 //////////////////////////////////////////////////////////
+    QByteArray outPutxyMoveAxisComd(const QPoint axis,quint8 &index); //输出XY 要移动到指定位置的指令
+    QByteArray outPutBloodPinLocComd(const quint8  heighLoc,quint8 &index);       //输出样本针 的位置
+    QByteArray outPutReagentPinLocComd(const quint8  heighLoc,quint8 &index);     //输出试剂针的位置
+    QByteArray outPutHandsLocComd(const quint8 heighLoc,const bool isSuckingAirs,quint8 &index);  //抓手的位置
+    QByteArray outPutHandsReset(const quint8 speed,const bool isSuckingAirs,quint8 &index);//抓手复位
+
+    /**
+     * Z轴命令第5字节(索引5)。bit6 是负压泵，bit4 是抓杯/弃杯。
+     * 关泵时清掉 bit4~bit7，避免复位包里残留的开关泵/探测位把泵重新打开。
+     * bit0~bit3（相对轴、分区）保留。
+     */
+    QByteArray withGripperPump(QByteArray cmd, bool openPump);
+
+
+
+
 }
 
 #endif // QUIUTILS_H

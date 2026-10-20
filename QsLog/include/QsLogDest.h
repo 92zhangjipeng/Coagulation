@@ -26,7 +26,9 @@
 #ifndef QSLOGDEST_H
 #define QSLOGDEST_H
 
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 
 #include "QsLogLevel.h"
 #include <QSharedPointer>

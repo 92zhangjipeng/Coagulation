@@ -19,6 +19,7 @@
 #define BIG_BEN_RATIO               2.88  //UL转换率
 #define SMALL_BEN_RATIO             72
 
+#define BACK_SUCKAIRS              360  //回吸空气
 
 #define GRABCUPWITHGRIPPER         true
 #define GRIPPERNORMAL              false
@@ -331,7 +332,6 @@ public:
 
 
 
-
     /**
     * @brief DLL_XYMoveSpecifiedPosition  XY 运动到指定位置
     * @param Position  移动坐标
@@ -359,6 +359,22 @@ public:
                                              bool LinqueTest, int LinqueFailedhigh,
                                              const bool bOnceaginScratch, const bool GripperGrab);
 
+
+    /**  吐样样本针复位
+     * @brief dllSpitsampleAndLiftNeedle
+     * @param indexZ   控制那根针
+     * @param FailedHigh  失败高度
+     * @param backSpeed   复位速度
+     * @param indexCode   编号
+     * @param bRepeattheGrabCup 重吸
+     * @return
+     */
+    QByteArray dllSpitsampleAndLiftNeedle(const quint8 indexZ,
+                                            const int FailedHigh,
+                                            const quint8 backSpeed,
+                                            quint8 &indexCode,
+                                            const bool bRepeattheGrabCup
+                                            );
 
 
     //Z轴复位

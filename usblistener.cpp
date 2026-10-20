@@ -1,4 +1,9 @@
-﻿#include "USBListener.h"
+﻿#ifdef _MSC_VER
+#pragma warning(disable: 4819)
+#pragma execution_character_set("utf-8")
+#endif
+
+#include "USBListener.h"
 #include <QsLog/include/QsLog.h>
 #include <QCoreApplication>
 #include <QDebug>
@@ -152,10 +157,10 @@ QString returnErrStr(QString formattedErr) {
     QString outFailed;
     const int outCode = formattedErr.toInt();
     switch (outCode) {
-            case 5: outFailed = "权限不足";  break;  //- 0x5 (ACCESS_DENIED): 权限不足
-            case 2: outFailed = "设备不存在";break; // - 0x2 (ERROR_FILE_NOT_FOUND): 设备不存在
+            case 5: outFailed = QString("权限不足");  break;  //- 0x5 (ACCESS_DENIED): 权限不足
+            case 2: outFailed = QString("设备不存在");break; // - 0x2 (ERROR_FILE_NOT_FOUND): 设备不存在
         default:
-            outFailed ="未知异常";
+            outFailed = QString("未知异常");
             break;
     }
     return outFailed;
@@ -192,7 +197,7 @@ bool USBListener::DisableSelectiveSuspendForDevice(const wchar_t* deviceInstance
 
     if (!deviceFound) {
         QLOG_WARN() << "USB电源禁用失败(未找到设备): " << QString::fromWCharArray(deviceInstanceId);
-        outFailed = "USB电源禁用失败(未找到设备)";
+        outFailed = QString("USB电源禁用失败(未找到设备)");
         SetupDiDestroyDeviceInfoList(hDevInfo);
         return false;
     }
@@ -280,19 +285,19 @@ void USBListener::initDisAblePower() {
     QString path = getDeviceInstancePathFromVidPid(m_targetVID, m_targetPID);
     if (path.isEmpty() || path.isNull()) {
         isstate = PROMPTLOG;
-        outmessage = "设备路径识别失败(未连接)!禁用USB选择性暂停失败";
+        outmessage = QString("设备路径识别失败(未连接)!禁用USB选择性暂停失败");
         QLOG_WARN() << outmessage;
     }
     else {
         //禁用特定 USB 设备的电源管理（需替换为实际设备实例 ID）
         const wchar_t* deviceId = reinterpret_cast<const wchar_t*>(path.utf16());
         if (DisableSelectiveSuspendForDevice(deviceId, knowErr)) {
-            outmessage = "设备的 USB电源 选择性暂停已禁用!";
+            outmessage = QString("设备的 USB电源 选择性暂停已禁用!");
             isstate = NORMALLOG;
             QLOG_DEBUG() << outmessage;
         }
         else {
-            outmessage = "设备的 USB电源 选择性暂停禁用失败!(" + knowErr + ")";
+            outmessage = QString("设备的 USB电源 选择性暂停禁用失败!(") + knowErr + QLatin1Char(')');
             isstate = ERRORLOG;
             QLOG_ERROR() << outmessage;
         }
@@ -313,7 +318,7 @@ bool USBListener::startListening() {
             if (!registerDeviceNotifications()) {
                 QLOG_ERROR() << "Failed to register device notifications";
                 m_hwnd = nullptr;
-                emit errorOccurred("无法启动USB监听");
+                emit errorOccurred(QString("无法启动USB监听"));
                 return;
             }
 
@@ -428,7 +433,7 @@ bool USBListener::nativeEventFilter(const QByteArray& eventType, void* message, 
         break;
     }
 
-    return true;
+    return false;
 }
 
 

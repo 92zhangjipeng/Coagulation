@@ -40,30 +40,32 @@ public:
             NotifyBarCode->setObjectName(QStringLiteral("NotifyBarCode"));
         NotifyBarCode->resize(360, 118);
         NotifyBarCode->setMaximumSize(QSize(360, 16777215));
+        NotifyBarCode->setStyleSheet(QStringLiteral("background-color: #E8F4F8;"));
         verticalLayout = new QVBoxLayout(NotifyBarCode);
         verticalLayout->setSpacing(1);
         verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
         verticalLayout->setContentsMargins(1, 1, 1, 1);
         widget_2 = new QWidget(NotifyBarCode);
         widget_2->setObjectName(QStringLiteral("widget_2"));
-        widget_2->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border-top-color: rgb(0, 0, 0);"));
+        widget_2->setStyleSheet(QLatin1String("background-color: #E8F4F8;\n"
+"border-color: #B8D9E8;\n"
+"border-top-color: #B8D9E8;"));
         gridLayout_bar = new QGridLayout(widget_2);
         gridLayout_bar->setObjectName(QStringLiteral("gridLayout_bar"));
         label_name = new QLabel(widget_2);
         label_name->setObjectName(QStringLiteral("label_name"));
         QFont font;
-        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
         font.setPointSize(15);
         font.setBold(false);
         font.setItalic(false);
         font.setWeight(2);
         label_name->setFont(font);
-        label_name->setStyleSheet(QString::fromUtf8("font: 17 15pt '\346\245\267\344\275\223';\n"
-"background-color:rgb(190, 154, 124, 255);\n"
-"border-radius:5px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
+        label_name->setStyleSheet(QString::fromUtf8("font: 17 15pt '\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"background-color: rgba(232, 244, 248, 255);\n"
+"border-radius:5px;\n"
+"padding:2px 4px;\n"
+"color: #1A6B8A;\n"
 "border-style: flat;\n"
 "background: transparent;"));
 
@@ -72,62 +74,66 @@ public:
         lineEdit_barcode = new QLineEdit(widget_2);
         lineEdit_barcode->setObjectName(QStringLiteral("lineEdit_barcode"));
         lineEdit_barcode->setStyleSheet(QString::fromUtf8("QLineEdit {\n"
-"	border-radius:5px;padding:2px 4px;\n"
-"font: 17 15pt '\346\245\267\344\275\223';\n"
-"border: 2px solid rgba(220,220,220);\n"
-"background-color:rgba(188,187,183);\n"
+"    border-radius:5px;\n"
+"    padding:2px 4px;\n"
+"    font: 17 15pt '\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    border: 2px solid #A0C4D9;\n"
+"    background-color: #F0F8FC;\n"
+"    color: #1A6B8A;\n"
 "}\n"
 "\n"
-"QLineEdit:hover { /* \351\274\240\346\240\207\346\202\254\346\265\256\345\234\250QLineEdit\346\227\266\347\232\204\347\212\266\346\200\201 */\n"
-"	border: 1px solid #298DFF;\n"
-"	border-radius: 3px;\n"
-"	background-color: #F2F2F2;\n"
-"	color: #298DFF;\n"
-"	selection-background-color: #298DFF;\n"
-"	selection-color: #F2F2F2;\n"
+"QLineEdit:hover {\n"
+"    border: 2px solid #6FB3D2;\n"
+"    border-radius: 5px;\n"
+"    background-color: #FFFFFF;\n"
+"    color: #0E4A63;\n"
+"    selection-background-color: #6FB3D2;\n"
+"    selection-color: #FFFFFF;\n"
 "}\n"
 "\n"
-"QLineEdit[echoMode=\"2\"] { /* QLineEdit\346\234\211\350\276\223\345\205\245\346\216\251\347\240\201\346\227\266\347\232\204\347\212\266\346\200\201 */\n"
-"	lineedit-password-character: 9679;\n"
-"	lineedit-password-mask-delay: 2000;\n"
+"QLineEdit:focus {\n"
+"    border: 2px solid #4A90B0;\n"
+"    background-color: #FFFFFF;\n"
 "}\n"
 "\n"
-"QLineEdit:disabled { /* QLineEdit\345\234\250\347\246\201\347\224\250\346\227\266\347\232\204\347\212\266\346\200\201 */\n"
-"	border: 1px solid #CDCDCD;\n"
-"	background-color: #CDCDCD;\n"
-"	color: #B4B4B4;\n"
+"QLineEdit[echoMode=\"2\"] {\n"
+"    lineedit-password-character: 9679;\n"
+"    lineedit-password-mask-delay: 2000;\n"
 "}\n"
 "\n"
-"QLineEdit:read-only { "
-                        "/* QLineEdit\345\234\250\345\217\252\350\257\273\346\227\266\347\232\204\347\212\266\346\200\201 */\n"
-"	background-color: #CDCDCD;\n"
-"	color: #F2F2F2;\n"
+"QLineEdit:disabled {\n"
+"    border: 1px solid #CDCDCD;\n"
+"    background-color: #E0E0E0;\n"
+"    color: #909090;\n"
 "}\n"
-""));
+"\n"
+"QLineEdit:read-only {\n"
+"    background-color: #D4EAF3;\n"
+"    color: #6FB3D2;\n"
+"}"));
 
         gridLayout_bar->addWidget(lineEdit_barcode, 0, 1, 1, 2);
 
         toolButton_cancel = new QToolButton(widget_2);
         toolButton_cancel->setObjectName(QStringLiteral("toolButton_cancel"));
-        toolButton_cancel->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_cancel{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_ok:hover{     \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_ok:pressed{  \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButton_cancel->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_cancel{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
 "}\n"
-""));
+"QToolButton#toolButton_cancel:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QToolButton#toolButton_cancel:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
+"}"));
         toolButton_cancel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
         gridLayout_bar->addWidget(toolButton_cancel, 1, 2, 1, 1);
@@ -135,25 +141,24 @@ public:
         toolButton_save = new QToolButton(widget_2);
         toolButton_save->setObjectName(QStringLiteral("toolButton_save"));
         toolButton_save->setMaximumSize(QSize(177777, 16777215));
-        toolButton_save->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_save{  \n"
-"   border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_ok:hover{     \n"
-"     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_ok:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButton_save->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_save{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
 "}\n"
-""));
+"QToolButton#toolButton_save:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QToolButton#toolButton_save:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
+"}"));
         toolButton_save->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
         gridLayout_bar->addWidget(toolButton_save, 1, 0, 1, 1);

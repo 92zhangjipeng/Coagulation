@@ -1,11 +1,14 @@
 ﻿#ifndef STRUCTINSTANCE_H
 #define STRUCTINSTANCE_H
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
+#endif
 #pragma once
 #include <QObject>
 #include <QMutex>
 #include <mutex>
 #include <atomic>
+#include <functional>
 #include "custom_struct.h"
 #include "QsLog/include/QsLog.h"
 
@@ -31,13 +34,13 @@ public:
     QVector<TESTCHNSTAUSINFO *> m_testChnStructvec_;  //测试通道
 
  public:
-    const bool getHandsStatus(const int sampleid); //重试
+    bool getHandsStatus(const int sampleid); //重试
     void  setHandsErrStatus(const int sampleid, bool handsState);
 
-    const bool getSampleGiveupStatus(const int sampleid);  //放弃
+    bool getSampleGiveupStatus(const int sampleid);  //放弃
     void  setSampleGiveupStatus(const int sampleid, bool isGiveup);
 
-    const bool getSamplePendingtimeStatus(const int sampleid);  //挂起
+    bool getSamplePendingtimeStatus(const int sampleid);  //挂起
     void  setSamplePendingtimeStatus(const int sampleid, bool ispendingtime);
 
     //输出挂起样本号的焦点动作
@@ -47,9 +50,7 @@ public:
     QByteArray outputstheFirstIncompleteInstruction(const int smapleId,const quint8 indexActive);
     QByteArrayList outputsIncompleteInstructionList(const int smapleId,const quint8 indexActive);
 
-
-    //遍历加样状态 返回 true 有未完成  false:加样已完成
-    static bool backSampleAddState(const DATASAMPLESTRUCT *itsample, QByteArray &data);
+    static bool firstIncompleteCommand(const tSingleActive_list &list, QByteArray &data);
 
     //返回测试PPP的未完成指令
     static bool backSampleTestPPP(const DATASAMPLESTRUCT *itsample, QByteArray &data);
@@ -69,9 +70,25 @@ public:
     //输出清洗试剂针命令
     tSingleActive_list backCleanReagentNeedleComm(const DATASAMPLESTRUCT *itsample,const quint8 testReagent);
 
-    bool  recvPrepatchActions(const int id ,const quint8 activenum);
+    bool  recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd = nullptr);
     void  fillRecvPrepatch(const int id, const QByteArrayList dataList); //填充
     void  clearRecvPrepatch(const int id); //清空
+
+    struct GripperVacuumPollResult {
+        bool active = false;
+        bool allFinished = false;
+        bool gripperFailed = false;
+        bool lateTimer = false;
+        QByteArray sendData;
+        QString tips;
+        int sampleId = 0;
+    };
+
+    bool isGripperVacuumPollActive() const;
+    void stopGripperVacuumPoll();
+    QByteArray gripperVacuumProbeCommand() const;
+    GripperVacuumPollResult feedGripperVacuumPollSample(quint32 airvale, bool isSuctionBit);
+    GripperVacuumPollResult tickGripperVacuumPollDeadline();
 
 public:
     //根据通道测试号获取样本名
@@ -81,7 +98,7 @@ public:
 
 
     //获取贫血值和测试数据
-    void root_getinitvaluedata(const quint8 finishChn,
+    void rootGetinitvaluedata(const quint8 finishChn,
                                  quint8 index_reag,
                                  quint16 &AnaemiaInitValue,
                                  QVector<double> &TestedDatamap,
@@ -162,7 +179,7 @@ public:
     //设置样本测试通道
     void setTestingChn(const int focuSampleID, const quint8 indexchn );
 
-    //放弃样本输出未测试的试管号
+    //放弃样本输出未测试的试管号 + 试管标记已使用
     void labelCancelTubes(const int sampleid,QList<quint8> &outCancelTube);
 
     //设置焦点样本执行动作
@@ -200,7 +217,7 @@ public:
     void setupOneReagentsIsComplete(const QString SampleId, quint8 index_reag, const bool &testErr);
 
 
-    //获取血样针清洗状态
+    //获取样本针清洗状态
     bool judge_alreadyCleanBloodpin(const int sampleId, quint8 indexActive);
 
     //是否有待测试剂
@@ -208,6 +225,7 @@ public:
 
     //已加样完成等待通道的样本
     bool alreadyadded_wait_chn(int &wait_sampleid);
+    bool backSampleAddState(const DATASAMPLESTRUCT *itsample, QByteArray &data);
 
     //输出已加样未测试的吸贫血孔样本列表
     void cancel_sample_task(QList<int> &sample_tasklist, QList<int> &sampleid);
@@ -258,7 +276,7 @@ public:
     void delalltaskinfo(const bool exitapp);
 
 public:
-    const DATASAMPLESTRUCT *rfindIdSample(const int idSample);
+    const DATASAMPLESTRUCT *rfindIdSample(const int idSample) const;
 
     DATASAMPLESTRUCT *wfindIdSample(const int idSample);
 
@@ -268,6 +286,7 @@ public:
     QByteArray outputHeadnThrowCups(const int sampleId,bool isSetAllFalse);
     void throwPPPFailed(const int sampleId,bool &kGripperFailed);
     void allGripperThrowFinish(const DATASAMPLESTRUCT *psampledata,bool &isthrowFinish,QByteArray &outdata);
+
     /**
      * @brief recv_throwCupcommd
      * @param sampleId
@@ -289,15 +308,25 @@ public:
 
 
 
-    /** 构造加样处理函数
-     * @brief creataddSampleCommands
-     * @param addSamplecommand
-     * @param psampleinfo
-     */
+    /**
+    * @brief creataddSampleCommands
+    * @param addSamplecommand
+    * @param psampleinfo
+    * @param delayCommandPPP
+    * @param delayCommandPRP
+    */
     void creataddSampleCommands(const QByteArrayList addSamplecommand,
-                                   DATASAMPLESTRUCT *&psampleinfo);
+                                DATASAMPLESTRUCT *&psampleinfo,
+                                const QList<quint8> delayCommandsuckPPP,
+                                const QList<quint8> delayCommandspitPPP,
+                                const QList<quint8> delayCommandsuckPRP,
+                                const QList<quint8>delayCommandspitPRP);
 
-
+    void markAddSampleCommandComplete(int sampleId, quint8 commandIndex);
+    void appendPendingPppAddSampleTail(int sampleId);
+    void setPppPreProbeMeta(DATASAMPLESTRUCT *sample,
+                            const QByteArrayList &pendingTail,
+                            quint8 preProbeCmdIndex);
 
     //输出吸样命令(开始)根据样本号
     void OutputCommands(const int taskNum, QByteArrayList &sendData);  ///////////////测试后可删除
@@ -327,9 +356,33 @@ public:
                                        const quint8 isSuctionPPPreset,const quint8 isSpitPPPreset);
 
     QByteArray sendPPP2ChannelHeanderCommand(const int sampleId,bool isSetAllFalse);
+    bool pppClipContainsCommandIndex(int sampleId, quint8 index) const;
+    bool pppClipXyAtTray(int sampleId, const QPoint &pos) const;
+    QByteArray restartPppClipFromXy(int sampleId);
+
+    bool throwPppContainsCommandIndex(int sampleId, quint8 index) const;
+    bool throwReagentContainsCommandIndex(int sampleId, quint8 reagent, quint8 index) const;
+    bool prpClipContainsCommandIndex(int sampleId, quint8 reagent, quint8 index) const;
+    bool gripperXyAtChannel(int sampleId, const QPoint &pos) const;
+    bool prpClipXyAtReagent(int sampleId, quint8 reagent, const QPoint &pos) const;
+    bool prpClipXyAtTrayHole(int sampleId, quint8 reagent, const QPoint &pos) const;
+    QByteArray restartThrowPppFromXy(int sampleId);
+    QByteArray restartThrowReagentFromXy(int sampleId, quint8 reagent);
+    QByteArray restartPrpClipFromFirst(int sampleId, quint8 reagent);
+    /** 试剂已吸完：从杯盘抓杯重试；否则从试剂位整段重跑 */
+    QByteArray restartPrpClipResumePoint(int sampleId, quint8 reagent);
+    QByteArray restartPrpClipFromGrabCup(int sampleId, quint8 reagent, bool fromXyOrigin = false);
+    /** 吸PPP/吸PRP/通道抓杯失败后的焦点步骤（重试走同一套：XY到抓杯点再下抓） */
+    static bool isGripperCupFailFocus(quint8 indexActive);
+    /** 抓杯失败点「再次测试」：机器已在 XY 原点后，从 XY 移动到抓杯位置继续 */
+    QByteArray restartGripperFailTryAgain(int sampleId, quint8 indexActive);
+    bool prpReagentPortionCompleted(int sampleId, quint8 reagent) const;
+    bool prpClipFinishedAwaitingRead(int sampleId, quint8 reagent) const;
+    bool pppClipFinishedAwaitingRead(int sampleId) const;
 
 
     void outsuckPPPOtherOrder(const DATASAMPLESTRUCT * psampledata,bool &allFinished,QByteArray &outdata);
+    void forceAdvancePppClipQueue(const int sampleId, QByteArray &outSend);
 
     bool processPPPCupToChannel(const int sampleId,
                                  const quint8 index,
@@ -339,9 +392,27 @@ public:
                                  QByteArray &sendData,
                                  bool &kGripperFailed, bool &lateTimer);
 
+    QByteArray buildGripperTrayGrabDeepenCmd(quint8 suckCheckIndex, quint8 trayHole) const;
+    QByteArray buildGripperTrayReadVacuumCmd(quint8 readIndex, quint8 trayHole);
+    QByteArray buildGripperChannelGrabDeepenCmd(quint8 suckCheckIndex, quint8 channelIndex) const;
+    QByteArray buildGripperChannelReadVacuumCmd(quint8 readIndex, quint8 channelIndex);
+    bool gripperNeedsDelayBeforeRead() const;
+    void clearGripperReadPhase();
+    int gripperGrabRetryCount() const { return m_handsFailedtimes; }
+    void incrementGripperGrabRetry() { ++m_handsFailedtimes; }
+    bool gripperGrabRetriesExhausted() const;
+    /** 吸杯/放杯成功后或进入异常复位前，清零加深重试计数并结束负压轮询 */
+    void resetGripperRetryCounters();
+    /** 保持负压判定通过后标记吸杯检查步完成并取下一步(通常为抬Z) */
+    QByteArray gripperLiftAfterSuckHoldPassed(int sampleId,
+                                              quint8 holdQueue,
+                                              quint8 suckCheckIndex,
+                                              quint8 reagentIndex);
 
     void testPrpGripperErr(const int sampleId,quint8 indexReag,bool &outErr);
     void allTseaReagentActiveFinish(const Testing_reagents *ptestReagent,bool &iscomplete,QByteArray &outdata);
+
+
     /** 吸试剂抓PRP到测试通道指令解析并继续发送
      * @brief recv_suckReagentClipTube
      * @param sampleId     样本号
@@ -382,6 +453,10 @@ public:
 
 
     /********* 向通道吐试剂**************/
+    QByteArray addReagentIntoChannel(const int SampleId, quint8 indexReagent); //输出未完成的命令
+    bool addReagentIntoChannelFinish(const int SampleId, quint8 indexReagent,
+                                       const int indexNum,QByteArray &cmd, int *nextDelayMs = nullptr);
+
     void send_spitReagentData(const int SampleId, quint8 index_reagent, QByteArrayList &senddata); //根--吐试剂到测试通道
     bool recv_spitReagentData(const int SampleId, quint8 index_reagent, const int index_num); //收到吐试剂
 
@@ -409,19 +484,21 @@ public:
 
     /********************清洗双针********************************/
      void sendCleanDoubleNeedle(const int sampleid, QByteArrayList &senddata);
-     bool recv_cleanDobulePin(const int index_num, int loseFocusSample); //清洗双针收
+     bool recv_cleanDobulePin(const int index_num, int loseFocusSample, QByteArray &nextCmd);
      bool isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double,int loseFocusSample);
 
 
-    /******************** 清洗血样针 *********************************/
+    /******************** 清洗样本针 *********************************/
     void creat_cleanBloodyPin(bool bcleanDoublePin, QByteArrayList allcommand, DATASAMPLESTRUCT *&psampleinfo);
     void send_CleanbloodyPinActive(const int sampleID, QByteArrayList &senddata);  //清洗开始
-    bool recv_cleanbloodPin(const int index_num, int loseFocusSample); //清洗血样
+    bool recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd);
 
 
     /****清洗试剂针********/
     void send_cleanReagPin(const int sampleid, const quint8 index_reagent, QByteArrayList &senddata); //洗试剂针
-    bool recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample); //清洗试剂针
+    bool recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample, QByteArray &nextCmd);
+
+    QByteArray nextIncompletePrepatch(const int sampleId) const;
 
 
 public:
@@ -450,7 +527,109 @@ private:
     int m_handsFailedtimes = 0; //抓手吸杯失败次数
     int m_handsThrowFailedtimes = 0; //抓手丢被失败次数
 
+    enum GripperGrabReadPhase {
+        GrabReadIdle = 0,
+        GrabWaitDelayThenRead,
+        GrabWaitReadAckJudge,
+        GrabWaitDeepenAck
+    };
+    GripperGrabReadPhase m_gripperGrabReadPhase = GrabReadIdle;
+
     void backorigintimes();
+
+    enum GripperAckOutcome {
+        GripperAckUnhandled = 0,
+        GripperAckAdvance,
+        GripperAckRetry,
+        GripperAckFailed,
+        GripperAckPoll
+    };
+
+    enum GripperVacuumPollMode {
+        GripperPollNone = 0,
+        GripperPollGrab,
+        GripperPollRelease
+    };
+
+    struct GripperVacuumPollCtx {
+        bool active = false;
+        GripperVacuumPollMode mode = GripperPollNone;
+        tSingleActive_list *commandList = nullptr;
+        quint8 suckBack = 0;
+        quint8 spitBack = 0;
+        quint8 markIndexOnSuccess = 0;
+        quint8 retryCommandIndex = 0;
+        bool grabAtTray = false;
+        bool putAtThrowHole = false;
+        quint8 grabRetryPos = 0;
+        quint8 putRetryPos = 0;
+        QString tag;
+        int sampleId = 0;
+        qint64 deadlineMs = 0;
+        int probeDownMm = 0;
+        quint32 lastAirSample = 0;
+        bool lastSuctionBit = true;
+    };
+    GripperVacuumPollCtx m_gripperVacuumPoll;
+
+    void clearGripperVacuumPoll();
+    void beginGripperVacuumPoll(GripperVacuumPollMode mode,
+                                tSingleActive_list &list,
+                                quint8 phaseCommandIndex,
+                                quint8 suckBack,
+                                quint8 spitBack,
+                                const QString &tag,
+                                bool grabAtTray,
+                                bool putAtThrowHole,
+                                quint8 grabRetryPos,
+                                quint8 putRetryPos,
+                                int sampleId);
+    static bool gripperAckBlocksAdvance(GripperAckOutcome outcome);
+    GripperAckOutcome startVacuumPollPhase(GripperVacuumPollMode mode,
+                                           tSingleActive_list &list,
+                                           quint8 phaseCommandIndex,
+                                           quint8 suckBack,
+                                           quint8 spitBack,
+                                           const QString &tag,
+                                           bool grabAtTray,
+                                           bool putAtThrowHole,
+                                           quint8 grabRetryPos,
+                                           quint8 putRetryPos,
+                                           int sampleId);
+    GripperVacuumPollResult finishGripperVacuumPollSuccess();
+    GripperVacuumPollResult gripperVacuumPollDepthRetry();
+
+    bool dispatchGripperAck(tSingleActive_list &list,
+                            quint8 index,
+                            quint8 suckBack,
+                            quint8 spitBack,
+                            quint32 airvale,
+                            bool isSuction,
+                            const QString &tag,
+                            bool grabAtTray,
+                            bool putAtThrowHole,
+                            quint8 grabRetryPos,
+                            quint8 putRetryPos,
+                            int sampleId,
+                            QByteArray &sendData,
+                            bool &kGripperFailed,
+                            bool &lateTimer,
+                            const std::function<void(bool &finished, QByteArray &nextCmd)> &pullNext);
+
+    GripperAckOutcome applyGripperVacuumAck(tSingleActive_list &list,
+                                            quint8 index,
+                                            quint8 suckBack,
+                                            quint8 spitBack,
+                                            quint32 airvale,
+                                            bool isSuctionBit,
+                                            const QString &tag,
+                                            bool grabAtTray,
+                                            bool putAtThrowHole,
+                                            quint8 grabRetryPos,
+                                            quint8 putRetryPos,
+                                            int sampleId,
+                                            QByteArray &retryData,
+                                            bool &lateTimer);
 
 
     inline void logDebug(const QString& msg) const  { QLOG_DEBUG() << "[PPP]" << msg; }

@@ -94,6 +94,7 @@ public:
     void HandleoutputResultData(const QString &id, const quint8 &channel,
                                 const std::array<double, 3> &ratios);
     void _finishmovetestdownhigh(int index_);
+    void onGripperAirMotionFinished();
     void openKeyboard();
     void runInThread();
 
@@ -166,6 +167,7 @@ private:
     void initSheet();
     void initChannelValueDisplayUi();
     void setupChannelDimmingMaintenanceTab();
+    void ensureChannelDimmingTabVisible();
     void refreshChannelValuePageLayout();
     void initshowPPPinit();
     void intsignalsMable();
@@ -222,17 +224,23 @@ private:
     void cancelGripperAirDetect();
     void finishGripperAirDetect();
     void feedGripperAirSample(bool issuck, int airval);
+    void completeGripperOriginEmptyStep(int emptyVal);
+    void scheduleGripperOriginEmptyPollFallback();
+    void requestGripperOriginEmptyReading();
     void sendGripperDumpSequence();
     void sendGripperDumpRetry();
     void sendGripperHomeAfterDump();
     void sendGripperOriginSequence();
     void sendGripperReturnOriginAfterDetect();
     void sendGripperChannelGrabSequence();
+    void sendGripperDumpZRetreat();
+    void sendGripperCancelHoming();
     void askGripperAirApply();
     void startGripperAirPoll(bool hold);
     void stopGripperAirPoll();
     void sendGripperVacuumProbe(bool suckOn);
     void updateGripperAirStepHint(int step);
+    void queueGripperAirMotion(const QByteArrayList &cmds, int motionKind);
     void persistBloodPinIniFromUi();
     void persistReagentNeedleIniFromUi();
     void persistHandsIniFromUi();
@@ -333,7 +341,10 @@ private:
     QVector<int> m_gripperAirSamples;
     QElapsedTimer m_gripperAirPhaseClock;
     QTimer *m_gripperAirPollTimer = nullptr;
+    QTimer *m_gripperAirOriginAckFallbackTimer = nullptr;
     bool m_gripperAirPollHold = false;
+    bool m_gripperAirAwaitingMotion = false;
+    int m_gripperAirMotionKind = 0;
     QLabel *m_gripperAirStepLabel = nullptr;
     QPushButton *m_gripperAutoApplyBtn = nullptr;
 };

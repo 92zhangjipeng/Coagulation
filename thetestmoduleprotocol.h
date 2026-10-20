@@ -4,6 +4,7 @@
 #include <QMap>
 #include <QObject>
 #include <QThread>
+#include <QSet>
 #include "passparameterinterface.h"
 
 class theTestModuleProtocol : public QObject
@@ -91,6 +92,7 @@ private:
     bool m_completeTemp;
 
     PassparameterInterface *m_parameterInterface = nullptr;
+    QSet<quint8> m_pendingDimmingSave; // 调光后等待保存应答的模组
 };
 
 #endif // THETESTMODULEPROTOCOL_H

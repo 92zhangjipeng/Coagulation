@@ -1,163 +1,128 @@
 ﻿#include "graphplot.h"
-#include "ui_graphplot.h"
 #include "cglobal.h"
+#include "structinstance.h"
 #include "sampledataprocess.h"
-#include "loginui.h"
 #include <operclass/fullyautomatedplatelets.h>
 #include <QSharedPointer>
+#include <PrintReport/AggregationAnalyzer.h>
 #include "globaldata.h"
 #include <QtConcurrentRun>
+#include <numeric>
+#include <QFont>
+#include <QObject>
+#include <QVBoxLayout>
 
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
 #pragma execution_character_set("utf-8")
+#endif
 
 
-GraphPlot::GraphPlot(QWidget *parent) :QWidget(parent),
-    ui(new Ui::GraphPlot),
+GraphPlot::GraphPlot(QWidget *parent) : QWidget(parent),
+    m_widgetCurveInner(nullptr),
+    m_mainLayout(nullptr),
     mcuteNumData(1),
     mbaverage(false)
 {
-    ui->setupUi(this);
     this->setWindowFlags(Qt::FramelessWindowHint);
+    this->setStyleSheet("border: 2px solid rgb(220, 220, 220); background-color:rgba(250,250,250);");
 
     bool ok_ = GlobalData::CreadFolder("suowei_testblood");
-    QLOG_DEBUG()<<"创建索唯测试数据文件夹状态"<<ok_<<endl;
+    QLOG_DEBUG() << "创建索唯测试数据文件夹状态" << ok_ << endl;
 
+    createWidgetsDynamically();
     InitChart();
 }
 
 GraphPlot::~GraphPlot()
 {
-    delete ui;
-
-
 }
 
+void GraphPlot::createWidgetsDynamically()
+{
+    m_mainLayout = new QVBoxLayout(this);
+    m_mainLayout->setSpacing(0);
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+
+    m_widgetCurveInner = new QWidget(this);
+    m_widgetCurveInner->setStyleSheet("border: 1px solid rgb(120, 120, 120); border-radius: 1px; background: transparent;");
+    m_mainLayout->addWidget(m_widgetCurveInner);
+
+    for (int i = 0; i < MAX_CHANNELS; ++i) {
+        QWidget* aisleWidget = new QWidget(m_widgetCurveInner);
+        aisleWidget->setObjectName(QString("aisle_widget_%1").arg(i + 1));
+        aisleWidget->setStyleSheet("border: 1px solid rgb(225, 225, 225); border-radius: 8px; background: transparent;");
+
+        QVBoxLayout* aisleLayout = new QVBoxLayout(aisleWidget);
+        aisleLayout->setSpacing(5);
+        aisleLayout->setContentsMargins(5, 5, 5, 5);
+
+        QCustomPlot* customPlot = new QCustomPlot(aisleWidget);
+        customPlot->setObjectName(QString("Plot_aisle_%1_result").arg(i + 1));
+        customPlot->setStyleSheet("border: 1px solid rgb(200, 200, 200); background-color:rgba(245, 247, 249);");
+
+        aisleLayout->addWidget(customPlot);
+
+        m_pchnWidgetList.append(aisleWidget);
+        m_customPlotList.append(customPlot);
+    }
+}
 
 void GraphPlot::resizeEvent(QResizeEvent *event)
 {
-	Q_UNUSED(event);
+    Q_UNUSED(event);
 
-	// Get equipment kind
-	quint8 equipmentKind = 0;
-	SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
+    quint8 equipmentKind = 0;
+    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
 
-	// Calculate available space
-	const int xSpace = 5;
-	const int ySpace = 5;
-	const int availableWidth = ui->widget_CurveInner->width() - xSpace * 5;
-	const int availableHeight = ui->widget_CurveInner->height() - ySpace * 4;
+    const int availableWidth = m_widgetCurveInner->width() - HORIZONTAL_SPACING * (DEFAULT_COLUMNS + 1);
+    const int availableHeight = m_widgetCurveInner->height() - VERTICAL_SPACING * 4;
 
-	// Determine grid layout based on equipment kind
-	int columns = 4;
-	int rows = 1;
-	int curveWidth = availableWidth / columns;
-	int curveHeight = 0;
-
-	switch (equipmentKind) {
-	case KS600:
-		rows = 1;
-		curveHeight = availableHeight / 3 + availableHeight / 6; // same as /3 + /3/2
-		break;
-	case KS800:
-		rows = 2;
-		curveHeight = availableHeight / rows;
-		break;
-	case KS1200:
-		rows = 3;
-		curveHeight = availableHeight / rows;
-		break;
-	default:
-		rows = 1;
-		curveHeight = availableHeight / 3 + availableHeight / 6;
-		break;
-	}
-
-	// Position all widgets in the grid
-	for (int i = 0; i < m_pchnWidgetList.size(); i++) {
-		int col = i % columns;
-		int row = i / columns;
-
-		// Skip if we exceed the expected widget count for this equipment
-		if ((equipmentKind == KS600 && i >= 4) ||
-			(equipmentKind == KS800 && i >= 8) ||
-			(equipmentKind == KS1200 && i >= 12)) {
-			break;
-		}
-
-		int x = xSpace * (col + 1) + col * curveWidth;
-		int y = ySpace * (row + 1) + row * curveHeight;
-
-		if (equipmentKind == KS600) {
-			m_pchnWidgetList[i]->setFixedSize(curveWidth, curveHeight);
-			y = ySpace + curveHeight / 2; // Special vertical position for KS600
-		}
-		else {
-			m_pchnWidgetList[i]->setMaximumSize(curveWidth, curveHeight);
-		}
-
-		m_pchnWidgetList[i]->setGeometry(x, y, curveWidth, curveHeight);
-	}
+    LayoutConfig config = calculateLayout(equipmentKind, availableWidth, availableHeight);
+    adjustWidgetSizes(config, equipmentKind);
+    positionWidgetsInGrid(config, equipmentKind);
 }
 
 void GraphPlot::innitKindequipment()
 {
     quint8 equipmentKind = 0;
-    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,equipmentKind);
+    SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, equipmentKind);
 
-    //预定义所有通道部件数组
-    QWidget* allChannels[12] = {
-        ui->aisle_widget_1, ui->aisle_widget_2, ui->aisle_widget_3, ui->aisle_widget_4,
-        ui->aisle_widget_5, ui->aisle_widget_6, ui->aisle_widget_7, ui->aisle_widget_8,
-        ui->aisle_widget_9, ui->aisle_widget_10, ui->aisle_widget_11, ui->aisle_widget_12
-    };
-
-    //根据设备类型确定通道数量
     int activeChannels = 0;
     switch (equipmentKind) {
         case KS600: activeChannels = 4; break;
         case KS800: activeChannels = 8; break;
         case KS1200: activeChannels = 12; break;
-        default: activeChannels = 12; // 默认值
+        default: activeChannels = 12;
     }
 
-    //统一处理通道显示/隐藏
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < m_pchnWidgetList.size(); ++i) {
         if (i < activeChannels) {
-            m_pchnWidgetList.push_back(allChannels[i]);
-            allChannels[i]->show(); // 确保显示
+            m_pchnWidgetList[i]->show();
+            initializeCurveWidget(m_customPlotList[i], i + 1);
         } else {
-            allChannels[i]->hide();
+            m_pchnWidgetList[i]->hide();
         }
     }
-
-    for(auto pwidget : m_pchnWidgetList)
-    {
-        int indexchn = QUIUtils::StringFindintnum(pwidget->objectName()); //从1开始
-        if(QCustomPlot* pCurveWidget = pwidget->findChild<QCustomPlot *>()){
-            _initCreatCurveWidget(pCurveWidget,indexchn);
-        }
-    }
-    return;
 }
 
-/** 所有样本测试结束测试曲线界面恢复
-* @brief GraphPlot::backallCurveClear
-*/
 void GraphPlot::backallCurveClear()
 {
+    for (int i = 0; i < MAX_CHANNELS; ++i) {
+        m_lastTitleText[i].clear();
+        setChannelPppAbnormal(static_cast<quint8>(i), false);
+    }
+
     QMapIterator<quint8, QCPGraph*> it(mcurveWidgetList);
     while (it.hasNext()) {
         it.next();
 
         if (QCPGraph* graph = it.value()) {
-            // 清空图形数据
             graph->data().data()->clear();
             graph->data().data()->squeeze();
 
-            // 获取对应的 QCustomPlot 并设置背景
             if (QCustomPlot* pPlot = GetCurvepWidget(it.key())) {
-                notifyplotname(it.key(), pPlot, "");
+                updatePlotTitle(it.key(), pPlot, "");
                 pPlot->setBackground(QBrush(QColor("#FFFFFF")));
                 pPlot->replot(QCustomPlot::rpQueuedReplot);
             }
@@ -165,362 +130,595 @@ void GraphPlot::backallCurveClear()
     }
 }
 
-void GraphPlot::CleanCruve(quint8 indexChannel)
+void GraphPlot::clearCurve(quint8 channelIndex)
 {
-    bool bhad = mcurveWidgetList.contains(indexChannel);
-    if(bhad)
-    {
-        auto cPGraph  = mcurveWidgetList.find(indexChannel);
-        cPGraph.value()->data().data()->clear();
-        cPGraph.value()->data().data()->squeeze();
+    bool hasCurve = mcurveWidgetList.contains(channelIndex);
+    if (hasCurve) {
+        auto graph = mcurveWidgetList.find(channelIndex);
+        graph.value()->data().data()->clear();
+        graph.value()->data().data()->squeeze();
 
-        QCustomPlot* pPlot =  GetCurvepWidget(indexChannel);
-        pPlot->setBackground(QBrush(QColor(188,187,183)));
-        pPlot->replot(QCustomPlot::rpQueuedReplot);
+        QCustomPlot* plot = GetCurvepWidget(channelIndex);
+        plot->setBackground(QBrush(QColor(245, 247, 249)));
+        applyChannelCurveStyle(channelIndex);
+        plot->replot(QCustomPlot::rpQueuedReplot);
     }
-    return;
 }
 
 QCustomPlot* GraphPlot::GetCurvepWidget(int indexChn)
 {
+    if (m_plotCache.contains(indexChn)) {
+        return m_plotCache[indexChn];
+    }
+
     QCustomPlot* pbackout = nullptr;
-    for(auto pwidget : m_pchnWidgetList)
-    {
-        int ChnNum = QUIUtils::StringFindintnum(pwidget->objectName()) - 1; //通道从0 开始
-        if(ChnNum == indexChn)
-        {
-            pbackout = pwidget->findChild<QCustomPlot *>();
-            break;
-        }
+    if (indexChn >= 0 && indexChn < m_customPlotList.size()) {
+        pbackout = m_customPlotList[indexChn];
+        m_plotCache[indexChn] = pbackout;
     }
     return pbackout;
 }
 
-
-void GraphPlot::notifyplotname(quint8 indexchn, QCustomPlot* pPlotWidget,QString dada)
+void GraphPlot::updatePlotTitle(quint8 channelIndex, QCustomPlot* plotWidget, QString titleText)
 {
-    if(m_titemap.contains(indexchn))
-    {
-        auto iter = m_titemap.find(indexchn);
-        QString outprint = QString("通道%1%2").arg(indexchn + 1).arg(dada);
-        iter.value()->setText(outprint);
-        pPlotWidget->replot(/*QCustomPlot::rpQueuedReplot*/);
+    if (!plotWidget || channelIndex >= MAX_CHANNELS || !m_titemap.contains(channelIndex)) {
+        return;
+    }
+    m_lastTitleText[channelIndex] = titleText;
+    auto iter = m_titemap.find(channelIndex);
+    QString outprint = tr("通道%1%2").arg(channelIndex + 1).arg(titleText);
+    if (m_pppAbnormal[channelIndex]) {
+        if (!outprint.contains(tr("测试异常"))) {
+            outprint.append(tr(" 测试异常"));
+        }
+        iter.value()->setTextColor(QColor(183, 28, 28));
+    } else {
+        iter.value()->setTextColor(QColor(50, 50, 50));
+    }
+    iter.value()->setText(outprint);
+    plotWidget->replot();
+}
+
+void GraphPlot::applyChannelCurveStyle(quint8 channelIndex)
+{
+    if (channelIndex >= MAX_CHANNELS) {
+        return;
+    }
+    const bool abnormal = m_pppAbnormal[channelIndex];
+    if (channelIndex < m_pchnWidgetList.size() && m_pchnWidgetList[channelIndex]) {
+        const QString objName = m_pchnWidgetList[channelIndex]->objectName();
+        if (abnormal) {
+            m_pchnWidgetList[channelIndex]->setStyleSheet(
+                QString::fromUtf8("#%1 { border: 3px solid #E53935; border-radius: 8px;"
+                                  " background-color: #FFF8E1; }").arg(objName));
+        } else {
+            m_pchnWidgetList[channelIndex]->setStyleSheet(
+                QString::fromUtf8("#%1 { border: 1px solid rgb(225, 225, 225); border-radius: 8px;"
+                                  " background: transparent; }").arg(objName));
+        }
+    }
+    if (channelIndex < m_customPlotList.size() && m_customPlotList[channelIndex]) {
+        if (abnormal) {
+            m_customPlotList[channelIndex]->setStyleSheet(
+                QString::fromUtf8("border: 2px solid #FFC107; background-color: #FFF3E0;"));
+            m_customPlotList[channelIndex]->setBackground(QBrush(QColor(255, 243, 224)));
+        } else {
+            m_customPlotList[channelIndex]->setStyleSheet(
+                QString::fromUtf8("border: 1px solid rgb(200, 200, 200);"
+                                  " background-color:rgba(245, 247, 249);"));
+        }
     }
 }
 
-void  GraphPlot::_initCreatCurveWidget(QCustomPlot* pPlotWidget,int indexchn)
+void GraphPlot::setChannelPppAbnormal(quint8 channelIndex, bool abnormal)
 {
-    int indexChannel = indexchn - 1;
-    QString ShowText = QString("通道%1").arg(indexchn);
+    if (channelIndex >= MAX_CHANNELS) {
+        return;
+    }
+    m_pppAbnormal[channelIndex] = abnormal;
+    applyChannelCurveStyle(channelIndex);
+    if (QCustomPlot *plot = GetCurvepWidget(channelIndex)) {
+        updatePlotTitle(channelIndex, plot, m_lastTitleText[channelIndex]);
+    }
+}
 
-    QCPTextElement *plotTitle = new QCPTextElement(pPlotWidget);
-    plotTitle->setText(ShowText);
-    plotTitle->setTextColor(QColor(0,0,0));
+void GraphPlot::onPppInitRead(quint8 channelIndex, int pppValue)
+{
+    if (channelIndex >= MAX_CHANNELS) {
+        return;
+    }
+    const bool abnormal = (pppValue > 0 && pppValue < GlobalData::kPppLowVolumeWarn);
+    setChannelPppAbnormal(channelIndex, abnormal);
+    QCustomPlot *plot = GetCurvepWidget(channelIndex);
+    if (!plot) {
+        return;
+    }
+    if (abnormal) {
+        QLOG_WARN() << "通道" << (channelIndex + 1) << "PPP=" << pppValue
+                    << "小于" << GlobalData::kPppLowVolumeWarn << "，曲线标记测试异常";
+        updatePlotTitle(channelIndex, plot, tr(" PPP=%1").arg(pppValue));
+    } else {
+        updatePlotTitle(channelIndex, plot, QString());
+    }
+}
 
-    plotTitle->setFont(QFont("宋体", 12, QFont::Normal));
-    m_titemap.insert(indexChannel,plotTitle);
+void GraphPlot::initializeCurveWidget(QCustomPlot* plotWidget, int channelIndex)
+{
+    int indexChannel = channelIndex - 1;
+    QString showText = QString("通道%1").arg(channelIndex);
 
-    pPlotWidget->plotLayout()->insertRow(0);
-    pPlotWidget->plotLayout()->addElement(0, 0, plotTitle);
+    QCPTextElement *plotTitle = new QCPTextElement(plotWidget);
+    plotTitle->setText(showText);
+    plotTitle->setTextColor(QColor(50, 50, 50));
+    plotTitle->setFont(QFont("Microsoft YaHei", 10, QFont::Bold));
+    m_titemap.insert(indexChannel, plotTitle);
 
+    plotWidget->plotLayout()->insertRow(0);
+    plotWidget->plotLayout()->addElement(0, 0, plotTitle);
 
-    //设置曲线可拖拽 滚轮放大缩小 图像可选择
-    //禁用选择矩形
-    pPlotWidget->setSelectionRectMode(QCP::SelectionRectMode::srmNone);
-    //使能拖动
-    pPlotWidget->setInteraction(QCP::iRangeDrag, true);
-    //pPlotWidget->setInteractions(QCP::iRangeDrag | QCP::iSelectPlottables);
+    plotWidget->setSelectionRectMode(QCP::SelectionRectMode::srmNone);
+    plotWidget->setInteraction(QCP::iRangeDrag, true);
+    plotWidget->setFont(QFont("Arial", 9));
 
-    pPlotWidget->setFont(QFont(font().family(), 10));//设置文本的字体
+    plotWidget->setBackground(QBrush(QColor("#F8FAFC")));
+    plotWidget->axisRect()->setupFullAxesBox();
 
+    plotWidget->xAxis->setLabel(QObject::tr("时间(秒)"));
+    plotWidget->yAxis->setLabel(QObject::tr("聚集率(%)"));
 
-    // 设置背景色
-    pPlotWidget->setBackground(QBrush(QColor("#f5f7f9")));
-    pPlotWidget->axisRect()->setupFullAxesBox();//四边安装轴并显示
+    plotWidget->xAxis->setLabelColor(QColor(70, 130, 180));
+    plotWidget->yAxis->setLabelColor(QColor(70, 130, 180));
 
-    // 设置X/Y轴的标签
-    pPlotWidget->xAxis->setLabel(tr("时间S"));
-    pPlotWidget->yAxis->setLabel(tr("百分比%"));
+    plotWidget->xAxis->grid()->setZeroLinePen(QPen(QColor(100, 149, 237), 1.5));
+    plotWidget->yAxis->grid()->setZeroLinePen(QPen(QColor(100, 149, 237), 1.5));
 
-    // 设置X/Y轴标签颜色
-    pPlotWidget->xAxis->setLabelColor(QColor(Qt::red));
-    pPlotWidget->yAxis->setLabelColor(QColor(Qt::red));
+    plotWidget->xAxis->setRange(0, 300);
+    plotWidget->yAxis->setRange(-20, 100);
 
-    // 设置x=0或y=0所在直线的画笔
-    pPlotWidget->xAxis->grid()->setZeroLinePen(QPen(QColor(Qt::darkGray)));
-    pPlotWidget->yAxis->grid()->setZeroLinePen(QPen(QColor(Qt::darkGray)));
-
-
-
-    // 设置X/Y轴刻度范围
-    pPlotWidget->xAxis->setRange(0, 300);
-    pPlotWidget->yAxis->setRange(-20, 100);
-
-    //刻度设置优化
     QSharedPointer<QCPAxisTickerFixed> xTicker(new QCPAxisTickerFixed);
     xTicker->setTickStep(30);
     xTicker->setTickCount(10);
-    pPlotWidget->xAxis->setTicker(xTicker);
+    plotWidget->xAxis->setTicker(xTicker);
 
     QSharedPointer<QCPAxisTickerFixed> yTicker(new QCPAxisTickerFixed);
-    yTicker->setTickStep(12); // (-20到100共120单位，分10段)
-    yTicker->setTickCount(10);
-    pPlotWidget->yAxis->setTicker(yTicker);
+    yTicker->setTickStep(20);
+    yTicker->setTickCount(6);
+    plotWidget->yAxis->setTicker(yTicker);
 
-    //网格和零线设置
-    QPen zeroLinePen;
-    zeroLinePen.setColor(QColor(Qt::darkGreen));  // 修正：使用Qt::darkGreen
-    zeroLinePen.setWidth(2);
-    pPlotWidget->xAxis->grid()->setZeroLinePen(zeroLinePen);
-    pPlotWidget->yAxis->grid()->setZeroLinePen(zeroLinePen);
+    plotWidget->xAxis->ticker()->setTickStepStrategy(QCPAxisTicker::tssReadability);
+    plotWidget->yAxis->ticker()->setTickStepStrategy(QCPAxisTicker::tssReadability);
 
+    plotWidget->xAxis->setTickLabelColor(QColor(60, 60, 60));
+    plotWidget->yAxis->setTickLabelColor(QColor(60, 60, 60));
 
+    plotWidget->xAxis->setBasePen(QPen(QColor(80, 80, 80), 1, Qt::SolidLine));
+    plotWidget->yAxis->setBasePen(QPen(QColor(80, 80, 80), 1, Qt::SolidLine));
 
+    plotWidget->xAxis->setTickPen(QPen(QColor(70, 130, 180)));
+    plotWidget->yAxis->setTickPen(QPen(QColor(70, 130, 180)));
 
-    pPlotWidget->xAxis->ticker()->setTickStepStrategy(QCPAxisTicker::tssReadability);//可读性优于设置
-    pPlotWidget->yAxis->ticker()->setTickStepStrategy(QCPAxisTicker::tssReadability);
+    plotWidget->xAxis->setSubTickPen(QPen(QColor(150, 150, 150)));
+    plotWidget->yAxis->setSubTickPen(QPen(QColor(150, 150, 150)));
 
-    // 设置X/Y轴刻度值文本的颜色
-    pPlotWidget->xAxis->setTickLabelColor(QColor("#000000"));
-    pPlotWidget->yAxis->setTickLabelColor(QColor("#000000"));
+    plotWidget->xAxis->grid()->setPen(QPen(QColor(220, 220, 220), 1, Qt::DotLine));
+    plotWidget->yAxis->grid()->setPen(QPen(QColor(220, 220, 220), 1, Qt::DotLine));
 
-    // 设置X/Y轴轴线的画笔
-    pPlotWidget->xAxis->setBasePen(QPen(QColor(Qt::black), 1, Qt::SolidLine));
-    pPlotWidget->yAxis->setBasePen(QPen(QColor(Qt::black), 1, Qt::SolidLine));
+    QCPGraph* m_showCpgraphChannel = plotWidget->addGraph();
+    m_showCpgraphChannel->setPen(QPen(QColor(10, 10, 10), 1.5));
+    m_showCpgraphChannel->setLineStyle(QCPGraph::lsLine);
+    m_showCpgraphChannel->setScatterStyle(QCPScatterStyle::ssNone);   // 不显示散点
+    mcurveWidgetList.insert(indexChannel, m_showCpgraphChannel);
 
-    // 设置X/Y轴大刻度的画笔，被分段的位置
-    pPlotWidget->xAxis->setTickPen(QPen(QColor("#FF0000")));
-    pPlotWidget->yAxis->setTickPen(QPen(QColor("#FF0000")));
-
-    // 设置X/Y轴小刻度的画笔
-    pPlotWidget->xAxis->setSubTickPen(QPen(QColor("#000000")));
-    pPlotWidget->yAxis->setSubTickPen(QPen(QColor("#000000")));
-
-    // 设置内部网格线的画笔
-    pPlotWidget->xAxis->grid()->setPen(QPen(QColor(Qt::darkRed), 1, Qt::DotLine));
-    pPlotWidget->yAxis->grid()->setPen(QPen(QColor(Qt::darkRed), 1, Qt::DotLine));
-
-    QCPGraph* m_showCpgraphChannel = nullptr;
-    m_showCpgraphChannel = pPlotWidget->addGraph();
-    m_showCpgraphChannel->setPen(QColor(0,0,0,255));
-    m_showCpgraphChannel->setSmooth(false);//平滑开启曲线
-    mcurveWidgetList.insert(indexChannel,m_showCpgraphChannel);
-
-    pPlotWidget->replot(/*QCustomPlot::rpQueuedReplot*/);
-    return;
+    plotWidget->replot();
 }
 
-
-void GraphPlot::DrawCurvePoint(quint8 indexChn, QVector<double> Xdata, QVector<double> Ydata)
+void GraphPlot::drawCurvePoint(quint8 channelIndex, QVector<double> xData, QVector<double> yData)
 {
-    bool bhad = mcurveWidgetList.contains(indexChn);
-    if(bhad)
-    {
-        auto cPGraph  = mcurveWidgetList.find(indexChn);
-        cPGraph.value()->setData(Xdata, Ydata);
-        QCustomPlot* pPlot = GetCurvepWidget(indexChn);
-        pPlot->setBackground(QColor("#E8E8E8"));
-        pPlot->replot(/*QCustomPlot::rpQueuedReplot*/);
+    if (channelIndex >= MAX_CHANNELS) {
+        qWarning() << "Invalid channel index:" << channelIndex << ", maximum allowed:" << MAX_CHANNELS - 1;
+        return;
     }
-    return;
+
+    if (xData.size() != yData.size()) {
+        qWarning() << "X and Y data size mismatch. X size:" << xData.size() << ", Y size:" << yData.size();
+        return;
+    }
+
+    if (xData.isEmpty()) {
+        qWarning() << "Empty data provided for curve drawing";
+        return;
+    }
+
+    bool hasCurve = mcurveWidgetList.contains(channelIndex);
+    if (hasCurve) {
+        auto graph = mcurveWidgetList.find(channelIndex);
+        graph.value()->setData(xData, yData);
+        QCustomPlot* plot = GetCurvepWidget(channelIndex);
+        plot->setBackground(QColor("#F0F4F8"));
+        plot->replot();
+    }
 }
 
 void GraphPlot::InitChart()
 {
-    for (int f = 0; f < MACHINE_SETTING_CHANNEL; f++){
-        for (int k = 0; k < REAGENT_TOTAL; k++){
-            mTestDataX[f][k].clear();    // 直接清空
+    for (int f = 0; f < MAX_CHANNELS; f++) {
+        for (int k = 0; k < MAX_REAGENTS; k++) {
+            mTestDataX[f][k].clear();
             mTestDataY[f][k].clear();
             mTestDataX[f][k].reserve(NUMBEROFTESTDATA);
             mTestDataY[f][k].reserve(NUMBEROFTESTDATA);
         }
     }
-    return;
 }
 
-/*单个项目测试完成 保存曲线图 进度条设置为0*/
-void  GraphPlot::CompleteOneSample(const quint8 indexChannel, const quint8 reagents)
+void GraphPlot::CompleteOneSample(const quint8 indexChannel, const quint8 reagents)
 {
-    //形参 通道数从0开始
     QString CompleteSample = "";
     int sampleid = 0;
     const quint8 testIndexReagent = reagents - 1;
-    StructInstance::getInstance()->rootTestChnGetSampleInfo(indexChannel,CompleteSample,sampleid);
+    StructInstance::getInstance()->rootTestChnGetSampleInfo(indexChannel, CompleteSample, sampleid);
 
-    resetvect(indexChannel,testIndexReagent);
+    resetVectorData(indexChannel, testIndexReagent);
 
-	QCustomPlot* pPlot = GetCurvepWidget(indexChannel);
-	QString outdata = "测试完成";
-	notifyplotname(indexChannel, pPlot, outdata);
+    QCustomPlot* pPlot = GetCurvepWidget(indexChannel);
+    QString outdata = "测试完成";
+    updatePlotTitle(indexChannel, pPlot, outdata);
 
-    //恢复异常通道显示状态
-    FullyAutomatedPlatelets::pinstanceTesting()->giveupSampleChannelFlash(true,indexChannel);
+    FullyAutomatedPlatelets::pinstanceTesting()->giveupSampleChannelFlash(true, indexChannel);
 
-    QLOG_DEBUG()<<"试剂"<<GlobalData::mapIndexReagentnames(reagents)<<"测试结束通道"<<
-                  indexChannel + 1<<"清空进度状态"<<endl;
+    QLOG_DEBUG() << "试剂" << GlobalData::mapIndexReagentnames(reagents) << "测试结束通道"
+                 << indexChannel + 1 << "清空进度状态" << endl;
 
-    save_test_data_to_sqllite(indexChannel,reagents,sampleid); //保存测试的数据到数据库
-    return;
+
+    // --- 获取一次数据，避免重复调用 rootGetinitvaluedata ---
+    quint16 anaemiaInitValue = 0;
+    quint8 anaemiaHole = 0, richBloodHole = 0;
+    QVector<double> testedDataMap;
+    StructInstance::getInstance()->rootGetinitvaluedata(indexChannel, reagents,
+                                                         anaemiaInitValue,
+                                                         testedDataMap,
+                                                         anaemiaHole,
+                                                         richBloodHole);
+
+    // 有效：使用已获取的真实数据保存
+    saveTestDataToSqllite(indexChannel, reagents, sampleid, testedDataMap);
+}
+// ==================== 辅助函数实现 ====================
+
+QString GraphPlot::getFormattedSampleId(int finishsampleid, bool &isFollowUp) const
+{
+    const QString sampleID = GlobalData::groupDateAndID(GlobalData::ObatinCreatSampleTime(), finishsampleid);
+    auto *paddTaskCol = FullyAutomatedPlatelets::pinstancepatientdata();
+    isFollowUp = paddTaskCol ? paddTaskCol->hasfollowUpSample(sampleID) : false;
+    return isFollowUp ? QString("%1F").arg(sampleID) : sampleID;
 }
 
-void GraphPlot::save_test_data_to_sqllite( const quint8 indexChannel, const quint8 reagents, int finishsampleid)
+void GraphPlot::saveCurveDataToDatabase(const QString &sampleId, quint8 reagent,
+                                        const QVector<double> &curveData, quint8 indexChannel)
 {
-    quint16 AnaemiaInitValue = 0;   //贫血初值
-    quint8 AnaemiaHole = 0, RichBloodHole = 0;
-    QVector<double> TestedDatamap;  //数据
-    TestedDatamap.clear();
-
-    QString sampleID = GlobalData::groupDateAndID(GlobalData::ObatinCreatSampleTime(),finishsampleid);
-
-    //获取贫血值和测试数据 && 清空测试完成试剂数据
-    StructInstance::getInstance()->root_getinitvaluedata(indexChannel,reagents,AnaemiaInitValue,
-                                                         TestedDatamap,AnaemiaHole,RichBloodHole);
-
-    //测试数据保存和配置通道
-    QString curvepoint ="";
-    GlobalData::vectorconversionString(TestedDatamap,curvepoint);
-    QString _outResultdata =  QUIUtils::OutPrintTestedResult(TestedDatamap); //测试结果
-    FullyAutomatedPlatelets::pinstancesqlData()->updateTestCurveDataTale(sampleID,reagents,curvepoint);
-    FullyAutomatedPlatelets::pinstancesqlData()->updateTestCurveDataTale(sampleID,ANEMIA,QString::number(indexChannel));
-
-    QString keyval;
-    switch(reagents)
-    {
-        case AA_REAGENT:  keyval ="AA"; break;
-        case ADP_REAGENT:  keyval ="ADP"; break;
-        case EPI_REAGENT:  keyval ="EPI"; break;
-        case COL_REAGENT:  keyval ="COL"; break;
-        case RIS_REAGENT:  keyval ="RIS"; break;
-    default: break;
+    auto *db = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!db) {
+        QLOG_ERROR() << "Database instance is null";
+        return;
     }
-    FullyAutomatedPlatelets::pinstancesqlData()->updateTestResultTable(sampleID,keyval ,_outResultdata);
-    return;
+
+    QString curvePoints;
+    GlobalData::vectorconversionString(curveData, curvePoints);
+    db->updateTestCurveDataTale(sampleId, reagent, curvePoints);
+    db->setTestCurveDataChannel(sampleId,indexChannel);
+    //db->updateTestCurveDataTale(sampleId, ANEMIA, QString::number(indexChannel));
+
+    static const QMap<quint8, QString> reagentKeyMap = {
+        {AA_REAGENT, "AA"}, {ADP_REAGENT, "ADP"}, {EPI_REAGENT, "EPI"},
+        {COL_REAGENT, "COL"}, {RIS_REAGENT, "RIS"}
+    };
+    const QString keyVal = reagentKeyMap.value(reagent, "UNKNOWN");
+    const QString outResultData = QUIUtils::OutPrintTestedResult(curveData);
+    db->updateTestResultTable(sampleId, keyVal, outResultData);
 }
 
-double GraphPlot::get_mean(QVector<double> in)
+
+void GraphPlot::saveAnalysisResultForReagent(const QString &sampleId, quint8 reagent,
+                                             const QVector<double> &processedData)
 {
-    double sum = std::accumulate(in.begin(), in.end(), 0.0);
-    double mean =  sum / in.size(); //均值
+    // 直接调用原有的五个分析函数，它们内部已有数据库操作
+    switch (reagent) {
+        case AA_REAGENT: analyzeAAAndSave(sampleId, processedData); break;
+        case ADP_REAGENT: analyzeADPAndSave(sampleId, processedData); break;
+        case EPI_REAGENT: analyzeEPIAndSave(sampleId, processedData); break;
+        case COL_REAGENT: analyzeCOLAndSave(sampleId, processedData); break;
+        case RIS_REAGENT: analyzeRISAndSave(sampleId, processedData); break;
+        default: QLOG_WARN() << "Unknown reagent type:" << reagent;
+    }
+}
+
+
+// 新增重载版本：接受已获取的数据，避免重复调用 rootGetinitvaluedata
+void GraphPlot::saveTestDataToSqllite(const quint8 indexChannel, const quint8 reagents,
+                                      int finishsampleid, const QVector<double> &testedDataMap)
+{
+    if (finishsampleid <= 0 || testedDataMap.isEmpty()) {
+        QLOG_WARN() << "Invalid finishsampleid or empty data";
+        return;
+    }
+
+    bool isFollowUp = false;
+    QString testFinishSampleId = getFormattedSampleId(finishsampleid, isFollowUp);
+
+    // 保存原始曲线数据到数据库
+    saveCurveDataToDatabase(testFinishSampleId, reagents, testedDataMap, indexChannel + 1);
+
+    // 处理数据：放大100倍并四舍五入保留4位小数，然后交给分析函数
+    QVector<double> processedData;
+    processedData.reserve(testedDataMap.size());
+    for (double val : testedDataMap) {
+        val = val * 100.0;
+        val = std::round(val * 10000.0) / 10000.0;
+        processedData.append(val);
+    }
+    saveAnalysisResultForReagent(testFinishSampleId, reagents, processedData);
+}
+
+
+
+void GraphPlot::saveTestDataToSqllite(const quint8 indexChannel, const quint8 reagents, int finishsampleid)
+{
+    // 此处仍然需要获取数据，因为可能被其他地方单独调用
+    quint16 anaemiaInitValue = 0;
+    quint8 anaemiaHole = 0, richBloodHole = 0;
+    QVector<double> testedDataMap;
+    StructInstance::getInstance()->rootGetinitvaluedata(indexChannel, reagents,
+                                                         anaemiaInitValue,
+                                                         testedDataMap,
+                                                         anaemiaHole,
+                                                         richBloodHole);
+    if (testedDataMap.isEmpty()) {
+        QLOG_WARN() << "No test data for channel:" << indexChannel << "reagent:" << reagents;
+        return;
+    }
+    // 调用新重载
+    saveTestDataToSqllite(indexChannel, reagents, finishsampleid, testedDataMap);
+}
+
+
+void GraphPlot::analyzeAAAndSave(const QString id, const QVector<double>& data)
+{
+    AAResult result = AggregationAnalyzer::analyzeAA(data);
+    auto* dbInstance = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!dbInstance) {
+        QLOG_ERROR() << "Database instance is null";
+        return;
+    }
+
+    dbInstance->updateAnalysisResults(id, "AA", result.auc, result.maxSlope, result.tmaTime, result.lagTime, result.maxValue * 0.8);
+}
+
+void GraphPlot::analyzeADPAndSave(const QString id, const QVector<double>& data)
+{
+    ADPResult result = AggregationAnalyzer::analyzeADP(data);
+    auto* dbInstance = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!dbInstance) {
+        QLOG_ERROR() << "Database instance is null";
+        return;
+    }
+    dbInstance->updateAnalysisResults(id, "ADP", result.auc, result.aggregationRate, result.tmaTime, result.lagTime, result.maxAggregation * 0.8);
+}
+
+void GraphPlot::analyzeEPIAndSave(const QString id, const QVector<double>& data)
+{
+    EPIResult result = AggregationAnalyzer::analyzeEPI(data);
+    auto* dbInstance = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!dbInstance) {
+        QLOG_ERROR() << "Database instance is null";
+        return;
+    }
+    dbInstance->updateAnalysisResults(id, "EPI", result.auc, result.secondPhaseSlope, result.tmaTime, result.lagTime, 0.00f);
+}
+
+void GraphPlot::analyzeCOLAndSave(const QString id, const QVector<double>& data)
+{
+    COLResult result = AggregationAnalyzer::analyzeCOL(data);
+    auto* dbInstance = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!dbInstance) {
+        QLOG_ERROR() << "Database instance is null";
+        return;
+    }
+    dbInstance->updateAnalysisResults(id, "COL", result.auc, result.maxSlope, result.tmaTime, result.lagTime, 0.00f);
+}
+
+void GraphPlot::analyzeRISAndSave(const QString id, const QVector<double>& data)
+{
+    RISResult result = AggregationAnalyzer::analyzeRIS(data);
+    auto* dbInstance = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!dbInstance) {
+        QLOG_ERROR() << "Database instance is null";
+        return;
+    }
+    dbInstance->updateAnalysisResults(id, "RIS", result.auc, result.aggregationRate, result.tmaTime, result.lagTime, 0.00f);
+}
+
+double GraphPlot::calculateMean(const QVector<double>& inputData)
+{
+    double sum = std::accumulate(inputData.begin(), inputData.end(), 0.0);
+    double mean = sum / inputData.size();
     return mean;
 }
 
-void  GraphPlot::recvsycnViewCurvePara(int cutnum , bool bavge)
+void GraphPlot::recvsycnViewCurvePara(int cutnum, bool bavge)
 {
     mcuteNumData = cutnum;
     mbaverage = bavge;
-    QLOG_DEBUG()<<"分段数"<<mcuteNumData<<"平均"<<mbaverage;
+    QLOG_DEBUG() << "分段数" << mcuteNumData << "平均" << mbaverage;
 }
 
-void GraphPlot::resetvect(const int& Chn,const int& reagentNum){
-    mTestDataX[Chn][reagentNum].clear();
-    mTestDataY[Chn][reagentNum].clear();
-    mTestDataX[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
-    mTestDataY[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
+void GraphPlot::resetVectorData(const int& channel, const int& reagentNumber)
+{
+    mTestDataX[channel][reagentNumber].clear();
+    mTestDataY[channel][reagentNumber].clear();
+    mTestDataX[channel][reagentNumber].reserve(NUMBEROFTESTDATA);
+    mTestDataY[channel][reagentNumber].reserve(NUMBEROFTESTDATA);
 
-    mCurvePlote_x[Chn][reagentNum].clear();
-    mCurvePlote_y[Chn][reagentNum].clear();
-    mCurvePlote_x[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
-    mCurvePlote_y[Chn][reagentNum].reserve(NUMBEROFTESTDATA);
+    mCurvePlote_x[channel][reagentNumber].clear();
+    mCurvePlote_y[channel][reagentNumber].clear();
+    mCurvePlote_x[channel][reagentNumber].reserve(NUMBEROFTESTDATA);
+    mCurvePlote_y[channel][reagentNumber].reserve(NUMBEROFTESTDATA);
 }
 
-/*接收测试数据实时绘制曲线*/
-void GraphPlot::GetTestingValue(const QString &Sample, const quint8 &project, const quint8 &test_channel,
-                                const float &testingdata,
-                                const int &nPRP,
-                                const int &initPRP,
-                                const int &initPPP){
-
-    const quint8 testingChannel =  test_channel - 1;
-    const quint8 testingReagents = project - 1;
+void GraphPlot::GetTestingValue(const QString& Sample, const quint8& project, const quint8& test_channel,
+                                const float& testingdata, const int& nPRP, const int& initPRP, const int& initPPP)
+{
+    const quint8 testingChannel = test_channel - 1;
+    const quint8 testingReagent = project - 1;
 
     QString datestr;
     int idnum;
-    QString ReagentName =  GlobalData::mapIndexReagentnames(project);
+    QString ReagentName = GlobalData::mapIndexReagentnames(project);
     GlobalData::apartSampleId(Sample, datestr, idnum);
 
-    QString data_ = QString::number(testingdata*100,'f',2)+"%";
-    QCustomPlot* pPlot = GetCurvepWidget(testingChannel);
-    QString outdata = tr("%1:PPP=%2 PRP=%3 %5(%4)").arg(ReagentName).arg(initPPP).arg(initPRP).arg(nPRP).arg(data_);
-    notifyplotname(testingChannel, pPlot,outdata);
+    QString data_;
+    float percentValue = testingdata * 100.0f;
 
-
-    //绘制曲线
-    mTestDataX[testingChannel][testingReagents].push_back(mTestDataY[testingChannel][testingReagents].size());
-    if (!std::isfinite(testingdata)) {
-        // 处理 NaN 或 Inf 的情况
-         mTestDataY[testingChannel][testingReagents].push_back( 0 * 100.00);
-    }else{
-         mTestDataY[testingChannel][testingReagents].push_back(testingdata*100.00);
+    if (percentValue < 0.01) {
+        // 非常小的值，显示6位小数
+        data_ = QString::number(percentValue, 'f', 6) + "%";
+    } else if (percentValue < 0.1) {
+        // 较小值，显示4位小数
+        data_ = QString::number(percentValue, 'f', 4) + "%";
+    } else if (percentValue < 1.0) {
+        // 中等值，显示3位小数
+        data_ = QString::number(percentValue, 'f', 3) + "%";
+    } else {
+        // 正常值，显示2位小数
+        data_ = QString::number(percentValue, 'f', 2) + "%";
     }
 
 
 
-    //绘制测试界面模组的进度条
-    emit DrawProgressbar(testingChannel, calculateProgress(testingChannel, testingReagents));
+    QCustomPlot* pPlot = GetCurvepWidget(testingChannel);
+    if (initPPP > 0 && initPPP < GlobalData::kPppLowVolumeWarn) {
+        setChannelPppAbnormal(testingChannel, true);
+    }
+    QString outdata = QObject::tr("%1:PPP=%2 PRP=%3 %5(%4)").arg(ReagentName).arg(initPPP).arg(initPRP).arg(nPRP).arg(data_);
+    updatePlotTitle(testingChannel, pPlot, outdata);
 
+    mTestDataX[testingChannel][testingReagent].push_back(mTestDataY[testingChannel][testingReagent].size());
+    if (!std::isfinite(testingdata)) {
+        mTestDataY[testingChannel][testingReagent].push_back(0 * 100.00);
+    } else {
+        mTestDataY[testingChannel][testingReagent].push_back(testingdata * 100.00);
+    }
+
+    emit DrawProgressbar(testingChannel, calculateProgress(testingChannel, testingReagent));
 
     const QString filename = QString("Id%1通道%2%3").arg(idnum).arg(test_channel).arg(ReagentName);
     const bool isopenexperimentalMode = INI_File().getexperimentalMode();
-    if(mTestDataY[testingChannel][testingReagents].size() == 1){
-         CleanCruve(testingChannel);
-         if(isopenexperimentalMode){
-             QString datastr = QString("initPPP:%1 initPRP:%2 PRP(1):%3").arg(initPPP).arg(initPRP).arg(nPRP);
-             GlobalData::CreatFloadfileAppend("ExperimentalMode",filename,datastr);
-         }
-    }
-    else if(isopenexperimentalMode){
-         GlobalData::CreatFloadfileAppend("ExperimentalMode",filename, QString::number(nPRP)+":"+ data_);
+    if (mTestDataY[testingChannel][testingReagent].size() == 1) {
+        clearCurve(testingChannel);
+        if (isopenexperimentalMode) {
+            QString datastr = QString("initPPP:%1 initPRP:%2 PRP(1):%3").arg(initPPP).arg(initPRP).arg(nPRP);
+            GlobalData::CreatFloadfileAppend("ExperimentalMode", filename, datastr);
+        }
+    } else if (isopenexperimentalMode) {
+        GlobalData::CreatFloadfileAppend("ExperimentalMode", filename, QString::number(nPRP) + ":" + data_);
     }
 
-    if(mcuteNumData == 1 && mbaverage == false )
-    {
-        DrawCurvePoint(testingChannel,
-                       mTestDataX[testingChannel][testingReagents],
-                       mTestDataY[testingChannel][testingReagents]);
-    }
-    else if(mcuteNumData != 1)
-    {
-        int numTotal = mTestDataX[testingChannel][testingReagents].size();
-        if(numTotal == 1)
-        {
-            mCurvePlote_x[testingChannel][testingReagents].push_back(0);
-            mCurvePlote_y[testingChannel][testingReagents].push_back(testingdata*100.00);
-            DrawCurvePoint(testingChannel, mCurvePlote_x[testingChannel][testingReagents],
-                           mCurvePlote_y[testingChannel][testingReagents]);
-        }
-        else if(numTotal % mcuteNumData == 0 && numTotal/mcuteNumData != 0 && mbaverage == false)
-        {
-           mCurvePlote_x[testingChannel][testingReagents].push_back(mTestDataY[testingChannel][testingReagents].size());
-           mCurvePlote_y[testingChannel][testingReagents].push_back(*(mTestDataY[testingChannel][testingReagents].end() - 1)*100.00);
-           DrawCurvePoint(testingChannel, mCurvePlote_x[testingChannel][testingReagents], mCurvePlote_y[testingChannel][testingReagents]);
-        }
-        else if(numTotal % mcuteNumData == 0 && numTotal/mcuteNumData != 0 && mbaverage == true)
-        {
+    if (mcuteNumData == 1 && mbaverage == false) {
+        drawCurvePoint(testingChannel, mTestDataX[testingChannel][testingReagent], mTestDataY[testingChannel][testingReagent]);
+    } else if (mcuteNumData != 1) {
+        int numTotal = mTestDataX[testingChannel][testingReagent].size();
+        if (numTotal == 1) {
+            mCurvePlote_x[testingChannel][testingReagent].push_back(0);
+            mCurvePlote_y[testingChannel][testingReagent].push_back(testingdata * 100.00);
+            drawCurvePoint(testingChannel, mCurvePlote_x[testingChannel][testingReagent], mCurvePlote_y[testingChannel][testingReagent]);
+        } else if (numTotal % mcuteNumData == 0 && numTotal / mcuteNumData != 0 && mbaverage == false) {
+            mCurvePlote_x[testingChannel][testingReagent].push_back(mTestDataY[testingChannel][testingReagent].size());
+            mCurvePlote_y[testingChannel][testingReagent].push_back(*(mTestDataY[testingChannel][testingReagent].end() - 1) * 100.00);
+            drawCurvePoint(testingChannel, mCurvePlote_x[testingChannel][testingReagent], mCurvePlote_y[testingChannel][testingReagent]);
+        } else if (numTotal % mcuteNumData == 0 && numTotal / mcuteNumData != 0 && mbaverage == true) {
             QVector<double> prpvalue;
             prpvalue.clear();
-            for(int i = 1 ; i <= mcuteNumData ; i++)
-            {
-               prpvalue.push_back(*(mTestDataY[testingChannel][testingReagents].end()- i));
+            for (int i = 1; i <= mcuteNumData; ++i) {
+                prpvalue.push_back(*(mTestDataY[testingChannel][testingReagent].end() - i));
             }
-            double  outprp = get_mean(prpvalue);
-            mCurvePlote_x[testingChannel][testingReagents].push_back(mTestDataY[testingChannel][testingReagents].size());
-            mCurvePlote_y[testingChannel][testingReagents].push_back(outprp);
-            DrawCurvePoint(testingChannel, mCurvePlote_x[testingChannel][testingReagents],
-                           mCurvePlote_y[testingChannel][testingReagents]);
+            double outprp = calculateMean(prpvalue);
+            mCurvePlote_x[testingChannel][testingReagent].push_back(mTestDataY[testingChannel][testingReagent].size());
+            mCurvePlote_y[testingChannel][testingReagent].push_back(outprp);
+            drawCurvePoint(testingChannel, mCurvePlote_x[testingChannel][testingReagent], mCurvePlote_y[testingChannel][testingReagent]);
         }
     }
-
-
-    return;
 }
 
-double GraphPlot::calculateProgress(int channel, int reagent) const {
-    return qBound(0.0,
-           static_cast<double>(mTestDataX[channel][reagent].size())*100/NUMBEROFTESTDATA,
-           100.0);
+double GraphPlot::calculateProgress(int channel, int reagent) const
+{
+    return qBound(0.0, static_cast<double>(mTestDataX[channel][reagent].size()) * 100 / NUMBEROFTESTDATA, 100.0);
 }
 
+GraphPlot::LayoutConfig GraphPlot::calculateLayout(quint8 equipmentKind, int availableWidth, int availableHeight) const
+{
+    LayoutConfig config;
 
+    switch (equipmentKind) {
+        case KS600:
+            config.columns = 2;
+            config.rows = 2;
+            config.curveHeight = availableHeight / config.rows;
+            config.curveWidth = availableWidth / config.columns;
+            break;
+        case KS800:
+            config.columns = 4;
+            config.rows = 2;
+            config.curveHeight = availableHeight / config.rows;
+            config.curveWidth = availableWidth / config.columns;
+            break;
+        case KS1200:
+            config.columns = 4;
+            config.rows = 3;
+            config.curveHeight = availableHeight / config.rows;
+            config.curveWidth = availableWidth / config.columns;
+            break;
+        default:
+            config.columns = 4;
+            config.rows = 3;
+            config.curveHeight = availableHeight / config.rows;
+            config.curveWidth = availableWidth / config.columns;
+            break;
+    }
 
+    return config;
+}
 
+void GraphPlot::positionWidgetsInGrid(const LayoutConfig& config, quint8 equipmentKind)
+{
+    int activeChannels = 0;
+    switch (equipmentKind) {
+        case KS600: activeChannels = 4; break;
+        case KS800: activeChannels = 8; break;
+        case KS1200: activeChannels = 12; break;
+        default: activeChannels = 12;
+    }
 
+    for (int i = 0; i < activeChannels && i < m_pchnWidgetList.size(); ++i) {
+        int col = i % config.columns;
+        int row = i / config.columns;
+
+        int x = HORIZONTAL_SPACING + col * (config.curveWidth + HORIZONTAL_SPACING);
+        int y = VERTICAL_SPACING + row * (config.curveHeight + VERTICAL_SPACING);
+
+        m_pchnWidgetList[i]->setGeometry(x, y, config.curveWidth, config.curveHeight);
+    }
+}
+
+void GraphPlot::adjustWidgetSizes(const LayoutConfig& config, quint8 equipmentKind)
+{
+    int activeChannels = 0;
+    switch (equipmentKind) {
+        case KS600: activeChannels = 4; break;
+        case KS800: activeChannels = 8; break;
+        case KS1200: activeChannels = 12; break;
+        default: activeChannels = 12;
+    }
+
+    for (int i = 0; i < activeChannels && i < m_pchnWidgetList.size(); ++i) {
+        m_pchnWidgetList[i]->setFixedSize(config.curveWidth, config.curveHeight);
+    }
+}

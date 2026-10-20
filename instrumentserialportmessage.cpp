@@ -16,32 +16,27 @@ InstrumentSerialPortMessage::~InstrumentSerialPortMessage()
 
 void InstrumentSerialPortMessage::timerEvent(QTimerEvent *event)
 {
-
-
+    Q_UNUSED(event);
 }
 
 
 //控制某通道的磁珠旋转开关
 void InstrumentSerialPortMessage::ControlWhichoneChannelrevolving(const int Channel ,const bool Openrevolving)
 {
-    QMutexLocker locker(&m_lock);
-    QByteArray Modularray;
-    Modularray.clear();
-    if (Channel >= 1 && Channel < 5)
-    {
-        Modularray = Testing::m_TaskDll->_SetTestModeInfo(0, 0, Channel, Openrevolving);
+    if (Channel < 1 || Channel > 12) {
+        QLOG_FATAL() << "无效通道:" << Channel;
+        return;
     }
-    else if (Channel >= 5 && Channel < 9)
-    {
-        Modularray = Testing::m_TaskDll->_SetTestModeInfo(1, 0, Channel, Openrevolving);
-    }
-    else if (Channel >= 9 && Channel <= 12)
-    {
-        Modularray = Testing::m_TaskDll->_SetTestModeInfo(2, 0, Channel, Openrevolving);
-    }
-    quint8 OpenChannel = Channel;
-    QThread::msleep(1);
 
+    const int module = (Channel - 1) / 4;
+    // 锁内只做必要调用
+    {
+        QMutexLocker locker(&m_lock);
+        Testing::getTaskDll()->_SetTestModeInfo(module, 0, Channel, Openrevolving);
+    }
+
+    // 延迟放在锁外，避免阻塞其他线程
+    QThread::msleep(1);
     return;
 }
 

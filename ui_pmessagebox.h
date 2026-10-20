@@ -17,8 +17,8 @@
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QSpacerItem>
-#include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -37,65 +37,69 @@ public:
     QLabel *label_remindertext;
     QWidget *widget;
     QHBoxLayout *horizontalLayout;
-    QToolButton *toolButton_OK;
-    QToolButton *toolButton_Cancel;
+    QPushButton *toolButton_OK;
+    QPushButton *toolButton_Cancel;
 
     void setupUi(QDialog *PMessageBox)
     {
         if (PMessageBox->objectName().isEmpty())
             PMessageBox->setObjectName(QStringLiteral("PMessageBox"));
-        PMessageBox->resize(402, 675);
-        PMessageBox->setMinimumSize(QSize(401, 0));
-        PMessageBox->setMaximumSize(QSize(402, 16777215));
-        PMessageBox->setStyleSheet(QString::fromUtf8("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border-top-color: rgb(0, 0, 0);\n"
-"font: 20 12pt \"\346\245\267\344\275\223\";"));
+        PMessageBox->resize(450, 600);
+        PMessageBox->setMinimumSize(QSize(450, 600));
+        PMessageBox->setMaximumSize(QSize(450, 600));
+        PMessageBox->setStyleSheet(QString::fromUtf8("QDialog#PMessageBox {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #f8fafc, stop:1 #e2e8f0);\n"
+"    border: 2px solid #cbd5e1;\n"
+"    border-radius: 12px;\n"
+"    font-family: \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
+"}"));
         verticalLayout_traylayout = new QVBoxLayout(PMessageBox);
-        verticalLayout_traylayout->setSpacing(0);
+        verticalLayout_traylayout->setSpacing(8);
         verticalLayout_traylayout->setObjectName(QStringLiteral("verticalLayout_traylayout"));
-        verticalLayout_traylayout->setContentsMargins(0, 0, 0, 10);
+        verticalLayout_traylayout->setContentsMargins(10, 10, 10, 10);
         widget_title = new QWidget(PMessageBox);
         widget_title->setObjectName(QStringLiteral("widget_title"));
-        widget_title->setMinimumSize(QSize(0, 36));
-        widget_title->setMaximumSize(QSize(400, 36));
-        widget_title->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border: 2px solid rgba(220,220,220);"));
+        widget_title->setMinimumSize(QSize(0, 45));
+        widget_title->setMaximumSize(QSize(16777215, 45));
+        widget_title->setStyleSheet(QLatin1String("QWidget#widget_title {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #1e40af, stop:1 #1e3a8a);\n"
+"    border: 1px solid #1e3a8a;\n"
+"    border-radius: 8px;\n"
+"    padding: 5px;\n"
+"}"));
         horizontalLayout_2 = new QHBoxLayout(widget_title);
-        horizontalLayout_2->setSpacing(0);
+        horizontalLayout_2->setSpacing(10);
         horizontalLayout_2->setObjectName(QStringLiteral("horizontalLayout_2"));
-        horizontalLayout_2->setContentsMargins(0, 0, 0, 0);
+        horizontalLayout_2->setContentsMargins(10, 5, 10, 5);
         label_showicon = new QLabel(widget_title);
         label_showicon->setObjectName(QStringLiteral("label_showicon"));
         label_showicon->setMinimumSize(QSize(32, 32));
         label_showicon->setMaximumSize(QSize(32, 32));
-        label_showicon->setStyleSheet(QString::fromUtf8("font: 20 17pt '\346\245\267\344\275\223';\n"
-"background-color:rgb(190, 154, 124, 255);\n"
-"border-radius:2px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
-"border-style: flat;\n"
-"background: transparent;"));
+        label_showicon->setStyleSheet(QLatin1String("QLabel {\n"
+"    background: transparent;\n"
+"    border: none;\n"
+"}"));
 
         horizontalLayout_2->addWidget(label_showicon);
 
         label_titlename = new QLabel(widget_title);
         label_titlename->setObjectName(QStringLiteral("label_titlename"));
-        label_titlename->setMinimumSize(QSize(190, 30));
-        label_titlename->setMaximumSize(QSize(220, 32));
+        label_titlename->setMinimumSize(QSize(0, 35));
+        label_titlename->setMaximumSize(QSize(16777215, 35));
         QFont font;
-        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font.setPointSize(17);
-        font.setBold(false);
-        font.setItalic(false);
-        font.setWeight(2);
+        font.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
+        font.setPointSize(14);
+        font.setBold(true);
+        font.setWeight(75);
         label_titlename->setFont(font);
-        label_titlename->setStyleSheet(QString::fromUtf8("font: 20 17pt '\346\245\267\344\275\223';\n"
-"background-color:rgb(190, 154, 124, 255);\n"
-"border-radius:2px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
-"border-style: flat;\n"
-"background: transparent;"));
+        label_titlename->setStyleSheet(QLatin1String("QLabel {\n"
+"    color: white;\n"
+"    background: transparent;\n"
+"    padding: 5px;\n"
+"    font-weight: bold;\n"
+"}"));
         label_titlename->setAlignment(Qt::AlignCenter);
 
         horizontalLayout_2->addWidget(label_titlename);
@@ -109,112 +113,117 @@ public:
 
         widget_TrayShow = new QWidget(PMessageBox);
         widget_TrayShow->setObjectName(QStringLiteral("widget_TrayShow"));
-        widget_TrayShow->setMinimumSize(QSize(400, 460));
-        widget_TrayShow->setMaximumSize(QSize(400, 16777215));
-        widget_TrayShow->setStyleSheet(QString::fromUtf8("background-color: rgba(188,187,183);\n"
-"border-color: rgb(0, 0, 0);\n"
-"border-top-color: rgb(0, 0, 0);\n"
-"font: 20 12pt \"\346\245\267\344\275\223\";\n"
-"\n"
-""));
+        widget_TrayShow->setMinimumSize(QSize(430, 400));
+        widget_TrayShow->setMaximumSize(QSize(430, 400));
+        widget_TrayShow->setStyleSheet(QLatin1String("QWidget#widget_TrayShow {\n"
+"    background: white;\n"
+"    border: 2px solid #e2e8f0;\n"
+"    border-radius: 8px;\n"
+"    padding: 10px;\n"
+"}"));
 
         verticalLayout_traylayout->addWidget(widget_TrayShow);
 
         label_remindertext = new QLabel(PMessageBox);
         label_remindertext->setObjectName(QStringLiteral("label_remindertext"));
-        label_remindertext->setMinimumSize(QSize(0, 32));
-        label_remindertext->setMaximumSize(QSize(16777215, 32));
+        label_remindertext->setMinimumSize(QSize(0, 40));
+        label_remindertext->setMaximumSize(QSize(16777215, 40));
         QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
-        font1.setPointSize(15);
-        font1.setBold(false);
-        font1.setItalic(false);
-        font1.setWeight(2);
+        font1.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
+        font1.setPointSize(12);
+        font1.setBold(true);
+        font1.setWeight(75);
         label_remindertext->setFont(font1);
-        label_remindertext->setStyleSheet(QString::fromUtf8("font: 20 15pt '\346\245\267\344\275\223';\n"
-"background-color:rgb(190, 154, 124, 255);\n"
-"border-radius:5px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
-"border-style: flat;\n"
-"background: transparent;\n"
-""));
+        label_remindertext->setStyleSheet(QLatin1String("QLabel {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #fef3c7, stop:1 #fde68a);\n"
+"    border: 1px solid #f59e0b;\n"
+"    border-radius: 6px;\n"
+"    color: #92400e;\n"
+"    padding: 8px;\n"
+"    text-align: center;\n"
+"}"));
         label_remindertext->setAlignment(Qt::AlignCenter);
+        label_remindertext->setWordWrap(true);
 
         verticalLayout_traylayout->addWidget(label_remindertext);
 
         widget = new QWidget(PMessageBox);
         widget->setObjectName(QStringLiteral("widget"));
-        widget->setMinimumSize(QSize(0, 40));
-        widget->setMaximumSize(QSize(16777215, 45));
-        widget->setStyleSheet(QString::fromUtf8("font: 20 15pt '\346\245\267\344\275\223';\n"
-"background-color:rgb(190, 154, 124, 255);\n"
-"border-radius:5px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
-"border-style: flat;\n"
-"background: transparent;"));
-        horizontalLayout = new QHBoxLayout(widget);
-        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
-        horizontalLayout->setContentsMargins(-1, 5, -1, 10);
-        toolButton_OK = new QToolButton(widget);
-        toolButton_OK->setObjectName(QStringLiteral("toolButton_OK"));
-        toolButton_OK->setMinimumSize(QSize(105, 35));
-        toolButton_OK->setMaximumSize(QSize(105, 60));
-        toolButton_OK->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_OK{  \n"
-"   border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_OK:hover{     \n"
-"  background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_OK:pressed{  \n"
-"    border: 1px solid #C0C0C0; \n"
-"    background-color:#33ccff;  \n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 80px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:16px;\n"
-"	color:white;\n"
+        widget->setMinimumSize(QSize(0, 50));
+        widget->setMaximumSize(QSize(16777215, 50));
+        widget->setStyleSheet(QLatin1String("QWidget {\n"
+"    background: transparent;\n"
 "}"));
-        toolButton_OK->setIconSize(QSize(32, 32));
-        toolButton_OK->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        horizontalLayout = new QHBoxLayout(widget);
+        horizontalLayout->setSpacing(20);
+        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
+        horizontalLayout->setContentsMargins(40, 5, 40, 5);
+        toolButton_OK = new QPushButton(widget);
+        toolButton_OK->setObjectName(QStringLiteral("toolButton_OK"));
+        toolButton_OK->setMinimumSize(QSize(120, 40));
+        toolButton_OK->setMaximumSize(QSize(120, 40));
+        toolButton_OK->setFont(font1);
+        toolButton_OK->setStyleSheet(QLatin1String("QPushButton {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #10b981, stop:1 #059669);\n"
+"    border: 2px solid #047857;\n"
+"    border-radius: 8px;\n"
+"    color: white;\n"
+"    font-weight: bold;\n"
+"    padding: 8px;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #34d399, stop:1 #10b981);\n"
+"    border: 2px solid #10b981;\n"
+"}\n"
+"\n"
+"QPushButton:pressed {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #047857, stop:1 #065f46);\n"
+"    padding-left: 10px;\n"
+"    padding-top: 10px;\n"
+"}\n"
+"\n"
+"QPushButton:focus {\n"
+"    outline: none;\n"
+"}"));
 
         horizontalLayout->addWidget(toolButton_OK);
 
-        toolButton_Cancel = new QToolButton(widget);
+        toolButton_Cancel = new QPushButton(widget);
         toolButton_Cancel->setObjectName(QStringLiteral("toolButton_Cancel"));
-        toolButton_Cancel->setMinimumSize(QSize(105, 35));
-        toolButton_Cancel->setMaximumSize(QSize(105, 60));
-        toolButton_Cancel->setStyleSheet(QString::fromUtf8("QToolButton#toolButton_Cancel{  \n"
-"    border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButton_Cancel:hover{     \n"
-"   background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButton_Cancel:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButton_Cancel->setMinimumSize(QSize(120, 40));
+        toolButton_Cancel->setMaximumSize(QSize(120, 40));
+        toolButton_Cancel->setFont(font1);
+        toolButton_Cancel->setStyleSheet(QLatin1String("QPushButton {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #ef4444, stop:1 #dc2626);\n"
+"    border: 2px solid #b91c1c;\n"
+"    border-radius: 8px;\n"
+"    color: white;\n"
+"    font-weight: bold;\n"
+"    padding: 8px;\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #f87171, stop:1 #ef4444);\n"
+"    border: 2px solid #ef4444;\n"
+"}\n"
+"\n"
+"QPushButton:pressed {\n"
+"    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+"                                stop:0 #b91c1c, stop:1 #991b1b);\n"
+"    padding-left: 10px;\n"
+"    padding-top: 10px;\n"
+"}\n"
+"\n"
+"QPushButton:focus {\n"
+"    outline: none;\n"
 "}"));
-        toolButton_Cancel->setIconSize(QSize(32, 32));
-        toolButton_Cancel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
         horizontalLayout->addWidget(toolButton_Cancel);
 
@@ -229,10 +238,10 @@ public:
 
     void retranslateUi(QDialog *PMessageBox)
     {
-        PMessageBox->setWindowTitle(QApplication::translate("PMessageBox", "Dialog", nullptr));
+        PMessageBox->setWindowTitle(QApplication::translate("PMessageBox", "\350\257\225\347\256\241\347\233\230\347\212\266\346\200\201\346\217\220\347\244\272", nullptr));
         label_showicon->setText(QString());
-        label_titlename->setText(QString());
-        label_remindertext->setText(QString());
+        label_titlename->setText(QApplication::translate("PMessageBox", "\350\257\225\347\256\241\347\233\230\347\212\266\346\200\201\346\217\220\347\244\272", nullptr));
+        label_remindertext->setText(QApplication::translate("PMessageBox", "\346\265\213\350\257\225\346\235\257\346\235\277,\346\234\211\346\234\252\344\275\277\347\224\250\350\257\225\346\235\257\345\205\250\351\203\250\345\274\203\347\224\250?", nullptr));
         toolButton_OK->setText(QApplication::translate("PMessageBox", "\347\241\256\345\256\232", nullptr));
         toolButton_Cancel->setText(QApplication::translate("PMessageBox", "\345\277\275\347\225\245", nullptr));
     } // retranslateUi

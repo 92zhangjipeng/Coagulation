@@ -1,9 +1,13 @@
-﻿#pragma execution_character_set("utf-8")
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
 
 #include "globaldata.h"
 #include "thetestmoduleprotocol.h"
-#include <algorithm>  // For std::all_of
+#include <algorithm>
 #include <unordered_map>
+#include <QTimer>
+#include "QsLog/include/QsLog.h"
 #include "mainwindow.h"
 #include <operclass/fullyautomatedplatelets.h>
 
@@ -99,8 +103,10 @@ void theTestModuleProtocol::handleModuleCommand(int slaveAddr, quint8 cmd_num,
         case MODULE_1:
         case MODULE_2:
         case MODULE_3:
-            if (m_parameterInterface != nullptr) {
-                m_parameterInterface->ChannelValueshow(moduleData);
+            if (GlobalData::isModuleChannelAdcFrame(moduleData)) {
+                if (m_parameterInterface != nullptr) {
+                    m_parameterInterface->ChannelValueshow(moduleData);
+                }
             }
             Test_module_data(slaveAddr, moduleData);
             break;
@@ -150,9 +156,10 @@ void theTestModuleProtocol::handleSaveModuleSetting(int slaveAddr)
 // 处理调光保存的独立函数
 void theTestModuleProtocol::handleSaveModuleSettingDimming(int slaveAddr)
 {
+    m_pendingDimmingSave.remove(static_cast<quint8>(slaveAddr));
     QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [this, slaveAddr]() {
         emit resetconnectModule(); // 重新连接模组
-        emit FirstDimmingResult(slaveAddr); // 首次调光后再检测模组
+        emit FirstDimmingResult(static_cast<quint8>(slaveAddr));
         QLOG_DEBUG() << "初始主动调光保存动作完成!";
     });
 }
@@ -169,7 +176,7 @@ void theTestModuleProtocol::recrModuleprotocolData(const int slaveAddr, const QS
    static const QMap<int, std::function<bool(int)>> VALIDATORS = {
           {KS600,  [](int addr) { return addr <= MODULE_1; }},
           {KS800,  [](int addr) { return addr < MODULE_3; }},
-          {KS1200, [](int addr) { return true; }} // 总是返回true
+          {KS1200, [](int) { return true; }} // 总是返回true
     };
 
    auto validator = VALIDATORS.value(m_equipmentType);
@@ -306,8 +313,23 @@ void theTestModuleProtocol::recrModuleprotocolData(const int slaveAddr, const QS
 
 void theTestModuleProtocol::recvDimmingLed(quint8 indexmodule)
 {
-    QTimer::singleShot(DELAY_READ_TUBE_INITVALUE *10, this, [this,indexmodule]() {
-        emit FirstDimmingResult(indexmodule); //调光模组首次模组调光
+    // 写 LED 成功后：暂停轮询 → 保存模组参数 → 保存应答里再复采
+    emit pauseConnectModule();
+    m_pendingDimmingSave.insert(indexmodule);
+    const QByteArray saveCmd =
+        GlobalData::SaveConfigModuleData(indexmodule, W_SAVEMODULESETTING_DIMMING);
+    emit _writeDataToSerial(saveCmd, QString("调光后保存模组%1").arg(indexmodule));
+    QLOG_INFO() << "模组" << indexmodule << "LED调光应答，已下发保存命令";
+
+    // 若保存应答丢失，超时兜底继续复采，避免卡死
+    QTimer::singleShot(DELAY_READ_TUBE_INITVALUE * 12, this, [this, indexmodule]() {
+        if (!m_pendingDimmingSave.contains(indexmodule)) {
+            return;
+        }
+        m_pendingDimmingSave.remove(indexmodule);
+        QLOG_WARN() << "模组" << indexmodule << "调光保存应答超时，兜底进入复采";
+        emit resetconnectModule();
+        emit FirstDimmingResult(indexmodule);
     });
 }
 

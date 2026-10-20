@@ -80,7 +80,7 @@ signals:
     void  reminderErrorInfo(quint8 ,const QString& errinfo);
     void  normaloper(quint8); //耗材正常操作
 public slots:
-    void recvmainControlBoardProtocol(const QStringList mainControlBoardData);
+    void recvmainControlBoardProtocol(const QStringList &data);
     void RecvUsedBuzzerMark(const bool BuzzerStae);
 
 
@@ -126,7 +126,7 @@ private:
 
     const quint8 SwitchLength = 8;
     const quint8 SwitchBinary = 2;
-    bool  binitCreatSignals;
+
     quint8 mEquipment;
     bool m_TriggerTestHeight = false;         //触发测高
     bool m_BuzzerState;                      //启用蜂鸣器状态
@@ -143,6 +143,14 @@ private:
     PassparameterInterface *m_parameterInterface = nullptr;
 
     bool mreadCardEvent; //读卡状态标志
+   quint8 m_lastFailCardState;
+   quint8 m_lastFailCardType;
+   quint8 m_lastFailCardQty;
+
+   QString cardTypeLabel(quint8 typeCode, quint8 cardQty, bool treatZeroAsUnknown) const;
+   QString cardFailReasonText(quint8 readCardState) const;
+   void promptCardSwipeFailure(quint8 readCardState, quint8 typeCode, quint8 cardQty,
+                             const QString &reason, bool trustCardFields);
 
 };
 

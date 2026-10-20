@@ -36,7 +36,7 @@
 
 
 #define FOCUS_ADDING_SAMPLE          1  //聚焦样本执行 吸样动作
-#define FOCUS_CLEAN_BLOODPIN         17 //聚焦样本执行 清洗血样针
+#define FOCUS_CLEAN_BLOODPIN         17 //聚焦样本执行 清洗样本针
 #define FOCUS_CLIP_ANEMIA_TO_CHN     3  //夹贫血到测试通道
 #define FOCUS_THORW_ANEMIA           4  //丟在测试通道中的贫血
 
@@ -161,7 +161,9 @@ typedef struct Testing_reagents
     quint8 testPRPsucknum = 0;
     quint8 testPRPsplitnum = 0;
 
-    quint8 nextSteOriginReagentNeedle = 0; //试剂针复位编号
+    QList<quint8> sSpitReagtcondeNum; //吐试剂的命令编号
+
+    quint8 nextSteOriginReagentNeedle = 0; //试剂针复位编号前一个动作 泵吸完试剂
 
     quint8 suckCupIndexCommand = 0;  //吸杯开始指令号
     quint8 index_Reagent = 0;       //测试测试剂
@@ -225,7 +227,7 @@ typedef struct DataSampleStruct
     quint8  spitanaemia_hole = 0;         //在试管区吐PPP孔号
     QPoint  spitanaemia_axis{0,0};
     QPoint  anemiaoffHandsAxis{0,0};     //贫血抓手坐标
-    bool    bcleanbloody_state = false;     //清洗血样针状态
+    bool    bcleanbloody_state = false;     //清洗样本针状态
     bool    bcleanDoublePin_state = false;  //清洗双针状态
 
     bool    bhandsErr = false;    //抓手异常
@@ -237,8 +239,28 @@ typedef struct DataSampleStruct
     // 容器成员（直接默认构造，避免冗余操作）
     QVector<BLOODY_INFO> bloody_tube;
     tSingleActive_list   clean_reag_blood_pin;       //清洗双针
-    tSingleActive_list   clean_blood_pin;            //清洗血样针
+    tSingleActive_list   clean_blood_pin;            //清洗样本针
     tSingleActive_list   tadd_sample_active;         //加样动作
+
+    QByteArrayList pppAddSamplePendingTail;  // PPP预探测通过后追加的加样指令
+    quint8 pppPreProbeCmdIndex = 0;          // 当前预探测/恢复序列应答匹配的命令号
+    quint8 pppPreProbePrefixCmdIndex = 0;    // 加样队列中预探测步骤命令号(洗针恢复后不变)
+    quint8 pppPreProbeWashCount = 0;         // 挂液误探后清洗次数
+    bool pppAwaitManualWipe = false;         // 洗针后仍误探，等待人工擦针
+    bool pppManualPreProbeRetry = false;     // 人工擦针后点「继续」重做预探测
+    bool pppPreProbeCompleted = false;       // 预探测已通过，勿再拦截同号液面探测ACK
+
+    //吸PPP延时
+    QList<quint8> sPPPsuckDelaytime;
+
+    //吐PPP延时
+    QList<quint8> sPPPspitDelaytime;
+
+    //吸PRP延时
+    QList<quint8> sPRPsuckDelaytime;
+
+    //吐PRP延时
+    QList<quint8> sPRPspitDelaytime;
 
 
     tSingleActive_list   t_catchAnemiaTest;          //抓PPP到测试通道

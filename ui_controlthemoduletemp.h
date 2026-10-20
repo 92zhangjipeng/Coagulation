@@ -45,7 +45,7 @@ public:
         if (ControltheModuletemp->objectName().isEmpty())
             ControltheModuletemp->setObjectName(QStringLiteral("ControltheModuletemp"));
         ControltheModuletemp->resize(421, 216);
-        ControltheModuletemp->setStyleSheet(QStringLiteral("background-color: qlineargradient(spread:pad, x1:0.500273, y1:0.438, x2:0.500727, y2:0.909, stop:0 rgba(190, 154, 124, 255), stop:0.971591 rgba(96, 71, 62, 255));"));
+        ControltheModuletemp->setStyleSheet(QString::fromUtf8("background-color: #E8F4F8;  /* \345\214\273\347\226\227\346\265\205\350\223\235\344\270\273\350\203\214\346\231\257 */"));
         verticalLayout_module_widget = new QVBoxLayout(ControltheModuletemp);
         verticalLayout_module_widget->setSpacing(0);
         verticalLayout_module_widget->setObjectName(QStringLiteral("verticalLayout_module_widget"));
@@ -54,9 +54,9 @@ public:
         widget_top->setObjectName(QStringLiteral("widget_top"));
         widget_top->setMinimumSize(QSize(0, 36));
         widget_top->setMaximumSize(QSize(16777215, 36));
-        widget_top->setStyleSheet(QLatin1String("background-color: rgba(198,197,193);\n"
-"border-color: rgb(180, 180, 180);\n"
-"border: opx solid rgba(198,197,193);"));
+        widget_top->setStyleSheet(QString::fromUtf8("background-color: #D4EAF3;  /* \346\265\205\350\223\235\346\240\207\351\242\230\346\240\217 */\n"
+"border-color: #B8D9E8;\n"
+"border: 0px solid #D4EAF3;"));
         horizontalLayout = new QHBoxLayout(widget_top);
         horizontalLayout->setSpacing(5);
         horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
@@ -77,12 +77,13 @@ public:
         sizePolicy.setHeightForWidth(label_title->sizePolicy().hasHeightForWidth());
         label_title->setSizePolicy(sizePolicy);
         QFont font;
-        font.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
         font.setPointSize(16);
         label_title->setFont(font);
-        label_title->setStyleSheet(QLatin1String("background-color: rgba(198,197,193);\n"
-"border-color: rgb(180, 180, 180);\n"
-"border: opx solid rgba(198,197,193);"));
+        label_title->setStyleSheet(QString::fromUtf8("background-color: #D4EAF3;\n"
+"border-color: #B8D9E8;\n"
+"border: 0px solid #D4EAF3;\n"
+"color: #1A6B8A;  /* \346\267\261\350\223\235\346\226\207\345\255\227 */"));
 
         horizontalLayout->addWidget(label_title);
 
@@ -105,9 +106,9 @@ public:
         widget_fucn_ = new QWidget(ControltheModuletemp);
         widget_fucn_->setObjectName(QStringLiteral("widget_fucn_"));
         widget_fucn_->setMinimumSize(QSize(0, 43));
-        widget_fucn_->setStyleSheet(QLatin1String("background-color: rgba(188,187,183);\n"
-"border-top-color: rgb(0, 0, 0);\n"
-"border: opx solid rgba(198,197,193);"));
+        widget_fucn_->setStyleSheet(QLatin1String("background-color: #E8F4F8;\n"
+"border-top-color: #B8D9E8;\n"
+"border: 0px solid #D4EAF3;"));
         gridLayout = new QGridLayout(widget_fucn_);
         gridLayout->setObjectName(QStringLiteral("gridLayout"));
         gridLayout->setHorizontalSpacing(0);
@@ -116,17 +117,19 @@ public:
         labeltips_failed = new QLabel(widget_fucn_);
         labeltips_failed->setObjectName(QStringLiteral("labeltips_failed"));
         QFont font1;
-        font1.setFamily(QString::fromUtf8("\346\245\267\344\275\223"));
+        font1.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
         font1.setPointSize(18);
         font1.setBold(false);
         font1.setItalic(false);
-        font1.setWeight(9);
+        font1.setWeight(50);
         labeltips_failed->setFont(font1);
-        labeltips_failed->setStyleSheet(QString::fromUtf8("font: 75 18pt '\346\245\267\344\275\223';\n"
-"background-color: rgba(188,187,183);\n"
-"border-radius:5px;padding:2px 4px;\n"
-"color: rgb(0, 0, 0);\n"
-"border-style: flat;background: transparent;"));
+        labeltips_failed->setStyleSheet(QString::fromUtf8("font: 50 18pt '\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"background-color: rgba(232, 244, 248, 0);\n"
+"border-radius:5px;\n"
+"padding:2px 4px;\n"
+"color: #1A6B8A;\n"
+"border-style: flat;\n"
+"background: transparent;"));
         labeltips_failed->setAlignment(Qt::AlignCenter);
         labeltips_failed->setWordWrap(true);
 
@@ -136,28 +139,24 @@ public:
         toolButtonexit->setObjectName(QStringLiteral("toolButtonexit"));
         toolButtonexit->setMinimumSize(QSize(120, 30));
         toolButtonexit->setMaximumSize(QSize(120, 35));
-        toolButtonexit->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonexit{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButtonexit:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButtonexit:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButtonexit->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonexit{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
 "}\n"
-"\n"
-"\n"
-"\n"
-""));
+"QToolButton#toolButtonexit:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QToolButton#toolButtonexit:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
+"}"));
 
         gridLayout->addWidget(toolButtonexit, 2, 1, 1, 1);
 
@@ -165,26 +164,24 @@ public:
         toolButtonok->setObjectName(QStringLiteral("toolButtonok"));
         toolButtonok->setMinimumSize(QSize(120, 30));
         toolButtonok->setMaximumSize(QSize(120, 35));
-        toolButtonok->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonok{  \n"
-"     border: 1px solid  rgb(200, 200, 200);\n"
-"    background-color: qlineargradient(spread:pad, x1:0, 		y1:0, x2:1, y2:0, stop:0 rgba(8,8, 35, 255), stop:1 		rgba(6, 28, 102, 255));\n"
-"    border-style: solid;  \n"
-"    border-radius:10px;  \n"
-"    width: 130px;  \n"
-"    height:30px;  \n"
-"    padding:0 10px;  \n"
-"	font-family:'\346\245\267\344\275\223';\n"
-"	font-size:20px;\n"
-"    color:white;\n"
-"}  \n"
-"QToolButton#toolButtonok:hover{     \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(18,18, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
-"}  \n"
-"QToolButton#toolButtonok:pressed{  \n"
-"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(118,118, 135, 255), stop:1 rgba(16, 28, 142, 255));\n"
+        toolButtonok->setStyleSheet(QString::fromUtf8("QToolButton#toolButtonok{\n"
+"    border: 1px solid #A0C4D9;\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #6FB3D2, stop:1 #4A90B0);\n"
+"    border-style: solid;\n"
+"    border-radius:10px;\n"
+"    width: 130px;\n"
+"    height:30px;\n"
+"    padding:0 10px;\n"
+"    font-family:'\345\276\256\350\275\257\351\233\205\351\273\221';\n"
+"    font-size:20px;\n"
+"    color: white;\n"
 "}\n"
-"\n"
-""));
+"QToolButton#toolButtonok:hover{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8AC5E0, stop:1 #6FB3D2);\n"
+"}\n"
+"QToolButton#toolButtonok:pressed{\n"
+"    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #4A90B0, stop:1 #2C6F8F);\n"
+"}"));
 
         gridLayout->addWidget(toolButtonok, 2, 0, 1, 1);
 
