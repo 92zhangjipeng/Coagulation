@@ -190,6 +190,8 @@ SOURCES += \
     qualitycontrol.cpp \
     calibrate.cpp \
     graphplot.cpp \
+    qcchartpage.cpp \
+    qcstartaction.cpp \
     result.cpp \
     testing.cpp \
     delegate.cpp \
@@ -341,6 +343,8 @@ HEADERS += \
     calibrate.h \
     pairframetablewidget.h \
     graphplot.h \
+    qcchartpage.h \
+    qcstartaction.h \
     result.h \
     testing.h \
     delegate.h \

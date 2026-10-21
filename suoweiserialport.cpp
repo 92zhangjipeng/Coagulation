@@ -987,11 +987,14 @@ bool SuoweiSerialPort::processMachineData(int deviceAddress, int functionCode,
 
     const bool isTesting = cglobal::g_StartTesting;
     const bool isPerfTest = Performanceverification::instance()->returnPerformanceTestFlag();
+    const bool isQcRun = cglobal::g_quality_start.load();
 
     if (isTesting) {
         emit sendTestingRecvData(receivedData);
     } else if (isPerfTest) {
         emit serialPEdata(receivedData);
+    } else if (isQcRun) {
+        emit serialQcData(receivedData);
     } else {
         emit serialrecvedata(receivedData);
     }

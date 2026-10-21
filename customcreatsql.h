@@ -99,6 +99,23 @@ struct PETestEntry {
     PETestEntry(const QString& id, int channel, const QString& ratioH,const QString& ratioM,const QString& ratioL)
         : PEid(id), TestCannel(channel), TestRatioH(ratioH), TestRatioM(ratioM), TestRatioL(ratioL) {}
 };
+struct QcChannelDayValue {
+    int channel;
+    QString qcDate;
+    double highValue;
+    double midValue;
+    double lowValue;
+    QString highLot;
+    QString midLot;
+    QString lowLot;
+};
+
+struct QcLotRecord {
+    QString highLot;
+    QString midLot;
+    QString lowLot;
+};
+
 struct QueryResult {
 
 	QueryResult() = default;
@@ -135,6 +152,19 @@ public:
     void initSampleInitBloodDb();
     void saveSamplePppInit(int sampleNum, int channel, int pppInit);
     void saveSamplePrpInit(int sampleNum, int reagentIndex, int channel, int prpInit);
+
+    void ensureQcChannelDailyTable();
+    QList<QcChannelDayValue> queryQcChannelDaily(int channel);
+    bool saveQcChannelDaily(int channel, const QString &qcDate,
+                            bool writeHigh, double highValue,
+                            bool writeMid, double midValue,
+                            bool writeLow, double lowValue,
+                            const QString &highLot = QString(),
+                            const QString &midLot = QString(),
+                            const QString &lowLot = QString());
+    QcLotRecord loadQcLots();
+    bool saveQcLots(const QString &highLot, const QString &midLot, const QString &lowLot);
+    QStringList loadQcLotChoices(int level);
 
 public:
     /** 建表

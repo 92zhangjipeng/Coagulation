@@ -7,6 +7,7 @@
 #include <QTableWidget>
 #include <QMessageBox>
 #include <QDateTime>
+#include <QThread>
 #include <QImageReader>
 #include <QBuffer>
 #include "globaldata.h"
@@ -104,6 +105,7 @@ void CustomCreatSql::initializeSQLTable()
 
     createTable();
     initSampleInitBloodDb();
+    ensureQcChannelDailyTable();
 
     return;
 }
@@ -1562,16 +1564,19 @@ void  CustomCreatSql::FindAllEmptyTube(QVariantList &tubeInfo )
 
 void CustomCreatSql::findEmptyTubesInRange(int start, int end, QVariantList &result){
     QSqlQuery querysql(m_MachineConfigdb);
-    // 使用参数化查询避免SQL注入 [[4]]
-    QString sql = QString("SELECT * FROM '%1' WHERE number BETWEEN ? AND ?").arg(m_MachineTubeState);
-    querysql.prepare(sql);
-    querysql.addBindValue(start);      // 绑定起始值
-    querysql.addBindValue(end - 1);    // 绑定结束值
+    const QString sql = QString(
+        "SELECT TubeNum, State, TypeReagent, SampleNum FROM `%1` "
+        "WHERE TubeNum BETWEEN ? AND ?").arg(m_MachineTubeState);
+    if (!querysql.prepare(sql)) {
+        QLOG_WARN() << "SQL Prepare error:" << querysql.lastError().text() << sql;
+        return;
+    }
+    querysql.bindValue(0, start);
+    querysql.bindValue(1, end - 1);
 
     if (querysql.exec()) {
-       while (querysql.next()) {  // 遍历所有结果
+       while (querysql.next()) {
            AllTubeInfo info;
-           // 安全转换：检查字段有效性 [[2]]
            info.TubeNumbers = querysql.value(TubeNums).isValid() ? querysql.value(TubeNums).toInt() : 0;
            info.TubeStatus = querysql.value(TubeStus).isValid() ? querysql.value(TubeStus).toInt() : -1;
            info.KindReagent = querysql.value(TubeReagent).isValid() ? querysql.value(TubeReagent).toString() : "";
@@ -1580,9 +1585,9 @@ void CustomCreatSql::findEmptyTubesInRange(int start, int end, QVariantList &res
            result.push_back(QVariant::fromValue(info));
        }
     } else {
-        QLOG_WARN() << "SQL Error:" << querysql.lastError().text();  // 输出错误信息
+        QLOG_WARN() << "SQL Error:" << querysql.lastError().text() << sql;
     }
-    querysql.clear();  // 清理资源
+    querysql.clear();
 }
 
 
@@ -3136,6 +3141,301 @@ bool CustomCreatSql::updateAnalysisResults(const QString idnum, const QString ke
     Q_UNUSED(Lag);
     Q_UNUSED(Adhesionrate);
     return true;
+}
+
+namespace {
+
+QSqlDatabase openQcChannelDailyDb()
+{
+    const QString conn = QStringLiteral("QcChannelDaily_%1")
+            .arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::contains(conn)
+            ? QSqlDatabase::database(conn)
+            : QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), conn);
+    if (!db.isOpen()) {
+        QUIUtils::isDirExist(QUIUtils::getappload(QStringLiteral("SQLFile")));
+        const QString dbPath = QDir(QCoreApplication::applicationDirPath()).filePath(
+            QStringLiteral("SQLFile/QcChannelDaily.db"));
+        db.setDatabaseName(dbPath);
+        db.open();
+    }
+    return db;
+}
+
+bool qcDailyColumnExists(QSqlDatabase &db, const QString &column)
+{
+    QSqlQuery info(db);
+    if (!info.exec(QStringLiteral("PRAGMA table_info(QcChannelDaily)")))
+        return false;
+    while (info.next()) {
+        if (info.value(1).toString() == column)
+            return true;
+    }
+    return false;
+}
+
+void ensureQcDailyLotColumn(QSqlDatabase &db, const QString &column)
+{
+    if (qcDailyColumnExists(db, column))
+        return;
+    QSqlQuery alter(db);
+    const QString sql = QStringLiteral(
+        "ALTER TABLE QcChannelDaily ADD COLUMN %1 TEXT DEFAULT ''").arg(column);
+    if (!alter.exec(sql))
+        QLOG_WARN() << "QcChannelDaily alter failed:" << alter.lastError().text();
+}
+
+}
+
+void CustomCreatSql::ensureQcChannelDailyTable()
+{
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen()) {
+        QLOG_WARN() << "QcChannelDaily.db open failed:" << db.lastError().text();
+        return;
+    }
+
+    QSqlQuery q(db);
+    if (!q.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS QcChannelDaily ("
+            "channel INTEGER NOT NULL,"
+            "qc_date TEXT NOT NULL,"
+            "high_value REAL NOT NULL,"
+            "mid_value REAL NOT NULL,"
+            "low_value REAL NOT NULL,"
+            "PRIMARY KEY (channel, qc_date))"))) {
+        QLOG_WARN() << "QcChannelDaily create failed:" << q.lastError().text();
+        return;
+    }
+    ensureQcDailyLotColumn(db, QStringLiteral("high_lot"));
+    ensureQcDailyLotColumn(db, QStringLiteral("mid_lot"));
+    ensureQcDailyLotColumn(db, QStringLiteral("low_lot"));
+    if (!q.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS QcLot ("
+            "id INTEGER PRIMARY KEY,"
+            "high_lot TEXT NOT NULL DEFAULT '',"
+            "mid_lot TEXT NOT NULL DEFAULT '',"
+            "low_lot TEXT NOT NULL DEFAULT '')"))) {
+        QLOG_WARN() << "QcLot create failed:" << q.lastError().text();
+        return;
+    }
+    q.exec(QStringLiteral(
+        "INSERT OR IGNORE INTO QcLot (id, high_lot, mid_lot, low_lot) VALUES (1, '', '', '')"));
+    if (!q.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS QcLotHistory ("
+            "level INTEGER NOT NULL,"
+            "lot TEXT NOT NULL,"
+            "PRIMARY KEY (level, lot))"))) {
+        QLOG_WARN() << "QcLotHistory create failed:" << q.lastError().text();
+    }
+}
+
+QList<QcChannelDayValue> CustomCreatSql::queryQcChannelDaily(int channel)
+{
+    QList<QcChannelDayValue> rows;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return rows;
+
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral(
+        "SELECT channel, qc_date, high_value, mid_value, low_value, "
+        "high_lot, mid_lot, low_lot "
+        "FROM QcChannelDaily WHERE channel = ? ORDER BY qc_date ASC"));
+    q.addBindValue(channel);
+    if (!q.exec()) {
+        QLOG_WARN() << "QcChannelDaily query failed:" << q.lastError().text();
+        return rows;
+    }
+    while (q.next()) {
+        QcChannelDayValue row;
+        row.channel = q.value(0).toInt();
+        row.qcDate = q.value(1).toString();
+        row.highValue = q.value(2).toDouble();
+        row.midValue = q.value(3).toDouble();
+        row.lowValue = q.value(4).toDouble();
+        row.highLot = q.value(5).toString();
+        row.midLot = q.value(6).toString();
+        row.lowLot = q.value(7).toString();
+        rows.append(row);
+    }
+    return rows;
+}
+
+bool CustomCreatSql::saveQcChannelDaily(int channel, const QString &qcDate,
+                                        bool writeHigh, double highValue,
+                                        bool writeMid, double midValue,
+                                        bool writeLow, double lowValue,
+                                        const QString &highLot,
+                                        const QString &midLot,
+                                        const QString &lowLot)
+{
+    if (channel < 1 || qcDate.isEmpty())
+        return false;
+    if (!writeHigh && !writeMid && !writeLow)
+        return false;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return false;
+
+    double high = 75.0;
+    double mid = 50.0;
+    double low = 25.0;
+    QString highLotSaved;
+    QString midLotSaved;
+    QString lowLotSaved;
+    bool exists = false;
+    QSqlQuery sel(db);
+    sel.prepare(QStringLiteral(
+        "SELECT high_value, mid_value, low_value, high_lot, mid_lot, low_lot "
+        "FROM QcChannelDaily WHERE channel = ? AND qc_date = ?"));
+    sel.bindValue(0, channel);
+    sel.bindValue(1, qcDate);
+    if (sel.exec() && sel.next()) {
+        exists = true;
+        high = sel.value(0).toDouble();
+        mid = sel.value(1).toDouble();
+        low = sel.value(2).toDouble();
+        highLotSaved = sel.value(3).toString();
+        midLotSaved = sel.value(4).toString();
+        lowLotSaved = sel.value(5).toString();
+    }
+    if (writeHigh) {
+        high = highValue;
+        highLotSaved = highLot.trimmed();
+    }
+    if (writeMid) {
+        mid = midValue;
+        midLotSaved = midLot.trimmed();
+    }
+    if (writeLow) {
+        low = lowValue;
+        lowLotSaved = lowLot.trimmed();
+    }
+
+    QSqlQuery q(db);
+    if (exists) {
+        q.prepare(QStringLiteral(
+            "UPDATE QcChannelDaily SET high_value = ?, mid_value = ?, low_value = ?, "
+            "high_lot = ?, mid_lot = ?, low_lot = ? "
+            "WHERE channel = ? AND qc_date = ?"));
+        q.bindValue(0, high);
+        q.bindValue(1, mid);
+        q.bindValue(2, low);
+        q.bindValue(3, highLotSaved);
+        q.bindValue(4, midLotSaved);
+        q.bindValue(5, lowLotSaved);
+        q.bindValue(6, channel);
+        q.bindValue(7, qcDate);
+    } else {
+        q.prepare(QStringLiteral(
+            "INSERT INTO QcChannelDaily "
+            "(channel, qc_date, high_value, mid_value, low_value, high_lot, mid_lot, low_lot) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"));
+        q.bindValue(0, channel);
+        q.bindValue(1, qcDate);
+        q.bindValue(2, high);
+        q.bindValue(3, mid);
+        q.bindValue(4, low);
+        q.bindValue(5, highLotSaved);
+        q.bindValue(6, midLotSaved);
+        q.bindValue(7, lowLotSaved);
+    }
+    if (!q.exec()) {
+        QLOG_WARN() << "QcChannelDaily save failed:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+QcLotRecord CustomCreatSql::loadQcLots()
+{
+    QcLotRecord lots;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return lots;
+    QSqlQuery q(db);
+    if (!q.exec(QStringLiteral(
+            "SELECT high_lot, mid_lot, low_lot FROM QcLot WHERE id = 1"))) {
+        QLOG_WARN() << "QcLot load failed:" << q.lastError().text();
+        return lots;
+    }
+    if (q.next()) {
+        lots.highLot = q.value(0).toString();
+        lots.midLot = q.value(1).toString();
+        lots.lowLot = q.value(2).toString();
+    }
+    return lots;
+}
+
+bool CustomCreatSql::saveQcLots(const QString &highLot, const QString &midLot, const QString &lowLot)
+{
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return false;
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral(
+        "UPDATE QcLot SET high_lot = ?, mid_lot = ?, low_lot = ? WHERE id = 1"));
+    q.bindValue(0, highLot.trimmed());
+    q.bindValue(1, midLot.trimmed());
+    q.bindValue(2, lowLot.trimmed());
+    if (!q.exec()) {
+        QLOG_WARN() << "QcLot save failed:" << q.lastError().text();
+        return false;
+    }
+    const QString saved[3] = { highLot.trimmed(), midLot.trimmed(), lowLot.trimmed() };
+    QSqlQuery hist(db);
+    hist.prepare(QStringLiteral(
+        "INSERT OR IGNORE INTO QcLotHistory (level, lot) VALUES (?, ?)"));
+    for (int level = 0; level < 3; ++level) {
+        if (saved[level].isEmpty())
+            continue;
+        hist.bindValue(0, level);
+        hist.bindValue(1, saved[level]);
+        if (!hist.exec())
+            QLOG_WARN() << "QcLotHistory save failed:" << hist.lastError().text();
+    }
+    return true;
+}
+
+QStringList CustomCreatSql::loadQcLotChoices(int level)
+{
+    QStringList lots;
+    QString column;
+    if (level == 0)
+        column = QStringLiteral("high_lot");
+    else if (level == 1)
+        column = QStringLiteral("mid_lot");
+    else if (level == 2)
+        column = QStringLiteral("low_lot");
+    else
+        return lots;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return lots;
+    QSqlQuery q(db);
+    const QString sql = QStringLiteral(
+        "SELECT lot FROM ("
+        "SELECT %1 AS lot FROM QcChannelDaily WHERE %1 <> '' "
+        "UNION SELECT lot FROM QcLotHistory WHERE level = ?"
+        ") ORDER BY lot").arg(column);
+    q.prepare(sql);
+    q.bindValue(0, level);
+    if (!q.exec()) {
+        QLOG_WARN() << "QcLotHistory query failed:" << q.lastError().text();
+        return lots;
+    }
+    while (q.next()) {
+        const QString lot = q.value(0).toString().trimmed();
+        if (!lot.isEmpty() && !lots.contains(lot))
+            lots.append(lot);
+    }
+    return lots;
 }
 
 void CustomCreatSql::initSampleInitBloodDb()

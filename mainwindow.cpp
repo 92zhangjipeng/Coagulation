@@ -273,6 +273,8 @@ try{
     // 6. 删除UI相关的非Widget对象
     delete m_graphplot;
     m_graphplot = nullptr;
+    delete m_qcChartPage;
+    m_qcChartPage = nullptr;
 
     // 7. 退出框只由这里释放（不要 WA_DeleteOnClose / closeEvent deleteLater 再删一次）
     if (preminder) {
@@ -2201,6 +2203,7 @@ void MainWindow::InitMainUiLayout()
     //测试曲线
     m_graphplot = new GraphPlot(this);
     m_graphplot.data()->innitKindequipment();
+    m_qcChartPage = new QcChartPage(this);
 
 
     MachineSetting*pequipmentconfig = FullyAutomatedPlatelets::pinstanceequipmentconfig();
@@ -2565,7 +2568,8 @@ void MainWindow::setupTabWidget()
         {MainInterfaceSubscripted::FunctionBlock_PreviewResults, FullyAutomatedPlatelets::pinstancepatientdata()},
         {MainInterfaceSubscripted::FunctionBlock_PreviewCurve,   m_graphplot.data()},
         {MainInterfaceSubscripted::FunctionBlock_Inquire,        FullyAutomatedPlatelets::pinstanceInquiredata()},
-        {MainInterfaceSubscripted::FunctionBlock_Consumables,    FullyAutomatedPlatelets::pinstanceinstrument()}
+        {MainInterfaceSubscripted::FunctionBlock_Consumables,    FullyAutomatedPlatelets::pinstanceinstrument()},
+        {MainInterfaceSubscripted::FunctionBlock_Qc,             m_qcChartPage.data()}
     };
 
     foreach (const auto& tab, tabs) {
@@ -2673,6 +2677,11 @@ void MainWindow::setupUtilityButtons()
     });
 
 
+    connect(ui->toolButton_quality_qc, &QToolButton::clicked, this, [this] {
+        switchMainTab(MainInterfaceSubscripted::FunctionBlock_Qc);
+        logTabSwitchEvent(static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc));
+    });
+
     QObject::connect(ui->toolButton_quality_stop ,&QToolButton::clicked,this,[this]{
 
         handleFunctionButtonClick(static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Testing));
@@ -2716,7 +2725,8 @@ void MainWindow::logTabSwitchEvent(int index)
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewResults), tr("打开结果预览")},
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewCurve),  tr("打开曲线界面")},
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Inquire),      tr("打开查询界面")},
-        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables),  tr("进入耗材管理")}
+        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables),  tr("进入耗材管理")},
+        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc),           tr("打开指控界面")}
     };
 
     if (tabLogMessages.contains(index)) {

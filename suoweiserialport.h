@@ -67,6 +67,7 @@ signals:
     void prepareReconnectGetData();
     void serialrecvedata(const QStringList);
     void serialPEdata(const QStringList&);
+    void serialQcData(const QStringList &);
     void Execute_exception_prompt(const quint8 Index, const QString, const quint8);
     void backHandssuck(bool, int);
     void outArmText(quint8 kinds, const QString detailedStr);

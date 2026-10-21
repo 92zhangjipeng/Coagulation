@@ -13,6 +13,7 @@
 #include "qualitycontrol.h" //质控
 #include "calibrate.h"
 #include "graphplot.h"
+#include "qcchartpage.h"
 #include "result.h"
 #include "testing.h"
 #include "aboutmachine.h"
@@ -92,6 +93,7 @@ enum class MainInterfaceSubscripted
     FunctionBlock_PreviewCurve,
     FunctionBlock_Inquire,
     FunctionBlock_Consumables,
+    FunctionBlock_Qc,
     FunctionBlock_Setup,
     FunctionBlock_About
 };
@@ -521,6 +523,7 @@ private:
 
     QPointer<Testing> mptesting; //测试界面
     QPointer<GraphPlot> m_graphplot; //测试曲线
+    QPointer<QcChartPage> m_qcChartPage; //指控曲线
     QPointer<SuoweiSerialPort> mlocalSerial; //串口类线程对象
     QPointer<FunctionCustomWidget> preminder;//退出软件对话框
     bool m_forceQuit = false;
