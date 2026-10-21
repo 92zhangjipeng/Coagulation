@@ -3985,11 +3985,18 @@ void QUIUtils::appendPostCleanMachineXyHome(QByteArrayList &commands)
 
 void QUIUtils::appendPostCleanMachineXyHome(QVector<QByteArray> &commands)
 {
+    // 回原点命令号必须接在已有清洗动作后面。空列表会从 0 重新编号，
+    // 排序后 XY 会插到试剂针下针之后、抬针之前，主板报针未复位。
     QByteArrayList temp;
+    temp.reserve(commands.size() + 6);
+    for (const QByteArray &cmd : commands) {
+        temp.push_back(cmd);
+    }
+    const int before = temp.size();
     appendPostCleanMachineXyHome(temp);
-    for (const QByteArray &cmd : temp) {
-        if (!cmd.isEmpty()) {
-            commands.push_back(cmd);
+    for (int i = before; i < temp.size(); ++i) {
+        if (!temp.at(i).isEmpty()) {
+            commands.push_back(temp.at(i));
         }
     }
 }
