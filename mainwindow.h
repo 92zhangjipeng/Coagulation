@@ -523,7 +523,7 @@ private:
 
     QPointer<Testing> mptesting; //测试界面
     QPointer<GraphPlot> m_graphplot; //测试曲线
-    QPointer<QcChartPage> m_qcChartPage; //指控曲线
+    QPointer<QcChartPage> m_qcChartPage; //质控曲线
     QPointer<SuoweiSerialPort> mlocalSerial; //串口类线程对象
     QPointer<FunctionCustomWidget> preminder;//退出软件对话框
     bool m_forceQuit = false;

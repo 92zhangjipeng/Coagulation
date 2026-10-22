@@ -40,6 +40,7 @@ private slots:
     void onQcProgress(const QString &text);
     void onQcFinished(bool ok, const QString &text);
     void onLotButtonClicked();
+    void showResultDialog(const QString &text);
     void reloadChannelCurves();
     void onPlotMousePress(QMouseEvent *event);
     void onPlotMouseMove(QMouseEvent *event);

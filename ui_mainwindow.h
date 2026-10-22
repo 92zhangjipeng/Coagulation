@@ -215,9 +215,6 @@ public:
         toolButton_quality_qc->setMaximumSize(QSize(140, 150));
         toolButton_quality_qc->setFont(font);
         toolButton_quality_qc->setStyleSheet(QStringLiteral(""));
-        QIcon iconQc;
-        iconQc.addFile(QStringLiteral(":/Picture/Graphplot.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_quality_qc->setIcon(iconQc);
         toolButton_quality_qc->setIconSize(QSize(150, 120));
         toolButton_quality_qc->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -920,7 +917,7 @@ public:
         toolButton_quality_sample->setText(QApplication::translate("MainWindow", "\346\232\202\345\201\234", nullptr));
         toolButton_quality_reset->setText(QApplication::translate("MainWindow", "\345\244\215\344\275\215", nullptr));
         toolButton_quality_cleaning->setText(QApplication::translate("MainWindow", "\346\270\205\346\264\227", nullptr));
-        toolButton_quality_qc->setText(QApplication::translate("MainWindow", "\346\214\207\346\216\247", nullptr));
+        toolButton_quality_qc->setText(QApplication::translate("MainWindow", "\350\264\250\346\216\247", nullptr));
         toolButton_quality_stop->setText(QApplication::translate("MainWindow", "\344\273\273\345\212\241", nullptr));
         toolButton_EquipmentSetting->setText(QApplication::translate("MainWindow", "\344\273\252\345\231\250\350\256\276\347\275\256", nullptr));
         toolButton_Exit->setText(QApplication::translate("MainWindow", "\351\200\200\345\207\272", nullptr));

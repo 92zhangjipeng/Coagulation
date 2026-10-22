@@ -12,12 +12,12 @@
 #include <globaldata.h>
 #include <QtGlobal>
 #include <QDateTime>
+#include <QTimer>
 #include <cmath>
 
 namespace {
 constexpr int kEmptyChannelAdcTarget = 3300; // 空通道应对齐的 AD
-constexpr int kAdcMax = 4095;                // 通道 ADC 满量程
-constexpr int kDimmingAbsThreshold = 200;    // |空通道ADC - 3300|，约 3100~3500
+constexpr int kDimmingAbsThreshold = 100;    // |空通道ADC - 3300|，约 3200~3400
 constexpr int kSettleAfterReadyMs = 2000;    // 齐套后再跟最新 ADC 稳定 2 秒再判
 constexpr int kMaxSmartCupClearRounds = 2;   // 未勾选「初始清空试杯」时自动丢杯轮数
 qint64 g_dimmingSettleStartMs = 0;
@@ -29,6 +29,8 @@ controldimming::controldimming(QObject *parent)
     , m_discardNextCompleteFrame(false)
     , m_frequency(0)
     , m_smartCupClearAttempts(0)
+    , m_cupClearPending(false)
+    , m_cupClearGen(0)
     , m_totalchn(0)
 {
     m_testChnDimmingStu.clear();
@@ -71,6 +73,7 @@ void controldimming::markDimmingFinished(const QString &reason)
 {
     cglobal::g_controldimmingfinished = true;
     m_smartCupClearAttempts = 0;
+    m_cupClearPending = false;
     m_startCollectChannelVal = false;
     emit requestDimmingProgress(false);
     emit reminderText(PROMPTLOG, reason);
@@ -140,9 +143,9 @@ void controldimming::Collectchannelvalues(QVector<ModuleChannelData *> &ChannelV
         if (pmoduleState
             && pmoduleState->ControlTemp
             && pmoduleState->indexChannel == indexChannel) {
-            if (indexChannelData <= 0 || indexChannelData > kAdcMax) {
-                break;
-            }
+            // 0 是模组报上来的读数（无光/模组无信号），不能丢掉，否则永远等不到齐套
+            if (indexChannelData < 0)
+                indexChannelData = 0;
             pmoduleState->channdelData = indexChannelData;
             pmoduleState->bneedcontrastive = true;
             break;
@@ -167,9 +170,12 @@ void controldimming::handleFailedChannels(const QSet<quint8>& failedChannels)
         QLOG_WARN() << "空通道AD未对齐 通道" << pModule->indexChannel
                     << "ADC" << pModule->channdelData
                     << "目标" << pModule->ModuleDimmingVal
-                    << "（有测试杯挡光会明显低于3300，不会改LED去硬拉）";
+                    << (pModule->channdelData <= 0
+                        ? "（读数为0，模组无光信号，不按遗留试杯处理）"
+                        : "（有测试杯挡光会明显低于3300，不会改LED去硬拉）");
     }
 
+    emit requestDimmingProgress(false);
     emit showDimmingFailedChn(onceDimmingChn);
 }
 
@@ -215,9 +221,19 @@ void controldimming::ProactiveComparisons(int differenceThreshold)
         QList<quint8> toThrow;
         for (quint8 ch : failedChannels) {
             const QString wkey = QString("TestTheChanne1Opening_%1").arg(ch);
-            if (INI_File().rConfigPara(wkey).toBool()) {
-                toThrow.append(ch);
+            if (!INI_File().rConfigPara(wkey).toBool())
+                continue;
+            int adc = -1;
+            for (const ModuleChannelData *p : m_testChnDimmingStu) {
+                if (p && p->indexChannel == ch) {
+                    adc = p->channdelData;
+                    break;
+                }
             }
+            // 整通道读数 0 不是杯子挡光，丢杯解决不了
+            if (adc <= 0)
+                continue;
+            toThrow.append(ch);
         }
         if (!toThrow.isEmpty()) {
             ++m_smartCupClearAttempts;
@@ -239,6 +255,18 @@ void controldimming::ProactiveComparisons(int differenceThreshold)
                                     .arg(m_smartCupClearAttempts);
             QLOG_INFO() << msg;
             emit reminderText(PROMPTLOG, msg);
+            m_pendingFailed = failedChannels;
+            m_cupClearPending = true;
+            const int clearGen = ++m_cupClearGen;
+            QTimer::singleShot(120000, this, [this, clearGen]() {
+                if (!m_cupClearPending || clearGen != m_cupClearGen
+                        || cglobal::g_controldimmingfinished.load()) {
+                    return;
+                }
+                QLOG_WARN() << "自动丢杯超过120秒没有完成，停止等待并提示失败通道";
+                m_cupClearPending = false;
+                handleFailedChannels(m_pendingFailed);
+            });
             emit requestSmartCupClear(toThrow);
             return;
         }
@@ -249,53 +277,42 @@ void controldimming::ProactiveComparisons(int differenceThreshold)
 
 void controldimming::startEmptyChannelRecheck()
 {
+    if (cglobal::g_controldimmingfinished.load()) {
+        return;
+    }
+    m_cupClearPending = false;
     g_dimmingSettleStartMs = 0;
     m_startCollectChannelVal = true;
     m_discardNextCompleteFrame = true;
     ++m_frequency;
+    emit requestDimmingProgress(true);
     QLOG_INFO() << "空通道AD重检，第" << m_frequency << "轮";
 }
 
 void controldimming::theEndDimmingActive()
 {
-    // 取消 = 取出杯子后重新检测空通道 AD，不改 LED
+    if (cglobal::g_controldimmingfinished.load()) {
+        QLOG_DEBUG() << "调光已结束，忽略再次重检";
+        return;
+    }
     startEmptyChannelRecheck();
 }
 
-void controldimming::Disableitdirectly(QVector<quint8> FailedDimmingChn)
+void controldimming::cupClearNotSent()
 {
-    QString outstr = tr("调光失败通道");
-    FullyAutomatedPlatelets::pinstanceequipmentconfig()->disablechn(FailedDimmingChn);
-    for (int n = 0; n < FailedDimmingChn.size(); ++n) {
-        const quint8 indexChannel = FailedDimmingChn.at(n);
-        outstr += QString::number(indexChannel + 1);
-        if (n + 1 < FailedDimmingChn.size()) {
-            outstr += QLatin1Char(',');
-        }
-        const QString wkey = QString("TestTheChanne1Opening_%1").arg(indexChannel + 1);
-        INI_File().wConfigPara(wkey, false);
-        StructInstance::getInstance()->config_testChn_State(indexChannel, CHN_STATUS_DISABLE);
-        FullyAutomatedPlatelets::pinstanceTesting()->recv_NotifyChannleState(indexChannel + 1, false);
-    }
-    markDimmingFinished(outstr + tr("已禁用，调光流程结束"));
-}
-
-void controldimming::sendoutDimmingCode()
-{
-    // 初始化只做空通道 AD 检测，不再闭环改 LED
-    if (dimmingModule.isEmpty()) {
+    m_cupClearPending = false;
+    if (cglobal::g_controldimmingfinished.load()) {
         return;
     }
-    QLOG_WARN() << "初始化调光已改为空通道检测，忽略LED闭环下发" << dimmingModule.keys();
-    dimmingModule.clear();
+    QLOG_WARN() << "调光丢杯没有发出，直接提示失败通道";
+    handleFailedChannels(m_pendingFailed);
 }
 
 void controldimming::SecondDimmingModule(quint8 notifyModule, int times_)
 {
     Q_UNUSED(notifyModule);
     Q_UNUSED(times_);
-    // 初始化不再写 LED，应答路径若仍进来，按空通道重检处理
-    startEmptyChannelRecheck();
+    QLOG_DEBUG() << "初始化调光不再根据LED保存应答重检";
 }
 
 void controldimming::_obtainChndata(const quint8 indexChannel, const int indexChannelData)

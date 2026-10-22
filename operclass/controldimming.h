@@ -43,14 +43,13 @@ public:
     quint8 _chnParentModule(const quint8 index_chn);
     void SecondDimmingModule(quint8 notifyModule, int times_);
     void theEndDimmingActive();
+    void cupClearNotSent();
 
 private:
-    void Disableitdirectly(QVector<quint8> FailedDimmingChn);
     void ProactiveComparisons(int differenceThreshold);
     void handleFailedChannels(const QSet<quint8>& failedChannels);
     void Collectchannelvalues(QVector<ModuleChannelData *> &ChannelVet,
                               quint8 indexChannel, int indexChannelData);
-    void sendoutDimmingCode();
     void markDimmingFinished(const QString &reason);
     bool moduleAlreadyRegistered(int module) const;
     void startEmptyChannelRecheck();
@@ -69,6 +68,9 @@ private:
     bool m_discardNextCompleteFrame;
     int m_frequency;
     int m_smartCupClearAttempts;
+    bool m_cupClearPending;
+    int m_cupClearGen;
+    QSet<quint8> m_pendingFailed;
     quint8 m_totalchn;
 };
 

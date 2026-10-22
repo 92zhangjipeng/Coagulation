@@ -634,33 +634,38 @@ void QcStartAction::succeed()
                                          m_highLot, m_midLot, m_lowLot))
                 QLOG_WARN() << "QC save failed channel" << it.key();
         }
-        QString line = channelName(it.key());
+        QStringList parts;
+        parts.append(channelName(it.key()));
         if (hasHigh) {
-            line += QLatin1Char(' ') + recordName(RecHigh) + QLatin1Char(' ')
+            QString item = QLatin1String("  ") + recordName(RecHigh) + QLatin1Char(' ')
                     + QString::number(highPct, 'f', 1) + QLatin1Char('%');
             if (!m_highLot.isEmpty())
-                line += QLatin1Char(' ') + u8("\xe6\x89\xb9\xe5\x8f\xb7") + m_highLot;
+                item += QLatin1String("  ") + u8("\xe6\x89\xb9\xe5\x8f\xb7 ") + m_highLot;
+            parts.append(item);
         }
         if (hasMid) {
-            line += QLatin1Char(' ') + recordName(RecMid) + QLatin1Char(' ')
+            QString item = QLatin1String("  ") + recordName(RecMid) + QLatin1Char(' ')
                     + QString::number(midPct, 'f', 1) + QLatin1Char('%');
             if (!m_midLot.isEmpty())
-                line += QLatin1Char(' ') + u8("\xe6\x89\xb9\xe5\x8f\xb7") + m_midLot;
+                item += QLatin1String("  ") + u8("\xe6\x89\xb9\xe5\x8f\xb7 ") + m_midLot;
+            parts.append(item);
         }
         if (hasLow) {
-            line += QLatin1Char(' ') + recordName(RecLow) + QLatin1Char(' ')
+            QString item = QLatin1String("  ") + recordName(RecLow) + QLatin1Char(' ')
                     + QString::number(lowPct, 'f', 1) + QLatin1Char('%');
             if (!m_lowLot.isEmpty())
-                line += QLatin1Char(' ') + u8("\xe6\x89\xb9\xe5\x8f\xb7") + m_lowLot;
+                item += QLatin1String("  ") + u8("\xe6\x89\xb9\xe5\x8f\xb7 ") + m_lowLot;
+            parts.append(item);
         }
         if (!hasHigh && !hasMid && !hasLow)
-            line += QLatin1Char(' ') + u8("\xe6\x97\xa0\xe6\xb3\x95\xe8\xae\xa1\xe7\xae\x97");
+            parts.append(QLatin1String("  ") + u8("\xe6\x97\xa0\xe6\xb3\x95\xe8\xae\xa1\xe7\xae\x97"));
+        const QString line = parts.join(QLatin1Char('\n'));
         QLOG_INFO() << "QC result" << line;
         lines.append(line);
     }
     const QString done = lines.isEmpty()
             ? u8("\xe8\xb4\xa8\xe6\x8e\xa7\xe5\xae\x8c\xe6\x88\x90")
-            : lines.join(QStringLiteral("  "));
+            : lines.join(QStringLiteral("\n\n"));
     emit progressText(done);
     emit finished(true, done);
 }

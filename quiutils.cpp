@@ -3883,6 +3883,11 @@ void QUIUtils::appendThrowCupsForChannels(const QList<quint8> &channels1Based, Q
         return;
     }
     auto *pActive = Testing::getTaskDll();
+    if (!pActive) {
+        outList.clear();
+        QLOG_WARN() << "丢杯指令库未就绪";
+        return;
+    }
     QPoint cleanAxis;
     SingletonAxis::originPos(READ_OPERRAT, cleanAxis);
     quint8 finalIndex = static_cast<quint8>(outList.size() % 255);
@@ -4038,18 +4043,22 @@ void QUIUtils::appendGripperDescendThenVacuumRelease(QVector<QByteArray> &outarr
 void QUIUtils::ThrowTestChnCup(quint8 indexChn, QVector<QByteArray> &outarry ,quint8 &issuckBack,quint8 &issplitBack)
 {
     outarry.clear();
-    outarry.reserve(10);
-
+    auto* pActive = Testing::getTaskDll();
     const int chndownhands = INI_File()._gethandsdownheiht(indexChn);
     const int throwcupheigh = INI_File()._gethandsdownthrowcpus();
     const bool bRepeattheGrabCup = INI_File().rConfigPara(REPEATGRABCUP).toBool();
 
-    auto* pActive = Testing::getTaskDll();
-
     QPoint ChnAxis(0, 0), throwAxis(0, 0);
     SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT, indexChn, MOTOR_HANDS_INDEX, ChnAxis);
     SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT, throwAxis);
+    const bool badChannel = (ChnAxis.x() == 0 && ChnAxis.y() == 0);
+    const bool badThrow = (throwAxis.x() == 0 && throwAxis.y() == 0);
+    if (!pActive || chndownhands <= 0 || throwcupheigh <= 0 || badChannel || badThrow) {
+        QLOG_WARN() << "丢杯坐标或高度无效，跳过通道" << (indexChn + 1);
+        return;
+    }
 
+    outarry.reserve(10);
     appendBloodReagentNeedleResetBeforeGripperXy(outarry);
     quint8 idx = static_cast<quint8>(outarry.size() % 255);
     outarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(ChnAxis, 0, 0, idx));

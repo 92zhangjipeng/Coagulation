@@ -12,6 +12,7 @@
 #include <QDate>
 #include <QDialog>
 #include <QFont>
+#include <QTextEdit>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -388,16 +389,55 @@ void QcChartPage::onQcProgress(const QString &text)
         m_statusLabel->setText(text);
 }
 
+void QcChartPage::showResultDialog(const QString &text)
+{
+    QDialog dialog(this);
+    dialog.setWindowTitle(QString::fromUtf8("\xe8\xb4\xa8\xe6\x8e\xa7\xe7\xbb\x93\xe6\x9e\x9c"));
+    dialog.setModal(true);
+    dialog.setStyleSheet(QString::fromUtf8("QDialog { background: #e7f0f6; }"));
+    QVBoxLayout *lay = new QVBoxLayout(&dialog);
+    lay->setContentsMargins(18, 16, 18, 16);
+    lay->setSpacing(12);
+
+    QTextEdit *edit = new QTextEdit(&dialog);
+    edit->setReadOnly(true);
+    edit->setPlainText(text);
+    edit->setMinimumSize(480, 360);
+    edit->setFont(QFont(QString::fromUtf8("\xe6\xa5\xb7\xe4\xbd\x93"), 16));
+    edit->setStyleSheet(QString::fromUtf8(
+        "QTextEdit { background: white; color: #1a4d6b; border: 1px solid #b0b8c0; border-radius: 8px; }"));
+    lay->addWidget(edit);
+
+    QHBoxLayout *buttons = new QHBoxLayout();
+    buttons->addStretch(1);
+    QPushButton *ok = new QPushButton(QString::fromUtf8("\xe7\xa1\xae\xe5\xae\x9a"), &dialog);
+    ok->setCursor(Qt::PointingHandCursor);
+    ok->setStyleSheet(QString::fromUtf8(
+        "QPushButton {"
+        "  font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 18px;"
+        "  min-width: 96px; min-height: 36px;"
+        "  border: 1px solid #4a7ab5; border-radius: 8px;"
+        "  background: #4a7ab5; color: white;"
+        "}"
+        "QPushButton:hover { background: #3d6aa0; }"));
+    connect(ok, &QPushButton::clicked, &dialog, &QDialog::accept);
+    buttons->addWidget(ok);
+    lay->addLayout(buttons);
+    dialog.exec();
+}
+
 void QcChartPage::onQcFinished(bool ok, const QString &text)
 {
     if (m_statusLabel) {
-        m_statusLabel->setWordWrap(true);
-        m_statusLabel->setText(text);
+        m_statusLabel->setText(ok
+            ? QString::fromUtf8("\xe8\xb4\xa8\xe6\x8e\xa7\xe5\xae\x8c\xe6\x88\x90")
+            : text);
     }
     if (ok)
         reloadChannelCurves();
     if (m_startButton)
         m_startButton->setEnabled(true);
+    showResultDialog(text);
 }
 
 QList<int> QcChartPage::selectedTestChannels() const

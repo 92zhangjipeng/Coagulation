@@ -16,6 +16,10 @@
 #include  <operclass/fullyautomatedplatelets.h>
 #include  <custom_style/custombutton.h>
 #include <custom_style/custommessagebox.h>
+#include <QImage>
+#include <QLinearGradient>
+#include <QPainter>
+#include <QPainterPath>
 #include  <QPair>
 #include  <QScreen>         // 包含QScreen头文件
 #include  <QGuiApplication> // 包含QGuiApplication头文件
@@ -30,6 +34,75 @@
 #endif
 
 namespace {
+
+QIcon makeQcNavIcon()
+{
+    QImage image(QStringLiteral(":/Picture/backorigin.png"));
+    if (image.isNull())
+        return QIcon();
+    image = image.convertToFormat(QImage::Format_ARGB32);
+
+    int minX = image.width();
+    int minY = image.height();
+    int maxX = 0;
+    int maxY = 0;
+    for (int y = 0; y < image.height(); ++y) {
+        const QRgb *line = reinterpret_cast<const QRgb *>(image.constScanLine(y));
+        for (int x = 0; x < image.width(); ++x) {
+            const QRgb px = line[x];
+            if (qAlpha(px) < 220)
+                continue;
+            const int r = qRed(px);
+            const int g = qGreen(px);
+            const int b = qBlue(px);
+            if (r < 70 && g < 90 && b > r + 20 && b < 190) {
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    if (maxX <= minX || maxY <= minY)
+        return QIcon(QPixmap::fromImage(image));
+
+    const int inset = qMax(4, (maxX - minX) / 18);
+    const QRectF tile(minX + inset, minY + inset,
+                      maxX - minX - inset * 2, maxY - minY - inset * 2);
+    const int cx = (minX + maxX) / 2;
+    const QColor top = image.pixel(cx, qMin(image.height() - 1, minY + inset + 2));
+    const QColor bottom = image.pixel(cx, qMax(0, maxY - inset - 2));
+
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QLinearGradient fill(tile.topLeft(), tile.bottomLeft());
+    fill.setColorAt(0, top);
+    fill.setColorAt(1, bottom);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(fill);
+    painter.drawRoundedRect(tile, tile.width() * 0.08, tile.height() * 0.08);
+
+    painter.setBrush(Qt::white);
+    const qreal barH = qMax(3.0, tile.height() * 0.09);
+    const qreal left = tile.left() + tile.width() * 0.16;
+    painter.drawRoundedRect(QRectF(left, tile.top() + tile.height() * 0.16,
+                                   tile.width() * 0.68, barH), barH / 2, barH / 2);
+    painter.drawRoundedRect(QRectF(left, tile.top() + tile.height() * 0.36,
+                                   tile.width() * 0.50, barH), barH / 2, barH / 2);
+    painter.drawRoundedRect(QRectF(left, tile.top() + tile.height() * 0.56,
+                                   tile.width() * 0.34, barH), barH / 2, barH / 2);
+
+    QPainterPath check;
+    check.moveTo(tile.left() + tile.width() * 0.46, tile.top() + tile.height() * 0.70);
+    check.lineTo(tile.left() + tile.width() * 0.58, tile.top() + tile.height() * 0.84);
+    check.lineTo(tile.left() + tile.width() * 0.84, tile.top() + tile.height() * 0.52);
+    painter.setBrush(Qt::NoBrush);
+    painter.setPen(QPen(Qt::white, qMax(2.0, tile.width() * 0.07),
+                        Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(check);
+    painter.end();
+    return QIcon(QPixmap::fromImage(image));
+}
 
 void setFocusTaskStatusText(QLabel *lab, const QString &text)
 {
@@ -2587,30 +2660,33 @@ void MainWindow::setupFunctionButtons()
 {
 
 
-    const QList<QPair<QToolButton*, QString>> buttonInfo = {
-        {ui->toolButton_sampleTest_1,    tr("样本测试")},
-        {ui->toolButton_resultView_2,    tr("结果预览")},
-        {ui->toolButton_testingCurve_3, tr("测试曲线")},
-        {ui->toolButton_TestingResult_4,tr("结果查询")},
-        {ui->toolButton_ControlSuppile_5,tr("耗材管理")}
+    struct NavButton {
+        QToolButton *button;
+        QString text;
+        int tabIndex;
+    };
+    const NavButton buttonInfo[] = {
+        {ui->toolButton_sampleTest_1, tr("样本测试"),
+         static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Testing)},
+        {ui->toolButton_resultView_2, tr("结果预览"),
+         static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewResults)},
+        {ui->toolButton_testingCurve_3, tr("测试曲线"),
+         static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewCurve)},
+        {ui->toolButton_TestingResult_4, tr("结果查询"),
+         static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Inquire)},
+        {ui->toolButton_ControlSuppile_5, tr("耗材管理"),
+         static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables)}
     };
 
-    for (int i = 0; i < buttonInfo.size(); ++i) {
-        QToolButton* btn = buttonInfo[i].first;
-        const QString& text = buttonInfo[i].second;
-
-
-
-        // 设置按钮状态
+    const int buttonCount = static_cast<int>(sizeof(buttonInfo) / sizeof(buttonInfo[0]));
+    for (int i = 0; i < buttonCount; ++i) {
+        QToolButton *btn = buttonInfo[i].button;
+        const int tabIndex = buttonInfo[i].tabIndex;
         GlobalData::mainseledview(btn, false);
-
-        // 设置显示文本
-        btn->setText(text);
-
-        // 连接信号（直接绑定索引）
-        connect(btn, &QToolButton::clicked, this, [this, i] {
-            switchMainTab(static_cast<MainInterfaceSubscripted>(i));
-            handleFunctionButtonClick(static_cast<int>(i));
+        btn->setText(buttonInfo[i].text);
+        connect(btn, &QToolButton::clicked, this, [this, tabIndex] {
+            switchMainTab(static_cast<MainInterfaceSubscripted>(tabIndex));
+            handleFunctionButtonClick(tabIndex);
         });
     }
 }
@@ -2630,19 +2706,16 @@ void MainWindow::switchMainTab(MainInterfaceSubscripted index)
 void MainWindow::highlightActiveButton(int index)
 {
     // 获取所有功能按钮的列表
-    const QList<QToolButton*> buttons = {
-        ui->toolButton_sampleTest_1,
-        ui->toolButton_resultView_2,
-        ui->toolButton_testingCurve_3,
-        ui->toolButton_TestingResult_4,
-        ui->toolButton_ControlSuppile_5
+    const QList<QPair<QToolButton*, int> > buttons = {
+        qMakePair(ui->toolButton_sampleTest_1, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Testing)),
+        qMakePair(ui->toolButton_resultView_2, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewResults)),
+        qMakePair(ui->toolButton_testingCurve_3, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewCurve)),
+        qMakePair(ui->toolButton_TestingResult_4, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Inquire)),
+        qMakePair(ui->toolButton_ControlSuppile_5, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables))
     };
 
-    // 更新按钮高亮状态
-    for (int i = 0; i < buttons.size(); ++i) {
-        GlobalData::mainseledview(buttons[i], i == index);
-
-    }
+    for (int i = 0; i < buttons.size(); ++i)
+        GlobalData::mainseledview(buttons.at(i).first, buttons.at(i).second == index);
 }
 
 
@@ -2677,6 +2750,8 @@ void MainWindow::setupUtilityButtons()
     });
 
 
+    ui->toolButton_quality_qc->setText(tr("质控"));
+    ui->toolButton_quality_qc->setIcon(makeQcNavIcon());
     connect(ui->toolButton_quality_qc, &QToolButton::clicked, this, [this] {
         switchMainTab(MainInterfaceSubscripted::FunctionBlock_Qc);
         logTabSwitchEvent(static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc));
@@ -2691,24 +2766,21 @@ void MainWindow::setupUtilityButtons()
 
 void MainWindow::updateButtonSelectionState(int activeIndex)
 {
-    const QList<QToolButton*> functionButtons = {
-        ui->toolButton_sampleTest_1,
-        ui->toolButton_resultView_2,
-        ui->toolButton_testingCurve_3,
-        ui->toolButton_TestingResult_4,
-        ui->toolButton_ControlSuppile_5
+    const QList<QPair<QToolButton*, int> > functionButtons = {
+        qMakePair(ui->toolButton_sampleTest_1, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Testing)),
+        qMakePair(ui->toolButton_resultView_2, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewResults)),
+        qMakePair(ui->toolButton_testingCurve_3, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewCurve)),
+        qMakePair(ui->toolButton_TestingResult_4, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Inquire)),
+        qMakePair(ui->toolButton_ControlSuppile_5, static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables))
     };
 
-    // 安全索引检查
-    if (activeIndex < 0 || activeIndex >= functionButtons.size()) {
+    if (activeIndex < 0) {
         QLOG_ERROR() << tr("Invalid button index:") << activeIndex;
         return;
     }
 
-    // 批量更新按钮状态
-    for (int i = 0; i < functionButtons.size(); ++i) {
-        GlobalData::mainseledview(functionButtons[i], i == activeIndex);
-    }
+    for (int i = 0; i < functionButtons.size(); ++i)
+        GlobalData::mainseledview(functionButtons.at(i).first, functionButtons.at(i).second == activeIndex);
 
     if (static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables) == activeIndex) {
         FullyAutomatedPlatelets::pinstanceinstrument()->displayConsumablesInteger();
@@ -2726,7 +2798,7 @@ void MainWindow::logTabSwitchEvent(int index)
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewCurve),  tr("打开曲线界面")},
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Inquire),      tr("打开查询界面")},
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables),  tr("进入耗材管理")},
-        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc),           tr("打开指控界面")}
+        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc),           tr("打开质控界面")}
     };
 
     if (tabLogMessages.contains(index)) {
@@ -3991,10 +4063,19 @@ void MainWindow::setupDimmingConnections(
 
 void MainWindow::recvRequestSmartCupClear(const QList<quint8>& failedChn1Based)
 {
+    controldimming *dimming = FullyAutomatedPlatelets::pinstancedimming();
+    if (cglobal::g_StartTesting.load()) {
+        QLOG_WARN() << "测试进行中，不执行调光丢杯";
+        if (dimming)
+            dimming->cupClearNotSent();
+        return;
+    }
     QByteArrayList actions;
     QUIUtils::appendThrowCupsForChannels(failedChn1Based, actions);
     if (actions.isEmpty()) {
-        FullyAutomatedPlatelets::pinstancedimming()->theEndDimmingActive();
+        QLOG_WARN() << "调光丢杯没有可执行动作";
+        if (dimming)
+            dimming->cupClearNotSent();
         return;
     }
     emit ReminderTextOut(PROMPTLOG, tr("正在自动清理遗留测试杯，请勿操作抓手…"));
@@ -4032,7 +4113,7 @@ void MainWindow::recvshowDimmingFailedChn(const QList<quint8>& failedChn)
 
     // 优化4: 统一界面设置逻辑
     popWidget->settipstext(
-        tr("通道 %1 空杯AD未对齐3300。\n已尝试自动清理仍失败，请手动取出杯子或检查光路。\n取消：重新检测    确定 / 关闭：禁用这些通道")
+        tr("通道 %1 空杯AD未对齐3300。\n读数为0是该模组没有光信号，不会再自动丢杯。\n取消：重新检测    确定 / 关闭：禁用这些通道")
             .arg(failedList),
         dimmingTitle);
     centerWindow(popWidget.data()); // 封装窗口居中逻辑
