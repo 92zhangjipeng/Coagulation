@@ -1,6 +1,8 @@
 ﻿#ifndef INSTRUMENTALARMPROMPT_H
 #define INSTRUMENTALARMPROMPT_H
 
+#include <QLabel>
+#include <QPixmap>
 #include <QWidget>
 
 namespace Ui {
@@ -17,6 +19,7 @@ public:
 
     void _configalarmindex(int index_);
     void _configalarmText(QString outtext_);
+    static QPixmap consumableGlyph(int alarmIndex, int side, qreal dpr, bool bright);
 protected:
     //拖拽窗口
     void mousePressEvent(QMouseEvent *event);
@@ -30,8 +33,11 @@ private slots:
 signals:
    void outSideCleanDepleteOne();
 private:
+    void applyAlarmFace();
     Ui::instrumentAlarmPrompt *ui;
+    QLabel *m_glyphLabel = nullptr;
     QColor bgmcColor;
+    QColor m_accent;
     QPoint mouseStartPoint;
     int malarmIndex = -1;
 };

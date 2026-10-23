@@ -29,8 +29,23 @@ const int kGripperAirReleaseTimeoutMs = 45000;
 const int kGripperAirDumpMaxRetry = 2;
 const int kGripperAirEmptyMatchMax = 100;
 const int kGripperAirOriginSettleMs = 800;
-const int kGripperAirChannelSettleMs = 1200;
-const int kGripperAirReleaseFastSettleMs = 350;
+const int kGripperAirObserveMinMs = 200;
+
+int clampGripperAutoDelay(int elapsedMs)
+{
+    int withMargin = elapsedMs + 200;
+    if (withMargin < 0) {
+        withMargin = 0;
+    }
+    int rounded = ((withMargin + 49) / 50) * 50;
+    if (rounded < 300) {
+        rounded = 300;
+    }
+    if (rounded > 8000) {
+        rounded = 8000;
+    }
+    return rounded;
+}
 const int kGripperAirThrowSettleMs = 3500;
 const int kGripperGrabApplySlack = 60;
 const int kGripperReleaseApplySlack = 60;
@@ -87,18 +102,21 @@ bool computeGripperAirThresholds(int holdSample, int emptyOrigin, int emptyAfter
     }
 
     const int mid = holdSample + (emptyRef - holdSample) / 2;
-    int grab = holdSample + kGripperGrabApplySlack;
+    const int span = emptyRef - holdSample;
+    // Grab line sits about one third of the way from the hold reading toward empty, and at least +60.
+    // A fixed +60 (and the old pull back onto the hold average) made one live test sample fail while the cup was sealed.
+    int grab = holdSample + qMax(kGripperGrabApplySlack, span / 3);
     int release = emptyAfterDump - kGripperReleaseApplySlack;
 
     if (grab >= mid) {
-        grab = mid - kGripperThresholdMinGap / 2;
+        grab = qMax(holdSample + kGripperGrabApplySlack, mid - kGripperThresholdMinGap / 2);
     }
     if (release <= mid) {
         release = mid + kGripperThresholdMinGap / 2;
     }
     if (grab >= release) {
-        grab = holdSample;
-        release = qMax(emptyAfterDump, holdSample + kGripperThresholdMinGap);
+        grab = holdSample + kGripperGrabApplySlack;
+        release = qMax(emptyAfterDump, grab + kGripperThresholdMinGap);
     }
     if (grab >= release) {
         if (err) {
@@ -225,6 +243,19 @@ void MachineSetting::setupGripperVacuumSimpleUi()
         gridReAdd(ui->spinBoxSplitAirsMin, 3, 1, 1, 3);
         gridReAdd(ui->labelsuckLateTimer, 4, 0);
         gridReAdd(ui->spinBox_suckLatetimer, 4, 1, 1, 3);
+        if (!m_gripperThrowDelayLabel) {
+            m_gripperThrowDelayLabel = new QLabel(ui->groupBox_Airs);
+            m_gripperThrowDelayLabel->setText(gtr(u8"\u4e22\u676f\u5224\u5b9a\u5ef6\u65f6(ms)"));
+        }
+        if (!m_gripperThrowDelaySpin) {
+            m_gripperThrowDelaySpin = new QSpinBox(ui->groupBox_Airs);
+            m_gripperThrowDelaySpin->setRange(300, 10000);
+            m_gripperThrowDelaySpin->setSingleStep(10);
+            m_gripperThrowDelaySpin->setValue(1200);
+            styleThresholdSpin(m_gripperThrowDelaySpin);
+        }
+        gridReAdd(m_gripperThrowDelayLabel, 5, 0);
+        gridReAdd(m_gripperThrowDelaySpin, 5, 1, 1, 3);
         if (ui->horizontalSpacer_23) {
             grid->removeItem(ui->horizontalSpacer_23);
         }
@@ -246,7 +277,7 @@ void MachineSetting::setupGripperVacuumSimpleUi()
                     " padding:8px 10px; font-size:12px; color:#1A4D6B; }"));
     }
     if (grid) {
-        gridReAdd(m_gripperAirStepLabel, 5, 0, 1, 4);
+        gridReAdd(m_gripperAirStepLabel, 6, 0, 1, 4);
     }
 
     if (ui->verticalSpacer_2) {
@@ -264,7 +295,7 @@ void MachineSetting::setupGripperVacuumSimpleUi()
         m_gripperAutoApplyBtn->setStyleSheet(m_settButtonQss);
     }
     if (grid) {
-        gridReAdd(m_gripperAutoApplyBtn, 6, 0, 1, 4);
+        gridReAdd(m_gripperAutoApplyBtn, 7, 0, 1, 4);
     }
 
     updateGripperAirStepHint(0);
@@ -276,8 +307,8 @@ void MachineSetting::updateGripperAirStepHint(int step)
         return;
     }
     const QString step1 = gtr(u8"(1) \u70b9[\u4eea\u5668\u4e3b\u52a8\u5224\u5b9a], \u5728\u539f\u70b9\u5173\u6cf5\u8bfb\u7a33\u7a7a\u8f7d");
-    const QString step2 = gtr(u8"(2) \u5230\u901a\u90531\u5148\u4e0b\u624e\u518d\u5f00\u8d1f\u538b\u5438\u676f, \u8bfb\u7a33\u5438\u4f4f\u503c");
-    const QString step3 = gtr(u8"(3) \u5f03\u676f\u5b54\u4e0b\u964d\u5173\u8d1f\u538b, \u7b49\u7a7a\u8f7d\u540e\u590d\u4f4d\u56de\u539f\u70b9");
+    const QString step2 = gtr(u8"(2) \u901a\u90531\u5f00\u8d1f\u538b\u540e\u4e00\u76f4\u8bfb, \u8bb0\u4e0b\u5438\u4f4f\u8981\u591a\u4e45");
+    const QString step3 = gtr(u8"(3) \u5f03\u676f\u5b54\u5173\u8d1f\u538b\u540e\u5148\u4e0d\u62ac, \u8bb0\u4e0b\u6cc4\u538b\u8981\u591a\u4e45");
     const QString step4 = gtr(u8"(4) \u70b9[\u81ea\u52a8\u8bbe\u5b9a], \u518d\u70b9\u672c\u9875[\u4fdd\u5b58\u6293\u624b\u53c2\u6570]");
     QString s1 = step1;
     QString s2 = step2;
@@ -286,19 +317,19 @@ void MachineSetting::updateGripperAirStepHint(int step)
     QString now;
     if (step == 1) {
         s1 = QStringLiteral("<b style=\"color:#C0392B;\">") + step1 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u6293\u624b\u5728\u539f\u70b9\u5173\u6cf5\u7a7a\u8f7d, \u8bf7\u52ff\u653e\u8bd5\u7ba1, \u4ee5\u5173\u6cf5\u6307\u4ee4\u56de\u4f20\u8d1f\u538b\u4e3a\u51c6\u3002");
+        now = gtr(u8"\u5f53\u524d: \u539f\u70b9\u5173\u6cf5, \u8fde\u7eed\u7a33\u5b9a\u8bfb\u6570\u4f5c\u4e3a\u7a7a\u8f7d, \u4e0d\u7528\u65e7\u7684\u6293\u4f4f\u7ebf\u3002\u8bf7\u52ff\u653e\u8bd5\u676f\u3002");
     } else if (step == 2) {
         s2 = QStringLiteral("<b style=\"color:#C0392B;\">") + step2 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u901a\u90531\u4e0b\u9488\u5f00\u8d1f\u538b\u5438\u676f, \u7b49\u5f85\u5438\u4f4f\u8d1f\u538b\u7a33\u5b9a\u3002");
+        now = gtr(u8"\u5f53\u524d: \u901a\u90531\u5df2\u5f00\u8d1f\u538b\u3002\u4ece\u843d\u4e0b\u5b8c\u6210\u5f00\u59cb\u8ba1\u65f6, \u8bfb\u6570\u5438\u4f4f\u540e\u518d\u53d6\u7a33\u5b9a\u503c\u3002");
     } else if (step == 22) {
         s1 = QStringLiteral("<b style=\"color:#C0392B;\">") + step1 + QStringLiteral("</b>");
         now = gtr(u8"\u5f53\u524d: \u539f\u70b9\u7a7a\u8f7d\u5df2\u8bfb\u53d6, \u524d\u5f80\u901a\u90531\u5438\u676f...");
     } else if (step == 3) {
         s3 = QStringLiteral("<b style=\"color:#C0392B;\">") + step3 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u5df2\u5728\u5f03\u676f\u4f4d\u5173\u8d1f\u538b, \u7b49\u5f85\u6062\u590d\u7a7a\u8f7d\u503c...");
+        now = gtr(u8"\u5f53\u524d: \u5f03\u676f\u4f4d\u5df2\u5173\u8d1f\u538b, \u5148\u4e0d\u62ac\u3002\u4ece\u5173\u6cf5\u5b8c\u6210\u5f00\u59cb\u8ba1\u65f6, \u8bfb\u6570\u56de\u5230\u7a7a\u8f7d\u9644\u8fd1\u624d\u62ac\u3002");
     } else if (step == 4) {
         s4 = QStringLiteral("<b style=\"color:#C0392B;\">") + step4 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u5224\u5b9a\u5b8c\u6210, \u786e\u8ba4\u9608\u503c\u540e\u4fdd\u5b58\u3002");
+        now = gtr(u8"\u5f53\u524d: \u8d1f\u538b\u7ebf\u548c\u5438\u676f\u3001\u5f03\u676f\u5ef6\u65f6\u5df2\u586b\u5165\u3002\u786e\u8ba4\u540e\u70b9\u4fdd\u5b58\u6293\u624b\u53c2\u6570\u3002");
     } else if (step == 0) {
         now = gtr(u8"\u53ef\u624b\u52a8\u4fee\u6539\u4e0a\u65b9\u9608\u503c, \u6216\u6309\u4e0a\u65b9\u6d41\u7a0b\u64cd\u4f5c\u3002");
     }
@@ -345,7 +376,7 @@ void MachineSetting::startGripperAirPoll(bool hold)
 
     if (!m_gripperAirPollTimer) {
         m_gripperAirPollTimer = new QTimer(this);
-        m_gripperAirPollTimer->setInterval(500);
+        m_gripperAirPollTimer->setInterval(200);
         connect(m_gripperAirPollTimer, &QTimer::timeout, this, [this]() {
             if (m_gripperAirAwaitingMotion) {
                 return;
@@ -357,6 +388,7 @@ void MachineSetting::startGripperAirPoll(bool hold)
             }
         });
     }
+    m_gripperAirPollTimer->setInterval(200);
     if (!m_gripperAirPollTimer->isActive()) {
         m_gripperAirPollTimer->start();
     }
@@ -400,12 +432,15 @@ void MachineSetting::onGripperAirMotionFinished()
         updateGripperAirStepHint(1);
         break;
     case kGripperMotionChannel:
+        m_gripperAirSettleMs = kGripperAirObserveMinMs;
+        m_gripperGrabSeenMs = -1;
         m_gripperAirPhaseClock.restart();
         startGripperAirPoll(true);
         updateGripperAirStepHint(2);
         break;
     case kGripperMotionDump:
-        m_gripperAirSettleMs = kGripperAirReleaseFastSettleMs;
+        m_gripperAirSettleMs = kGripperAirObserveMinMs;
+        m_gripperThrowSeenMs = -1;
         m_gripperAirPhaseClock.restart();
         m_gripperAirSamples.clear();
         startGripperAirPoll(false);
@@ -442,6 +477,10 @@ void MachineSetting::cancelGripperAirDetect()
     m_gripperAirEmptyBaseline = -1;
     m_gripperAirReleaseAfterDump = -1;
     m_gripperAirLockedHold = -1;
+    m_gripperGrabSeenMs = -1;
+    m_gripperThrowSeenMs = -1;
+    m_gripperGrabDelayMeasured = -1;
+    m_gripperThrowDelayMeasured = -1;
     m_gripperAirDumpRetry = 0;
     m_gripperAirSettleMs = kGripperAirPhaseMinMs;
     m_gripperAirSamples.clear();
@@ -500,6 +539,12 @@ void MachineSetting::askGripperAirApply()
 
     ui->spinBoxSuckAirsMax->setValue(grabThreshold);
     ui->spinBoxSplitAirsMin->setValue(releaseThreshold);
+    if (m_gripperGrabDelayMeasured >= 300) {
+        ui->spinBox_suckLatetimer->setValue(m_gripperGrabDelayMeasured);
+    }
+    if (m_gripperThrowDelaySpin && m_gripperThrowDelayMeasured >= 300) {
+        m_gripperThrowDelaySpin->setValue(m_gripperThrowDelayMeasured);
+    }
     updateGripperAirStepHint(4);
 
     const quint32 grabU = static_cast<quint32>(grabThreshold);
@@ -794,7 +839,8 @@ void MachineSetting::completeGripperOriginEmptyStep(int emptyVal)
             return;
         }
         m_gripperAirDetectStep = 2;
-        m_gripperAirSettleMs = kGripperAirChannelSettleMs;
+        m_gripperAirSettleMs = kGripperAirObserveMinMs;
+        m_gripperGrabSeenMs = -1;
         m_gripperAirPhaseClock.restart();
         m_gripperAirSamples.clear();
         sendGripperChannelGrabSequence();
@@ -828,14 +874,9 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
     }
 
     if (m_gripperAirDetectStep == 1 && !issuck) {
-        if (!GlobalData::isHandsSuckFinish(static_cast<quint32>(airval))) {
-            completeGripperOriginEmptyStep(airval);
-            return;
-        }
         int avg = 0;
         if (gripperAirPushSample(m_gripperAirSamples, airval, &avg,
-                                 kGripperAirOriginStableCount, kGripperAirOriginMaxSpread)
-                && !GlobalData::isHandsSuckFinish(static_cast<quint32>(avg))) {
+                                 kGripperAirOriginStableCount, kGripperAirOriginMaxSpread)) {
             completeGripperOriginEmptyStep(avg);
         }
         return;
@@ -846,6 +887,10 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
     }
 
     const auto finishDumpRelease = [this](int releaseVal) {
+        m_gripperThrowDelayMeasured = clampGripperAutoDelay(
+                    m_gripperThrowSeenMs >= 0
+                    ? m_gripperThrowSeenMs
+                    : static_cast<int>(m_gripperAirPhaseClock.elapsed()));
         m_gripperAirReleaseAfterDump = releaseVal;
         m_liveReleaseAir = releaseVal;
         ui->label_splitval->setText(gtr(u8"\u5f03\u676f\u7a7a\u8f7d %1").arg(releaseVal));
@@ -853,10 +898,17 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
         sendGripperDumpZRetreat();
     };
 
-    if (m_gripperAirDetectStep == 3 && !issuck
-            && GlobalData::isHandsCupReleased(static_cast<quint32>(airval), false)) {
-        finishDumpRelease(airval);
-        return;
+    if (m_gripperAirDetectStep == 2 && issuck && m_gripperGrabSeenMs < 0
+            && m_gripperAirEmptyBaseline >= 0
+            && m_gripperAirEmptyBaseline - airval >= kGripperAirHoldDeltaMin) {
+        m_gripperGrabSeenMs = static_cast<int>(m_gripperAirPhaseClock.elapsed());
+    }
+    if (m_gripperAirDetectStep == 3 && !issuck && m_gripperThrowSeenMs < 0
+            && m_gripperAirLockedHold >= 0
+            && airval - m_gripperAirLockedHold >= kGripperAirDropMin
+            && (m_gripperAirEmptyBaseline < 0
+                || airval >= m_gripperAirEmptyBaseline - kGripperAirEmptyMatchMax)) {
+        m_gripperThrowSeenMs = static_cast<int>(m_gripperAirPhaseClock.elapsed());
     }
 
     int avg = 0;
@@ -865,18 +917,21 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
     }
 
     if (m_gripperAirDetectStep == 2 && issuck) {
-        const bool holdByThreshold = GlobalData::isHandsSuckFinish(static_cast<quint32>(avg));
         const bool holdByDelta = (m_gripperAirEmptyBaseline >= 0
                                   && m_gripperAirEmptyBaseline - avg >= kGripperAirHoldDeltaMin);
-        if (!holdByThreshold && !holdByDelta) {
+        if (!holdByDelta) {
             return;
         }
         m_gripperAirLockedHold = avg;
+        m_gripperGrabDelayMeasured = clampGripperAutoDelay(
+                    m_gripperGrabSeenMs >= 0
+                    ? m_gripperGrabSeenMs
+                    : static_cast<int>(m_gripperAirPhaseClock.elapsed()));
         m_liveHoldAir = avg;
         ui->label_showsuckVal->setText(gtr(u8"\u5438\u4f4f %1").arg(avg));
         m_gripperAirDetectStep = 3;
         m_gripperAirSamples.clear();
-        m_gripperAirSettleMs = kGripperAirReleaseFastSettleMs;
+        m_gripperAirSettleMs = kGripperAirObserveMinMs;
         m_gripperAirPhaseClock.restart();
         stopGripperAirPoll();
         sendGripperDumpSequence();
@@ -888,13 +943,13 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
                 || (avg - m_gripperAirLockedHold >= kGripperAirDropMin);
         const bool nearEmpty = (m_gripperAirEmptyBaseline < 0)
                 || (avg >= m_gripperAirEmptyBaseline - kGripperAirEmptyMatchMax);
-        const bool throwReleased = GlobalData::isHandsCupReleased(static_cast<quint32>(avg), issuck)
-                || (risenFromHold && nearEmpty);
+        const bool throwReleased = risenFromHold && nearEmpty;
         if (!throwReleased) {
             if (m_gripperAirPhaseClock.elapsed() > kGripperAirReleaseTimeoutMs) {
                 sendGripperDumpRetry();
                 m_gripperAirSamples.clear();
-                m_gripperAirSettleMs = kGripperAirReleaseFastSettleMs;
+                m_gripperThrowSeenMs = -1;
+                m_gripperAirSettleMs = kGripperAirObserveMinMs;
                 m_gripperAirPhaseClock.restart();
             }
             return;

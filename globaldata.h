@@ -138,7 +138,10 @@ public:
      */
     static bool isHandsSuckFinish(quint32 airvale);
 
-    /** 抬起后仍吸住（允许较抓杯阈略高的读数波动） */
+    /** 吸住：不超过抓住线，或仍在抓住线与丢掉线的中点及以下 */
+    static bool isHandsVacuumStillSealed(quint32 airvale);
+
+    /** 抬起后仍吸住。只看负压，不看命令里的吸杯标志 */
     static bool isHandsLiftStillHolding(quint32 airvale, bool isSuctionBit);
 
     /** 抓手吐杯状态
@@ -148,8 +151,13 @@ public:
      */
     static bool isHandsThrowCupFinish(quint32 airvale);
 
-    /** 丢杯：已到空载阈，或已关负压且读数明显回升（传感器滞后） */
+    /** 丢掉：负压已经大于等于丢掉线。关泵标志不算松开 */
     static bool isHandsCupReleased(quint32 airvale, bool isSuctionBit);
+
+    /** 吸杯判定延时。未设置或过小按 300ms，过大按 10000ms */
+    static int gripperGrabDelayMs();
+    /** 丢杯判定延时。未设置时用 1200ms */
+    static int gripperThrowDelayMs();
 
 
     /** 解析收到的从机地址

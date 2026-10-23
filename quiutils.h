@@ -41,6 +41,9 @@ namespace QUIUtils
     */
     void CalculateTheConsumptionOfCleaningFluid(quint16 _usedcleanlinque, double &LastRatio, quint16 &updataRatio);
 
+    // 瓶内减少的微升。吸试剂系数只修正泵步数，不计入瓶余量。
+    double reagentSuckVolumeUl(quint8 reagentType);
+
 
     /**
      * @brief CalculateTheConsumptionOfReagent
@@ -50,9 +53,10 @@ namespace QUIUtils
      * @param updataRatio
      */
     void CalculateTheConsumptionOfReagent(quint8 reagentIndex,
-                                          quint8 usedVolume,
+                                          double usedVolumeUl,
                                           double &remainingRatio,
-                                          quint16 &updatedRatio);
+                                          quint16 &updatedRatio,
+                                          bool commit = true);
 
     /**
      * @brief _ObtainSuppileDataInIFile 初始化获取耗材配置文件数据到内存
@@ -394,8 +398,9 @@ namespace QUIUtils
                                           quint16 refBottomX10,
                                           bool writeDirectly);
 
-    //0x1d 五种试剂加吸比例（×100 的 quint8）
+    //0x1d 五种试剂加吸比例。字节11-12是丢杯判定延时，0x1A已经排满
     QByteArray writeExtendedReagentPara0x1d(const quint8 addRatioX100[5],
+                                            quint16 throwDelayMs,
                                             bool writeDirectly);
 
     //group buffer 坐标

@@ -10,8 +10,10 @@
 #include <QButtonGroup>
 #include <QComboBox>
 #include <QDate>
+#include <QTime>
 #include <QDialog>
 #include <QFont>
+#include <QFrame>
 #include <QTextEdit>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -20,6 +22,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QStringList>
 #include <QVBoxLayout>
 
 namespace {
@@ -249,25 +252,201 @@ int QcChartPage::channelNumber() const
     return m_channelBox ? m_channelBox->currentData().toInt() : 1;
 }
 
-QcChartPage::Level QcChartPage::level() const
+QList<int> QcChartPage::selectedLevels() const
 {
+    QList<int> levels;
     if (!m_levelGroup)
-        return LevelAll;
-    const int id = m_levelGroup->checkedId();
-    if (id < LevelHigh || id > LevelAll)
-        return LevelAll;
-    return static_cast<Level>(id);
+        return levels;
+    QAbstractButton *allBtn = m_levelGroup->button(LevelAll);
+    if (allBtn && allBtn->isChecked()) {
+        levels << LevelHigh << LevelMid << LevelLow;
+        return levels;
+    }
+    const int ids[3] = {LevelHigh, LevelMid, LevelLow};
+    for (int i = 0; i < 3; ++i) {
+        QAbstractButton *btn = m_levelGroup->button(ids[i]);
+        if (btn && btn->isChecked())
+            levels.append(ids[i]);
+    }
+    return levels;
 }
 
 void QcChartPage::onLevelClicked(int id)
 {
-    applyLevel(static_cast<Level>(id));
+    if (!m_levelGroup)
+        return;
+    QAbstractButton *clicked = m_levelGroup->button(id);
+    QAbstractButton *allBtn = m_levelGroup->button(LevelAll);
+    if (!clicked)
+        return;
+
+    const int singles[3] = {LevelHigh, LevelMid, LevelLow};
+    bool anySingle = false;
+    for (int i = 0; i < 3; ++i) {
+        QAbstractButton *btn = m_levelGroup->button(singles[i]);
+        if (btn && btn->isChecked())
+            anySingle = true;
+    }
+
+    if (id == LevelAll) {
+        if (clicked->isChecked()) {
+            for (int i = 0; i < 3; ++i) {
+                QAbstractButton *btn = m_levelGroup->button(singles[i]);
+                if (btn)
+                    btn->setChecked(false);
+            }
+        } else if (!anySingle) {
+            clicked->setChecked(true);
+        }
+    } else if (clicked->isChecked()) {
+        if (allBtn)
+            allBtn->setChecked(false);
+    } else if (!(allBtn && allBtn->isChecked()) && !anySingle) {
+        clicked->setChecked(true);
+    }
+    applySelectedLevels();
+}
+
+namespace {
+QString qcUtf8(const char *text)
+{
+    return QString::fromUtf8(text);
+}
+
+void addPlaceCard(QWidget *parent, QVBoxLayout *lay, const char *name, int hole, const char *color)
+{
+    QFrame *card = new QFrame(parent);
+    card->setObjectName(QStringLiteral("placeCard"));
+    card->setStyleSheet(QString::fromUtf8(
+        "QFrame#placeCard { background: #ffffff; border: 1px solid #d3dee8; border-radius: 10px; }"));
+    QHBoxLayout *row = new QHBoxLayout(card);
+    row->setContentsMargins(16, 12, 14, 12);
+    row->setSpacing(14);
+
+    QLabel *bar = new QLabel(card);
+    bar->setFixedSize(6, 36);
+    bar->setStyleSheet(QString::fromUtf8("QLabel { background: %1; border: none; border-radius: 3px; }")
+                       .arg(QLatin1String(color)));
+
+    QLabel *title = new QLabel(qcUtf8(name), card);
+    title->setStyleSheet(QString::fromUtf8(
+        "QLabel { font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 20px; color: #2c3a48;"
+        " background: transparent; border: none; }"));
+
+    QLabel *badge = new QLabel(QString::number(hole) + qcUtf8("\xe5\x8f\xb7\xe5\xad\x94"), card);
+    badge->setAlignment(Qt::AlignCenter);
+    badge->setMinimumWidth(92);
+    badge->setStyleSheet(QString::fromUtf8(
+        "QLabel { font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 18px; font-weight: bold; color: #1d4e89;"
+        " background: #e7f0f8; border: none; border-radius: 8px; padding: 6px 12px; }"));
+
+    row->addWidget(bar);
+    row->addWidget(title, 1);
+    row->addWidget(badge);
+    lay->addWidget(card);
+}
+
+bool confirmQcPlacement(QWidget *parent, const QList<int> &levels)
+{
+    QDialog dialog(parent);
+    dialog.setModal(true);
+    dialog.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dialog.setAttribute(Qt::WA_StyledBackground, true);
+    dialog.setFixedWidth(440);
+    dialog.setStyleSheet(QString::fromUtf8(
+        "QDialog { background: #eef4f8; border: 1px solid #c5d4e2; border-radius: 14px; }"));
+
+    QVBoxLayout *lay = new QVBoxLayout(&dialog);
+    lay->setContentsMargins(0, 0, 0, 18);
+    lay->setSpacing(0);
+
+    QWidget *accent = new QWidget(&dialog);
+    accent->setFixedHeight(6);
+    accent->setStyleSheet(QString::fromUtf8("background: #4a7ab5; border: none; border-top-left-radius: 14px; border-top-right-radius: 14px;"));
+    lay->addWidget(accent);
+
+    QVBoxLayout *body = new QVBoxLayout();
+    body->setContentsMargins(22, 18, 22, 0);
+    body->setSpacing(10);
+    lay->addLayout(body);
+
+    QLabel *title = new QLabel(qcUtf8("\xe7\xa1\xae\xe8\xae\xa4\xe6\x94\xbe\xe7\xbd\xae\xe4\xbd\x8d\xe7\xbd\xae"), &dialog);
+    title->setStyleSheet(QString::fromUtf8(
+        "QLabel { font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 24px; color: #1a4d6b; background: transparent; border: none; }"));
+    body->addWidget(title);
+
+    QLabel *hint = new QLabel(qcUtf8("\xe8\xaf\xb7\xe7\xa1\xae\xe8\xae\xa4\xe8\xa1\x80\xe6\xa0\xb7\xe5\x8c\xba\xe6\xb6\xb2\xe4\xbd\x93\xe5\xb7\xb2\xe7\xbb\x8f\xe6\x94\xbe\xe5\xa5\xbd"), &dialog);
+    hint->setStyleSheet(QString::fromUtf8(
+        "QLabel { font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 15px; color: #5c6e80; background: transparent; border: none; }"));
+    body->addWidget(hint);
+    body->addSpacing(6);
+
+    addPlaceCard(&dialog, body, "\xe6\xb0\xb4", 1, "#1a4d6b");
+    if (levels.contains(QcChartPage::LevelHigh)) {
+        addPlaceCard(&dialog, body, "\xe9\xab\x98\xe5\x80\xbc\xe6\xa0\x87\xe5\x87\x86", 3, "#1e5aa0");
+        addPlaceCard(&dialog, body, "\xe9\xab\x98\xe5\x80\xbc", 4, "#1e5aa0");
+    }
+    if (levels.contains(QcChartPage::LevelMid)) {
+        addPlaceCard(&dialog, body, "\xe4\xb8\xad\xe5\x80\xbc\xe6\xa0\x87\xe5\x87\x86", 5, "#24825a");
+        addPlaceCard(&dialog, body, "\xe4\xb8\xad\xe5\x80\xbc", 6, "#24825a");
+    }
+    if (levels.contains(QcChartPage::LevelLow)) {
+        addPlaceCard(&dialog, body, "\xe4\xbd\x8e\xe5\x80\xbc\xe6\xa0\x87\xe5\x87\x86", 7, "#b06028");
+        addPlaceCard(&dialog, body, "\xe4\xbd\x8e\xe5\x80\xbc", 8, "#b06028");
+    }
+
+    body->addSpacing(8);
+    QHBoxLayout *buttons = new QHBoxLayout();
+    buttons->setSpacing(12);
+    buttons->addStretch(1);
+    QPushButton *cancelBtn = new QPushButton(qcUtf8("\xe5\x8f\x96\xe6\xb6\x88"), &dialog);
+    QPushButton *okBtn = new QPushButton(qcUtf8("\xe7\xa1\xae\xe5\xae\x9a"), &dialog);
+    cancelBtn->setCursor(Qt::PointingHandCursor);
+    okBtn->setCursor(Qt::PointingHandCursor);
+    cancelBtn->setStyleSheet(QString::fromUtf8(
+        "QPushButton {"
+        "  font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 18px;"
+        "  min-width: 96px; min-height: 40px; padding: 0 8px;"
+        "  border: 1px solid #b7c5d3; border-radius: 8px;"
+        "  background: #ffffff; color: #2c3a48;"
+        "}"
+        "QPushButton:hover { background: #f4f8fb; border-color: #8aa4be; }"));
+    okBtn->setStyleSheet(QString::fromUtf8(
+        "QPushButton {"
+        "  font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 18px;"
+        "  min-width: 96px; min-height: 40px; padding: 0 8px;"
+        "  border: 1px solid #4a7ab5; border-radius: 8px;"
+        "  background: #4a7ab5; color: white;"
+        "}"
+        "QPushButton:hover { background: #3d6aa0; }"
+        "QPushButton:pressed { background: #325884; }"));
+    buttons->addWidget(cancelBtn);
+    buttons->addWidget(okBtn);
+    body->addLayout(buttons);
+
+    QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    QObject::connect(okBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    okBtn->setDefault(true);
+    dialog.adjustSize();
+    QWidget *host = parent ? parent->window() : 0;
+    if (host) {
+        const QPoint origin = host->mapToGlobal(QPoint(0, 0));
+        dialog.move(origin.x() + (host->width() - dialog.width()) / 2,
+                    origin.y() + qMax(24, (host->height() - dialog.height()) / 3));
+    }
+    return dialog.exec() == QDialog::Accepted;
+}
 }
 
 void QcChartPage::onStartClicked()
 {
+    const QList<int> levels = selectedLevels();
+    const QList<int> channels = selectedTestChannels();
+    if (!levels.isEmpty() && !channels.isEmpty() && !confirmQcPlacement(this, levels))
+        return;
+
     QString reason;
-    if (!QcStartAction::instance()->start(static_cast<int>(level()), selectedTestChannels(),
+    if (!QcStartAction::instance()->start(levels, channels,
                                           m_highLot, m_midLot, m_lowLot, &reason)) {
         if (m_statusLabel)
             m_statusLabel->setText(reason);
@@ -451,46 +630,87 @@ QList<int> QcChartPage::selectedTestChannels() const
     return channels;
 }
 
+void QcChartPage::onPreviewChannelChanged(int index)
+{
+    if (!m_channelBox || index < 0)
+        return;
+    if (m_channelBox->currentIndex() != index) {
+        m_channelBox->setCurrentIndex(index);
+        return;
+    }
+    reloadChannelCurves();
+}
+
 void QcChartPage::reloadChannelCurves()
 {
     if (!m_highPlot || !m_midPlot || !m_lowPlot)
         return;
+    const int channel = channelNumber();
+    for (int i = 0; i < 3; ++i) {
+        if (m_curve[i].plot && m_curve[i].plot->graphCount() > 0)
+            m_curve[i].plot->graph(0)->data()->clear();
+        if (m_curve[i].valueText)
+            m_curve[i].valueText->setText(QString());
+    }
+
+    QVector<double> xHigh;
+    QVector<double> yHigh;
+    QVector<double> xMid;
+    QVector<double> yMid;
+    QVector<double> xLow;
+    QVector<double> yLow;
     CustomCreatSql *sql = FullyAutomatedPlatelets::pinstancesqlData();
-    QVector<double> x;
-    QVector<double> high;
-    QVector<double> mid;
-    QVector<double> low;
     if (sql) {
-        const QList<QcChannelDayValue> rows = sql->queryQcChannelDaily(channelNumber());
-        x.reserve(rows.size());
-        high.reserve(rows.size());
-        mid.reserve(rows.size());
-        low.reserve(rows.size());
+        const QList<QcChannelDayValue> rows = sql->queryQcChannelDaily(channel);
         for (int i = 0; i < rows.size(); ++i) {
-            const QDate day = QDate::fromString(rows.at(i).qcDate, QStringLiteral("yyyy-MM-dd"));
+            const QcChannelDayValue &row = rows.at(i);
+            if (row.channel != channel)
+                continue;
+            const QDate day = QDate::fromString(row.qcDate, QStringLiteral("yyyy-MM-dd"));
             if (!day.isValid())
                 continue;
-            x.append(QCPAxisTickerDateTime::dateTimeToKey(QDateTime(day)));
-            high.append(rows.at(i).highValue);
-            mid.append(rows.at(i).midValue);
-            low.append(rows.at(i).lowValue);
+            const double key = QCPAxisTickerDateTime::dateTimeToKey(
+                        QDateTime(day, QTime(0, 0), Qt::LocalTime));
+            if (row.highValue > 0.0) {
+                xHigh.append(key);
+                yHigh.append(row.highValue);
+            }
+            if (row.midValue > 0.0) {
+                xMid.append(key);
+                yMid.append(row.midValue);
+            }
+            if (row.lowValue > 0.0) {
+                xLow.append(key);
+                yLow.append(row.lowValue);
+            }
         }
     }
     if (m_highPlot->graphCount() > 0)
-        m_highPlot->graph(0)->setData(x, high);
+        m_highPlot->graph(0)->setData(xHigh, yHigh);
     if (m_midPlot->graphCount() > 0)
-        m_midPlot->graph(0)->setData(x, mid);
+        m_midPlot->graph(0)->setData(xMid, yMid);
     if (m_lowPlot->graphCount() > 0)
-        m_lowPlot->graph(0)->setData(x, low);
+        m_lowPlot->graph(0)->setData(xLow, yLow);
     for (int i = 0; i < 3; ++i)
         fitCurveYAxis(m_curve[i].plot, m_curve[i].centerPercent);
     updateChartTitles();
     showRecentDays();
-    if (!x.isEmpty())
-        placeCursor(x.last());
-    m_highPlot->replot();
-    m_midPlot->replot();
-    m_lowPlot->replot();
+    double cursorKey = 0.0;
+    bool havePoint = false;
+    const QVector<double> keys[3] = { xHigh, xMid, xLow };
+    for (int i = 0; i < 3; ++i) {
+        if (keys[i].isEmpty())
+            continue;
+        if (!havePoint || keys[i].last() > cursorKey)
+            cursorKey = keys[i].last();
+        havePoint = true;
+    }
+    if (havePoint)
+        placeCursor(cursorKey);
+    for (int i = 0; i < 3; ++i) {
+        if (m_curve[i].plot)
+            m_curve[i].plot->replot(QCustomPlot::rpImmediateRefresh);
+    }
 }
 
 void QcChartPage::buildCharts()
@@ -533,14 +753,16 @@ void QcChartPage::buildBottomBar()
     for (int ch = 1; ch <= channelCount; ++ch)
         m_channelBox->addItem(QString::fromUtf8("\xe9\x80\x9a\xe9\x81\x93%1").arg(ch), ch);
     connect(m_channelBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &QcChartPage::reloadChannelCurves);
+            this, &QcChartPage::onPreviewChannelChanged);
+    connect(m_channelBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated),
+            this, &QcChartPage::onPreviewChannelChanged);
     top->addWidget(m_channelBox);
 
     top->addSpacing(28);
     top->addWidget(new QLabel(QString::fromUtf8("\xe8\xb4\xa8\xe6\x8e\xa7\xe5\x80\xbc"), bar));
 
     m_levelGroup = new QButtonGroup(bar);
-    m_levelGroup->setExclusive(true);
+    m_levelGroup->setExclusive(false);
     struct LevelButton {
         const char *text;
         int id;
@@ -656,8 +878,10 @@ QcChartPage::CurveView QcChartPage::createChart(const QColor &pointColor, int ce
     const double todayKey = QCPAxisTickerDateTime::dateTimeToKey(today);
 
     QSharedPointer<QCPAxisTickerDateTime> xTicker(new QCPAxisTickerDateTime);
+    xTicker->setDateTimeSpec(Qt::LocalTime);
     xTicker->setDateTimeFormat(QString::fromUtf8("M\xe6\x9c\x88""d"));
-    xTicker->setTickCount(6);
+    xTicker->setTickOrigin(QDateTime(QDate(2020, 1, 1), QTime(0, 0), Qt::LocalTime));
+    xTicker->setTickCount(12);
     plot->xAxis->setTicker(xTicker);
     plot->xAxis->setRange(xMin, xMax);
 
@@ -784,11 +1008,24 @@ void QcChartPage::updateChartTitles()
 
 void QcChartPage::showRecentDays()
 {
-    QCPGraph *graph = m_highPlot ? m_highPlot->graph(0) : nullptr;
-    if (!graph || graph->dataCount() < 1)
+    double firstKey = 0.0;
+    double lastKey = 0.0;
+    bool any = false;
+    for (int i = 0; i < 3; ++i) {
+        QCustomPlot *plot = m_curve[i].plot;
+        if (!plot || plot->graphCount() < 1 || plot->graph(0)->dataCount() < 1)
+            continue;
+        QCPGraph *graph = plot->graph(0);
+        const double first = graph->dataMainKey(0);
+        const double last = graph->dataMainKey(graph->dataCount() - 1);
+        if (!any || first < firstKey)
+            firstKey = first;
+        if (!any || last > lastKey)
+            lastKey = last;
+        any = true;
+    }
+    if (!any)
         return;
-    const double lastKey = graph->dataMainKey(graph->dataCount() - 1);
-    const double firstKey = graph->dataMainKey(0);
     const double daySec = 86400.0;
     const double span = 14.0 * daySec;
     double upper = lastKey + daySec;
@@ -922,13 +1159,13 @@ void QcChartPage::onPlotMouseRelease(QMouseEvent *event)
         plot->setCursor(Qt::ArrowCursor);
 }
 
-void QcChartPage::applyLevel(Level level)
+void QcChartPage::applySelectedLevels()
 {
-    const bool all = (level == LevelAll);
+    const QList<int> levels = selectedLevels();
     if (m_highPlot)
-        m_highPlot->setVisible(all || level == LevelHigh);
+        m_highPlot->setVisible(levels.contains(LevelHigh));
     if (m_midPlot)
-        m_midPlot->setVisible(all || level == LevelMid);
+        m_midPlot->setVisible(levels.contains(LevelMid));
     if (m_lowPlot)
-        m_lowPlot->setVisible(all || level == LevelLow);
+        m_lowPlot->setVisible(levels.contains(LevelLow));
 }

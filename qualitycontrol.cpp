@@ -816,9 +816,7 @@ QString QualityControl::mapoutreagent(quint8 index_reag, double lastratio) {
 //仪器内部清洗液
 void QualityControl::loc_clean_linque_display()
 {
-    quint16 clean_theremaining_amount = 0;
-    ConsumablesOper::GetpInstance()->getCleanLinqueAllowance(clean_theremaining_amount);
-    double displayRatio = double(double(clean_theremaining_amount)*100.00)/MAX_RATIO_SWITCT;
+    const double displayRatio = ConsumablesOper::displayedPercent(INDEX_CLEANLINQUE_CONSUMABLE);
     setReagentPara(INDEX_CLEANLINQUE_CONSUMABLE,false,displayRatio);//清洗剂剩余量(%)
     emit SycnMainUiLosserSuppile(INDEX_CLEANLINQUE_CONSUMABLE,displayRatio);
     update();
@@ -829,9 +827,7 @@ void QualityControl::loc_clean_linque_display()
 //仪器内试剂
 void QualityControl::loc_reagnet_type_display_val(quint8 index_reag)
 {
-    quint16 reagent_amount = 0;
-    ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,index_reag,reagent_amount);
-    double displayRatio = double(double(reagent_amount*100)/MAX_RATIO_SWITCT);
+    const double displayRatio = ConsumablesOper::displayedPercent(index_reag);
     setReagentPara( index_reag ,false,displayRatio);
     emit SycnMainUiLosserSuppile(index_reag,displayRatio);
     QLOG_DEBUG()<<mapoutreagent(index_reag,displayRatio);
@@ -1071,22 +1067,17 @@ void QualityControl::consumeCleaningFluid(const CleaningFluidDepleteType deplete
     quint8 limitRatio = 0;
     ConsumablesOper::updateReagentLimit(READ_OPERRAT, INDEX_CLEANLINQUE_CONSUMABLE, limitRatio);
 
-    const double warmRatio = lastRatioPercent*100.00;
+    const double warmRatio = lastRatioPercent * 100.00;
+    updateCleaningFluidStatus(warmRatio, updateratio);
     if (warmRatio <= 0 || warmRatio < limitRatio) {
+        QLOG_WARN() << "内清洗液S1不足警报限";
         if (cglobal::g_StartTesting) {
             emit consumablesLackPauses(INDEX_CLEANLINQUE_CONSUMABLE);
-        }
-        else {
+        } else {
             warn_interface::showTransientWarning(tr("耗材提示"),
                 tr("内清洗液S1不足警报限,请及时更换!"));
-            return;
         }
-        QLOG_WARN() << "内清洗液S1不足警报限";
-        return;
     }
-
-    updateCleaningFluidStatus(warmRatio, updateratio);
-
 }
 
 
@@ -1097,7 +1088,7 @@ void QualityControl::updateCleaningFluidStatus(double lastRatioPercent,
     setReagentPara(INDEX_CLEANLINQUE_CONSUMABLE, false, lastRatioPercent);
 
     emit SycnMainUiLosserSuppile(INDEX_CLEANLINQUE_CONSUMABLE, lastRatioPercent);
-    ConsumablesOper::updateReplaceLocRatio(WRITE_OPERAT, INDEX_CLEANLINQUE_CONSUMABLE, updateratio);
+    ConsumablesOper::updateReplaceLocRatio(WRITE_OPERAT, INDEX_CLEANLINQUE_CONSUMABLE, updateratio, false);
 
     quint8 totalnum = 0;
     ConsumablesOper::syacnReagentTotalBottle(READ_OPERRAT, INDEX_CLEANLINQUE_CONSUMABLE, totalnum);
@@ -1111,19 +1102,19 @@ void QualityControl::updateCleaningFluidStatus(double lastRatioPercent,
 void QualityControl::consumeReagent(const quint8 reag_kind, const quint8 index_)
 {
     constexpr double PERCENTAGE_FACTOR = 100.0;
-    const quint8 usedVolume = INI_File().getTypesReagentSuckVolume(index_);
-    if (usedVolume == 0) {
+    const double usedVolume = QUIUtils::reagentSuckVolumeUl(index_);
+    if (usedVolume <= 0) {
         QLOG_WARN() << "试剂消耗量为0，跳过更新流程，类型:" << reag_kind;
         return;
     }
 
     double remainingRatio  = 0.0;
     quint16 updatedRatio  = 0;
-    QUIUtils::CalculateTheConsumptionOfReagent(reag_kind,usedVolume,remainingRatio,updatedRatio );
+    QUIUtils::CalculateTheConsumptionOfReagent(reag_kind, usedVolume, remainingRatio, updatedRatio);
 
     const double remainingPercentage = remainingRatio * PERCENTAGE_FACTOR;
 
-    ConsumablesOper::updateReplaceLocRatio(WRITE_OPERAT, reag_kind,updatedRatio);
+    ConsumablesOper::updateReplaceLocRatio(WRITE_OPERAT, reag_kind, updatedRatio, false);
     QLOG_DEBUG()<<"设置余量到内存储"<<updatedRatio;
 
     setReagentPara(reag_kind, false, remainingPercentage);

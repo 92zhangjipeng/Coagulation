@@ -3280,9 +3280,9 @@ bool CustomCreatSql::saveQcChannelDaily(int channel, const QString &qcDate,
     if (!db.isOpen())
         return false;
 
-    double high = 75.0;
-    double mid = 50.0;
-    double low = 25.0;
+    double high = 0.0;
+    double mid = 0.0;
+    double low = 0.0;
     QString highLotSaved;
     QString midLotSaved;
     QString lowLotSaved;

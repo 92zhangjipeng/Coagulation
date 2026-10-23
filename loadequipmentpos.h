@@ -272,13 +272,16 @@ typedef struct REAGENT_CONSUMABLES
     quint8   remainingNum;            //剩余总量 0 - 255 瓶
     quint8   LimitAlarm;              //限位报警
     quint16  SingleBottleCapacity;    //单瓶容量
+    double   remainMicroliters = 0;   //瓶内剩余微升，扣减按这个减
+    bool     remainMicrolitersValid = false;
 
     // 添加构造函数
     REAGENT_CONSUMABLES(quint8 index = 0, quint16 ratio = 0,
                             const QString& date = "", quint8 num = 0,
                             quint8 limit = 0, quint16 capacity = 0)
             : indexReag(index), remain_Ratio(ratio), Expirationdate(date),
-              remainingNum(num), LimitAlarm(limit), SingleBottleCapacity(capacity)
+              remainingNum(num), LimitAlarm(limit), SingleBottleCapacity(capacity),
+              remainMicroliters(0), remainMicrolitersValid(false)
         {}
 
 }REAGENT_CONSUMABLES_;
@@ -304,7 +307,12 @@ public:
     static void syacnReagentTotalBottle(bool isWrite, quint8 reagentIndex, quint8 &bottleCount);
 
     //更换整体体耗材比例设置为512
-    static void updateReplaceLocRatio(bool isWrite, quint8 indexReag, quint16 &bottleRatio);
+    static void updateReplaceLocRatio(bool isWrite, quint8 indexReag, quint16 &bottleRatio,
+                                      bool resetMicroliters = true);
+    // 按微升扣减。fractionLeft 为 0~1，ratioOut 为写给主板的 0~512。
+    static bool applyMicroliterUse(quint8 indexReag, double usedUl, bool commit,
+                                   double &fractionLeft, quint16 &ratioOut);
+    static double displayedPercent(quint8 indexReag);
 
     static  void TotalConsumablesAlarm(quint8 indexReag,bool &alarms); //对比总耗材报警
     static void updateReagentTotal(bool bwrite, quint8 indexReag, quint16 &ReagentTol); //更新试剂总容量

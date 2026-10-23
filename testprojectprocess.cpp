@@ -3018,9 +3018,11 @@ void TestProjectProcess::commandNotCompleteOrErr(const bool isGripperError,const
         if (m_gripperVacuumHoldEval.pending) {
             m_gripperVacuumHoldEval.pending = false;
         }
-        int Timelapsesucking = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
+        int waitMs = StructInstance::getInstance()->takeGripperWaitMs();
+        if (waitMs <= 0) {
+            waitMs = GlobalData::gripperGrabDelayMs();
+        }
         QPointer<TestProjectProcess> guard(this);
-        const int waitMs = Timelapsesucking;
         QTimer::singleShot(waitMs, this, [guard, senddata, tips, waitMs]() {
             if (!guard) {
                 return;

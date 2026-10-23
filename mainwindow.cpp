@@ -755,11 +755,14 @@ void  MainWindow::inittestmodule_data_thread()
 void MainWindow::handleNormalOperation(quint8 index)
 {
     if (equipmentTipInfo::LinqueScrapFull == index) {
+        m_warmwasteliquor = false;
         ui->show_wastlique->hide();
     } else if (equipmentTipInfo::LinqueCleanShortage == index) {
+        m_cleanliquor = false;
         ui->showcleanliqur->hide();
     }
-    // 可以在这里添加其他情况的处理
+    if (!m_warmwasteliquor && !m_cleanliquor && m_consumablePulseTimer)
+        m_consumablePulseTimer->stop();
 }
 void MainWindow::handleAbnormalCardSwipe(const QString& promptInfo)
 {
@@ -3087,11 +3090,10 @@ void MainWindow::DisplaySycnMainUiLosserSuppile(int IndexReagent,double Remainin
         QLabel* displayLabel = *labelIt;
         QSignalBlocker blocker(displayLabel);
         const QString caption = consumableChipCaption(IndexReagent);
-        const QString displayValue = (Remainingratio < 10.0)
-                ? QString::number(Remainingratio, 'f', 1)
-                : QString::number(Remainingratio, 'f', 0);
+        const QString displayValue = QString::number(Remainingratio, 'f', 1);
+        const QString preciseValue = QString::number(Remainingratio, 'f', 2);
         displayLabel->setText(QString("%1  %2%").arg(caption, displayValue));
-        displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(displayValue));
+        displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(preciseValue));
         applyConsumableChipStyle(displayLabel, Remainingratio, threshold);
     }
     return;
@@ -3139,9 +3141,6 @@ void  MainWindow::ReminderPauseConsumables_alarm(const int Index)
 /*初始化更新耗材显示*/
 void MainWindow::DisplaysConsumablesRemaining()
 {
-    // 常量定义
-    constexpr float kMaxRatioSwitch = 100.0f;
-
     // 初始化控件映射表
     const QVector<QPair<int, QLabel*>> consumableWidgets {
         {INDEX_AA_CONSUMABLE,          ui->label_Dipaly_AA_1},
@@ -3175,20 +3174,16 @@ void MainWindow::DisplaysConsumablesRemaining()
 
            // 获取耗材数据
            quint8 threshold = 0;
-           quint16 currentRatio = 0;
            ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT, reagentIndex, threshold);
-           ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT, reagentIndex, currentRatio);
 
-           // 计算显示比例
-           const float ratio = static_cast<float>(currentRatio) * kMaxRatioSwitch / MAX_RATIO_SWITCT;
+           const double ratio = ConsumablesOper::displayedPercent(static_cast<quint8>(reagentIndex));
            const QString caption = consumableChipCaption(reagentIndex);
-           const QString displayValue = (ratio < 10.0f)
-                   ? QString::number(static_cast<double>(ratio), 'f', 1)
-                   : QString::number(static_cast<double>(ratio), 'f', 0);
+           const QString displayValue = QString::number(ratio, 'f', 1);
+           const QString preciseValue = QString::number(ratio, 'f', 2);
 
            QSignalBlocker blocker(displayLabel);
            displayLabel->setText(QString("%1  %2%").arg(caption, displayValue));
-           displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(displayValue));
+           displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(preciseValue));
            applyConsumableChipStyle(displayLabel, static_cast<double>(ratio), threshold);
     }
     return;
@@ -3929,6 +3924,34 @@ void MainWindow::initErrorDisplayMap()
     for (const auto &pair : errorInfoList) {
         m_errorInfoMap.insert(pair.first, pair.second);
     }
+
+    ui->show_wastlique->setAlignment(Qt::AlignCenter);
+    ui->showcleanliqur->setAlignment(Qt::AlignCenter);
+    ui->show_wastlique->setScaledContents(false);
+    ui->showcleanliqur->setScaledContents(false);
+
+    if (!m_consumablePulseTimer) {
+        m_consumablePulseTimer = new QTimer(this);
+        m_consumablePulseTimer->setInterval(560);
+        connect(m_consumablePulseTimer, &QTimer::timeout, this, [this]() {
+            m_consumablePulseBright = !m_consumablePulseBright;
+            refreshConsumableStatusIcons();
+        });
+    }
+}
+
+void MainWindow::refreshConsumableStatusIcons()
+{
+    const qreal dpr = devicePixelRatioF();
+    auto showGlyph = [&](QLabel *label, bool on, int kind) {
+        if (!label || !on)
+            return;
+        label->setPixmap(instrumentAlarmPrompt::consumableGlyph(
+            kind, 32, dpr, m_consumablePulseBright));
+        label->show();
+    };
+    showGlyph(ui->show_wastlique, m_warmwasteliquor, equipmentTipInfo::LinqueScrapFull);
+    showGlyph(ui->showcleanliqur, m_cleanliquor, equipmentTipInfo::LinqueCleanShortage);
 }
 
 //优化
@@ -3944,40 +3967,16 @@ void MainWindow::handleErrorNotification(quint8 index_, const QString& errinfo)
             return;
         }
 
-        // 状态切换
-        if(info.stateFlag) {
-            *info.stateFlag = !(*info.stateFlag);
-        }
+        const bool wasOn = info.stateFlag && *info.stateFlag;
+        if (info.stateFlag)
+            *info.stateFlag = true;
+        if (!wasOn)
+            m_consumablePulseBright = true;
 
-        // 图片路径选择
-        const QString& path = (info.stateFlag && *info.stateFlag)
-                            ? info.alertPath
-                            : info.normalPath;
-        if(path.isEmpty()) {
-            qWarning() << "Empty image path for error code:" << index_;
-            return;
-        }
-
-        // 带缓存机制的图像加载
-        QPixmap cachedPix;
-        if(!QPixmapCache::find(path, &cachedPix)) {
-            if(!cachedPix.load(path)) {
-                qWarning() << "Failed to load image:" << path;
-                return;
-            }
-            cachedPix = cachedPix.scaled(info.iconSize * devicePixelRatioF(),
-                                        Qt::KeepAspectRatio,
-                                        Qt::SmoothTransformation);
-            cachedPix.setDevicePixelRatio(devicePixelRatioF());
-            QPixmapCache::insert(path, cachedPix);
-        }
-
-        // 线程安全的UI更新
-        QMetaObject::invokeMethod(info.targetLabel, [=](){
-            info.targetLabel->show();
-            info.targetLabel->setToolTip(info.tooltip);
-            info.targetLabel->setPixmap(cachedPix);
-        });
+        info.targetLabel->setToolTip(info.tooltip);
+        refreshConsumableStatusIcons();
+        if (m_consumablePulseTimer && !m_consumablePulseTimer->isActive())
+            m_consumablePulseTimer->start();
     }
     else {
         //QLOG_WARN()<< "Unhandled error code:" << index_ << "Info:" << errinfo;

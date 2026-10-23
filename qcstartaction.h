@@ -2,6 +2,7 @@
 #define QCSTARTACTION_H
 
 #include <QByteArray>
+#include <QPoint>
 #include <QByteArrayList>
 #include <QList>
 #include <QMap>
@@ -23,8 +24,8 @@ public:
     explicit QcStartAction(QObject *parent = nullptr);
     static QcStartAction *instance();
 
-    // level: 0 high, 1 mid, 2 low, 3 all. channels are 1-based.
-    bool start(int level, const QList<int> &channels,
+    // levels: 0 high, 1 mid, 2 low. Several may be selected. channels are 1-based.
+    bool start(const QList<int> &levels, const QList<int> &channels,
                const QString &highLot, const QString &midLot, const QString &lowLot,
                QString *reason);
     bool isRunning() const { return m_running; }
@@ -37,6 +38,7 @@ signals:
 private slots:
     void onSerial(const QStringList &recv);
     void onWaitTick();
+    void promptRegrab();
 
 private:
     enum JobKind {
@@ -104,8 +106,11 @@ private:
     void releaseAllClaimed();
     void appendCupRoute(int trayHole, int record, bool discard);
     bool appendSuckRouteWash(int bloodHole, int record, QString *reason);
-    bool buildJobs(int level, QString *reason);
+    bool buildJobs(const QList<int> &levels, QString *reason);
     bool commandForJob(const Job &job, QByteArrayList &out, QString *reason);
+    bool buildGripLeg(const QPoint &target, int downMm, bool picking, QByteArrayList &out);
+    bool gripJob(JobKind kind) const;
+    void requestRegrabPrompt();
     void runJob();
     void advance();
     void fail(const QString &text);
@@ -123,6 +128,11 @@ private:
     QMap<int, Reading> m_readings;
     int m_jobIndex;
     quint8 m_expectIndex;
+    quint8 m_grabJudgeIndex;
+    bool m_grabOk;
+    bool m_placing;
+    bool m_regrab;
+    bool m_promptingRegrab;
     QVector<quint8> m_batchIndexes;
     QTimer *m_waitTimer;
     int m_waitChannel1;

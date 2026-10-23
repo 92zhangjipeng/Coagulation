@@ -2,14 +2,14 @@
 #define BLOODLAYER_API_H
 
 /*
- * 离心管红细胞/血浆分解面 — C 接口（供其它软件链接）
+ * Centrifuge-tube RBC/plasma interface. C API for other programs.
  *
- * 识别逻辑在 BloodLayerDetector 内，本头文件不暴露 Qt / OpenCV。
- * 路径一律 UTF-8。坐标一律原图像素（未旋转）。
+ * Detection stays inside BloodLayerDetector. This header does not expose Qt or OpenCV.
+ * Paths are UTF-8. Coordinates are original-image pixels, not rotated.
  *
- * 编译进 exe：定义 BLOODLAYER_STATIC
- * 编译 DLL：定义 BLOODLAYER_EXPORTS
- * 使用 DLL：不要定义上述宏，链接 bloodlayer.lib
+ * Build into the exe: define BLOODLAYER_STATIC
+ * Build the DLL: define BLOODLAYER_EXPORTS
+ * Use the DLL: define neither macro, and link bloodlayer.lib
  */
 
 #if defined(_WIN32)
@@ -34,7 +34,7 @@ extern "C" {
 #define BLOODLAYER_MSG_LEN 512
 #define BLOODLAYER_NAME_LEN 64
 
-/* cv::ROTATE_90_COUNTERCLOCKWISE，管口朝上时对原图做此旋转 */
+/* cv::ROTATE_90_COUNTERCLOCKWISE. Rotate the original image so the tube mouth faces up. */
 #define BLOODLAYER_ROTATE_90_CCW 2
 
 typedef struct BloodDetectParamsC {
@@ -59,28 +59,28 @@ typedef struct BloodIfaceC {
 } BloodIfaceC;
 
 typedef struct BloodRefResultC {
-    int ok;                 /* 1=找到参照物 */
+    int ok;                 /* 1 = reference mark found */
     char message[BLOODLAYER_MSG_LEN];
-    int x, y, w, h;         /* 原图矩形 */
-    int heightPx;           /* 用于比例的高度（像素） */
-    double physicalMm;      /* 默认 20 */
+    int x, y, w, h;         /* rectangle on the original image */
+    int heightPx;           /* height used for scale, in pixels */
+    double physicalMm;      /* default 20 */
     double pxPerMm;
 } BloodRefResultC;
 
 typedef struct BloodDetectResultC {
-    int ok;                 /* 1=已定位红细胞/血浆分解面 */
+    int ok;                 /* 1 = RBC/plasma interface located */
     char message[BLOODLAYER_MSG_LEN];
     int horizontal;
     int plasmaOnRight;
     int refFound;
-    int rotateCode;         /* 显示管口朝上：BLOODLAYER_ROTATE_90_CCW */
+    int rotateCode;         /* mouth-up display: BLOODLAYER_ROTATE_90_CCW */
     double pxPerMm;
     double refPhysicalMm;
     int refHeightPx;
     int refX, refY, refW, refH;
     int tubeX, tubeY, tubeW, tubeH;
-    int rbcPlasmaPos;       /* 原图 x（横管）；失败为 -1 */
-    int plasmaAirPos;       /* 液面，没有则为 -1 */
+    int rbcPlasmaPos;       /* original-image x for a horizontal tube; -1 on failure */
+    int plasmaAirPos;       /* liquid surface, or -1 when absent */
     int nLayers;
     BloodLayerC layers[BLOODLAYER_MAX_LAYERS];
     int nInterfaces;
@@ -91,12 +91,12 @@ BLOODLAYER_API const char *bloodlayer_version(void);
 
 BLOODLAYER_API void bloodlayer_params_default(BloodDetectParamsC *params);
 
-/* 参照物：蓝/青色块高度对应 physicalMm（默认 20） */
+/* Reference mark: blue/cyan block height maps to physicalMm (default 20). */
 BLOODLAYER_API int bloodlayer_detect_reference(const char *utf8Path,
                                                double refHeightMm,
                                                BloodRefResultC *out);
 
-/* 分解面：utf8AnnotatedPath 可为 NULL；非空则写出标注图（原图坐标，未旋转） */
+/* Interface: utf8AnnotatedPath may be NULL. Otherwise write an annotated image in original coordinates. */
 BLOODLAYER_API int bloodlayer_detect_interface(const char *utf8Path,
                                                BloodDetectResultC *out,
                                                const char *utf8AnnotatedPath);
@@ -107,8 +107,8 @@ BLOODLAYER_API int bloodlayer_detect_interface_ex(const char *utf8Path,
                                                   const char *utf8AnnotatedPath);
 
 /*
- * 已解码的 BGR 8 位图（上到下）。stride 为每行字节数，0 表示 width*3。
- * 要与当前软件像素级一致，优先用路径接口（内部 QImage 解码）。
+ * Decoded 8-bit BGR image, top to bottom. stride is bytes per row; 0 means width*3.
+ * For the same pixels this software uses, prefer the path API. It decodes with QImage.
  */
 BLOODLAYER_API int bloodlayer_detect_bgr(const unsigned char *bgr,
                                          int width, int height, int stride,

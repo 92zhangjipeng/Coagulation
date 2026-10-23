@@ -32,7 +32,7 @@ public:
     explicit QcChartPage(QWidget *parent = nullptr);
 
     int channelNumber() const;
-    Level level() const;
+    QList<int> selectedLevels() const;
 
 private slots:
     void onLevelClicked(int id);
@@ -41,6 +41,7 @@ private slots:
     void onQcFinished(bool ok, const QString &text);
     void onLotButtonClicked();
     void showResultDialog(const QString &text);
+    void onPreviewChannelChanged(int index);
     void reloadChannelCurves();
     void onPlotMousePress(QMouseEvent *event);
     void onPlotMouseMove(QMouseEvent *event);
@@ -59,7 +60,7 @@ private:
     void buildCharts();
     void buildBottomBar();
     CurveView createChart(const QColor &pointColor, int centerPercent, const char *levelUtf8);
-    void applyLevel(Level level);
+    void applySelectedLevels();
     void updateChartTitles();
     void showRecentDays();
     void placeCursor(double key);

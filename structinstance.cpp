@@ -3479,9 +3479,23 @@ QByteArray StructInstance::gripperLiftAfterSuckHoldPassed(const int sampleId,
     return out;
 }
 
+void StructInstance::armGripperWait(bool forThrow)
+{
+    m_gripperWaitMs = forThrow ? GlobalData::gripperThrowDelayMs()
+                               : GlobalData::gripperGrabDelayMs();
+}
+
+int StructInstance::takeGripperWaitMs()
+{
+    const int waitMs = m_gripperWaitMs;
+    m_gripperWaitMs = 0;
+    return waitMs;
+}
+
 void  StructInstance::backorigintimes(){
      m_handsFailedtimes = 0; //抓手吸杯失败次数
      m_handsThrowFailedtimes = 0; //助手丢被失败次数
+     m_throwAwaitingReleaseRead = false;
      m_gripperGrabReadPhase = GrabReadIdle;
      clearGripperVacuumPoll();
 }
@@ -3545,6 +3559,33 @@ int cappedGripperRetryMm(int attemptTimes)
         return 1;
     }
     return attemptTimes > kGripperExtraMmCap ? kGripperExtraMmCap : attemptTimes;
+}
+
+QByteArray commandBytesForIndex(const tSingleActive_list &list, quint8 index)
+{
+    for (int i = 0; i < list.size(); ++i) {
+        const single_action_commands *cmd = list.at(i);
+        if (cmd && cmd->index_ == index) {
+            return cmd->arrcode;
+        }
+    }
+    return QByteArray();
+}
+
+QByteArray releaseConfirmRead(quint8 index, bool putAtThrowHole, quint8 putRetryPos)
+{
+    const int downMm = putAtThrowHole
+            ? static_cast<int>(INI_File()._gethandsdownthrowcpus())
+            : static_cast<int>(INI_File()._gethandsdownheiht(putRetryPos));
+    auto *dll = Testing::getTaskDll();
+    if (!dll || downMm <= 0) {
+        return QByteArray();
+    }
+    quint8 cmdIndex = index;
+    return QUIUtils::withGripperPump(
+                dll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false,
+                                                downMm, false, GRIPPERNORMAL),
+                GRIPPERMOVE_NORMAL);
 }
 
 void markActionIndexDone(tSingleActive_list &list, quint8 index)
@@ -3701,10 +3742,9 @@ void StructInstance::beginGripperVacuumPoll(GripperVacuumPollMode mode,
                                             quint8 putRetryPos,
                                             int sampleId)
 {
-    int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
-    if (mode == GripperPollGrab && waitMs < 300) {
-        waitMs = 300;
-    }
+    const int waitMs = (mode == GripperPollGrab)
+            ? GlobalData::gripperGrabDelayMs()
+            : GlobalData::gripperThrowDelayMs();
     m_gripperVacuumPoll.active = true;
     m_gripperVacuumPoll.mode = mode;
     m_gripperVacuumPoll.commandList = &list;
@@ -3770,6 +3810,7 @@ StructInstance::GripperVacuumPollResult StructInstance::finishGripperVacuumPollS
     const bool wasRelease = (m_gripperVacuumPoll.mode == GripperPollRelease);
     clearGripperVacuumPoll();
     if (wasRelease) {
+        armGripperWait(true);
         out.lateTimer = true;
     }
 
@@ -3824,16 +3865,13 @@ StructInstance::GripperVacuumPollResult StructInstance::gripperVacuumPollDepthRe
             return out;
         }
         m_handsThrowFailedtimes++;
-        const int extraMm = cappedGripperRetryMm(m_handsThrowFailedtimes);
-        if (m_gripperVacuumPoll.putAtThrowHole) {
-            out.sendData = GlobalData::ThrowCupsRaiseRetry(retryIndex, extraMm);
-        } else {
-            out.sendData = GlobalData::putoutCupAtTestChannel(
-                        retryIndex, extraMm, m_gripperVacuumPoll.putRetryPos);
-        }
+        out.sendData = releaseConfirmRead(retryIndex,
+                                          m_gripperVacuumPoll.putAtThrowHole,
+                                          m_gripperVacuumPoll.putRetryPos);
+        armGripperWait(true);
         out.lateTimer = true;
-        QLOG_WARN() << tag << "放杯负压超时，上抬第" << m_handsThrowFailedtimes
-                    << "次 +" << extraMm << "mm 后再读";
+        QLOG_WARN() << tag << "放杯负压未到丢掉线，原位再读第" << m_handsThrowFailedtimes
+                    << "次，不抬抓手";
     }
 
     clearGripperVacuumPoll();
@@ -3852,7 +3890,7 @@ StructInstance::GripperVacuumPollResult StructInstance::feedGripperVacuumPollSam
     m_gripperVacuumPoll.lastAirSample = airvale;
     m_gripperVacuumPoll.lastSuctionBit = isSuctionBit;
 
-    const bool grabOk = GlobalData::isHandsSuckFinish(airvale);
+    const bool grabOk = GlobalData::isHandsVacuumStillSealed(airvale);
     const bool releaseOk = GlobalData::isHandsCupReleased(airvale, isSuctionBit);
     if ((m_gripperVacuumPoll.mode == GripperPollGrab && grabOk)
             || (m_gripperVacuumPoll.mode == GripperPollRelease && releaseOk)) {
@@ -4312,8 +4350,9 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
 
     if (index == suckOpen) {
         markAllActionIndexDone(list, suckOpen);
+        armGripperWait(false);
         lateTimer = true;
-        const int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
+        const int waitMs = GlobalData::gripperGrabDelayMs();
         trace(QString::fromUtf8("开负压下扎完成，泵已开，本步不判"),
               QString::fromUtf8("下一步:等%1ms后发队列里的读负压").arg(waitMs));
         return GripperAckAdvance;
@@ -4321,15 +4360,17 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
 
     if (index == suckRead) {
         clearGripperVacuumPoll();
-        if (GlobalData::isHandsSuckFinish(airvale)) {
+        if (GlobalData::isHandsVacuumStillSealed(airvale)) {
             m_handsFailedtimes = 0;
             m_gripperGrabReadPhase = GrabReadIdle;
             markAllActionIndexDone(list, suckRead);
-            trace(QString::fromUtf8("读负压判定:吸牢(负压%1，阈值≤%2)").arg(airvale).arg(grabTh),
+            trace(QString::fromUtf8("读负压判定:吸牢(负压%1，抓住线≤%2，丢掉线≥%3)")
+                  .arg(airvale).arg(grabTh).arg(spitTh),
                   QString::fromUtf8("下一步:抬Z，抬起后再确认"));
             return GripperAckAdvance;
         }
-        trace(QString::fromUtf8("读负压判定:未吸牢(负压%1，需要≤%2)").arg(airvale).arg(grabTh),
+        trace(QString::fromUtf8("读负压判定:未吸牢(负压%1，抓住线≤%2，丢掉线≥%3)")
+              .arg(airvale).arg(grabTh).arg(spitTh),
               QString::fromUtf8("准备加深或结束"));
         if (gripperGrabRetriesExhausted()) {
             m_gripperGrabReadPhase = GrabReadIdle;
@@ -4361,6 +4402,7 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
     }
 
     if (index == spitDiscard) {
+        m_throwAwaitingReleaseRead = false;
         markAllActionIndexDone(list, spitDiscard);
         trace(QString::fromUtf8("放杯下扎完成，负压仍开，本步不判"),
               QString::fromUtf8("下一步:立刻关负压下扎"));
@@ -4370,45 +4412,75 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
     if (index == spitCheck) {
         markAllActionIndexDone(list, spitCheck);
         clearGripperVacuumPoll();
-        lateTimer = true;
-        const int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
-        trace(putAtThrowHole
-              ? QString::fromUtf8("关负压完成(弃杯孔)，本步不判")
-              : QString::fromUtf8("关负压完成(通道放杯)，本步不判"),
-              QString::fromUtf8("下一步:等%1ms后抬Z，用抬Z应答判定松开").arg(waitMs));
-        return GripperAckAdvance;
-    }
-
-    if (index == spitBack) {
-        const bool releasedByBit = !isSuctionBit;
-        const bool releasedByVac = GlobalData::isHandsCupReleased(airvale, isSuctionBit);
-        if (releasedByBit || releasedByVac) {
+        const int waitMs = GlobalData::gripperThrowDelayMs();
+        if (!m_throwAwaitingReleaseRead) {
+            m_throwAwaitingReleaseRead = true;
             m_handsThrowFailedtimes = 0;
-            markAllActionIndexDone(list, spitBack);
+            armGripperWait(true);
+            lateTimer = true;
+            retryData = releaseConfirmRead(spitCheck, putAtThrowHole, putRetryPos);
+            if (retryData.isEmpty()) {
+                m_throwAwaitingReleaseRead = false;
+                trace(QString::fromUtf8("关负压后无法原位复读"),
+                      QString::fromUtf8("下一步:异常善后"));
+                return GripperAckFailed;
+            }
             trace(putAtThrowHole
-                  ? QString::fromUtf8("抬Z判定:杯子已松开(弃杯)")
-                  : QString::fromUtf8("抬Z判定:杯子已松开(放杯)"),
-                  QString::fromUtf8("下一步:本段放杯结束"));
-            return GripperAckAdvance;
+                  ? QString::fromUtf8("关负压完成(弃杯孔)，先不抬")
+                  : QString::fromUtf8("关负压完成(通道放杯)，先不抬"),
+                  QString::fromUtf8("下一步:等%1ms后原位再读，负压到丢掉线才抬").arg(waitMs));
+            return GripperAckRetry;
+        }
+        if (GlobalData::isHandsThrowCupFinish(airvale)) {
+            m_throwAwaitingReleaseRead = false;
+            m_handsThrowFailedtimes = 0;
+            retryData = commandBytesForIndex(list, spitBack);
+            if (retryData.isEmpty()) {
+                trace(QString::fromUtf8("空载已到，但没有抬Z命令"),
+                      QString::fromUtf8("下一步:异常善后"));
+                return GripperAckFailed;
+            }
+            lateTimer = false;
+            trace(QString::fromUtf8("原位复读:已松开(负压%1，丢掉线≥%2)").arg(airvale).arg(spitTh),
+                  QString::fromUtf8("下一步:现在抬Z"));
+            return GripperAckRetry;
         }
         if (m_handsThrowFailedtimes >= kGripperMaxRetry) {
-            trace(QString::fromUtf8("抬Z判定:上抬3次仍未松开(负压%1，吸杯位%2，松开一般≥%3)")
-                  .arg(airvale).arg(isSuctionBit ? 1 : 0).arg(spitTh),
+            m_throwAwaitingReleaseRead = false;
+            trace(QString::fromUtf8("原位复读:仍未松开(负压%1，需要≥%2)，不抬，避免把杯子带走")
+                  .arg(airvale).arg(spitTh),
                   QString::fromUtf8("下一步:异常善后"));
             return GripperAckFailed;
         }
         m_handsThrowFailedtimes++;
-        const int extraMm = cappedGripperRetryMm(m_handsThrowFailedtimes);
-        if (putAtThrowHole) {
-            retryData = GlobalData::ThrowCupsRaiseRetry(spitBack, extraMm);
-        } else {
-            retryData = GlobalData::putoutCupAtTestChannel(spitBack, extraMm, putRetryPos);
+        armGripperWait(true);
+        lateTimer = true;
+        retryData = releaseConfirmRead(spitCheck, putAtThrowHole, putRetryPos);
+        if (retryData.isEmpty()) {
+            m_throwAwaitingReleaseRead = false;
+            return GripperAckFailed;
         }
-        lateTimer = false;
-        trace(QString::fromUtf8("抬Z判定:未松开，上抬重试第%1/3次，再抬%2mm")
-              .arg(m_handsThrowFailedtimes).arg(extraMm),
-              QString::fromUtf8("下一步:下发上抬，回来仍按抬Z判定"));
+        trace(QString::fromUtf8("原位复读:未到丢掉线(负压%1，需要≥%2)，第%3/3次再等")
+              .arg(airvale).arg(spitTh).arg(m_handsThrowFailedtimes),
+              QString::fromUtf8("下一步:再等%1ms后原位读，仍不抬").arg(waitMs));
         return GripperAckRetry;
+    }
+
+    if (index == spitBack) {
+        m_throwAwaitingReleaseRead = false;
+        if (GlobalData::isHandsThrowCupFinish(airvale)) {
+            m_handsThrowFailedtimes = 0;
+            markAllActionIndexDone(list, spitBack);
+            trace(putAtThrowHole
+                  ? QString::fromUtf8("抬Z确认:负压仍在丢掉线以上，弃杯已松开")
+                  : QString::fromUtf8("抬Z确认:负压仍在丢掉线以上，放杯已松开"),
+                  QString::fromUtf8("下一步:本段放杯结束"));
+            return GripperAckAdvance;
+        }
+        trace(QString::fromUtf8("抬Z确认:负压%1仍低于丢掉线%2，杯子可能还在吸盘上")
+              .arg(airvale).arg(spitTh),
+              QString::fromUtf8("下一步:异常善后，不继续后面的动作"));
+        return GripperAckFailed;
     }
 
     return GripperAckUnhandled;

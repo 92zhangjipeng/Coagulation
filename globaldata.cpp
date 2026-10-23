@@ -611,6 +611,22 @@ bool GlobalData::isHandsSuckFinish(quint32 airvale){
     return (airvale <= Maxsuck);
 }
 
+bool GlobalData::isHandsVacuumStillSealed(quint32 airvale)
+{
+    if (isHandsSuckFinish(airvale)) {
+        return true;
+    }
+    const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
+    const quint32 releaseTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
+    // 抓住线贴着吸住平均值，单次读数会略高。只把中点以下当成吸住。
+    // 空载应在丢掉线一侧，也就是中点以上，这样没吸到杯子不会继续往后做。
+    if (releaseTh <= grabTh) {
+        return false;
+    }
+    const quint32 mid = grabTh + (releaseTh - grabTh) / 2;
+    return airvale <= mid;
+}
+
 bool GlobalData::isHandsThrowCupFinish(quint32 airvale){
     quint32 Minsplit = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
     return (airvale >= Minsplit);
@@ -618,35 +634,41 @@ bool GlobalData::isHandsThrowCupFinish(quint32 airvale){
 
 bool GlobalData::isHandsLiftStillHolding(quint32 airvale, bool isSuctionBit)
 {
-    if (isHandsSuckFinish(airvale)) {
-        return true;
-    }
-    if (!isSuctionBit) {
-        return false;
-    }
-    const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
-    const quint32 releaseTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
-    const quint32 liftSlack = 100;
-    return airvale <= grabTh + liftSlack && airvale < releaseTh;
+    Q_UNUSED(isSuctionBit);
+    return isHandsVacuumStillSealed(airvale);
 }
 
 bool GlobalData::isHandsCupReleased(quint32 airvale, bool isSuctionBit)
 {
-    if (isHandsThrowCupFinish(airvale)) {
-        return true;
+    Q_UNUSED(isSuctionBit);
+    return isHandsThrowCupFinish(airvale);
+}
+
+int GlobalData::gripperGrabDelayMs()
+{
+    int waitMs = INI_File().rConfigPara(GRIPPERSUCKTIME).toInt();
+    if (waitMs < 300) {
+        return 300;
     }
-    if (isSuctionBit) {
-        return false;
+    if (waitMs > 10000) {
+        return 10000;
     }
-    const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
-    const quint32 releaseTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
-    if (releaseTh <= grabTh) {
-        return true;
+    return waitMs;
+}
+
+int GlobalData::gripperThrowDelayMs()
+{
+    int waitMs = INI_File().rConfigPara(GRIPPERTHROWTIME).toInt();
+    if (waitMs <= 0) {
+        return 1200;
     }
-    const quint32 span = releaseTh - grabTh;
-    const quint32 partialRecover = grabTh + span / 4;
-    const quint32 riseFromGrab = grabTh + 120;
-    return airvale >= partialRecover || airvale >= riseFromGrab;
+    if (waitMs < 300) {
+        return 300;
+    }
+    if (waitMs > 10000) {
+        return 10000;
+    }
+    return waitMs;
 }
 
 
@@ -1270,8 +1292,8 @@ void GlobalData::outputtheAbsorbentIndex(const quint8 focuinActive,
 bool GlobalData::determineReagentontheleftIsSufficient(quint8 consumableIndex,quint8 reagentIndex)
 {
     // 获取试剂消耗量
-    const unsigned char usedVolume = INI_File().getTypesReagentSuckVolume(reagentIndex);
-    if (usedVolume == 0) {
+    const double usedVolume = QUIUtils::reagentSuckVolumeUl(reagentIndex);
+    if (usedVolume <= 0) {
         QLOG_WARN() << "试剂消耗量为0，跳过更新流程，类型:" << reagentIndex;
         return false;
     }
@@ -1281,7 +1303,8 @@ bool GlobalData::determineReagentontheleftIsSufficient(quint8 consumableIndex,qu
     QUIUtils::CalculateTheConsumptionOfReagent(consumableIndex,
                                                usedVolume,
                                                remainingRatio,
-                                               updatedRatio );
+                                               updatedRatio,
+                                               false);
 
     quint8 limitArlm;
     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,

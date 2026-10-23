@@ -1241,7 +1241,8 @@ void ConsumablesOper::getCleanLinqueAllowance(quint16 &RatioLast)
     }
 }
 
-void ConsumablesOper::updateReplaceLocRatio(bool isWrite, quint8 indexReag,quint16 &bottleRatio)
+void ConsumablesOper::updateReplaceLocRatio(bool isWrite, quint8 indexReag,quint16 &bottleRatio,
+                                            bool resetMicroliters)
 {
     if (g_pVecReagentInfo == nullptr) {
         QLOG_DEBUG() << "更换整体体耗材比例设置为512[失败] 仪器耗材数据结构为NULL"<<endl;
@@ -1261,11 +1262,79 @@ void ConsumablesOper::updateReplaceLocRatio(bool isWrite, quint8 indexReag,quint
         REAGENT_CONSUMABLES_* reagent = *it;
         if (isWrite) {
             reagent->remain_Ratio = bottleRatio;
+            if (resetMicroliters)
+                reagent->remainMicrolitersValid = false;
         } else {
             bottleRatio = reagent->remain_Ratio;
         }
     }
     return;
+}
+
+bool ConsumablesOper::applyMicroliterUse(quint8 indexReag, double usedUl, bool commit,
+                                         double &fractionLeft, quint16 &ratioOut)
+{
+    fractionLeft = 0;
+    ratioOut = 0;
+    if (!g_pVecReagentInfo)
+        return false;
+
+    REAGENT_CONSUMABLES_ *reagent = nullptr;
+    for (auto it = g_pVecReagentInfo->begin(); it != g_pVecReagentInfo->end(); ++it) {
+        if (*it && (*it)->indexReag == indexReag) {
+            reagent = *it;
+            break;
+        }
+    }
+    if (!reagent)
+        return false;
+
+    quint16 capacity = reagent->SingleBottleCapacity;
+    if (capacity == 0)
+        capacity = (indexReag == INDEX_CLEANLINQUE_CONSUMABLE) ? 60000 : 1000;
+
+    if (usedUl < 0)
+        usedUl = 0;
+    usedUl = qRound(usedUl * 10.0) / 10.0;
+
+    double left = reagent->remainMicroliters;
+    if (!reagent->remainMicrolitersValid) {
+        left = (static_cast<double>(reagent->remain_Ratio) / MAX_RATIO_SWITCT) * capacity;
+    }
+    if (left < 0)
+        left = 0;
+    if (left > capacity)
+        left = static_cast<double>(capacity);
+
+    if (usedUl >= left)
+        left = 0;
+    else
+        left -= usedUl;
+    left = qRound(left * 10.0) / 10.0;
+
+    int ticks = qRound(left * MAX_RATIO_SWITCT / static_cast<double>(capacity));
+    if (ticks < 0)
+        ticks = 0;
+    if (ticks > static_cast<int>(MAX_RATIO_SWITCT))
+        ticks = static_cast<int>(MAX_RATIO_SWITCT);
+
+    ratioOut = static_cast<quint16>(ticks);
+    fractionLeft = left / static_cast<double>(capacity);
+    if (commit) {
+        reagent->remainMicroliters = left;
+        reagent->remainMicrolitersValid = true;
+        reagent->remain_Ratio = ratioOut;
+    }
+    return true;
+}
+
+double ConsumablesOper::displayedPercent(quint8 indexReag)
+{
+    double fraction = 0;
+    quint16 ratio = 0;
+    if (!applyMicroliterUse(indexReag, 0, false, fraction, ratio))
+        return 0;
+    return fraction * 100.0;
 }
 
 void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &ReagentTol)
@@ -1280,10 +1349,13 @@ void ConsumablesOper::updateReagentTotal(bool bwrite,quint8 indexReag,quint16 &R
         REAGENT_CONSUMABLES_ *psingleReagent = *iter;
         if(psingleReagent && psingleReagent->indexReag == indexReag)
         {
-            if(bwrite == WRITE_OPERAT)
+            if(bwrite == WRITE_OPERAT) {
+                if (psingleReagent->SingleBottleCapacity != ReagentTol)
+                    psingleReagent->remainMicrolitersValid = false;
                 psingleReagent->SingleBottleCapacity = ReagentTol;
-            else
+            } else {
                 ReagentTol = psingleReagent->SingleBottleCapacity;
+            }
             return;
         }
         iter++;
@@ -3279,6 +3351,16 @@ void loadEquipmentPos::recveExtendedReagentPara(const QStringList& hexArry)
         return hexArry[index].toUShort(&ok, HEX_SWITCH) & 0xFF;
     };
 
+    const auto hexToUInt16 = [&](int highIndex, int lowIndex) -> quint16 {
+        if (highIndex >= hexArry.size() || lowIndex >= hexArry.size()
+                || highIndex < 0 || lowIndex < 0) {
+            return 0;
+        }
+        bool ok = false;
+        const QString hexStr = hexArry[highIndex] + hexArry[lowIndex];
+        return hexStr.toUShort(&ok, HEX_SWITCH);
+    };
+
     if (!m_bReadorWrite) {
         const quint8 ver = safeGetHexByte(10);
         if (ver >= PARA_EXT_PROTOCOL_VER) {
@@ -3293,7 +3375,12 @@ void loadEquipmentPos::recveExtendedReagentPara(const QStringList& hexArry)
                     ini.setTypesReagentSuckAdd_Ratio(reagentTypes[i], fromBoard);
                 }
             }
+            const quint16 throwDelay = hexToUInt16(12, 11);
+            if (throwDelay > 0) {
+                ini.wConfigPara(GRIPPERTHROWTIME, throwDelay);
+            }
             QLOG_DEBUG() << "0x1D读回试剂加吸比例 AA=" << ini.getTypesReagentSuckAdd_Ratio(AA_REAGENT)
+                         << "丢杯延时=" << ini.rConfigPara(GRIPPERTHROWTIME).toInt()
                          << "ADP=" << ini.getTypesReagentSuckAdd_Ratio(ADP_REAGENT)
                          << "EPI=" << ini.getTypesReagentSuckAdd_Ratio(EPI_REAGENT)
                          << "COL=" << ini.getTypesReagentSuckAdd_Ratio(COL_REAGENT)
@@ -4212,7 +4299,10 @@ QByteArray loadEquipmentPos::initWriteExtendedReagentPara()
         addRatioX100[i] = static_cast<quint8>(
                     qBound(0, qRound(ini.getTypesReagentSuckAdd_Ratio(reagentTypes[i]) * 100.0), 255));
     }
-    return QUIUtils::writeExtendedReagentPara0x1d(addRatioX100, true);
+    return QUIUtils::writeExtendedReagentPara0x1d(
+                addRatioX100,
+                static_cast<quint16>(GlobalData::gripperThrowDelayMs()),
+                true);
 }
 
 

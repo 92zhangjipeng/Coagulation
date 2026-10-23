@@ -23,8 +23,13 @@
 #include <QMetaType>
 #include <iostream>
 #include "globaldata.h"
+#include "mainwindow.h"
+#include "quiutils.h"
 #include "warn_interface.h"
+#include "Custommovements/performanceverification.h"
 #include <operclass/fullyautomatedplatelets.h>
+#include <QMap>
+#include <exception>
 bool subDevListSort(const QCheckBox* contorl_1, const QCheckBox* contorl_2)
 {
     QString num_statr = contorl_1->text();
@@ -2215,10 +2220,14 @@ void MachineSetting::HandsParaWriteBoard()
     quint8 throwdownmm = ui->spinBox_downthrowcups->value();
 
     //小于等于MAX 大余等于MIn
+    const int throwDelayMs = m_gripperThrowDelaySpin
+            ? m_gripperThrowDelaySpin->value()
+            : GlobalData::gripperThrowDelayMs();
     QVariantMap configs = {
             {GRIPPERLESSTHANMAX, ui->spinBoxSuckAirsMax->value()},
             {GRIPPERBIGTHANMIM, ui->spinBoxSplitAirsMin->value()},
-            {GRIPPERSUCKTIME,   ui->spinBox_suckLatetimer->value()}
+            {GRIPPERSUCKTIME,   ui->spinBox_suckLatetimer->value()},
+            {GRIPPERTHROWTIME,  throwDelayMs}
     };
     INI_File().wBatchConfigPara(configs);
     auto &ini = INI_File();
@@ -2242,7 +2251,17 @@ void MachineSetting::HandsParaWriteBoard()
     QUIUtils::_writeParaNumIIHandsOrder(buffer,throwdownmm,handsinierTray,HandsinnerModule, brebackCatch);
 
     QByteArray GripperContl = outParaOx1aWrite();
-    emit SetParatoInstrument({ buffer, GripperContl }, tr("抓手参数写入主板"));
+    const quint8 reagentTypes[5] = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
+    quint8 addRatioX100[5] = {0};
+    for (int i = 0; i < 5; ++i) {
+        addRatioX100[i] = static_cast<quint8>(
+                    qBound(0, qRound(ini.getTypesReagentSuckAdd_Ratio(reagentTypes[i]) * 100.0), 255));
+    }
+    const QByteArray throwDelayOrder = QUIUtils::writeExtendedReagentPara0x1d(
+                addRatioX100, static_cast<quint16>(throwDelayMs), true);
+    emit SetParatoInstrument({ buffer, GripperContl, throwDelayOrder }, tr("抓手参数写入主板"));
     QMessageBox::information(this, tr("保存完成"), tr("仪器抓手参数已保存并写入主板!"));
     return;
 }
@@ -2355,6 +2374,10 @@ void MachineSetting::reloadMaintenanceParamsFromIni()
     ui->spinBoxSuckAirsMax->setValue(ini.rConfigPara(GRIPPERLESSTHANMAX).toInt());
     ui->spinBoxSplitAirsMin->setValue(ini.rConfigPara(GRIPPERBIGTHANMIM).toInt());
     ui->spinBox_suckLatetimer->setValue(ini.rConfigPara(GRIPPERSUCKTIME).toInt());
+    if (m_gripperThrowDelaySpin) {
+        const int throwMs = ini.rConfigPara(GRIPPERTHROWTIME).toInt();
+        m_gripperThrowDelaySpin->setValue(throwMs > 0 ? throwMs : 1200);
+    }
     ui->checkBox_Recapture->setChecked(ini.rConfigPara(REPEATGRABCUP).toBool());
     ui->spinBox_downthrowcups->setValue(ini._gethandsdownthrowcpus());
     ui->checkBoxExperimental->setChecked(ini.getexperimentalMode());
@@ -2532,10 +2555,13 @@ void MachineSetting::notifyReagentPinParaToBoard()
             qBound(0, qRound(ini.getTypesReagentSuckAdd_Ratio(reagentTypes[i]) * 100.0), 255));
     }
     const QByteArray extendedReagentOrder =
-            QUIUtils::writeExtendedReagentPara0x1d(addRatioX100, true);
+            QUIUtils::writeExtendedReagentPara0x1d(
+                addRatioX100,
+                static_cast<quint16>(GlobalData::gripperThrowDelayMs()),
+                true);
 
     emit SetParatoInstrument({sendOrder, sendOtherOrder, extendedReagentOrder},
-                             QStringLiteral("配置试剂针参数"));
+                             QString::fromUtf8("\xe9\x85\x8d\xe7\xbd\xae\xe8\xaf\x95\xe5\x89\x82\xe9\x92\x88\xe5\x8f\x82\xe6\x95\xb0"));
 	return;
 }
 
@@ -2564,7 +2590,51 @@ void MachineSetting::_initconfigmodulefucn()
 
 }
 
-//导入==将坐标配置文件导入到仪器配置
+namespace {
+bool queueImportedCoordinates(QString &why)
+{
+    if (cglobal::g_StartTesting.load() || cglobal::g_quality_start.load()
+            || Performanceverification::instance()->returnPerformanceTestFlag()) {
+        why = QString::fromUtf8("\xe4\xbb\xaa\xe5\x99\xa8\xe6\xad\xa3\xe5\x9c\xa8\xe6\xb5\x8b\xe8\xaf\x95\xef\xbc\x8c\xe8\xaf\xb7\xe7\xbb\x93\xe6\x9d\x9f\xe5\x90\x8e\xe5\x86\x8d\xe5\xaf\xbc\xe5\x85\xa5\xe3\x80\x82");
+        return false;
+    }
+    if (!cglobal::gserialConnecStatus.load()) {
+        why = QString::fromUtf8("\xe4\xb8\xb2\xe5\x8f\xa3\xe6\x9c\xaa\xe8\xbf\x9e\xe6\x8e\xa5\xe3\x80\x82");
+        return false;
+    }
+    MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
+    if (!mw) {
+        why = QString::fromUtf8("\xe4\xb8\xbb\xe7\x95\x8c\xe9\x9d\xa2\xe6\x9c\xaa\xe5\xb0\xb1\xe7\xbb\xaa\xe3\x80\x82");
+        return false;
+    }
+    EquipmentAXIS_ *eq = SingletonAxis::GetInstance()->GetpStruct();
+    if (!eq || eq->pchnAxisPoint.isEmpty() || eq->bloodSampleAxisPos.isEmpty()
+            || eq->testTubeZoneAxisPos.isEmpty()) {
+        why = QString::fromUtf8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6\xe4\xb8\x8d\xe5\xae\x8c\xe6\x95\xb4\xef\xbc\x8c\xe6\x9c\xaa\xe6\x8a\x8a\xe7\xa9\xba\xe5\x9d\x90\xe6\xa0\x87\xe5\x86\x99\xe5\x85\xa5\xe4\xbb\xaa\xe5\x99\xa8\xe3\x80\x82");
+        return false;
+    }
+
+    QMap<quint8, QByteArray> frames;
+    QUIUtils::mapEquipmentAxisCommmd(frames);
+    QByteArrayList payload;
+    for (auto it = frames.constBegin(); it != frames.constEnd(); ++it) {
+        if (it.value().size() != PROTOCOL_LENGTH) {
+            why = QString::fromUtf8("\xe5\x9d\x90\xe6\xa0\x87\xe5\x91\xbd\xe4\xbb\xa4\xe9\x95\xbf\xe5\xba\xa6\xe4\xb8\x8d\xe5\xaf\xb9\xef\xbc\x8c\xe5\xb7\xb2\xe5\x81\x9c\xe6\xad\xa2\xe5\x86\x99\xe5\x85\xa5\xe3\x80\x82");
+            return false;
+        }
+        payload.append(it.value());
+    }
+    if (payload.size() != frames.size() || payload.isEmpty()) {
+        why = QString::fromUtf8("\xe6\xb2\xa1\xe6\x9c\x89\xe5\x8f\xaf\xe5\x86\x99\xe5\x85\xa5\xe7\x9a\x84\xe5\x9d\x90\xe6\xa0\x87\xe5\x91\xbd\xe4\xbb\xa4\xe3\x80\x82");
+        return false;
+    }
+    mw->sendcodeList(payload, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe5\x86\x99\xe5\x85\xa5\xe4\xbb\xaa\xe5\x99\xa8"));
+    QLOG_INFO() << "import coordinates to instrument, frames" << payload.size();
+    return true;
+}
+}
+
+// Import into memory, then write the calibration coordinate packet. The last frame saves it.
 void MachineSetting::on_toolButton_Import_clicked()
 {
     QString filePath = "";
@@ -2580,12 +2650,38 @@ void MachineSetting::on_toolButton_Import_clicked()
     }
     ui->lineEdit_showPath->setText(filePath);
 
-    if(!filePath.isEmpty())
-    {
-        if(SingletonAxis::GetInstance()->importFromCoordinateText(filePath)){
-           QMessageBox::about(this,"导入坐标文件","导入坐标文件成功!");
-        }
+    if (filePath.isEmpty())
+        return;
+
+    if (cglobal::g_StartTesting.load() || cglobal::g_quality_start.load()
+            || Performanceverification::instance()->returnPerformanceTestFlag()) {
+        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
+                           QString::fromUtf8("\xe4\xbb\xaa\xe5\x99\xa8\xe6\xad\xa3\xe5\x9c\xa8\xe6\xb5\x8b\xe8\xaf\x95\xef\xbc\x8c\xe6\x9c\xaa\xe5\xaf\xbc\xe5\x85\xa5\xe3\x80\x82"));
+        return;
     }
+
+    bool imported = false;
+    try {
+        imported = SingletonAxis::GetInstance()->importFromCoordinateText(filePath);
+    } catch (const std::exception &e) {
+        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
+                           QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\xa4\xb1\xe8\xb4\xa5: ") + QString::fromUtf8(e.what()));
+        return;
+    }
+    if (!imported) {
+        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
+                           QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6\xe5\xa4\xb1\xe8\xb4\xa5!"));
+        return;
+    }
+
+    QString why;
+    if (queueImportedCoordinates(why)) {
+        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
+                           QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe6\x88\x90\xe5\x8a\x9f\xef\xbc\x8c\xe5\x9d\x90\xe6\xa0\x87\xe5\xb7\xb2\xe5\x86\x99\xe5\x85\xa5\xe4\xbb\xaa\xe5\x99\xa8\xe3\x80\x82"));
+        return;
+    }
+    QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
+                       QString::fromUtf8("\xe5\x9d\x90\xe6\xa0\x87\xe5\xb7\xb2\xe5\xaf\xbc\xe5\x85\xa5\xe5\x88\xb0\xe7\xa8\x8b\xe5\xba\x8f\xef\xbc\x8c\xe4\xbb\xaa\xe5\x99\xa8\xe6\x9c\xaa\xe5\x86\x99\xe5\x85\xa5\xe3\x80\x82") + why);
 }
 
 
@@ -3099,6 +3195,10 @@ void MachineSetting::innitHands(quint8 equipmentIndex_)
     ui->spinBoxSuckAirsMax->setValue(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
     ui->spinBoxSplitAirsMin->setValue(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
     ui->spinBox_suckLatetimer->setValue(INI_File().rConfigPara(GRIPPERSUCKTIME).toInt());
+    if (m_gripperThrowDelaySpin) {
+        const int throwMs = INI_File().rConfigPara(GRIPPERTHROWTIME).toInt();
+        m_gripperThrowDelaySpin->setValue(throwMs > 0 ? throwMs : 1200);
+    }
 
 
     QMap<QLabel*, QSpinBox*>  Traytestcontrol_;

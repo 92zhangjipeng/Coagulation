@@ -514,6 +514,9 @@ public:
                         const int sampleId, const quint8 indexReag,
                         const std::atomic<bool>& ispendingtime, const bool &isSendSuckCup);
 
+    void armGripperWait(bool forThrow);
+    int takeGripperWaitMs();
+
 private:
     explicit StructInstance(QObject *parent = 0);//构造函数
     StructInstance(const StructInstance &,QObject *parent = 0): QObject(parent) {}//拷贝构造函数
@@ -526,6 +529,8 @@ private:
 
     int m_handsFailedtimes = 0; //抓手吸杯失败次数
     int m_handsThrowFailedtimes = 0; //抓手丢被失败次数
+    bool m_throwAwaitingReleaseRead = false;
+    int m_gripperWaitMs = 0;
 
     enum GripperGrabReadPhase {
         GrabReadIdle = 0,

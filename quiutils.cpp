@@ -66,76 +66,47 @@ void QUIUtils::CalculateTheConsumptionOfCleaningFluid(quint16 _usedcleanlinque,
                                                     double& LastRatio, quint16& updataRatio)
 {
     ConsumablesOper::GetpInstance();
-    quint16 CleanCapacity = 0;//清洗液瓶/总量
-    quint16 CleanLinqueAllowanceRatio = 0; //清洗液剩余比例
-    quint16 CleanLinqueAllowTotal = 0; //清洗液剩余总量 瓶子里还有多少
-    ConsumablesOper::updateReagentTotal(READ_OPERRAT,INDEX_CLEANLINQUE_CONSUMABLE,CleanCapacity);
-    if(CleanCapacity == 0)
-        CleanCapacity = 60000;
-    double one_ratio_value = static_cast<double>(static_cast<double>(CleanCapacity)/MAX_RATIO_SWITCT);
-    ConsumablesOper::getCleanLinqueAllowance(CleanLinqueAllowanceRatio);
-    double lasteTotal = static_cast<double>(static_cast<double>(CleanLinqueAllowanceRatio)/ MAX_RATIO_SWITCT);
-    CleanLinqueAllowTotal = static_cast<double>(lasteTotal * CleanCapacity);
-    double midvalue = (static_cast<double>(CleanLinqueAllowTotal - _usedcleanlinque))/one_ratio_value;
-    LastRatio = midvalue/MAX_RATIO_SWITCT; //剩余比显示 = （剩余总量-消耗)/比列/max512
-
-    updataRatio = static_cast<quint16>(LastRatio * MAX_RATIO_SWITCT);
-    return;
+    double fraction = 0;
+    if (!ConsumablesOper::applyMicroliterUse(INDEX_CLEANLINQUE_CONSUMABLE,
+                                             static_cast<double>(_usedcleanlinque),
+                                             true, fraction, updataRatio)) {
+        LastRatio = 0;
+        updataRatio = 0;
+        return;
+    }
+    LastRatio = fraction;
 }
 
+double QUIUtils::reagentSuckVolumeUl(quint8 reagentType)
+{
+    const int nominal = INI_File().getTypesReagentSuckVolume(reagentType);
+    double add = INI_File().getTypesReagentSuckAdd_Ratio(reagentType);
+    if (add < 0.0)
+        add = 0.0;
+    return nominal * (1.0 + add);
+}
 
 void QUIUtils::CalculateTheConsumptionOfReagent(quint8 reagentIndex,
-                                                quint8 usedVolume,
+                                                double usedVolumeUl,
                                                 double &remainingRatio,
-                                                quint16 &updatedRatio)
+                                                quint16 &updatedRatio,
+                                                bool commit)
 {
-    constexpr quint16 DEFAULT_CAPACITY = 1000; // 显式定义默认容量
-
-    // 获取试剂总量
-    quint16 totalCapacity = 0;
-    ConsumablesOper::GetpInstance()->updateReagentTotal(READ_OPERRAT,
-                                                        reagentIndex,
-                                                        totalCapacity);
-
-    // 处理零容量情况（根据业务需求设置默认值）
-    if (totalCapacity == 0) {
-        totalCapacity = DEFAULT_CAPACITY;
-        QLOG_WARN() << "检测到零容量试剂，使用默认值:" << DEFAULT_CAPACITY
-            << "，类型:" << reagentIndex<<endl;
+    ConsumablesOper::GetpInstance();
+    double fraction = 0;
+    if (!ConsumablesOper::applyMicroliterUse(reagentIndex, usedVolumeUl, commit,
+                                             fraction, updatedRatio)) {
+        remainingRatio = 0;
+        updatedRatio = 0;
+        return;
     }
-
-    // 获取当前剩余比例
-    quint16 currentRatio = 0;
-    ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,
-                                                            reagentIndex,
-                                                            currentRatio);
-
-    // 计算剩余总量（避免重复类型转换）
-    const double remainingTotal =
-        (static_cast<double>(currentRatio) / MAX_RATIO_SWITCT) * totalCapacity;
-
-    // 计算新的剩余量（合并计算公式）
-    const double scaledCapacity =  static_cast<double>(totalCapacity) / MAX_RATIO_SWITCT;
-    const double newRemaining = (remainingTotal - usedVolume) / scaledCapacity;
-
-    // 按 512 刻度四舍五入，避免每次截断累积偏差
-    int roundedRatio = qRound(newRemaining);
-    if (roundedRatio < 0) {
-        QLOG_ERROR() << "试剂余量计算结果为负，已重置为0，类型:" << reagentIndex;
-        roundedRatio = 0;
-    } else if (roundedRatio > static_cast<int>(MAX_RATIO_SWITCT)) {
-        roundedRatio = static_cast<int>(MAX_RATIO_SWITCT);
-    }
-    updatedRatio = static_cast<quint16>(roundedRatio);
-    remainingRatio = static_cast<double>(updatedRatio) / MAX_RATIO_SWITCT;
-     //调试日志示例（需要时启用）
-    QLOG_DEBUG() << QString("试剂计算[%1] 总量:%2ml 当前比例:%3/%4 计算结果:%5%")
-    .arg(reagentIndex)
-    .arg(totalCapacity)
-    .arg(currentRatio)
-    .arg(MAX_RATIO_SWITCT)
-    .arg(remainingRatio * 100, 0, 'f', 2);
-
+    remainingRatio = fraction;
+    QLOG_DEBUG() << QString("试剂计算[%1] 扣减:%2uL 余量:%3%% 刻度:%4/%5")
+                    .arg(reagentIndex)
+                    .arg(usedVolumeUl, 0, 'f', 1)
+                    .arg(fraction * 100.0, 0, 'f', 2)
+                    .arg(updatedRatio)
+                    .arg(MAX_RATIO_SWITCT);
 }
 
 void QUIUtils::_ObtainSuppileDataInIFile(QString mpathfile,quint8 index_reag,quint8 &BottleNum,quint16& RatioReminder,
@@ -1914,6 +1885,7 @@ QByteArray QUIUtils::writeExtendedBloodPara0x1c(quint8 peAddPercent,
 }
 
 QByteArray QUIUtils::writeExtendedReagentPara0x1d(const quint8 addRatioX100[5],
+                                                  quint16 throwDelayMs,
                                                   bool writeDirectly)
 {
     QByteArray buffer;
@@ -1929,8 +1901,7 @@ QByteArray QUIUtils::writeExtendedReagentPara0x1d(const quint8 addRatioX100[5],
         buffer.append(static_cast<char>(addRatioX100[i]));
     }
     buffer.append(static_cast<char>(PARA_EXT_PROTOCOL_VER));
-    buffer.append(static_cast<char>(0x00));
-    buffer.append(static_cast<char>(0x00));
+    appendQint16(buffer, throwDelayMs, false);
     buffer.append(static_cast<char>(0x00));
     buffer.append(static_cast<char>(0x00));
 

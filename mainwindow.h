@@ -162,6 +162,7 @@ private:
     void setupAltimeterConnections();
 
     void initErrorDisplayMap();
+    void refreshConsumableStatusIcons();
 
     void centerWindow(QWidget* widget);
 
@@ -585,6 +586,8 @@ private:
 
     bool m_warmwasteliquor = false;     //提示闪烁废液
     bool m_cleanliquor = false;         //外部清洗液闪烁
+    QTimer *m_consumablePulseTimer = nullptr;
+    bool m_consumablePulseBright = true;
 
     QSet<QString> m_reminderTitleStr;
     mutable QReadWriteLock m_reminderLock;  // 读写锁保护共享数据

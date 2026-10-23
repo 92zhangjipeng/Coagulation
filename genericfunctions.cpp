@@ -33,7 +33,7 @@ bool GenericFunctions::ReagentUsingFinished(const quint8 IndexReagent)
     {
         case AA_REAGENT:
                     ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,INDEX_AA_CONSUMABLE,ReagentRatio);
-                    fratiovalue = float(ReagentRatio*100.00/MAX_RATIO_SWITCT);
+                    fratiovalue = static_cast<float>(ConsumablesOper::displayedPercent(INDEX_AA_CONSUMABLE));
                     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,INDEX_AA_CONSUMABLE,LimintLine);
                     if(fratiovalue <= LimintLine )
                     {
@@ -43,7 +43,7 @@ bool GenericFunctions::ReagentUsingFinished(const quint8 IndexReagent)
         break;
         case ADP_REAGENT:
                     ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,INDEX_ADP_CONSUMABLE,ReagentRatio);
-                    fratiovalue = float(ReagentRatio*100.00/MAX_RATIO_SWITCT);
+                    fratiovalue = static_cast<float>(ConsumablesOper::displayedPercent(INDEX_ADP_CONSUMABLE));
                     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,INDEX_ADP_CONSUMABLE,LimintLine);
                     if(fratiovalue <= LimintLine )
                     {
@@ -53,7 +53,7 @@ bool GenericFunctions::ReagentUsingFinished(const quint8 IndexReagent)
         break;
         case EPI_REAGENT:
                     ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,INDEX_EPI_CONSUMABLE,ReagentRatio);
-                    fratiovalue = float(ReagentRatio*100.00/MAX_RATIO_SWITCT);
+                    fratiovalue = static_cast<float>(ConsumablesOper::displayedPercent(INDEX_EPI_CONSUMABLE));
                     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,INDEX_EPI_CONSUMABLE,LimintLine);
                     if(fratiovalue <= LimintLine )
                     {
@@ -63,7 +63,7 @@ bool GenericFunctions::ReagentUsingFinished(const quint8 IndexReagent)
         break;
         case COL_REAGENT:
                     ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,INDEX_COL_CONSUMABLE,ReagentRatio);
-                    fratiovalue = float(ReagentRatio*100.00/MAX_RATIO_SWITCT);
+                    fratiovalue = static_cast<float>(ConsumablesOper::displayedPercent(INDEX_COL_CONSUMABLE));
                     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,INDEX_COL_CONSUMABLE,LimintLine);
                     if(fratiovalue <= LimintLine )
                     {
@@ -73,7 +73,7 @@ bool GenericFunctions::ReagentUsingFinished(const quint8 IndexReagent)
         break;
         case RIS_REAGENT:
                     ConsumablesOper::GetpInstance()->updateReplaceLocRatio(READ_OPERRAT,INDEX_RIS_CONSUMABLE,ReagentRatio);
-                    fratiovalue = float(ReagentRatio*100.00/MAX_RATIO_SWITCT);
+                    fratiovalue = static_cast<float>(ConsumablesOper::displayedPercent(INDEX_RIS_CONSUMABLE));
                     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,INDEX_RIS_CONSUMABLE,LimintLine);
                     if(fratiovalue <= LimintLine )
                     {

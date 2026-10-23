@@ -23,6 +23,7 @@
 #define GRIPPERLESSTHANMAX   "GripperSuctioncupMax"
 #define GRIPPERBIGTHANMIM    "GripperSplitcupMin"
 #define GRIPPERSUCKTIME      "TimelapseSucking"
+#define GRIPPERTHROWTIME     "GripperThrowDelayMs"
 
 
 //测试K值

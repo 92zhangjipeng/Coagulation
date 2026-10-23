@@ -215,6 +215,9 @@ public:
         toolButton_quality_qc->setMaximumSize(QSize(140, 150));
         toolButton_quality_qc->setFont(font);
         toolButton_quality_qc->setStyleSheet(QStringLiteral(""));
+        QIcon icon4;
+        icon4.addFile(QStringLiteral(":/Picture/Graphplot.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_quality_qc->setIcon(icon4);
         toolButton_quality_qc->setIconSize(QSize(150, 120));
         toolButton_quality_qc->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -226,9 +229,9 @@ public:
         toolButton_quality_stop->setMaximumSize(QSize(140, 150));
         toolButton_quality_stop->setFont(font);
         toolButton_quality_stop->setStyleSheet(QStringLiteral(""));
-        QIcon icon4;
-        icon4.addFile(QStringLiteral(":/Picture/stop.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_quality_stop->setIcon(icon4);
+        QIcon icon5;
+        icon5.addFile(QStringLiteral(":/Picture/stop.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_quality_stop->setIcon(icon5);
         toolButton_quality_stop->setIconSize(QSize(150, 120));
         toolButton_quality_stop->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -239,9 +242,9 @@ public:
         toolButton_EquipmentSetting->setMinimumSize(QSize(140, 150));
         toolButton_EquipmentSetting->setFont(font);
         toolButton_EquipmentSetting->setStyleSheet(QStringLiteral(""));
-        QIcon icon5;
-        icon5.addFile(QStringLiteral(":/Picture/setting.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_EquipmentSetting->setIcon(icon5);
+        QIcon icon6;
+        icon6.addFile(QStringLiteral(":/Picture/setting.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_EquipmentSetting->setIcon(icon6);
         toolButton_EquipmentSetting->setIconSize(QSize(150, 120));
         toolButton_EquipmentSetting->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -255,9 +258,9 @@ public:
         toolButton_Exit->setMouseTracking(true);
         toolButton_Exit->setTabletTracking(true);
         toolButton_Exit->setStyleSheet(QStringLiteral(""));
-        QIcon icon6;
-        icon6.addFile(QStringLiteral(":/Picture/exit_out.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_Exit->setIcon(icon6);
+        QIcon icon7;
+        icon7.addFile(QStringLiteral(":/Picture/exit_out.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_Exit->setIcon(icon7);
         toolButton_Exit->setIconSize(QSize(150, 120));
         toolButton_Exit->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -271,9 +274,9 @@ public:
         toolButton_about->setMouseTracking(true);
         toolButton_about->setTabletTracking(true);
         toolButton_about->setStyleSheet(QStringLiteral(""));
-        QIcon icon7;
-        icon7.addFile(QStringLiteral(":/Picture/about64main.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_about->setIcon(icon7);
+        QIcon icon8;
+        icon8.addFile(QStringLiteral(":/Picture/about64main.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_about->setIcon(icon8);
         toolButton_about->setIconSize(QSize(150, 120));
         toolButton_about->setAutoRepeatDelay(300);
         toolButton_about->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -295,9 +298,9 @@ public:
         toolButton_sampleTest_1->setMinimumSize(QSize(140, 150));
         toolButton_sampleTest_1->setFont(font);
         toolButton_sampleTest_1->setStyleSheet(QStringLiteral(""));
-        QIcon icon8;
-        icon8.addFile(QStringLiteral(":/Picture/test.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_sampleTest_1->setIcon(icon8);
+        QIcon icon9;
+        icon9.addFile(QStringLiteral(":/Picture/test.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_sampleTest_1->setIcon(icon9);
         toolButton_sampleTest_1->setIconSize(QSize(150, 120));
         toolButton_sampleTest_1->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -308,9 +311,9 @@ public:
         toolButton_resultView_2->setMinimumSize(QSize(140, 150));
         toolButton_resultView_2->setFont(font);
         toolButton_resultView_2->setStyleSheet(QStringLiteral(""));
-        QIcon icon9;
-        icon9.addFile(QStringLiteral(":/Picture/Calibreta.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_resultView_2->setIcon(icon9);
+        QIcon icon10;
+        icon10.addFile(QStringLiteral(":/Picture/Calibreta.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_resultView_2->setIcon(icon10);
         toolButton_resultView_2->setIconSize(QSize(150, 120));
         toolButton_resultView_2->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -321,9 +324,7 @@ public:
         toolButton_testingCurve_3->setMinimumSize(QSize(140, 150));
         toolButton_testingCurve_3->setFont(font);
         toolButton_testingCurve_3->setStyleSheet(QStringLiteral(""));
-        QIcon icon10;
-        icon10.addFile(QStringLiteral(":/Picture/Graphplot.png"), QSize(), QIcon::Normal, QIcon::Off);
-        toolButton_testingCurve_3->setIcon(icon10);
+        toolButton_testingCurve_3->setIcon(icon4);
         toolButton_testingCurve_3->setIconSize(QSize(150, 120));
         toolButton_testingCurve_3->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
@@ -917,7 +918,7 @@ public:
         toolButton_quality_sample->setText(QApplication::translate("MainWindow", "\346\232\202\345\201\234", nullptr));
         toolButton_quality_reset->setText(QApplication::translate("MainWindow", "\345\244\215\344\275\215", nullptr));
         toolButton_quality_cleaning->setText(QApplication::translate("MainWindow", "\346\270\205\346\264\227", nullptr));
-        toolButton_quality_qc->setText(QApplication::translate("MainWindow", "\350\264\250\346\216\247", nullptr));
+        toolButton_quality_qc->setText(QApplication::translate("MainWindow", "\346\214\207\346\216\247", nullptr));
         toolButton_quality_stop->setText(QApplication::translate("MainWindow", "\344\273\273\345\212\241", nullptr));
         toolButton_EquipmentSetting->setText(QApplication::translate("MainWindow", "\344\273\252\345\231\250\350\256\276\347\275\256", nullptr));
         toolButton_Exit->setText(QApplication::translate("MainWindow", "\351\200\200\345\207\272", nullptr));

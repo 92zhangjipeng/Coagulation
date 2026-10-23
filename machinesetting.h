@@ -335,6 +335,10 @@ private:
     int m_gripperAirEmptyBaseline = -1;
     int m_gripperAirReleaseAfterDump = -1;
     int m_gripperAirLockedHold = -1;
+    int m_gripperGrabSeenMs = -1;
+    int m_gripperThrowSeenMs = -1;
+    int m_gripperGrabDelayMeasured = -1;
+    int m_gripperThrowDelayMeasured = -1;
     int m_gripperAirProbeHeight = 0;
     int m_gripperAirSettleMs = 600;
     int m_gripperAirDumpRetry = 0;
@@ -346,6 +350,8 @@ private:
     bool m_gripperAirAwaitingMotion = false;
     int m_gripperAirMotionKind = 0;
     QLabel *m_gripperAirStepLabel = nullptr;
+    QLabel *m_gripperThrowDelayLabel = nullptr;
+    QSpinBox *m_gripperThrowDelaySpin = nullptr;
     QPushButton *m_gripperAutoApplyBtn = nullptr;
 };
 
