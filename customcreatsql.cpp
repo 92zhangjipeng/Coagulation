@@ -755,19 +755,18 @@ void CustomCreatSql::InsertInfoHospital(const QString KeyInfo, const QString Kin
     return;
 }
 
-void CustomCreatSql::DelInfoHospital(const QString KeyInfo)
+bool CustomCreatSql::DelInfoHospital(const QString KeyInfo)
 {
-    QSqlQuery query_sql;
-    query_sql = QSqlQuery(m_MachineConfigdb);
-    QString cmd_Data ;
-    cmd_Data = QString("delete from '%1' where TypeSave = '%2' ").arg(m_HospitalInfoTable).arg(KeyInfo);
-    if(query_sql.exec(cmd_Data))
-        QLOG_TRACE()<<"删医院信息"<< m_HospitalInfoTable <<"成功";
-    else
-        QLOG_TRACE()<<"删医院信息"<< m_HospitalInfoTable <<"失败";
-    query_sql.finish();
-	query_sql.clear();
-    return;
+    QSqlQuery query_sql(m_MachineConfigdb);
+    query_sql.prepare(QString("delete from '%1' where TypeSave = :key").arg(m_HospitalInfoTable));
+    query_sql.bindValue(":key", KeyInfo);
+    if (!query_sql.exec()) {
+        QLOG_TRACE() << "删医院信息" << m_HospitalInfoTable << "失败" << query_sql.lastError().text();
+        return false;
+    }
+    const bool removed = query_sql.numRowsAffected() > 0;
+    QLOG_TRACE() << "删医院信息" << m_HospitalInfoTable << (removed ? "成功" : "未找到") << KeyInfo;
+    return removed;
 }
 
 void CustomCreatSql::_obtainPatientInfo(const QString _keywords, QStringList& info_)

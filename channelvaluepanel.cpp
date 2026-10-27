@@ -252,7 +252,7 @@ void ChannelvaluePanel::drawValue(QPainter *painter)
 {
     int radius = 100;
     painter->save();
-    QFont valueFont(QStringLiteral("Microsoft YaHei"), 18, QFont::Bold);
+    QFont valueFont(QStringLiteral("Microsoft YaHei"), 22, QFont::Bold);
     painter->setFont(valueFont);
 
     QRectF textRect(-radius, -52, radius * 2, 56);
@@ -279,14 +279,14 @@ void ChannelvaluePanel::drawUnit(QPainter *painter)
 {
     int radius = 100;
     painter->save();
-    QFont labelFont(QStringLiteral("Microsoft YaHei"), 11, QFont::DemiBold);
+    QFont labelFont(QStringLiteral("Microsoft YaHei"), 17, QFont::Bold);
     painter->setFont(labelFont);
 
-    QRectF textRect(-radius, 6, radius * 2, 36);
+    QRectF textRect(-radius, 4, radius * 2, 42);
     const QString reminder = QString::fromUtf8("\xE9\x80\x9A\xE9\x81\x93 %1").arg(channelnumindex);
 
     painter->setPen(QColor(255, 255, 255));
-    QFont outlineFont(QStringLiteral("Microsoft YaHei"), 10, QFont::Bold);
+    QFont outlineFont(QStringLiteral("Microsoft YaHei"), 17, QFont::Bold);
     painter->setFont(outlineFont);
     painter->setPen(QColor(20, 50, 80, 200));
     for (int dx = -1; dx <= 1; ++dx) {

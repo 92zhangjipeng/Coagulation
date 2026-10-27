@@ -784,7 +784,7 @@ QString PrintTemplate::getHospitalNameFromDB()
 {
     const QString hospitalName = "hospital_name";
     QString titleHospital = m_sqlDatabase->FindPassword(hospitalName);
-    return titleHospital + QString::fromUtf8("医院检验科报告单");
+    return titleHospital + QString::fromUtf8("检验科");
 }
 
 QString PrintTemplate::getReferenceRangeFromDB(const QString &reagentKey)

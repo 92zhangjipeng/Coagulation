@@ -56,7 +56,7 @@ QString channelModuleHeaderStyle()
         "QLabel#channelModuleHeader {"
         "  color: #2C5F8A;"
         "  font-family: 'Microsoft YaHei';"
-        "  font-size: 13px;"
+        "  font-size: 16px;"
         "  font-weight: 600;"
         "  padding: 2px 4px;"
         "  background: transparent;"
@@ -67,8 +67,8 @@ QString channelModuleCardStyle()
 {
     return QStringLiteral(
         "QWidget[channelRowCard=\"true\"] {"
-        "  background-color: #FFFFFF;"
-        "  border: 1px solid #C5DCE8;"
+        "  background-color: #F4FAFE;"
+        "  border: 1px solid #D4EAF5;"
         "  border-radius: 10px;"
         "}");
 }
@@ -81,9 +81,8 @@ QString channelValuePageHintStyle()
         "  font-family: 'Microsoft YaHei';"
         "  font-size: 12px;"
         "  padding: 8px 12px;"
-        "  background-color: #F2F9FC;"
-        "  border: 1px solid #C8E0F0;"
-        "  border-radius: 8px;"
+        "  background-color: transparent;"
+        "  border: none;"
         "}");
 }
 
@@ -177,7 +176,9 @@ MachineSetting::MachineSetting(QWidget *parent) :
 
 {
     ui->setupUi(this);
+    this->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     this->setWindowTitle(tr("仪器参数设置"));
+    initCustomTitleBar();
     this->activateWindow();
     this->setWindowState((this->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 
@@ -338,6 +339,7 @@ void MachineSetting::_initpara()
     });
 
     installParameterHints();
+    applyClinicalSettingsChrome();
 }
 
 
@@ -350,7 +352,7 @@ void MachineSetting::initChannelValueDisplayUi()
     ui->ChannelVale_display->setStyleSheet(QStringLiteral(
         "QWidget#ChannelVale_display {"
         "  border: none;"
-        "  background-color: #E8F4F8;"
+        "  background-color: #E8F4FD;"
         "  border-radius: 10px;"
         "}"));
 
@@ -439,7 +441,7 @@ void MachineSetting::setupChannelDimmingMaintenanceTab()
 
     ui->widget_valuediaplay->setStyleSheet(QStringLiteral(
         "QWidget#widget_valuediaplay {"
-        "  background-color: #FFFFFF;"
+        "  background-color: #F4FAFE;"
         "  border: none;"
         "  border-radius: 8px;"
         "}"));
@@ -678,8 +680,7 @@ void MachineSetting::initSheet()
 
     GlobalData::QCheckboxSheet(ui->UseBarCode,tr("扫描条形码"));
     GlobalData::QCheckboxSheet(ui->checkBox_UesSecondReagentHole,tr("启用预留试剂位置"));
-    GlobalData::QCheckboxSheet(ui->checkBox_catchcups,
-                                 tr("开机全通道清空试杯(维护)；不勾选则调光时按通道自动清理"));
+    GlobalData::QCheckboxSheet(ui->checkBox_catchcups, tr("开机智能弃杯"));
 
     QVector<QCheckBox*> checkboxList = {
                     ui->Channel_State_1,
@@ -1426,32 +1427,59 @@ void MachineSetting::initializeHospitalDepartmentInformation()
             table->setSelectionMode(QAbstractItemView::ExtendedSelection);
             table->setSelectionBehavior(QAbstractItemView::SelectRows);
             table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+            connect(table, &QTableWidget::itemSelectionChanged,
+                    this, &MachineSetting::refreshInfoLibraryDeleteButton);
     }
 
-    //数据库数据处理优化
-    QVector<QVariantList> hospitalInfo;
-    FullyAutomatedPlatelets::pinstancesqlData()->SeekHospitalInfo(hospitalInfo);
+    reloadHospitalInfoTables();
+}
 
-    //使用映射表避免重复分割
+void MachineSetting::refreshInfoLibraryDeleteButton()
+{
+    bool enable = false;
+    const int curindex = ui->comboBox_Category->currentIndex();
+    if (curindex >= 0 && curindex < m_tableList.size()) {
+        QTableWidget* table = m_tableList.at(curindex);
+        if (table && table->currentRow() >= 0)
+            enable = true;
+    }
+    ui->toolButton_Delete->setEnabled(enable);
+}
+
+void MachineSetting::reloadHospitalInfoTables()
+{
+    for (QTableWidget* table : qAsConst(m_tableList)) {
+        if (table)
+            table->setRowCount(0);
+    }
+
+    auto* sql = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!sql)
+        return;
+
+    QVector<QVariantList> hospitalInfo;
+    sql->SeekHospitalInfo(hospitalInfo);
+
     QMap<QString, QVector<QVariantList>> categoryMap;
     for (const QVariantList &record : qAsConst(hospitalInfo)) {
-        if (record.size() < 3) continue;
-
-        const QString key = record[0].toString().section('_', 0, 0); // 比split更高效
+        if (record.size() < 3)
+            continue;
+        const QString key = record[0].toString().section(QLatin1Char('_'), 0, 0);
         categoryMap[key].append(record);
     }
 
-    //表格填充优化
-    for (int i = 0; i < m_CategoryList.size(); ++i) {
-        const QString category = m_CategoryList[i];
-        if (!categoryMap.contains(category)) continue;
-
+    for (int i = 0; i < m_CategoryList.size() && i < m_tableList.size(); ++i) {
+        const QString category = m_CategoryList.at(i);
+        if (!categoryMap.contains(category))
+            continue;
         for (const QVariantList &record : categoryMap[category]) {
-            if (record.size() < 3) continue;
+            if (record.size() < 3)
+                continue;
             const QString data = QString("%1|%2").arg(record[1].toString(), record[2].toString());
             InitTabTwoDate(i, data);
         }
     }
+    refreshInfoLibraryDeleteButton();
 }
 
 
@@ -1506,36 +1534,66 @@ void MachineSetting::on_toolButton_ADD_clicked()
     QString Displaytext = QString("%1|%2").arg(abberciationText).arg(nameText);
     InitTabTwoDate(indexSel,Displaytext);
 
-    QString Type = QString("%1_%2").arg(keySer).arg(abberciationText);
+    QString Type = QString("%1_%2").arg(keySer, abberciationText);
     FullyAutomatedPlatelets::pinstancesqlData()->InsertInfoHospital(Type,abberciationText,nameText);
 
     pLineEditAbbreviation->clear();
     pLineEditName->clear();
     ui->toolButton_ADD->setEnabled(false);
-    ui->toolButton_Delete->setEnabled(true);
+    if (indexSel >= 0 && indexSel < m_tableList.size() && m_tableList.at(indexSel)) {
+        const int newRow = m_tableList.at(indexSel)->rowCount() - 1;
+        if (newRow >= 0)
+            m_tableList.at(indexSel)->selectRow(newRow);
+    }
+    refreshInfoLibraryDeleteButton();
+    emit Synchronizeupdates();
     return;
 }
 
 //--删除
 void MachineSetting::on_toolButton_Delete_clicked()
 {
-    QComboBox* Pcommbox = ui->comboBox_Category;
-    const int curindex = Pcommbox->currentIndex();
+    const int curindex = ui->comboBox_Category->currentIndex();
+    if (curindex < 0 || curindex >= m_tableList.size())
+        return;
+    QTableWidget* table = m_tableList.at(curindex);
+    if (!table)
+        return;
 
-    int selectrow = m_tableList.at(curindex)->currentRow();
-    if (selectrow < 0){
+    QList<int> rows;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        QTableWidgetItem* kindItem = table->item(row, 0);
+        if (kindItem && kindItem->isSelected())
+            rows.append(row);
+    }
+    if (rows.isEmpty() && table->currentRow() >= 0)
+        rows.append(table->currentRow());
+    if (rows.isEmpty()) {
         showWarningDialog(tr("删除选中为空!"));
         return;
     }
-    QString Kind = m_tableList.at(curindex)->item(selectrow,0)->text();
-    m_tableList.at(curindex)->removeRow(selectrow);
 
-    QString Type = QString("%1_%2").arg(curindex).arg(Kind);
-    FullyAutomatedPlatelets::pinstancesqlData()->DelInfoHospital(Type);
+    auto* sql = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!sql)
+        return;
 
-    ui->toolButton_Delete->setEnabled(true);
-    ui->toolButton_ADD->setEnabled(false);
-    return;
+    const QString category = ui->comboBox_Category->currentText();
+    bool anyFailed = false;
+    for (int i = rows.size() - 1; i >= 0; --i) {
+        const int row = rows.at(i);
+        QTableWidgetItem* kindItem = table->item(row, 0);
+        if (!kindItem)
+            continue;
+        const QString typeKey = QString("%1_%2").arg(category, kindItem->text());
+        if (sql->DelInfoHospital(typeKey))
+            table->removeRow(row);
+        else
+            anyFailed = true;
+    }
+    if (anyFailed)
+        showWarningDialog(QString::fromUtf8("\xe5\x88\xa0\xe9\x99\xa4\xe5\xa4\xb1\xe8\xb4\xa5"));
+    refreshInfoLibraryDeleteButton();
+    emit Synchronizeupdates();
 }
 
 
@@ -1647,6 +1705,26 @@ void MachineSetting::CheckSelect(QTreeWidgetItem*item ,int initem ){
             }
         }
     }
+    refreshSettingsPageTitle(item);
+}
+
+
+void MachineSetting::refreshSettingsPageTitle(QTreeWidgetItem *item)
+{
+    QLabel *title = findChild<QLabel *>(QStringLiteral("settingsPageTitle"));
+    QLabel *path = findChild<QLabel *>(QStringLiteral("settingsPagePath"));
+    if (!title || !item) {
+        return;
+    }
+    title->setText(item->text(0));
+    if (!path) {
+        return;
+    }
+    if (QTreeWidgetItem *parent = item->parent()) {
+        path->setText(parent->text(0) + QStringLiteral("   /   ") + item->text(0));
+    } else {
+        path->setText(item->text(0));
+    }
 }
 
 
@@ -1658,6 +1736,7 @@ void MachineSetting::on_comboBox_Category_currentIndexChanged(int index)
 {
     ui->tabWidget_info->setCurrentIndex(index);
     m_Info_Index = index;
+    refreshInfoLibraryDeleteButton();
     return;
 }
 
@@ -1712,8 +1791,9 @@ void MachineSetting::on_toolButton_Cancel_clicked()
 //配置添加患者科目
 void MachineSetting::on_toolButton_viewSQL_clicked()
 {
-     emit Synchronizeupdates();
-     return;
+    reloadHospitalInfoTables();
+    emit Synchronizeupdates();
+    return;
 }
 
 
@@ -2183,7 +2263,7 @@ void MachineSetting::sendmainbordBasicPara()
             {FIRSTSUCKAIRS, ui->checkBox_suck_offset->isChecked()}, //吸样校准
             {SCANCODEBAR, scanbar }, //使用条形码
             {USINGASIDEREAGENTLOC, rightReagent },//启用预留试剂位
-            {INITGRABCUPS, initcatchcups } //开机初始化抓通道内杯子
+            {INITGRABCUPS, initcatchcups } //开机智能弃杯：调光时才自动丢杯
 
     };
     INI_File().wBatchConfigPara(configs);
@@ -2991,33 +3071,18 @@ void MachineSetting::styleClickDownLabel(QLabel *label, bool busy)
     if (!label) {
         return;
     }
-    label->setCursor(Qt::PointingHandCursor);
-    label->setAttribute(Qt::WA_Hover, true);
+    Q_UNUSED(busy);
+    label->setCursor(Qt::ArrowCursor);
+    label->setAttribute(Qt::WA_Hover, false);
     label->setMinimumHeight(26);
-    label->setStyleSheet(busy
-        ? QStringLiteral(
-            "QLabel {"
-            " color:#1B5E20;"
-            " background-color:#E8F5E9;"
-            " border:1px solid #2E7D32;"
-            " border-radius:5px;"
-            " padding:2px 8px;"
-            " font-weight:700;"
-            "}")
-        : QStringLiteral(
-            "QLabel {"
-            " color:#0B4F73;"
-            " background-color:#E3F2FB;"
-            " border:1px solid #2E86AB;"
-            " border-radius:5px;"
-            " padding:2px 8px;"
-            " font-weight:700;"
-            "}"
-            "QLabel:hover {"
-            " background-color:#B9DFF3;"
-            " color:#06344C;"
-            " border:1px solid #0B4F73;"
-            "}"));
+    label->setStyleSheet(QStringLiteral(
+        "QLabel {"
+        " color:#2C5F8A;"
+        " background-color: transparent;"
+        " border: none;"
+        " padding: 2px 0;"
+        " font-weight: 600;"
+        "}"));
 }
 
 void MachineSetting::_creatstupoint(QLabel* plable,QSpinBox* pgetdownmm,int index_, QMap<QLabel* ,btnLable* > &data_)
@@ -3028,9 +3093,8 @@ void MachineSetting::_creatstupoint(QLabel* plable,QSpinBox* pgetdownmm,int inde
     pstuinfo->index_ = index_;
     data_.insert(plable,pstuinfo);
     if (plable) {
-        plable->installEventFilter(this);
+        plable->setCursor(Qt::ArrowCursor);
     }
-    styleClickDownLabel(plable, false);
 }
 
 void MachineSetting::_initBloodpinpara()
@@ -3274,55 +3338,9 @@ void MachineSetting::innitHands(quint8 equipmentIndex_)
 
 bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
 {
-    QLabel *plabel = qobject_cast<QLabel *>(obj);
-    if(m_pbloodLableList.contains(plabel))
-    {
-       if(ev->type() == QEvent::MouseButtonPress)
-       {
-           auto iter = m_pbloodLableList.find(plabel);
-           btnLable* pstuinfo = iter.value();
-           if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
-               return false;
-           styleClickDownLabel(plabel, true);
-           QByteArrayList senddata_ = QUIUtils::_controltestbloodpindownheigh(pstuinfo->index_,
-                                                            pstuinfo->pdownmovemm->value()); //控制血样针下针命令
-           emit testdownheight(senddata_,pstuinfo->index_);
-           return true;
-       }
-       return false;
-    }
-    else if (m_preagpinLableList.contains(plabel))
-    {
-        if(ev->type() == QEvent::MouseButtonPress)
-        {
-            auto it_ = m_preagpinLableList.find(plabel);
-            btnLable* pstuinfo = it_.value();
-            if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
-                return false;
-            styleClickDownLabel(plabel, true);
-            QByteArrayList senddata_ = QUIUtils::_controlReagpindownheih(pstuinfo->index_,pstuinfo->pdownmovemm->value());
-            emit testdownheight(senddata_,pstuinfo->index_);
-            return true;
-        }
-        return false;
-    }
-    else if (m_pHandsLableList.contains(plabel))
-    {
-        if(ev->type() == QEvent::MouseButtonPress)
-        {
-            auto it_ = m_pHandsLableList.find(plabel);
-            btnLable* pstuinfo = it_.value();
-            if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
-                return false;
-            styleClickDownLabel(plabel, true);
-            QByteArrayList senddata_ = QUIUtils::_controlHandsdowntest(pstuinfo->index_,pstuinfo->pdownmovemm->value());
-            emit testdownheight(senddata_,pstuinfo->index_);
-            return true;
-        }
-        return false;
-    }
-
-    return MachineSetting::eventFilter(obj, ev);
+    Q_UNUSED(obj);
+    Q_UNUSED(ev);
+    return QWidget::eventFilter(obj, ev);
 }
 
 void MachineSetting::_finishmovetestdownhigh(int index_)

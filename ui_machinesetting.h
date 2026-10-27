@@ -452,12 +452,12 @@ public:
         if (MachineSetting->objectName().isEmpty())
             MachineSetting->setObjectName(QStringLiteral("MachineSetting"));
         MachineSetting->setWindowModality(Qt::NonModal);
-        MachineSetting->resize(1300, 883);
-        MachineSetting->setMinimumSize(QSize(1300, 400));
+        MachineSetting->resize(1300, 1040);
+        MachineSetting->setMinimumSize(QSize(1300, 760));
         MachineSetting->setMaximumSize(QSize(1800, 16777215));
         MachineSetting->setStyleSheet(QString::fromUtf8("\n"
 "QWidget {\n"
-"    background-color: #E8F4F8;\n"
+"    background-color: #E8F4FD;\n"
 "}\n"
 "QPushButton {\n"
 "    background-color: #5FA8D3;\n"

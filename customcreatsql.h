@@ -394,7 +394,7 @@ public:
 public:
     void  InsertInfoHospital(const QString KeyInfo, const QString Kindname, const QString AbridgeInfo);
 
-    void  DelInfoHospital(const QString KeyInfo);
+    bool  DelInfoHospital(const QString KeyInfo);
 
     void  SeekHospitalInfo(QVector< QVariantList> &HospitalInfo);
 

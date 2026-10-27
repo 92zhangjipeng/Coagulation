@@ -2852,11 +2852,19 @@ void MainWindow::openSettingsDialog()
     }
 
     pEquipment->updatepara(cglobal::g_StartTesting.load());
+    pEquipment->placeSettingsWindow();
     pEquipment->show();
+
+    // Dropdown refresh does not need the serial port. UniqueConnection so a
+    // later open (after the port exists) does not stack a second slot.
+    auto* pPatient = FullyAutomatedPlatelets::pinstancepatientdata();
+    if (pPatient) {
+        connect(pEquipment, &MachineSetting::Synchronizeupdates,
+            pPatient, &Calibrate::updatecommboxInfo, Qt::UniqueConnection);
+    }
 
     // Connect signals only once
     if (!m_bmachineconfigureSignal) {
-        auto* pPatient = FullyAutomatedPlatelets::pinstancepatientdata();
         if (!pPatient || !mlocalSerial) return;
 
         // Connect all signals in one clear block
@@ -2869,10 +2877,6 @@ void MainWindow::openSettingsDialog()
             this, [this](QByteArrayList d, int i) {
             emit CeratActionDate(i, d);
         });
-
-        // State synchronization connections
-        connect(pEquipment, &MachineSetting::Synchronizeupdates,
-            pPatient, &Calibrate::updatecommboxInfo);
 
         connect(pEquipment, &MachineSetting::OpenChannelMotor,
             this, [this](quint8 i, bool b) {
@@ -3435,20 +3439,13 @@ void MainWindow::updateContinueButtonState()
 /*仪器初始化动作 true = 开机初始化|false = 关机清洗*/
 void MainWindow::equipmentinitActive(const bool enoughReagent,bool closeClean)
 {
+    Q_UNUSED(closeClean);
     uint perfusion_leng = 0;
 
-    const bool binitGrabcups = INI_File().rConfigPara(INITGRABCUPS).toBool();
-
-    //开机灌注清洗双针
+    //开机灌注清洗双针。弃杯不在这里全通道抓，勾选开机智能弃杯后改到调光时按通道丢。
     int cleanntime = INI_File().getWashesTime();
     QByteArrayList perfusion = QUIUtils::perfusionAction(perfusion_leng,enoughReagent,cleanntime);
 
-    if(!closeClean && binitGrabcups)
-    {
-        quint8 index_equipment = KS1200;
-        SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT,index_equipment);
-        QUIUtils::initequipmentgrabcups(index_equipment,perfusion);
-    }
     emit CeratActionDate(EQUIPMENT_BOOT_CLEAN,perfusion);
     return;
 }
@@ -4111,10 +4108,11 @@ void MainWindow::recvshowDimmingFailedChn(const QList<quint8>& failedChn)
     });
 
     // 优化4: 统一界面设置逻辑
-    popWidget->settipstext(
-        tr("通道 %1 空杯AD未对齐3300。\n读数为0是该模组没有光信号，不会再自动丢杯。\n取消：重新检测    确定 / 关闭：禁用这些通道")
-            .arg(failedList),
-        dimmingTitle);
+    const bool smartDiscard = INI_File().rConfigPara(INITGRABCUPS).toBool();
+    const QString dimmingTip = smartDiscard
+            ? tr("通道 %1 空杯AD未对齐3300。\n已勾选开机智能弃杯：有读数的通道会先自动丢杯，读数为 0 不丢。\n取消：重新检测    确定 / 关闭：禁用这些通道")
+            : tr("通道 %1 空杯AD未对齐3300。\n未勾选开机智能弃杯，这次没有自动丢杯。\n取消：重新检测    确定 / 关闭：禁用这些通道");
+    popWidget->settipstext(dimmingTip.arg(failedList), dimmingTitle);
     centerWindow(popWidget.data()); // 封装窗口居中逻辑
     popWidget->setWindowModality(Qt::NonModal);
     popWidget->setAttribute(Qt::WA_DeleteOnClose);

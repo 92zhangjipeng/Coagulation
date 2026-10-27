@@ -15,9 +15,18 @@
 #include <QTimer>
 #include <QVector>
 #include <QFrame>
+#include <QGroupBox>
+#include <QScrollArea>
+#include <QAbstractSpinBox>
+#include <QPainter>
+#include <QMouseEvent>
+#include <QCheckBox>
+#include <QTabBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLayoutItem>
+#include <QApplication>
+#include <QDesktopWidget>
 #include <algorithm>
 
 namespace {
@@ -211,8 +220,8 @@ void MachineSetting::setupGripperVacuumSimpleUi()
     styleThresholdSpin(ui->spinBox_suckLatetimer);
 
     const QString liveValStyle = QStringLiteral(
-                "QLabel { background:#FFFFFF; border:1px solid #AACDE2; border-radius:6px;"
-                " padding:4px 8px; font-size:13px; color:#1A4D6B; }");
+                "QLabel { background:transparent; border:none;"
+                " padding:4px 8px; font-size:13px; color:#2C5F8A; }");
     ui->label_showsuckVal->setStyleSheet(liveValStyle);
     ui->label_splitval->setStyleSheet(liveValStyle);
     ui->label_showsuckVal->setMinimumHeight(32);
@@ -277,8 +286,8 @@ void MachineSetting::setupGripperVacuumSimpleUi()
         m_gripperAirStepLabel->setTextFormat(Qt::RichText);
         m_gripperAirStepLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
         m_gripperAirStepLabel->setStyleSheet(QStringLiteral(
-                    "QLabel { background:#F2F9FC; border:1px solid #C8E0F0; border-radius:8px;"
-                    " padding:8px 10px; font-size:12px; color:#1A4D6B; }"));
+                    "QLabel { background:transparent; border:none;"
+                    " padding:8px 10px; font-size:12px; color:#2C5F8A; }"));
     }
     if (grid) {
         gridReAdd(m_gripperAirStepLabel, 6, 0, 1, 4);
@@ -995,8 +1004,8 @@ void MachineSetting::installParameterHints()
     const QString reserveTip = gtr(u8"\u540c\u4e00\u79cd\u8bd5\u5242\u53ef\u4ee5\u653e\u5de6\u8fb9\u548c\u53f3\u8fb9\u4e24\u4e2a\u4f4d\u7f6e\u3002\n\u6253\u5f00\u540e\uff1a\u5de6\u8fb9\u518d\u5438\u4e00\u9488\u4f1a\u4f4e\u4e8e\u8bd5\u5242\u62a5\u8b66\u9650\uff0c\u5e76\u4e14\u53f3\u8fb9\u540c\u79cd\u8bd5\u5242\u8fd8\u4e0d\u4f4e\u4e8e\u62a5\u8b66\u9650\uff0c\u8fd9\u4e00\u9488\u5c31\u6539\u5438\u53f3\u8fb9\uff0c\u4e2d\u95f4\u4e0d\u6682\u505c\u3002\u4e24\u8fb9\u90fd\u4e0d\u591f\u624d\u6682\u505c\u3002\n\u62a5\u8b66\u9650\u586b 0 \u65f6\uff0c\u5de6\u8fb9\u7a7a\u4e86\u4e5f\u4e0d\u4f1a\u5207\u6362\u3002\u5173\u6389\u5219\u53ea\u7528\u5de6\u8fb9\u3002");
     tip(ui->checkBox_UesSecondReagentHole, nullptr, reserveTip);
 
-    ui->checkBox_catchcups->setText(gtr(u8"\u5f00\u673a\u6e05\u7a7a\u901a\u9053\u8bd5\u676f"));
-    const QString bootCupTip = gtr(u8"\u52fe\u9009\u540e\uff0c\u5f00\u673a\u6e05\u6d17\u65f6\u628a\u6d4b\u8bd5\u901a\u9053\u91cc\u7684\u8bd5\u676f\u5168\u90e8\u6293\u8d70\u3002\n\u4e0d\u52fe\u9009\u5219\u5f00\u673a\u4e0d\u6293\uff1b\u8c03\u5149\u53d1\u73b0\u67d0\u4e2a\u901a\u9053\u4e0d\u7a7a\u65f6\uff0c\u518d\u6309\u90a3\u4e2a\u901a\u9053\u5355\u72ec\u6e05\u3002");
+    ui->checkBox_catchcups->setText(gtr(u8"\u5f00\u673a\u667a\u80fd\u5f03\u676f"));
+    const QString bootCupTip = gtr(u8"\u52fe\u9009\u540e\uff0c\u8c03\u5149\u53d1\u73b0\u901a\u9053\u91cc\u53ef\u80fd\u8fd8\u6709\u8bd5\u676f\u65f6\uff0c\u4f1a\u81ea\u52a8\u628a\u8fd9\u4e9b\u676f\u5b50\u4e22\u6389\uff0c\u6700\u591a\u4e24\u8f6e\u3002\u8bfb\u6570\u4e3a 0 \u4e0d\u4e22\uff0c\u90a3\u662f\u6a21\u7ec4\u6ca1\u6709\u5149\u3002\n\u4e0d\u52fe\u9009\u5219\u8c03\u5149\u65f6\u4e0d\u4e22\u676f\uff0c\u53ea\u5728\u8c03\u5149\u5931\u8d25\u7a97\u53e3\u91cc\u63d0\u793a\u3002");
     tip(ui->checkBox_catchcups, nullptr, bootCupTip);
 
     ui->checkBox_suck_offset->setText(gtr(u8"\u5438\u6837\u524d\u5148\u5438\u7a7a\u6c14"));
@@ -1134,35 +1143,63 @@ void MachineSetting::installParameterHints()
     tip(ui->label_splitval, nullptr, gtr(u8"\u6700\u8fd1\u4e00\u6b21\u7a7a\u8f7d\u6216\u4e22\u6389\u65f6\u8bfb\u5230\u7684\u6c14\u538b\u3002\u5e94\u660e\u663e\u9ad8\u4e8e\u5438\u4f4f\u65f6\u7684\u6570\u3002"));
     tip(ui->pushButtonHandsParaSave, nullptr, gtr(u8"\u628a\u4e0b\u964d\u9ad8\u5ea6\u3001\u8d1f\u538b\u5224\u5b9a\u3001\u5438\u676f\u5ef6\u65f6\u548c\u4e22\u676f\u5ef6\u65f6\u4fdd\u5b58\uff0c\u5e76\u5199\u5165\u4e3b\u677f\u3002"));
 
-    const QString mark = gtr(u8"\u25b8 ");
-    const QString clickNote = gtr(u8"\n\n\u84dd\u8272\u6807\u7b7e\u53ef\u4ee5\u70b9\uff1a\u6309\u65c1\u8fb9\u7684\u6beb\u7c73\u6570\u5b9e\u9645\u505a\u4e00\u6b21\u4e0b\u9488\u3002\u6b63\u5728\u6d4b\u8bd5\uff0c\u6216\u4eea\u5668\u6ca1\u8fde\u4e0a\u65f6\uff0c\u70b9\u4e86\u4e0d\u4f1a\u52a8\u3002\u505a\u5b8c\u6807\u7b7e\u4f1a\u4ece\u7eff\u8272\u53d8\u56de\u84dd\u8272\u3002");
-    const QMap<QLabel *, btnLable *> *maps[] = {
-        &m_pbloodLableList, &m_preagpinLableList, &m_pHandsLableList
-    };
-    for (const QMap<QLabel *, btnLable *> *one : maps) {
-        for (auto it = one->cbegin(); it != one->cend(); ++it) {
-            QLabel *label = it.key();
-            if (!label || label->property("clickNoted").toBool()) {
-                continue;
-            }
-            label->setProperty("clickNoted", true);
-            if (!label->text().startsWith(mark)) {
-                label->setText(mark + label->text());
-            }
-            styleClickDownLabel(label, false);
-            QString base = label->toolTip();
-            if (base.isEmpty() && it.value() && it.value()->pdownmovemm) {
-                base = it.value()->pdownmovemm->toolTip();
-            }
-            const QString full = base + clickNote;
-            label->setToolTip(full);
-            if (it.value() && it.value()->pdownmovemm) {
-                it.value()->pdownmovemm->setToolTip(full);
-            }
-        }
-    }
     relayoutEquipmentPages();
 }
+
+class ChannelToggle : public QWidget
+{
+public:
+    explicit ChannelToggle(QCheckBox *box, QWidget *parent = 0)
+        : QWidget(parent), m_box(box)
+    {
+        setFixedSize(78, 36);
+        setCursor(Qt::PointingHandCursor);
+        setAttribute(Qt::WA_Hover, true);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *)
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        const bool on = m_box && m_box->isChecked();
+        const QRectF track(1.0, 4.0, width() - 2.0, 28.0);
+        painter.setPen(QPen(on ? QColor(44, 127, 176) : QColor(197, 208, 218), 1));
+        painter.setBrush(on ? QColor(58, 155, 212) : QColor(213, 222, 230));
+        painter.drawRoundedRect(track, 14.0, 14.0);
+
+        const qreal knob = 22.0;
+        const qreal knobY = track.center().y() - knob / 2.0;
+        const qreal knobX = on ? track.right() - knob - 3.0 : track.left() + 3.0;
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(0, 0, 0, 36));
+        painter.drawEllipse(QRectF(knobX, knobY + 1.0, knob, knob));
+        painter.setBrush(QColor(255, 255, 255));
+        painter.drawEllipse(QRectF(knobX, knobY, knob, knob));
+
+        painter.setPen(on ? QColor(232, 244, 253) : QColor(90, 112, 128));
+        QFont font(QStringLiteral("Microsoft YaHei"));
+        font.setPixelSize(12);
+        font.setBold(true);
+        painter.setFont(font);
+        const QRectF word = on
+                ? QRectF(track.left() + 4.0, track.top(), 28.0, track.height())
+                : QRectF(track.right() - 32.0, track.top(), 28.0, track.height());
+        painter.drawText(word, Qt::AlignCenter, on ? gtr(u8"\u5f00") : gtr(u8"\u5173"));
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event)
+    {
+        if (event && event->button() == Qt::LeftButton && m_box) {
+            m_box->setChecked(!m_box->isChecked());
+            update();
+        }
+        QWidget::mouseReleaseEvent(event);
+    }
+
+private:
+    QCheckBox *m_box;
+};
 
 void MachineSetting::relayoutEquipmentPages()
 {
@@ -1195,50 +1232,74 @@ void MachineSetting::relayoutEquipmentPages()
 
     const QString cardQss = QStringLiteral(
                 "QFrame#moduleChannelCard {"
-                " background-color: rgba(255,255,255,0.78);"
-                " border: 1px solid #C5DFF0;"
-                " border-radius: 10px;"
+                " background-color: #F4FAFE;"
+                " border: 1px solid #D4EAF5;"
+                " border-radius: 8px;"
+                "}");
+    const QString headQss = QStringLiteral(
+                "QFrame#moduleHeadBar {"
+                " background: #D4EAF5;"
+                " border: none;"
+                " border-top-left-radius: 8px;"
+                " border-top-right-radius: 8px;"
                 "}");
     const QString titleQss = QStringLiteral(
-                "color:#005A8C; font-weight:700; background:transparent; border:none;");
+                "color:#2C5F8A; font-size:15px; font-weight:700; background:transparent; border:none;");
     const QString subQss = QStringLiteral(
-                "color:#5C7C90; background:transparent; border:none;");
+                "color:#4A7FA3; font-size:13px; background:transparent; border:none;");
 
     if (ui->gridLayout_11 && ui->usechannel) {
         while (QLayoutItem *old = ui->gridLayout_11->takeAt(0)) {
             delete old;
         }
-        ui->gridLayout_11->setContentsMargins(12, 20, 12, 12);
-        ui->gridLayout_11->setHorizontalSpacing(12);
-        ui->gridLayout_11->setVerticalSpacing(8);
+        ui->gridLayout_11->setContentsMargins(4, 2, 4, 4);
+        ui->gridLayout_11->setHorizontalSpacing(10);
+        ui->gridLayout_11->setVerticalSpacing(0);
+        ui->usechannel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        if (ui->gridLayout_12) {
+            ui->gridLayout_12->setAlignment(ui->usechannel, Qt::AlignTop);
+            ui->gridLayout_12->setRowStretch(1, 0);
+        }
 
         for (int m = 0; m < modules; ++m) {
             QFrame *card = new QFrame(ui->usechannel);
             card->setObjectName(QStringLiteral("moduleChannelCard"));
             card->setStyleSheet(cardQss);
-            card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+            card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
             QVBoxLayout *v = new QVBoxLayout(card);
-            v->setContentsMargins(12, 10, 12, 12);
-            v->setSpacing(6);
+            v->setContentsMargins(0, 0, 0, 8);
+            v->setSpacing(0);
 
-            QLabel *title = new QLabel(card);
+            QFrame *headBar = new QFrame(card);
+            headBar->setObjectName(QStringLiteral("moduleHeadBar"));
+            headBar->setStyleSheet(headQss);
+            QHBoxLayout *headLay = new QHBoxLayout(headBar);
+            headLay->setContentsMargins(12, 8, 12, 8);
+            headLay->setSpacing(8);
+            QLabel *title = new QLabel(headBar);
             title->setText(gtr(u8"\u6a21\u7ec4 %1").arg(m + 1));
             title->setStyleSheet(titleQss);
-            v->addWidget(title);
-
-            QLabel *sub = new QLabel(card);
-            sub->setText(gtr(u8"\u901a\u9053 %1 \u2013 %2").arg(m * 4 + 1).arg(m * 4 + 4));
+            title->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+            QLabel *sub = new QLabel(headBar);
+            sub->setText(gtr(u8"\u901a\u9053 %1\u2013%2").arg(m * 4 + 1).arg(m * 4 + 4));
             sub->setStyleSheet(subQss);
-            v->addWidget(sub);
+            sub->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            sub->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+            headLay->addWidget(title);
+            headLay->addStretch(1);
+            headLay->addWidget(sub);
+            v->addWidget(headBar);
 
             QBoxLayout *chLay = 0;
             if (modules == 1) {
                 QHBoxLayout *row = new QHBoxLayout;
-                row->setSpacing(12);
+                row->setContentsMargins(12, 8, 12, 4);
+                row->setSpacing(16);
                 chLay = row;
             } else {
                 QVBoxLayout *col = new QVBoxLayout;
-                col->setSpacing(2);
+                col->setContentsMargins(12, 6, 12, 2);
+                col->setSpacing(0);
                 chLay = col;
             }
             for (int i = 0; i < 4; ++i) {
@@ -1246,11 +1307,28 @@ void MachineSetting::relayoutEquipmentPages()
                 if (!box) {
                     continue;
                 }
-                box->setParent(card);
-                box->setMinimumHeight(56);
-                box->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-                box->show();
-                chLay->addWidget(box);
+                QWidget *line = new QWidget(card);
+                line->setObjectName(QStringLiteral("channelSwitchLine"));
+                line->setStyleSheet(QStringLiteral(
+                            "QWidget#channelSwitchLine { background: transparent; }"));
+                line->setMinimumHeight(44);
+                line->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+                QHBoxLayout *lineLay = new QHBoxLayout(line);
+                lineLay->setContentsMargins(0, 2, 0, 2);
+                lineLay->setSpacing(8);
+                QLabel *name = new QLabel(box->text(), line);
+                name->setStyleSheet(QStringLiteral(
+                            "color:#2C5F8A; font-size:16px; font-weight:600;"
+                            " background:transparent; border:none;"));
+                box->setParent(line);
+                box->hide();
+                ChannelToggle *toggle = new ChannelToggle(box, line);
+                QObject::connect(box, &QCheckBox::toggled, toggle, [toggle](bool) {
+                    toggle->update();
+                });
+                lineLay->addWidget(name, 1);
+                lineLay->addWidget(toggle, 0, Qt::AlignVCenter);
+                chLay->addWidget(line);
             }
             v->addLayout(chLay);
 
@@ -1259,19 +1337,21 @@ void MachineSetting::relayoutEquipmentPages()
                 tempSp[m]->setParent(card);
                 tempLab[m]->setText(gtr(u8"\u76ee\u6807\u6e29\u5ea6"));
                 tempLab[m]->setStyleSheet(subQss);
+                tempLab[m]->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
                 tempLab[m]->setMaximumWidth(QWIDGETSIZE_MAX);
                 tempLab[m]->show();
                 tempSp[m]->setMinimumWidth(120);
-                tempSp[m]->setMaximumWidth(200);
+                tempSp[m]->setMaximumWidth(180);
                 tempSp[m]->show();
                 QHBoxLayout *tempRow = new QHBoxLayout;
+                tempRow->setContentsMargins(12, 6, 12, 0);
                 tempRow->setSpacing(8);
                 tempRow->addWidget(tempLab[m]);
-                tempRow->addWidget(tempSp[m], 1);
-                v->addSpacing(4);
+                tempRow->addWidget(tempSp[m]);
+                tempRow->addStretch(1);
                 v->addLayout(tempRow);
             }
-            ui->gridLayout_11->addWidget(card, 0, m);
+            ui->gridLayout_11->addWidget(card, 0, m, Qt::AlignTop);
             ui->gridLayout_11->setColumnStretch(m, 1);
         }
         for (int i = modules * 4; i < 12; ++i) {
@@ -1313,13 +1393,12 @@ void MachineSetting::relayoutEquipmentPages()
 
     const QString heightQss = QStringLiteral(
                 "QFrame#heightTuneCard {"
-                " background-color: rgba(255,255,255,0.82);"
-                " border: 1px solid #D3E6F2;"
+                " background-color: #F4FAFE;"
+                " border: 1px solid #D4EAF5;"
                 " border-radius: 8px;"
                 "}");
     const QString sectionQss = QStringLiteral(
-                "color:#0077B6; font-weight:700; background:transparent; border:none; padding-top:4px;");
-    const QString mark = gtr(u8"\u25b8 ");
+                "color:#2C5F8A; font-weight:700; background:transparent; border:none; padding-top:4px;");
 
     QLabel *trayLab[4] = {
         ui->label_testtray_0, ui->label_testtray_1, ui->label_testtray_2, ui->label_testtray_3
@@ -1367,7 +1446,7 @@ void MachineSetting::relayoutEquipmentPages()
 
     int row = 0;
     if (ui->label_handthrowcups && ui->spinBox_downthrowcups) {
-        ui->label_handthrowcups->setText(mark + gtr(u8"\u5f03\u676f\u5b54"));
+        ui->label_handthrowcups->setText(gtr(u8"\u5f03\u676f\u5b54"));
         QFrame *bar = new QFrame(ui->groupBox_gripperDown);
         bar->setObjectName(QStringLiteral("heightTuneCard"));
         bar->setStyleSheet(heightQss);
@@ -1400,7 +1479,7 @@ void MachineSetting::relayoutEquipmentPages()
             if (!trayLab[i] || !traySp[i]) {
                 continue;
             }
-            trayLab[i]->setText(mark + gtr(u8"\u8bd5\u7ba1\u76d8 %1").arg(i + 1));
+            trayLab[i]->setText(gtr(u8"\u8bd5\u7ba1\u76d8 %1").arg(i + 1));
             QFrame *card = new QFrame(ui->groupBox_gripperDown);
             card->setObjectName(QStringLiteral("heightTuneCard"));
             card->setStyleSheet(heightQss);
@@ -1436,7 +1515,7 @@ void MachineSetting::relayoutEquipmentPages()
             if (!modLab[i] || !modSp[i]) {
                 continue;
             }
-            modLab[i]->setText(mark + gtr(u8"\u6a21\u7ec4 %1").arg(i + 1));
+            modLab[i]->setText(gtr(u8"\u6a21\u7ec4 %1").arg(i + 1));
             QFrame *card = new QFrame(ui->groupBox_gripperDown);
             card->setObjectName(QStringLiteral("heightTuneCard"));
             card->setStyleSheet(heightQss);
@@ -1460,4 +1539,697 @@ void MachineSetting::relayoutEquipmentPages()
         }
     }
 }
+
+static QFrame *makeNeedleItemCard(QWidget *parent, QLabel *label, QWidget *editor)
+{
+    QFrame *card = new QFrame(parent);
+    card->setObjectName(QStringLiteral("heightTuneCard"));
+    card->setStyleSheet(QStringLiteral(
+                "QFrame#heightTuneCard {"
+                " background-color: #F4FAFE;"
+                " border: 1px solid #D4EAF5;"
+                " border-radius: 8px;"
+                "}"));
+    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    card->setMinimumWidth(108);
+    QVBoxLayout *lay = new QVBoxLayout(card);
+    lay->setContentsMargins(8, 8, 8, 8);
+    lay->setSpacing(6);
+    if (label) {
+        label->setParent(card);
+        label->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        label->setMinimumWidth(0);
+        label->setAlignment(Qt::AlignCenter);
+        label->setWordWrap(true);
+        label->setStyleSheet(QStringLiteral(
+                    "QLabel { color:#2C5F8A; background:transparent; border:none; }"));
+        label->show();
+        lay->addWidget(label);
+    }
+    if (editor) {
+        editor->setParent(card);
+        editor->setMinimumWidth(88);
+        editor->setMaximumWidth(160);
+        editor->show();
+        lay->addWidget(editor, 0, Qt::AlignHCenter);
+    }
+    return card;
+}
+
+static void styleNeedleSection(QLabel *label)
+{
+    if (!label) {
+        return;
+    }
+    label->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    label->setMinimumHeight(22);
+    label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    label->setStyleSheet(QStringLiteral(
+                "color:#2C5F8A; font-weight:700; background:transparent; border:none; padding-top:6px;"));
+    label->show();
+}
+
+static QScrollArea *makeNeedleScroll(QWidget *parent, QWidget *inner)
+{
+    inner->setObjectName(QStringLiteral("needlePageBody"));
+    inner->setStyleSheet(QStringLiteral(
+                "QWidget#needlePageBody { background: transparent; }"));
+    QScrollArea *scroll = new QScrollArea(parent);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setStyleSheet(QStringLiteral(
+                "QScrollArea { background: transparent; border: none; }"
+                "QScrollArea > QWidget > QWidget { background: transparent; }"));
+    scroll->setWidget(inner);
+    return scroll;
+}
+
+void MachineSetting::frameNeedleConfigPages()
+{
+    if (property("needlePagesFramed").toBool()) {
+        return;
+    }
+    setProperty("needlePagesFramed", true);
+
+    struct Cell {
+        QWidget *widget;
+        int row;
+        int col;
+    };
+
+    if (ui->gridLayout_5 && ui->tab_configbloodpin) {
+        QVector<Cell> cells;
+        QGridLayout *grid = ui->gridLayout_5;
+        for (int i = 0; i < grid->count(); ++i) {
+            QLayoutItem *item = grid->itemAt(i);
+            if (!item || !item->widget()) {
+                continue;
+            }
+            Cell cell;
+            cell.widget = item->widget();
+            int rowSpan = 1;
+            int colSpan = 1;
+            grid->getItemPosition(i, &cell.row, &cell.col, &rowSpan, &colSpan);
+            cells.append(cell);
+        }
+        while (QLayoutItem *old = grid->takeAt(0)) {
+            delete old;
+        }
+
+        QWidget *body = new QWidget;
+        QVBoxLayout *bodyLay = new QVBoxLayout(body);
+        bodyLay->setContentsMargins(0, 0, 0, 0);
+        bodyLay->setSpacing(12);
+
+        QGroupBox *upper = new QGroupBox(gtr(u8"\u4e0b\u9488\u9ad8\u5ea6"), body);
+        upper->setObjectName(QStringLiteral("groupBox_bloodPinUpper"));
+        QGridLayout *upperGrid = new QGridLayout(upper);
+        upperGrid->setHorizontalSpacing(10);
+        upperGrid->setVerticalSpacing(8);
+        upperGrid->setContentsMargins(8, 8, 8, 8);
+
+        QGroupBox *lower = new QGroupBox(gtr(u8"\u5438\u6837\u548c\u7b49\u5f85"), body);
+        lower->setObjectName(QStringLiteral("groupBox_bloodPinLower"));
+        QGridLayout *lowerGrid = new QGridLayout(lower);
+        lowerGrid->setHorizontalSpacing(10);
+        lowerGrid->setVerticalSpacing(8);
+        lowerGrid->setContentsMargins(8, 8, 8, 8);
+
+        QWidget *save = ui->widgetbloodsave;
+        QVector<QWidget *> used;
+        for (int i = 0; i < cells.size(); ++i) {
+            QLabel *label = qobject_cast<QLabel *>(cells.at(i).widget);
+            if (!label || cells.at(i).widget == save) {
+                continue;
+            }
+            QWidget *editor = nullptr;
+            for (int j = 0; j < cells.size(); ++j) {
+                if (cells.at(j).row == cells.at(i).row + 1
+                        && cells.at(j).col == cells.at(i).col
+                        && qobject_cast<QAbstractSpinBox *>(cells.at(j).widget)) {
+                    editor = cells.at(j).widget;
+                    break;
+                }
+            }
+            if (!editor) {
+                continue;
+            }
+            const int cardCol = cells.at(i).col / 2;
+            QGridLayout *dest = upperGrid;
+            int cardRow = 0;
+            if (cells.at(i).row <= 6) {
+                cardRow = (cells.at(i).row - 1) / 2;
+            } else {
+                dest = lowerGrid;
+                cardRow = (cells.at(i).row - 9) / 2;
+                if (cardRow < 0) {
+                    cardRow = 0;
+                }
+            }
+            dest->addWidget(makeNeedleItemCard(dest->parentWidget(), label, editor), cardRow, cardCol);
+            used.append(label);
+            used.append(editor);
+        }
+        for (int col = 0; col < 4; ++col) {
+            upperGrid->setColumnStretch(col, 1);
+            lowerGrid->setColumnStretch(col, 1);
+        }
+        upper->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        lower->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        bodyLay->addWidget(upper);
+        bodyLay->addWidget(lower);
+        bodyLay->addStretch(1);
+        grid->addWidget(makeNeedleScroll(ui->tab_configbloodpin, body), 0, 0, 1, 8);
+        if (save) {
+            grid->addWidget(save, 1, 0, 1, 8);
+        }
+        for (int i = 0; i < cells.size(); ++i) {
+            QWidget *widget = cells.at(i).widget;
+            if (!widget || widget == save || used.contains(widget)) {
+                continue;
+            }
+            widget->hide();
+        }
+        grid->setRowStretch(0, 1);
+        grid->setRowStretch(1, 0);
+    }
+
+    if (ui->gridLayout_Reagent && ui->groupBox_RetagentBox) {
+        QVector<Cell> cells;
+        QGridLayout *grid = ui->gridLayout_Reagent;
+        for (int i = 0; i < grid->count(); ++i) {
+            QLayoutItem *item = grid->itemAt(i);
+            if (!item || !item->widget()) {
+                continue;
+            }
+            Cell cell;
+            cell.widget = item->widget();
+            int rowSpan = 1;
+            int colSpan = 1;
+            grid->getItemPosition(i, &cell.row, &cell.col, &rowSpan, &colSpan);
+            cells.append(cell);
+        }
+        while (QLayoutItem *old = grid->takeAt(0)) {
+            delete old;
+        }
+        grid->setHorizontalSpacing(10);
+        grid->setVerticalSpacing(8);
+        grid->setContentsMargins(8, 8, 8, 8);
+
+        QLabel *header[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+        QLabel *rowTitle[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+        QWidget *editor[8][8];
+        for (int r = 0; r < 8; ++r) {
+            for (int c = 0; c < 8; ++c) {
+                editor[r][c] = nullptr;
+            }
+        }
+        for (int i = 0; i < cells.size(); ++i) {
+            QWidget *widget = cells.at(i).widget;
+            const int row = cells.at(i).row;
+            const int col = cells.at(i).col;
+            if (!widget || row < 0 || row >= 8 || col < 0 || col >= 8) {
+                if (widget) {
+                    widget->hide();
+                }
+                continue;
+            }
+            QLabel *label = qobject_cast<QLabel *>(widget);
+            if (row == 0 && label) {
+                header[col] = label;
+            } else if (col == 0 && label) {
+                rowTitle[row] = label;
+            } else if (!label) {
+                editor[row][col] = widget;
+            } else {
+                label->hide();
+            }
+        }
+        for (int c = 0; c < 8; ++c) {
+            if (header[c]) {
+                header[c]->hide();
+            }
+        }
+
+        int outRow = 0;
+        for (int row = 1; row < 8; ++row) {
+            bool any = false;
+            for (int col = 1; col < 8; ++col) {
+                if (editor[row][col]) {
+                    any = true;
+                    break;
+                }
+            }
+            if (!any) {
+                if (rowTitle[row]) {
+                    rowTitle[row]->hide();
+                }
+                continue;
+            }
+            if (rowTitle[row]) {
+                styleNeedleSection(rowTitle[row]);
+                grid->addWidget(rowTitle[row], outRow, 0, 1, 6);
+                ++outRow;
+            }
+            for (int col = 1; col < 8; ++col) {
+                if (!editor[row][col]) {
+                    continue;
+                }
+                QLabel *field = new QLabel(ui->groupBox_RetagentBox);
+                if (header[col]) {
+                    field->setText(header[col]->text());
+                    field->setFont(header[col]->font());
+                }
+                field->setToolTip(editor[row][col]->toolTip());
+                grid->addWidget(makeNeedleItemCard(ui->groupBox_RetagentBox, field, editor[row][col]),
+                                outRow, col - 1);
+                grid->setColumnStretch(col - 1, 1);
+            }
+            ++outRow;
+        }
+        ui->groupBox_RetagentBox->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    }
+
+    if (ui->gridLayout_6 && ui->tab_reagpin) {
+        QWidget *save = ui->widget_makesure;
+        QVector<Cell> stripCells;
+        if (ui->gridLayout_reagPinParams) {
+            QGridLayout *strip = ui->gridLayout_reagPinParams;
+            for (int i = 0; i < strip->count(); ++i) {
+                QLayoutItem *item = strip->itemAt(i);
+                if (!item || !item->widget()) {
+                    continue;
+                }
+                Cell cell;
+                cell.widget = item->widget();
+                int rowSpan = 1;
+                int colSpan = 1;
+                strip->getItemPosition(i, &cell.row, &cell.col, &rowSpan, &colSpan);
+                stripCells.append(cell);
+            }
+            while (QLayoutItem *old = strip->takeAt(0)) {
+                delete old;
+            }
+        }
+
+        QGroupBox *lower = new QGroupBox(gtr(u8"\u6e05\u6d17\u548c\u4e0b\u9488"), ui->tab_reagpin);
+        lower->setObjectName(QStringLiteral("groupBox_reagPinLower"));
+        QGridLayout *lowerGrid = new QGridLayout(lower);
+        lowerGrid->setHorizontalSpacing(10);
+        lowerGrid->setVerticalSpacing(8);
+        lowerGrid->setContentsMargins(8, 8, 8, 8);
+        for (int i = 0; i < stripCells.size(); ++i) {
+            QLabel *label = qobject_cast<QLabel *>(stripCells.at(i).widget);
+            if (!label || stripCells.at(i).row != 0) {
+                continue;
+            }
+            QWidget *editor = nullptr;
+            for (int j = 0; j < stripCells.size(); ++j) {
+                if (stripCells.at(j).row == 1 && stripCells.at(j).col == stripCells.at(i).col
+                        && qobject_cast<QAbstractSpinBox *>(stripCells.at(j).widget)) {
+                    editor = stripCells.at(j).widget;
+                    break;
+                }
+            }
+            if (!editor) {
+                continue;
+            }
+            lowerGrid->addWidget(makeNeedleItemCard(lower, label, editor), 0, stripCells.at(i).col);
+            lowerGrid->setColumnStretch(stripCells.at(i).col, 1);
+        }
+        lower->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+
+        if (ui->widgetFucn) {
+            ui->gridLayout_6->removeWidget(ui->widgetFucn);
+            ui->widgetFucn->hide();
+        }
+        if (ui->groupBox_RetagentBox) {
+            ui->gridLayout_6->removeWidget(ui->groupBox_RetagentBox);
+        }
+        if (save) {
+            ui->gridLayout_6->removeWidget(save);
+        }
+
+        QWidget *body = new QWidget;
+        QVBoxLayout *bodyLay = new QVBoxLayout(body);
+        bodyLay->setContentsMargins(0, 0, 0, 0);
+        bodyLay->setSpacing(12);
+        if (ui->groupBox_RetagentBox) {
+            bodyLay->addWidget(ui->groupBox_RetagentBox);
+        }
+        bodyLay->addWidget(lower);
+        bodyLay->addStretch(1);
+        ui->gridLayout_6->addWidget(makeNeedleScroll(ui->tab_reagpin, body), 0, 0, 1, 5);
+        if (save) {
+            ui->gridLayout_6->addWidget(save, 1, 0, 1, 5);
+        }
+        ui->gridLayout_6->setRowStretch(0, 1);
+        ui->gridLayout_6->setRowStretch(1, 0);
+    }
+}
+
+static void clearLayoutItems(QLayout *layout)
+{
+    if (!layout) {
+        return;
+    }
+    while (QLayoutItem *old = layout->takeAt(0)) {
+        delete old;
+    }
+}
+
+static void markCurveCard(QFrame *card, bool chosen)
+{
+    if (!card) {
+        return;
+    }
+    card->setProperty("chosen", chosen);
+    card->style()->unpolish(card);
+    card->style()->polish(card);
+    card->update();
+}
+
+static QFrame *makeCurveOptionCard(QWidget *parent, QCheckBox *box)
+{
+    QFrame *card = new QFrame(parent);
+    card->setObjectName(QStringLiteral("curveOptionCard"));
+    card->setStyleSheet(QStringLiteral(
+                "QFrame#curveOptionCard {"
+                " background-color: #F4FAFE;"
+                " border: 1px solid #D4EAF5;"
+                " border-radius: 8px;"
+                "}"
+                "QFrame#curveOptionCard[chosen=\"true\"] {"
+                " background-color: #E8F4FD;"
+                " border: 1px solid #3A9BD4;"
+                "}"));
+    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    card->setMinimumHeight(44);
+    QHBoxLayout *lay = new QHBoxLayout(card);
+    lay->setContentsMargins(12, 8, 12, 8);
+    if (box) {
+        box->setParent(card);
+        box->setStyleSheet(QStringLiteral(
+                    "QCheckBox { background: transparent; color: #2C5F8A; spacing: 8px; }"
+                    "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; }"
+                    "QCheckBox::indicator:unchecked {"
+                    " background: #FFFFFF; border: 1px solid #7EC8F0; }"
+                    "QCheckBox::indicator:checked {"
+                    " background: #3A9BD4; border: 1px solid #2C7FB0; }"));
+        box->setMinimumHeight(28);
+        box->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        box->show();
+        lay->addWidget(box, 0, Qt::AlignVCenter);
+        lay->addStretch(1);
+        markCurveCard(card, box->isChecked());
+        QObject::connect(box, &QCheckBox::toggled, card, [card](bool on) {
+            markCurveCard(card, on);
+        });
+    }
+    return card;
+}
+
+void MachineSetting::relayoutCurveModePage()
+{
+    if (property("curveModeFramed").toBool() || !ui->groupBox_curvepara) {
+        return;
+    }
+    setProperty("curveModeFramed", true);
+
+    ui->groupBox_curvepara->setMinimumHeight(0);
+    ui->groupBox_curvepara->setMaximumWidth(QWIDGETSIZE_MAX);
+    ui->groupBox_curvepara->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    if (ui->verticalLayout_7) {
+        ui->verticalLayout_7->setSpacing(10);
+        ui->verticalLayout_7->setContentsMargins(8, 8, 8, 8);
+    }
+    if (ui->gridLayout_7) {
+        ui->gridLayout_7->setAlignment(ui->groupBox_curvepara, Qt::AlignTop);
+    }
+
+    if (ui->groupBox_4 && ui->horizontalLayout) {
+        ui->groupBox_4->setMinimumHeight(0);
+        ui->groupBox_4->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        clearLayoutItems(ui->horizontalLayout);
+        ui->horizontalLayout->setSpacing(10);
+        ui->horizontalLayout->setContentsMargins(8, 8, 8, 8);
+        if (ui->label_basecutNum) {
+            ui->label_basecutNum->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        }
+        QFrame *cutCard = makeNeedleItemCard(ui->groupBox_4, ui->label_basecutNum, ui->comboBox_CutNum);
+        if (ui->comboBox_CutNum) {
+            ui->comboBox_CutNum->setMinimumWidth(140);
+            ui->comboBox_CutNum->setMaximumWidth(200);
+        }
+        QFrame *avgCard = makeCurveOptionCard(ui->groupBox_4, ui->checkBox_Avg_cutnum);
+        ui->horizontalLayout->addWidget(cutCard, 1);
+        ui->horizontalLayout->addWidget(avgCard, 1);
+    }
+
+    if (ui->groupBox_3 && ui->verticalLayout_6) {
+        ui->groupBox_3->setMinimumHeight(0);
+        ui->groupBox_3->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        clearLayoutItems(ui->verticalLayout_6);
+        ui->verticalLayout_6->setContentsMargins(8, 8, 8, 8);
+        QGridLayout *grid = new QGridLayout();
+        grid->setHorizontalSpacing(10);
+        grid->setVerticalSpacing(8);
+        QCheckBox *filters[4] = {
+            ui->checkBox_originTestData,
+            ui->checkBox_average,
+            ui->checkBox_median,
+            ui->checkBoxTriple
+        };
+        for (int i = 0; i < 4; ++i) {
+            if (!filters[i]) {
+                continue;
+            }
+            grid->addWidget(makeCurveOptionCard(ui->groupBox_3, filters[i]), i / 2, i % 2);
+            grid->setColumnStretch(i % 2, 1);
+        }
+        ui->verticalLayout_6->addLayout(grid);
+    }
+
+    if (ui->groupBox_6 && ui->verticalLayout_9) {
+        ui->groupBox_6->setMinimumHeight(0);
+        ui->groupBox_6->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        clearLayoutItems(ui->verticalLayout_9);
+        ui->verticalLayout_9->setContentsMargins(8, 8, 8, 8);
+        QGridLayout *grid = new QGridLayout();
+        grid->setHorizontalSpacing(10);
+        grid->setVerticalSpacing(8);
+        QCheckBox *outputs[3] = {
+            ui->checkBox_absorbance,
+            ui->checkBoxExperimental,
+            ui->checkBoxshowPrintAdhesion
+        };
+        for (int i = 0; i < 3; ++i) {
+            if (!outputs[i]) {
+                continue;
+            }
+            grid->addWidget(makeCurveOptionCard(ui->groupBox_6, outputs[i]), 0, i);
+            grid->setColumnStretch(i, 1);
+        }
+        ui->verticalLayout_9->addLayout(grid);
+    }
+
+    if (ui->gridLayout_15 && ui->widget) {
+        clearLayoutItems(ui->gridLayout_15);
+        ui->widget->setMinimumHeight(0);
+        ui->widget->setMaximumHeight(56);
+        ui->gridLayout_15->setContentsMargins(0, 4, 0, 0);
+        ui->gridLayout_15->setHorizontalSpacing(10);
+        ui->gridLayout_15->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum), 0, 0);
+        if (ui->toolButton_SaveCutnum) {
+            ui->toolButton_SaveCutnum->setMinimumSize(128, 36);
+            ui->toolButton_SaveCutnum->setMaximumSize(160, 40);
+            ui->toolButton_SaveCutnum->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            ui->gridLayout_15->addWidget(ui->toolButton_SaveCutnum, 0, 1);
+        }
+        if (ui->pushButton_Adjustcoordinates) {
+            ui->pushButton_Adjustcoordinates->setMinimumSize(128, 36);
+            ui->pushButton_Adjustcoordinates->setMaximumSize(160, 40);
+            ui->pushButton_Adjustcoordinates->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            ui->gridLayout_15->addWidget(ui->pushButton_Adjustcoordinates, 0, 2);
+        }
+        ui->gridLayout_15->setColumnStretch(0, 1);
+    }
+
+    if (ui->verticalLayout_7) {
+        ui->verticalLayout_7->addStretch(1);
+    }
+}
+
+void MachineSetting::applyClinicalSettingsChrome()
+{
+    if (property("clinicalChrome").toBool()) {
+        return;
+    }
+    setProperty("clinicalChrome", true);
+    setStyleSheet(styleSheet() + QStringLiteral(
+        "\nQLabel { background-color: transparent; }"));
+    setWindowTitle(gtr(u8"\u4eea\u5668\u8bbe\u7f6e"));
+    if (m_titleBar) {
+        m_titleBar->setTitle(windowTitle());
+    }
+
+    ui->MachineSetList->setMinimumWidth(200);
+    ui->MachineSetList->setMaximumWidth(228);
+    ui->MachineSetList->setIconSize(QSize(18, 18));
+    ui->MachineSetList->setIndentation(18);
+    ui->MachineSetList->setStyleSheet(QStringLiteral(
+        "QTreeWidget {"
+        " background: #E8F4FD;"
+        " border: none;"
+        " border-right: 1px solid #D4EAF5;"
+        " font-size: 16px;"
+        " color: #2C5F8A;"
+        " outline: none;"
+        " padding: 8px 0;"
+        "}"
+        "QTreeWidget::item {"
+        " padding: 8px 10px;"
+        " margin: 2px 8px;"
+        " border-radius: 6px;"
+        " background: transparent;"
+        "}"
+        "QTreeWidget::item:hover { background: #D4EAF5; color: #2C5F8A; }"
+        "QTreeWidget::item:selected { background: #B8DFF7; color: #2C5F8A; }"
+        "QTreeWidget::branch { background: #E8F4FD; }"));
+
+    QWidget *work = new QWidget(ui->widgetcenter);
+    work->setObjectName(QStringLiteral("settingsWork"));
+    work->setStyleSheet(QStringLiteral(
+        "QWidget#settingsWork { background: #E8F4FD; }"));
+    QVBoxLayout *workLay = new QVBoxLayout(work);
+    workLay->setContentsMargins(0, 0, 0, 0);
+    workLay->setSpacing(0);
+
+    QFrame *head = new QFrame(work);
+    head->setObjectName(QStringLiteral("settingsPageHead"));
+    head->setStyleSheet(QStringLiteral(
+        "QFrame#settingsPageHead { background: #E8F4FD; border: none; border-bottom: 1px solid #D4EAF5; }"
+        "QLabel { background: transparent; border: none; }"));
+    QVBoxLayout *headLay = new QVBoxLayout(head);
+    headLay->setContentsMargins(20, 10, 20, 10);
+    headLay->setSpacing(2);
+    QLabel *path = new QLabel(head);
+    path->setObjectName(QStringLiteral("settingsPagePath"));
+    path->setStyleSheet(QStringLiteral("color:#4A7FA3; font-size:12px;"));
+    QLabel *title = new QLabel(head);
+    title->setObjectName(QStringLiteral("settingsPageTitle"));
+    title->setStyleSheet(QStringLiteral("color:#2C5F8A; font-size:20px; font-weight:700;"));
+    QLabel *hint = new QLabel(head);
+    hint->setStyleSheet(QStringLiteral("color:#4A7FA3; font-size:12px;"));
+    hint->setText(gtr(u8"\u6539\u5b8c\u8bf7\u4fdd\u5b58\u3002\u6d4b\u8bd5\u8fdb\u884c\u4e2d\u4e0d\u8981\u6539\u52a8\u4f5c\u53c2\u6570\u3002"));
+    headLay->addWidget(path);
+    headLay->addWidget(title);
+    headLay->addWidget(hint);
+
+    ui->horizontalLayout_center->removeWidget(ui->tabWidgetSetconfigure);
+    ui->tabWidgetSetconfigure->setParent(work);
+    ui->tabWidgetSetconfigure->setDocumentMode(true);
+    ui->tabWidgetSetconfigure->setStyleSheet(QStringLiteral(
+        "QTabWidget::pane { border: none; background: #E8F4FD; }"));
+    workLay->addWidget(head);
+    workLay->addWidget(ui->tabWidgetSetconfigure, 1);
+    ui->horizontalLayout_center->addWidget(work, 1);
+
+    const int pages = ui->tabWidgetSetconfigure->count();
+    for (int i = 0; i < pages; ++i) {
+        QWidget *page = ui->tabWidgetSetconfigure->widget(i);
+        if (page && page->layout()) {
+            page->layout()->setContentsMargins(16, 12, 16, 16);
+            if (page->layout()->spacing() < 10) {
+                page->layout()->setSpacing(12);
+            }
+        }
+    }
+
+    if (ui->tabWidget_config) {
+        ui->tabWidget_config->setDocumentMode(true);
+        if (QTabBar *configBar = ui->tabWidget_config->tabBar()) {
+            configBar->setDrawBase(false);
+        }
+        ui->tabWidget_config->setStyleSheet(QStringLiteral(
+            "QTabWidget::pane { border: none; background: transparent; }"
+            "QTabBar { border: none; }"
+            "QTabBar::tab {"
+            " min-width: 112px; height: 34px; margin: 0 4px 0 0; padding: 0 12px;"
+            " background: #E7EEF3; border: 1px solid #D3E0E8; border-radius: 6px;"
+            " color: #3E5C6E;"
+            "}"
+            "QTabBar::tab:selected {"
+            " background: #FFFFFF; color: #2C5F8A; border: 1px solid #7EC8F0; font-weight: 700;"
+            "}"
+            "QTabBar::tab:hover:!selected { background: #F7FBFD; }"
+            "QLabel { color: #1A3344; background-color: transparent; border: none; }"
+            "QSpinBox, QDoubleSpinBox {"
+            " background: #FFFFFF; border: 1px solid #C5D7E4; border-radius: 6px;"
+            " padding: 4px; min-height: 28px; color: #16384A;"
+            "}"
+            "QPushButton, QToolButton {"
+            " background: #1A6F99; border: 1px solid #14597C; border-radius: 6px;"
+            " color: white; min-height: 32px; padding: 4px 14px;"
+            "}"
+            "QPushButton:hover, QToolButton:hover { background: #14597C; }"));
+    }
+
+    const QString groupQss = QStringLiteral(
+        "QGroupBox {"
+        " background: #F4FAFE;"
+        " border: 1px solid #D4EAF5;"
+        " border-radius: 8px;"
+        " margin-top: 4px;"
+        " padding: 22px 8px 8px 8px;"
+        " font-weight: 700;"
+        " color: #2C5F8A;"
+        "}"
+        "QGroupBox::title {"
+        " subcontrol-origin: padding;"
+        " subcontrol-position: top left;"
+        " left: 12px;"
+        " top: 2px;"
+        " padding: 0 4px;"
+        " background: transparent;"
+        " color: #2C5F8A;"
+        "}"
+        "QGroupBox QLabel { background-color: transparent; border: none; }"
+        "QGroupBox QWidget#widgetFucn { background-color: transparent; border: none; }");
+    frameNeedleConfigPages();
+    relayoutCurveModePage();
+
+    const QList<QGroupBox *> groups = findChildren<QGroupBox *>();
+    for (QGroupBox *box : groups) {
+        if (!box) {
+            continue;
+        }
+        box->setFlat(true);
+        box->setStyleSheet(groupQss);
+    }
+
+    if (m_childItem_0_1) {
+        ui->MachineSetList->setCurrentItem(m_childItem_0_1);
+        refreshSettingsPageTitle(m_childItem_0_1);
+    }
+
+    placeSettingsWindow();
+}
+
+void MachineSetting::placeSettingsWindow()
+{
+    if (!QApplication::desktop()) {
+        return;
+    }
+    const QRect desk = QApplication::desktop()->availableGeometry(this);
+    const int wantH = qBound(760, desk.height() - 140, desk.height());
+    const int wantW = qBound(1300, qMax(width(), 1400), qMin(1600, qMax(1300, desk.width() - 48)));
+    resize(wantW, wantH);
+    setMinimumHeight(qMin(760, qMax(640, desk.height() - 160)));
+    move(desk.left() + (desk.width() - width()) / 2,
+         desk.top() + (desk.height() - height()) / 2);
+}
+
 

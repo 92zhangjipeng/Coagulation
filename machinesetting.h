@@ -89,6 +89,7 @@ public:
     void SetColumnText(QTableWidget *tablewiget, int row, int col, QString text);
 
     void updatepara(const bool isTesting);
+    void placeSettingsWindow();
     void disablechn(QVector<quint8> indexchnList);
     void completedPETest();
     void HandleoutputResultData(const QString &id, const quint8 &channel,
@@ -165,6 +166,8 @@ private slots:
 private:
     void initCustomTitleBar();
     void initSheet();
+    void refreshInfoLibraryDeleteButton();
+    void reloadHospitalInfoTables();
     void initChannelValueDisplayUi();
     void setupChannelDimmingMaintenanceTab();
     void ensureChannelDimmingTabVisible();
@@ -251,6 +254,10 @@ private:
     void styleClickDownLabel(QLabel *label, bool busy = false);
     void installParameterHints();
     void relayoutEquipmentPages();
+    void applyClinicalSettingsChrome();
+    void frameNeedleConfigPages();
+    void relayoutCurveModePage();
+    void refreshSettingsPageTitle(QTreeWidgetItem *item);
     void _initconfigmodulefucn();
 
     void loadPerformanceEvaluation(QWidget *parentWidget);

@@ -144,6 +144,7 @@ void ProgressBar::setMaximum(double max)
 void ProgressBar::setChnTextindex(int index)
 {
     m_ChannelIndex = index;
+    update();
 }
 
 void ProgressBar::setReagentLast(QString text)

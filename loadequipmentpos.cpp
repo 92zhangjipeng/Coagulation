@@ -2396,7 +2396,18 @@ void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
           hexstr = hexArry[6] + hexArry[5];
           quint16 q16cleanbloodauckmm = hexstr.toUInt(&ok,HEX_SWITCH);
           QLOG_DEBUG()<<"读清洗样本针的清洗液量:"<<q16cleanbloodauckmm;
-          ini.SetAbsorbWashingfluidX2(q16cleanbloodauckmm);
+          // 复原后的主板该字常为 0xFFFF。界面上限 1250，超出则保留本地。
+          if (ok && q16cleanbloodauckmm >= 1 && q16cleanbloodauckmm <= 1250) {
+              ini.SetAbsorbWashingfluidX2(q16cleanbloodauckmm);
+          } else {
+              const int localUl = ini.GetAbsorbWashingfluidX2();
+              const int kept = (localUl >= 1 && localUl <= 1250) ? localUl : 1250;
+              if (localUl != kept)
+                  ini.SetAbsorbWashingfluidX2(kept);
+              QLOG_WARN() << QString::fromUtf8(
+                  "\xe6\xa0\xb7\xe6\x9c\xac\xe9\x92\x88\xe5\x90\xb8\xe6\xb8\x85\xe6\xb4\x97\xe6\xb6\xb2\xe8\xaf\xbb\xe5\x9b\x9e\xe6\x97\xa0\xe6\x95\x88\xef\xbc\x8c\xe4\xbf\x9d\xe7\x95\x99\xe6\x9c\xac\xe5\x9c\xb0")
+                          << q16cleanbloodauckmm << kept;
+          }
 
 
           hexstr = hexArry[8] + hexArry[7];
@@ -3109,25 +3120,54 @@ void loadEquipmentPos::recvReagentDataOther(const QStringList hexArry)
             return;
         }
         try {
-			// 基础参数设置
-			ini.SetAbsorbWashingfluidX1(hexArry.at(5).toInt(nullptr, HEX_SWITCH));
-			ini.setFailedCleanLinqueReagNeedle(hexArry.at(6).toInt(nullptr, HEX_SWITCH));
-			ini.SetFailedCleanLinqueHigh(hexArry.at(7).toInt(nullptr, HEX_SWITCH));
+			// 复原主板读回 0xFF。吸清洗液界面上限 90，失败高度上限 99，系数上限 2.00。
+			const auto keepByteInRange = [](int fromBoard, int local, int maxValue) -> int {
+				if (fromBoard >= 0 && fromBoard <= maxValue)
+					return fromBoard;
+				if (local >= 0 && local <= maxValue)
+					return local;
+				return maxValue;
+			};
+			const int washFromBoard = hexArry.at(5).toInt(nullptr, HEX_SWITCH);
+			const int washLocal = ini.GetAbsorbWashingfluidX1();
+			const int washKept = keepByteInRange(washFromBoard, washLocal, 90);
+			if (washKept != washLocal || (washFromBoard >= 1 && washFromBoard <= 90))
+				ini.SetAbsorbWashingfluidX1(static_cast<quint8>(qMax(0, washKept)));
+			if (washFromBoard < 1 || washFromBoard > 90) {
+				QLOG_WARN() << QString::fromUtf8(
+					"\xe8\xaf\x95\xe5\x89\x82\xe9\x92\x88\xe5\x90\xb8\xe6\xb8\x85\xe6\xb4\x97\xe6\xb6\xb2\xe8\xaf\xbb\xe5\x9b\x9e\xe6\x97\xa0\xe6\x95\x88\xef\xbc\x8c\xe4\xbf\x9d\xe7\x95\x99\xe6\x9c\xac\xe5\x9c\xb0")
+							<< washFromBoard << washKept;
+			}
 
-			// 试剂比例设置 - 使用数组和循环优化
+			const int reagFailFromBoard = hexArry.at(6).toInt(nullptr, HEX_SWITCH);
+			const int reagFailKept = keepByteInRange(
+						reagFailFromBoard, ini.getFailedCleanLinqueReagNeedle(), 99);
+			ini.setFailedCleanLinqueReagNeedle(static_cast<quint8>(reagFailKept));
+
+			const int bloodFailFromBoard = hexArry.at(7).toInt(nullptr, HEX_SWITCH);
+			const int bloodFailKept = keepByteInRange(
+						bloodFailFromBoard, ini.GetFailedCleanLinqueHigh(), 99);
+			ini.SetFailedCleanLinqueHigh(bloodFailKept);
+
 			const quint8 kReagents[] = {
 				AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
 			};
 			const int reagentCount = sizeof(kReagents) / sizeof(kReagents[0]);
 
 			for (int i = 0; i < reagentCount; ++i) {
-				bool ok;
-				double ratio = hexArry.at(8 + i).toInt(&ok, HEX_SWITCH) / 100.0;
-				if (!ok) {
-					QLOG_ERROR() << "Failed to convert hex value to double for reagent at index " << i;
-					ratio = 0.0; // Default value if conversion fails
+				bool ok = false;
+				const int raw = hexArry.at(8 + i).toInt(&ok, HEX_SWITCH);
+				double localRatio = ini.getTypesReagentSuckRatio(kReagents[i]);
+				if (ok && raw >= 0 && raw <= 200) {
+					ini.setTypesReagentSuckRatio(kReagents[i], raw / 100.0);
+				} else {
+					if (localRatio <= 0.0 || localRatio > 2.0)
+						localRatio = (localRatio <= 0.0) ? 1.0 : 2.0;
+					ini.setTypesReagentSuckRatio(kReagents[i], localRatio);
+					QLOG_WARN() << QString::fromUtf8(
+						"\xe5\x90\xb8\xe8\xaf\x95\xe5\x89\x82\xe7\xb3\xbb\xe6\x95\xb0\xe8\xaf\xbb\xe5\x9b\x9e\xe6\x97\xa0\xe6\x95\x88\xef\xbc\x8c\xe4\xbf\x9d\xe7\x95\x99\xe6\x9c\xac\xe5\x9c\xb0")
+								<< i << raw << localRatio;
 				}
-				ini.setTypesReagentSuckRatio(kReagents[i], ratio);
 			}
 
 		}

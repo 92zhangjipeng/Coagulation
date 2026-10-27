@@ -19,7 +19,7 @@ namespace {
 constexpr int kEmptyChannelAdcTarget = 3300; // 空通道应对齐的 AD
 constexpr int kDimmingAbsThreshold = 100;    // |空通道ADC - 3300|，约 3200~3400
 constexpr int kSettleAfterReadyMs = 2000;    // 齐套后再跟最新 ADC 稳定 2 秒再判
-constexpr int kMaxSmartCupClearRounds = 2;   // 未勾选「初始清空试杯」时自动丢杯轮数
+constexpr int kMaxSmartCupClearRounds = 2;   // 勾选开机智能弃杯后，调光自动丢杯最多两轮
 qint64 g_dimmingSettleStartMs = 0;
 }
 
@@ -216,8 +216,8 @@ void controldimming::ProactiveComparisons(int differenceThreshold)
         return;
     }
 
-    const bool legacyBootClear = INI_File().rConfigPara(INITGRABCUPS).toBool();
-    if (!legacyBootClear && m_smartCupClearAttempts < kMaxSmartCupClearRounds) {
+    const bool smartBootDiscard = INI_File().rConfigPara(INITGRABCUPS).toBool();
+    if (smartBootDiscard && m_smartCupClearAttempts < kMaxSmartCupClearRounds) {
         QList<quint8> toThrow;
         for (quint8 ch : failedChannels) {
             const QString wkey = QString("TestTheChanne1Opening_%1").arg(ch);
