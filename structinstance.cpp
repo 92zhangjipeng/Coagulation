@@ -1346,15 +1346,14 @@ void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestRea
 }
 
 
-void  StructInstance::changesuckReagentFirstCommandLocation(const int sampleid,quint8 reagentType)
+bool StructInstance::changesuckReagentFirstCommandLocation(const int sampleid,quint8 reagentType)
 {
     const auto iter = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleid));
 
-    //严格空指针检查 + 返回默认空数据
     if(iter == m_BloodsampleInfo.end() || *iter == nullptr) {
         QLOG_ERROR() << "[吸试剂] 未找到样本ID" << sampleid
-                    << "或指针无效，发送吸试剂指令头失败"<<endl;
-        return ; // 返回空QByteArray
+                    << "或指针无效，无法改到右侧试剂位"<<endl;
+        return false;
     }
 
     DATASAMPLESTRUCT *psampleinfo = *iter;
@@ -1364,18 +1363,50 @@ void  StructInstance::changesuckReagentFirstCommandLocation(const int sampleid,q
                                    findtest_testreagent(reagentType));
     if(itreagent == psampleinfo->ptestReagent_active.end() || *itreagent == nullptr) {
         QLOG_ERROR() << "[吸试剂] 未找到样本ID" << sampleid <<"试剂编号"<<reagentType
-                    << "或指针无效，发送吸试剂指令头失败"<<endl;
-        return ;
+                    << "或指针无效，无法改到右侧试剂位"<<endl;
+        return false;
     }
     if ((*itreagent)->pTestingReagentActive.isEmpty()) {
         QLOG_WARN() << "[吸试剂] 样本ID" << sampleid
-            << "吸试剂指令列表为空" << endl;
-        return ;
+            << "吸试剂指令列表为空，无法改到右侧试剂位" << endl;
+        return false;
+    }
+    quint8 rightHole = 0;
+    switch (reagentType) {
+    case AA_REAGENT:  rightHole = 5; break;
+    case ADP_REAGENT: rightHole = 6; break;
+    case EPI_REAGENT: rightHole = 7; break;
+    case COL_REAGENT: rightHole = 8; break;
+    case RIS_REAGENT: rightHole = 9; break;
+    default:
+        QLOG_ERROR() << "[吸试剂] 试剂类型无效，无法改到右侧" << reagentType;
+        return false;
+    }
+    QPoint rightAxis(0, 0);
+    SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT, rightHole, rightAxis);
+    if (rightAxis.isNull()) {
+        QLOG_ERROR() << "[吸试剂] 样本" << sampleid
+                     << GlobalData::mapIndexReagentnames(reagentType)
+                     << "右侧坐标是原点，不切换";
+        return false;
     }
     auto* pCommand = (*itreagent)->pTestingReagentActive.first();
-    quint8 num = pCommand->index_;
-    pCommand->arrcode = GlobalData::replactSuckReagentLoc(num,reagentType);
-    return;
+    if (!pCommand) {
+        return false;
+    }
+    const quint8 num = pCommand->index_;
+    const QByteArray replaced = GlobalData::replactSuckReagentLoc(num, reagentType);
+    if (replaced.size() < PROTOCOL_LENGTH) {
+        QLOG_ERROR() << "[吸试剂] 样本" << sampleid
+                     << "改右侧试剂位指令无效";
+        return false;
+    }
+    pCommand->arrcode = replaced;
+    QLOG_INFO() << "[吸试剂] 样本" << sampleid
+                << GlobalData::mapIndexReagentnames(reagentType)
+                << "左侧低于报警限，本针改吸右侧"
+                << rightAxis.x() << "," << rightAxis.y();
+    return true;
 }
 
 QByteArray StructInstance::sendsuckReagentCatchCuptoTestChannelHead(const int sampleid,quint8 reagentType)

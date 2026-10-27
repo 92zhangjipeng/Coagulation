@@ -14,6 +14,10 @@
 #include <QSizePolicy>
 #include <QTimer>
 #include <QVector>
+#include <QFrame>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLayoutItem>
 #include <algorithm>
 
 namespace {
@@ -957,3 +961,503 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
         finishDumpRelease(avg);
     }
 }
+
+void MachineSetting::installParameterHints()
+{
+    setToolTipDuration(30000);
+    const QString tipStyle = QStringLiteral(
+                "\nQToolTip { background-color:#F4FAFD; color:#16324A;"
+                " border:1px solid #7EB0CC; padding:8px;"
+                " font: 13px \"Microsoft YaHei\"; }");
+    if (!styleSheet().contains(QStringLiteral("QToolTip"))) {
+        setStyleSheet(styleSheet() + tipStyle);
+    }
+
+    auto tip = [](QWidget *a, QWidget *b, const QString &text) {
+        if (a) {
+            a->setToolTip(text);
+        }
+        if (b) {
+            b->setToolTip(text);
+        }
+    };
+    auto tips = [](const QList<QWidget *> &widgets, const QString &text) {
+        for (QWidget *w : widgets) {
+            if (w) {
+                w->setToolTip(text);
+            }
+        }
+    };
+
+    const QString scanTip = gtr(u8"\u52a0\u6837\u548c\u6d4b\u9ad8\u65f6\u8bfb\u8bd5\u7ba1\u4e0a\u7684\u6761\u7801\u3002\u5173\u6389\u5c31\u7528\u624b\u8f93\u6837\u672c\u53f7\u3002");
+    tip(ui->UseBarCode, nullptr, scanTip);
+
+    const QString reserveTip = gtr(u8"\u540c\u4e00\u79cd\u8bd5\u5242\u53ef\u4ee5\u653e\u5de6\u8fb9\u548c\u53f3\u8fb9\u4e24\u4e2a\u4f4d\u7f6e\u3002\n\u6253\u5f00\u540e\uff1a\u5de6\u8fb9\u518d\u5438\u4e00\u9488\u4f1a\u4f4e\u4e8e\u8bd5\u5242\u62a5\u8b66\u9650\uff0c\u5e76\u4e14\u53f3\u8fb9\u540c\u79cd\u8bd5\u5242\u8fd8\u4e0d\u4f4e\u4e8e\u62a5\u8b66\u9650\uff0c\u8fd9\u4e00\u9488\u5c31\u6539\u5438\u53f3\u8fb9\uff0c\u4e2d\u95f4\u4e0d\u6682\u505c\u3002\u4e24\u8fb9\u90fd\u4e0d\u591f\u624d\u6682\u505c\u3002\n\u62a5\u8b66\u9650\u586b 0 \u65f6\uff0c\u5de6\u8fb9\u7a7a\u4e86\u4e5f\u4e0d\u4f1a\u5207\u6362\u3002\u5173\u6389\u5219\u53ea\u7528\u5de6\u8fb9\u3002");
+    tip(ui->checkBox_UesSecondReagentHole, nullptr, reserveTip);
+
+    ui->checkBox_catchcups->setText(gtr(u8"\u5f00\u673a\u6e05\u7a7a\u901a\u9053\u8bd5\u676f"));
+    const QString bootCupTip = gtr(u8"\u52fe\u9009\u540e\uff0c\u5f00\u673a\u6e05\u6d17\u65f6\u628a\u6d4b\u8bd5\u901a\u9053\u91cc\u7684\u8bd5\u676f\u5168\u90e8\u6293\u8d70\u3002\n\u4e0d\u52fe\u9009\u5219\u5f00\u673a\u4e0d\u6293\uff1b\u8c03\u5149\u53d1\u73b0\u67d0\u4e2a\u901a\u9053\u4e0d\u7a7a\u65f6\uff0c\u518d\u6309\u90a3\u4e2a\u901a\u9053\u5355\u72ec\u6e05\u3002");
+    tip(ui->checkBox_catchcups, nullptr, bootCupTip);
+
+    ui->checkBox_suck_offset->setText(gtr(u8"\u5438\u6837\u524d\u5148\u5438\u7a7a\u6c14"));
+    const QString airFirstTip = gtr(u8"\u52fe\u9009\u540e\uff0c\u5438\u8840\u6837\u524d\u5148\u5438\u4e00\u6bb5\u7a7a\u6c14\uff0c\u628a\u9488\u7ba1\u91cc\u4e0a\u6b21\u7559\u4e0b\u7684\u6db2\u4f53\u9694\u5f00\u3002\u4fdd\u5b58\u4eea\u5668\u914d\u7f6e\u65f6\u5199\u5230\u4e3b\u677f\u3002\n\u4ee5\u524d\u53eb\u300c\u6821\u51c6\u5438\u6837\u300d\uff0c\u5bb9\u6613\u770b\u6210\u6821\u51c6\u5750\u6807\u3002");
+    tip(ui->checkBox_suck_offset, nullptr, airFirstTip);
+
+    const QString channelTip = gtr(u8"\u52fe\u4e0a\u7684\u901a\u9053\u53ef\u4ee5\u6392\u6837\u3001\u6d4b\u8bd5\u548c\u8c03\u5149\u3002\u5173\u6389\u7684\u901a\u9053\u4e0d\u4f1a\u88ab\u5206\u914d\u6837\u672c\u3002");
+    if (ui->usechannel) {
+        const QList<QCheckBox *> channels = ui->usechannel->findChildren<QCheckBox *>();
+        for (QCheckBox *box : channels) {
+            tip(box, nullptr, channelTip);
+        }
+        ui->usechannel->setToolTip(channelTip);
+    }
+
+    const QString temp1 = gtr(u8"\u6a21\u7ec4 1 \u7684\u76ee\u6807\u6e29\u5ea6\uff0c\u5355\u4f4d\u2103\uff0c\u7ba1\u901a\u9053 1 \u5230 4\u3002\u70b9\u4fdd\u5b58\u540e\u5199\u5165\u4e3b\u677f\uff0c\u6a21\u7ec4\u6309\u8fd9\u4e2a\u6e29\u5ea6\u91cd\u65b0\u9501\u6e29\u3002");
+    const QString temp2 = gtr(u8"\u6a21\u7ec4 2 \u7684\u76ee\u6807\u6e29\u5ea6\uff0c\u5355\u4f4d\u2103\uff0c\u7ba1\u901a\u9053 5 \u5230 8\u3002\u70b9\u4fdd\u5b58\u540e\u5199\u5165\u4e3b\u677f\uff0c\u6a21\u7ec4\u6309\u8fd9\u4e2a\u6e29\u5ea6\u91cd\u65b0\u9501\u6e29\u3002");
+    const QString temp3 = gtr(u8"\u6a21\u7ec4 3 \u7684\u76ee\u6807\u6e29\u5ea6\uff0c\u5355\u4f4d\u2103\uff0c\u7ba1\u901a\u9053 9 \u5230 12\u3002\u70b9\u4fdd\u5b58\u540e\u5199\u5165\u4e3b\u677f\uff0c\u6a21\u7ec4\u6309\u8fd9\u4e2a\u6e29\u5ea6\u91cd\u65b0\u9501\u6e29\u3002");
+    tip(ui->label_Moduletemperature_1, ui->doubleSpinBox_Moduletemperature_1, temp1);
+    tip(ui->label_Moduletemperature_2, ui->doubleSpinBox_Moduletemperature_2, temp2);
+    tip(ui->label_Moduletemperature_3, ui->doubleSpinBox_Moduletemperature_3, temp3);
+    tip(ui->Machine_conf_save, nullptr, gtr(u8"\u628a\u901a\u9053\u5f00\u5173\u3001\u4e0a\u9762\u51e0\u4e2a\u52fe\u9009\u548c\u4e09\u5757\u6a21\u7ec4\u6e29\u5ea6\u5199\u5230\u672c\u673a\uff0c\u5e76\u4e0b\u53d1\u4e3b\u677f\u3002"));
+
+    ui->label_EmptyTubeHeigh->setText(gtr(u8"\u8bd5\u676f\u5410\u6837\u4e0b\u9488"));
+    tip(ui->label_EmptyTubeHeigh, ui->EmptyHeigh, gtr(u8"\u6837\u672c\u9488\u628a\u8840\u6837\u5410\u8fdb\u7a7a\u8bd5\u676f\u65f6\u7684\u56fa\u5b9a\u4e0b\u964d\u9ad8\u5ea6\uff0c\u5355\u4f4d\u6beb\u7c73\uff0c\u4e0d\u505a\u6db2\u9762\u63a2\u6d4b\u3002\n\u70b9\u51fb\u540e\u5230\u8bd5\u7ba1\u76d8\u56db\u89d2\u5404\u4e0b\u4e00\u6b21\u8fd9\u4e2a\u9ad8\u5ea6\uff0c\u770b\u4f1a\u4e0d\u4f1a\u624e\u5e95\u6216\u591f\u4e0d\u7740\u3002"));
+
+    ui->label_failedlinque_3->setText(gtr(u8"\u6d17\u6db2\u63a2\u4e0d\u5230\u65f6\u4e0b\u9488"));
+    tip(ui->label_failedlinque_3, ui->spinBox_CleanLinqueFailedHigh, gtr(u8"\u6d17\u6837\u672c\u9488\u3001\u5438\u5185\u90e8\u6e05\u6d17\u6db2\u65f6\u505a\u6db2\u9762\u63a2\u6d4b\u3002\u63a2\u5230\u6db2\u9762\u5c31\u505c\uff1b\u4e00\u76f4\u63a2\u4e0d\u5230\u624d\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u3002\n\u4e0d\u662f\u5e73\u65f6\u5410\u6837\u7684\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u6e05\u6d17\u4f4d\u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+
+    ui->label_3->setText(gtr(u8"\u8840\u6d46\u6a21\u5f0f\u56fa\u5b9a\u4e0b\u9488"));
+    tip(ui->label_3, ui->Testheighdownheigh, gtr(u8"\u8840\u6d46\u6a21\u5f0f\u4e0d\u63a2\u6db2\u9762\uff0c\u6837\u672c\u9488\u76f4\u63a5\u4e0b\u5230\u8fd9\u4e2a\u56fa\u5b9a\u9ad8\u5ea6\u3002\u6279\u91cf\u52a0\u6837\u65f6\u7684\u9ed8\u8ba4\u4e0b\u9488\u9ad8\u5ea6\u4e5f\u662f\u5b83\u3002\n\u70b9\u51fb\u540e\u5230\u8840\u6837\u5b54 2 \u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+
+    ui->label_failedlinque->setText(gtr(u8"\u5438\u8840\u63a2\u6db2\u5931\u8d25\u9ad8\u5ea6"));
+    tip(ui->label_failedlinque, ui->spinBox_faliedlinque, gtr(u8"\u5438\u8840\u6837\u65f6\u6837\u672c\u9488\u505a\u6db2\u9762\u63a2\u6d4b\uff0c\u63a2\u5230\u6db2\u9762\u5c31\u505c\u3002\u63a2\u4e0d\u5230\u5c31\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u4e3a\u6b62\uff0c\u907f\u514d\u624e\u7a7f\u8bd5\u7ba1\u3002\u8840\u6d46\u6a21\u5f0f\u4e0d\u7528\u8fd9\u9879\u3002\n\u4e3b\u677f\u4e0a\u8fd9\u4e00\u9879\u4e5f\u53eb\u8d2b\u8840\u63a2\u6d4b\u5931\u8d25\u9ad8\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8840\u6837\u5b54 1 \u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+
+    tip(ui->label_SecurityValue, ui->SecurityValue_box, gtr(u8"\u6837\u672c\u6cf5\u6362\u5411\u65f6\u7a7a\u8d70\u7684\u8865\u507f\uff0c\u754c\u9762\u4e0a\u4ecd\u53eb\u7a7a\u56de\u503c\u3002\u5410\u6837\u65f6\u6309 \u7a7a\u56de\u503c/0.347 \u6298\u6210\u6b65\u6570\u8865\u4e0a\u3002\u504f\u5c0f\u5bb9\u6613\u5410\u4e0d\u51c0\uff0c\u504f\u5927\u5c31\u591a\u5410\u7a7a\u6c14\u3002"));
+    tip(ui->Poor_blood_changliang, ui->poorBlood_changliang, gtr(u8"\u6bcf\u4e00\u4efd\u8840\u6837\u8981\u5438\u7684\u5fae\u5347\u6570\u3002\u771f\u6b63\u7684\u6cf5\u6b65\u6570\u8fd8\u8981\u518d\u4e58 PPP \u7cfb\u6570\u6216 PRP \u7cfb\u6570\u3002"));
+    tip(ui->label_ratio_ben, ui->doubleSpinBox_Ratio_ben, gtr(u8"\u628a PPP \u6837\u672c\u91cf\u6362\u7b97\u6210\u6837\u672c\u6cf5\u6b65\u6570\u3002\u6b65\u6570\u5927\u7ea6\u7b49\u4e8e \u6837\u672c\u91cf \u00d7 \u672c\u7cfb\u6570\u3002\u53ea\u6539\u6cf5\u8d70\u591a\u5c11\uff0c\u4e0d\u6539\u4e0a\u9762\u7684\u5fae\u5347\u6570\u3002\n\u53ea\u505a\u4e00\u4e2a\u9879\u76ee\u65f6\uff0c\u5438 PRP \u4e5f\u8d70\u8fd9\u4e2a\u7cfb\u6570\u3002"));
+    tip(ui->PRPratiolable, ui->doubleSpinBox_PRPratio, gtr(u8"\u4e00\u6b21\u62bd\u8840\u3001\u591a\u4e2a\u8bd5\u5242\u5438 PRP \u65f6\uff0c\u7528\u8fd9\u4e2a\u7cfb\u6570\u628a\u6837\u672c\u91cf\u6362\u7b97\u6210\u6cf5\u6b65\u6570\u3002\u53ea\u505a\u4e00\u4e2a\u9879\u76ee\u65f6\u4e0d\u8d70\u8fd9\u9879\uff0c\u8d70 PPP \u7cfb\u6570\u3002"));
+    tip(ui->labelPeRatio, ui->doubleSpinBoxAddRatio, gtr(u8"\u6027\u80fd\u8bc4\u4f30\u52a0\u6807\u51c6\u54c1\u65f6\uff0c\u5728\u6309 PPP \u7cfb\u6570\u7b97\u51fa\u7684\u5438\u91cf\u4e4b\u5916\uff0c\u518d\u591a\u5438\u8fd9\u4e2a\u767e\u5206\u6bd4\u3002\u586b 10 \u5c31\u662f\u591a\u5438 10%\u3002\u75c5\u4eba\u6b63\u5f0f\u6d4b\u8bd5\u4e0d\u8d70\u8fd9\u9879\u3002"));
+    tip(ui->label_fixedhigh, ui->FixedHighvalue, gtr(u8"\u5168\u8840\u6d4b\u9ad8\u7528\u7684\u57fa\u51c6\u9ad8\u5ea6\uff0c\u5c31\u662f\u9488\u5230\u57fa\u51c6\u7269\u7684\u8ddd\u79bb\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\u548c\u6d4b\u9ad8\u504f\u79fb\u3001\u6a21\u5757\u5e95\u90e8\u8ddd\u79bb\u4e00\u8d77\u7b97\u51fa\u8be5\u4e0b\u591a\u6df1\u3002"));
+    tip(ui->OffsetTestHeight, ui->OffsetTestHeightValue, gtr(u8"\u5168\u8840\u6d4b\u9ad8\u7684\u5b89\u5168\u4f59\u91cf\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\u7b97\u51fa\u6765\u7684\u4e0b\u9488\u6df1\u5ea6\u4f1a\u518d\u51cf\u6389\u5b83\uff0c\u907f\u514d\u9488\u624e\u8fdb\u7ea2\u7ec6\u80de\u5c42\u3002"));
+    tip(ui->labelRefToBottom, ui->doubleSpinBoxBottomHeigh, gtr(u8"\u6d4b\u9ad8\u6a21\u5757\u5230\u8bd5\u7ba1\u5e95\u7684\u53c2\u7167\u8ddd\u79bb\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\u548c\u5168\u8840\u6d4b\u9ad8\u9ad8\u5ea6\u3001\u504f\u79fb\u4e00\u8d77\u7b97\u9488\u8be5\u4e0b\u591a\u6df1\u3002\u4fdd\u5b58\u540e\u5199\u5230\u4e3b\u677f\u6269\u5c55\u53c2\u6570\u3002"));
+    tip(ui->label_AbsorbX2, ui->spinBoxAbsorbX2, gtr(u8"\u6bcf\u6d17\u4e00\u6b21\u6837\u672c\u9488\uff0c\u4ece\u5185\u90e8\u6e05\u6d17\u6db2\u74f6\u91cc\u5438\u8d70\u7684\u5fae\u5347\u3002\u754c\u9762\u4e0a\u7684\u6e05\u6d17\u6db2\u767e\u5206\u6bd4\u6309\u8fd9\u4e2a\u6570\u6263\uff0c\u4e0d\u6309\u6cf5\u6b65\u6570\u6263\u3002"));
+    tip(ui->labelwashesTime, ui->spinBox_WashesTime, gtr(u8"\u6837\u672c\u9488\u6216\u8bd5\u5242\u9488\u628a\u6e05\u6d17\u6db2\u5410\u56de\u6e05\u6d17\u6c60\u65f6\uff0c\u6cf5\u4fdd\u6301\u51b2\u6d17\u7684\u6beb\u79d2\u6570\u3002\u6d17\u53cc\u9488\u3001\u53ea\u6d17\u6837\u672c\u9488\u3001\u53ea\u6d17\u8bd5\u5242\u9488\u90fd\u7528\u8fd9\u4e00\u9879\u3002"));
+    tip(ui->label_suckairs, ui->spinBox_suckairs, gtr(u8"\u5438 PRP \u524d\u8981\u989d\u5916\u5438\u5165\u7684\u7a7a\u6c14\u91cf\uff0c\u70b9\u4fdd\u5b58\u4f1a\u5199\u56de\u4e3b\u677f\uff0c\u7528\u6765\u9694\u5f00\u9488\u7ba1\u91cc\u4e0a\u6b21\u7684\u6b8b\u6db2\u3002\n\u4e0a\u4f4d\u673a\u73b0\u5728\u7ec4\u5438 PRP \u52a8\u4f5c\u65f6\uff0c\u9694\u5f00\u6b8b\u6db2\u7528\u7684\u662f\u56fa\u5b9a\u56de\u5438\uff0c\u6539\u8fd9\u4e2a\u6570\u4e0d\u4f1a\u9a6c\u4e0a\u6539\u53d8\u90a3\u4e00\u6bb5\u6cf5\u6b65\u3002"));
+    tip(ui->label_PPPdelay, ui->spinBox_PPPdelay, gtr(u8"\u8840\u6837\u5410\u8fdb\u8bd5\u676f\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u53d1\u4e0b\u4e00\u6761\u62ac\u9488\u3002PPP \u548c PRP \u5410\u6837\u90fd\u7528\u5b83\uff0c\u907f\u514d\u6db2\u4f53\u8fd8\u6ca1\u843d\u4e0b\u5c31\u62ac\u9488\u3002\u4fdd\u5b58\u540e\u5199\u5230\u4e3b\u677f\u3002"));
+    tip(ui->label_PRPdelay, ui->spinBox_PRPdelay, gtr(u8"\u8840\u6837\u5438\u5b8c\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u53d1\u4e0b\u4e00\u6761\u62ac\u9488\u3002PPP \u548c PRP \u5438\u6837\u90fd\u7528\u5b83\u3002\u4fdd\u5b58\u540e\u5199\u5230\u4e3b\u677f\u3002"));
+    tip(ui->pushButtonBloodPinParasave, nullptr, gtr(u8"\u628a\u672c\u9875\u6837\u672c\u9488\u53c2\u6570\u4fdd\u5b58\uff0c\u5e76\u5199\u5165\u4e3b\u677f\u3002"));
+
+    const QString coefTip = gtr(u8"\u53ea\u4fee\u6b63\u8bd5\u5242\u6cf5\u6b65\u6570\uff0c\u8ba9\u673a\u5668\u771f\u6b63\u5438\u5230\u4f60\u586b\u7684\u5fae\u5347\u30021.02 \u8868\u793a\u6cf5\u591a\u8d70 2% \u7684\u6b65\u3002\n\u4e0d\u53c2\u4e0e\u74f6\u5b50\u5269\u4f59\u767e\u5206\u6bd4\u3002\u767e\u5206\u6bd4\u53ea\u770b\u5438\u8bd5\u5242\u91cf\uff0c\u518d\u52a0\u4e0a\u57fa\u7840\u5438\u91cf\u6dfb\u52a0\u6bd4\u3002");
+    tips(QList<QWidget *>()
+         << ui->label_11
+         << ui->doubleSpinBox_AA_Ratio << ui->doubleSpinBox_ADP_Ratio
+         << ui->doubleSpinBox_ADR_Ratio << ui->doubleSpinBox_COL_Ratio
+         << ui->doubleSpinBox_RIS_Ratio, coefTip);
+
+    const QString addTip = gtr(u8"\u5728\u6807\u79f0\u5fae\u5347\u4e4b\u5916\u771f\u6b63\u591a\u5438\u7684\u6bd4\u4f8b\u30020.02 \u8868\u793a\u591a\u5438 2%\uff0c\u74f6\u5b50\u4f59\u91cf\u4f1a\u628a\u591a\u51fa\u6765\u7684\u6db2\u4f53\u6263\u6389\u3002\n\u548c\u5438\u8bd5\u5242\u7cfb\u6570\u4e0d\u662f\u4e00\u56de\u4e8b\uff1a\u7cfb\u6570\u53ea\u4fee\u6cf5\u6b65\uff0c\u8fd9\u4e00\u9879\u624d\u662f\u591a\u5438\u6db2\u4f53\u3002");
+    tips(QList<QWidget *>()
+         << ui->label_12
+         << ui->doubleSpinBox_Add_AA_Ratio << ui->doubleSpinBox_Add_ADP_Ratio
+         << ui->doubleSpinBox_Add_ADR_Ratio << ui->doubleSpinBox_Add_COL_Ratio
+         << ui->doubleSpinBox_Add_RIS_Ratio, addTip);
+
+    const QString volTip = gtr(u8"\u8fd9\u79cd\u8bd5\u5242\u6bcf\u6b21\u4ece\u74f6\u91cc\u5438\u8d70\u7684\u6807\u79f0\u5fae\u5347\u3002\u74f6\u5b50\u767e\u5206\u6bd4\u6309\u8fd9\u4e2a\u6570\u6263\uff1b\u82e5\u57fa\u7840\u5438\u91cf\u6dfb\u52a0\u6bd4\u5927\u4e8e 0\uff0c\u518d\u628a\u591a\u5438\u7684\u6db2\u4f53\u4e00\u5e76\u6263\u6389\u3002");
+    tips(QList<QWidget *>()
+         << ui->label_absorbVol
+         << ui->spinBox_AA_Suck_Vol << ui->spinBox_ADP_Suck_Vol
+         << ui->spinBox_ADR_Suck_Vol << ui->spinBox_COL_Suck_Vol
+         << ui->spinBox_RIS_Suck_Vol, volTip);
+
+    const QString downTip = gtr(u8"\u8bd5\u5242\u9488\u628a\u8fd9\u79cd\u8bd5\u5242\u5410\u8fdb\u6d4b\u8bd5\u901a\u9053\u65f6\u7684\u56fa\u5b9a\u9ad8\u5ea6\uff0c\u5355\u4f4d\u6beb\u7c73\uff0c\u4e0d\u63a2\u6db2\u9762\u3002\n\u70b9\u5de6\u4fa7\u84dd\u8272\u8bd5\u5242\u540d\uff0c\u4f1a\u5230 1 \u53f7\u901a\u9053\u6309\u8fd9\u4e00\u884c\u7684\u9ad8\u5ea6\u8bd5\u4e0b\u9488\u3002");
+    tips(QList<QWidget *>()
+         << ui->label_13
+         << ui->spinBox_down_AA << ui->spinBox_down_ADP
+         << ui->spinBox_down_ADR << ui->spinBox_down_COL
+         << ui->spinBox_down_RIS, downTip);
+
+    const QString capTip = gtr(u8"\u4e00\u74f6\u80fd\u88c5\u591a\u5c11\u5fae\u5347\u3002\u540c\u4e00\u79cd\u8bd5\u5242\u5de6\u8fb9\u548c\u53f3\u8fb9\u5171\u7528\u8fd9\u4e2a\u5bb9\u91cf\u3002\u5269\u4f59\u767e\u5206\u6bd4 = \u5269\u4e0b\u7684\u5fae\u5347 / \u5bb9\u91cf\u3002\n\u6e05\u6d17\u6db2\u90a3\u4e00\u884c\u662f\u5185\u90e8\u6e05\u6d17\u6db2\uff0c\u4e0d\u662f\u8bd5\u5242\u3002");
+    tips(QList<QWidget *>()
+         << ui->label_capacity
+         << ui->spinBox_capacity_aa << ui->spinBox_capacity_adp
+         << ui->spinBox_capacity_epi << ui->spinBox_capacity_col
+         << ui->spinBox_capacity_ris << ui->spinBox_capacity_cleanlinque, capTip);
+
+    const QString limitTip = gtr(u8"\u5269\u4f59\u767e\u5206\u6bd4\u4f4e\u4e8e\u8fd9\u4e2a\u6570\u5c31\u62a5\u8b66\u3002\n\u5f00\u4e86\u9884\u7559\u8bd5\u5242\u4f4d\u65f6\uff1a\u5de6\u8fb9\u518d\u5438\u4e00\u9488\u4f1a\u4f4e\u4e8e\u8fd9\u4e2a\u6570\uff0c\u53f3\u8fb9\u8fd8\u591f\uff0c\u624d\u6539\u5438\u53f3\u8fb9\u3002\u586b 0 \u65f6\u5de6\u8fb9\u7a7a\u4e86\u4e5f\u4e0d\u4f1a\u5207\u6362\u3002\u6e05\u6d17\u6db2\u7528\u540c\u4e00\u5957\u767e\u5206\u6bd4\u62a5\u8b66\u3002");
+    tips(QList<QWidget *>()
+         << ui->label_limit
+         << ui->spinBox_limit_aa << ui->spinBox_limit_adp
+         << ui->spinBox_limit_epi << ui->spinBox_limit_col
+         << ui->spinBox_limit_ris << ui->spinBox_limit_cleanlinque, limitTip);
+    tip(ui->label_cleanlinque, nullptr, gtr(u8"\u8fd9\u4e00\u884c\u662f\u5185\u90e8\u6e05\u6d17\u6db2\u3002\u5bb9\u91cf\u662f\u6574\u74f6\u5fae\u5347\uff0c\u62a5\u8b66\u9650\u662f\u5269\u4f59\u767e\u5206\u6bd4\u3002\u6d17\u6837\u672c\u9488\u3001\u6d17\u8bd5\u5242\u9488\u90fd\u4ece\u8fd9\u91cc\u6263\u3002"));
+
+    ui->label_failedlinque_2->setText(gtr(u8"\u6d17\u6db2\u63a2\u4e0d\u5230\u65f6\u4e0b\u9488"));
+    tip(ui->label_failedlinque_2, ui->spinBoxReagentNeedleFailehigh, gtr(u8"\u6d17\u8bd5\u5242\u9488\u3001\u5438\u5185\u90e8\u6e05\u6d17\u6db2\u65f6\u505a\u6db2\u9762\u63a2\u6d4b\u3002\u63a2\u5230\u6db2\u9762\u5c31\u505c\uff1b\u63a2\u4e0d\u5230\u624d\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u3002\n\u4ee5\u524d\u8fd9\u4e2a\u540d\u5b57\u5199\u6210\u4e86\u8bd5\u5242\u63a2\u6d4b\u5e95\u90e8\uff0c\u5b9e\u9645\u7ba1\u7684\u662f\u6e05\u6d17\u6db2\u3002\u70b9\u51fb\u540e\u5230\u6e05\u6d17\u4f4d\u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+
+    ui->label_failedhighreagentneedle->setText(gtr(u8"\u5438\u8bd5\u5242\u63a2\u6db2\u5931\u8d25\u9ad8\u5ea6"));
+    tip(ui->label_failedhighreagentneedle, ui->spinBox_TestReagentFailedhigh, gtr(u8"\u5438\u8bd5\u5242\u65f6\u8bd5\u5242\u9488\u505a\u6db2\u9762\u63a2\u6d4b\uff0c\u63a2\u5230\u6db2\u9762\u5c31\u505c\u3002\u63a2\u4e0d\u5230\u5c31\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u4e3a\u6b62\uff0c\u907f\u514d\u624e\u5230\u74f6\u5e95\u3002\n\u4ee5\u524d\u8fd9\u4e2a\u540d\u5b57\u5199\u6210\u4e86\u6e05\u6d17\u63a2\u6d4b\u9ad8\u5ea6\uff0c\u5b9e\u9645\u7ba1\u7684\u662f\u5438\u8bd5\u5242\u3002\u70b9\u51fb\u540e\u5230\u8bd5\u5242\u4f4d\u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+
+    ui->label_AbsorbX1->setText(gtr(u8"\u8bd5\u5242\u9488\u6e05\u6d17\u91cf"));
+    tip(ui->label_AbsorbX1, ui->spinBoxAbsorbX1, gtr(u8"\u6bcf\u6d17\u4e00\u6b21\u8bd5\u5242\u9488\uff0c\u4ece\u5185\u90e8\u6e05\u6d17\u6db2\u74f6\u5438\u8d70\u7684\u5fae\u5347\u3002\u6e05\u6d17\u6db2\u767e\u5206\u6bd4\u6309\u8fd9\u4e2a\u6570\u6263\u3002"));
+
+    ui->label_delpms->setText(gtr(u8"\u8bfb\u521d\u503c\u524d\u7b49\u5f85"));
+    tip(ui->label_delpms, ui->spinBox_deptime, gtr(u8"\u676f\u5b50\u653e\u5230\u901a\u9053\u540e\u3001\u8bfb\u805a\u96c6\u521d\u503c\u4e4b\u524d\uff0c\u989d\u5916\u518d\u7b49\u7684\u6beb\u79d2\u3002\n\u8bfb PPP \u521d\u503c\u603b\u4f1a\u52a0\u4e0a\u5b83\u3002\u8bfb PRP \u521d\u503c\u65f6 AA \u4e0d\u52a0\uff0cADP\u3001EPI\u3001COL\u3001RIS \u52a0\u3002\u4e0d\u662f\u5410\u8bd5\u5242\u540e\u7684\u62ac\u9488\u65f6\u95f4\u3002"));
+
+    ui->label_reagentSuckLiftDelay->setText(gtr(u8"\u5438\u5b8c\u8bd5\u5242\u518d\u62ac\u9488"));
+    tip(ui->label_reagentSuckLiftDelay, ui->spinBox_reagentSuckLiftDelay, gtr(u8"\u8bd5\u5242\u9488\u5438\u5b8c\u8bd5\u5242\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u62ac\u9488\uff0c\u907f\u514d\u9488\u5c16\u8fd8\u6302\u7740\u8bd5\u5242\u3002\n\u6539\u5b8c\u79bb\u5f00\u8f93\u5165\u6846\u5c31\u4f1a\u8bb0\u4e0b\uff1b\u70b9\u4fdd\u5b58\u8bd5\u5242\u9488\u53c2\u6570\u65f6\u4e5f\u4f1a\u518d\u5199\u4e00\u6b21\u3002\u5b58\u5728\u672c\u673a\u914d\u7f6e\u91cc\uff0c\u6d4b\u8bd5\u76f4\u63a5\u7528\u3002"));
+    tip(ui->pushButton_saved, nullptr, gtr(u8"\u628a\u5438\u8bd5\u5242\u91cf\u3001\u7cfb\u6570\u3001\u6dfb\u52a0\u6bd4\u3001\u5410\u8bd5\u5242\u9ad8\u5ea6\u3001\u5bb9\u91cf\u3001\u62a5\u8b66\u9650\uff0c\u4ee5\u53ca\u5438\u5b8c\u518d\u62ac\u9488\u7684\u65f6\u95f4\u4fdd\u5b58\uff0c\u5e76\u628a\u8bd5\u5242\u53c2\u6570\u4e0b\u53d1\u4e3b\u677f\u3002"));
+
+    if (ui->groupBox_gripperDown) {
+        ui->groupBox_gripperDown->setTitle(gtr(u8"\u6293\u624b\u4e0b\u964d\u9ad8\u5ea6"));
+        ui->groupBox_gripperDown->setToolTip(gtr(u8"\u6293\u624b\u5728\u8bd5\u7ba1\u76d8\u3001\u6d4b\u8bd5\u901a\u9053\u548c\u5f03\u676f\u5b54\u4e0b\u5230\u591a\u6df1\u3002\u84dd\u8272\u6807\u7b7e\u53ef\u4ee5\u70b9\uff0c\u6309\u65c1\u8fb9\u7684\u6beb\u7c73\u6570\u8bd5\u4e00\u6b21\u52a8\u4f5c\u3002"));
+    }
+    tip(ui->label_handthrowcups, ui->spinBox_downthrowcups, gtr(u8"\u6293\u624b\u5728\u5f03\u676f\u5b54\u677e\u624b\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\n\u70b9\u51fb\u540e\u53ea\u5230\u5f03\u676f\u5b54\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\uff0c\u518d\u62ac\u8d77\u6765\u3002"));
+    tip(ui->label_testtray_0, ui->spinBox_testtray_0, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 1 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_testtray_1, ui->spinBox_testtray_1, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 2 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_testtray_2, ui->spinBox_testtray_2, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 3 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_testtray_3, ui->spinBox_testtray_3, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 4 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_handsdownchn_0, ui->spinBox_handsdownchn_0, gtr(u8"\u6293\u624b\u628a\u676f\u5b50\u653e\u8fdb\u6a21\u7ec4 1\uff08\u901a\u9053 1 \u5230 4\uff09\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u8fd9\u56db\u4e2a\u901a\u9053\u5171\u7528\u3002\n\u70b9\u51fb\u540e\u5230\u901a\u9053 1 \u4e0b\u5230\u8fd9\u4e2a\u6df1\u5ea6\uff0c\u518d\u5230\u5f03\u676f\u5b54\u8bd5\u653e\uff0c\u7136\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_handsdownchn_1, ui->spinBox_handsdownchn_1, gtr(u8"\u6293\u624b\u628a\u676f\u5b50\u653e\u8fdb\u6a21\u7ec4 2\uff08\u901a\u9053 5 \u5230 8\uff09\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u8fd9\u56db\u4e2a\u901a\u9053\u5171\u7528\u3002\n\u70b9\u51fb\u540e\u5230\u901a\u9053 5 \u4e0b\u5230\u8fd9\u4e2a\u6df1\u5ea6\uff0c\u518d\u5230\u5f03\u676f\u5b54\u8bd5\u653e\uff0c\u7136\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_handsdownchn_2, ui->spinBox_handsdownchn_2, gtr(u8"\u6293\u624b\u628a\u676f\u5b50\u653e\u8fdb\u6a21\u7ec4 3\uff08\u901a\u9053 9 \u5230 12\uff09\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u8fd9\u56db\u4e2a\u901a\u9053\u5171\u7528\u3002\n\u70b9\u51fb\u540e\u5230\u901a\u9053 9 \u4e0b\u5230\u8fd9\u4e2a\u6df1\u5ea6\uff0c\u518d\u5230\u5f03\u676f\u5b54\u8bd5\u653e\uff0c\u7136\u540e\u56de\u539f\u70b9\u3002"));
+
+    const QString grabTip = gtr(u8"\u6c14\u538b\u8bfb\u6570\u5c0f\u4e8e\u7b49\u4e8e\u8fd9\u4e2a\u503c\uff0c\u624d\u7b97\u676f\u5b50\u5438\u5728\u6293\u624b\u4e0a\u3002\u6570\u503c\u8d8a\u5c0f\uff0c\u8981\u6c42\u5438\u5f97\u8d8a\u72e0\u3002\n\u81ea\u52a8\u5224\u5b9a\u4f1a\u628a\u6d4b\u5230\u7684\u6570\u586b\u8fdb\u6765\u3002\u8981\u70b9\u4fdd\u5b58\u6293\u624b\u53c2\u6570\uff0c\u6b63\u5f0f\u6d4b\u8bd5\u624d\u4f1a\u7528\u65b0\u503c\u3002");
+    tip(ui->label_2, ui->spinBoxSuckAirsMax, grabTip);
+    const QString dropTip = gtr(u8"\u6c14\u538b\u8bfb\u6570\u5927\u4e8e\u7b49\u4e8e\u8fd9\u4e2a\u503c\uff0c\u624d\u7b97\u676f\u5b50\u5df2\u7ecf\u677e\u5f00\u3002\u5fc5\u987b\u660e\u663e\u9ad8\u4e8e\u6293\u4f4f\u5224\u5b9a\uff0c\u5426\u5219\u6ca1\u4e22\u6389\u4e5f\u4f1a\u5f53\u6210\u5df2\u4e22\uff0c\u62ac\u6293\u624b\u65f6\u628a\u676f\u5b50\u5e26\u8d77\u6765\u3002\n\u81ea\u52a8\u5224\u5b9a\u4f1a\u586b\u8fd9\u4e2a\u6570\u3002\u4fdd\u5b58\u540e\u6b63\u5f0f\u6d4b\u8bd5\u624d\u4f7f\u7528\u3002");
+    tip(ui->label_8, ui->spinBoxSplitAirsMin, dropTip);
+    const QString grabDelayTip = gtr(u8"\u6293\u624b\u4e0b\u5230\u676f\u5b50\u4e0a\u3001\u8d1f\u538b\u6253\u5f00\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u8bfb\u6c14\u538b\u3002\u592a\u77ed\u4f1a\u5728\u8fd8\u6ca1\u5438\u7262\u65f6\u5c31\u5224\u5b9a\u5931\u8d25\uff0c\u7136\u540e\u52a0\u6df1\u91cd\u6293\u3002");
+    tip(ui->labelsuckLateTimer, ui->spinBox_suckLatetimer, grabDelayTip);
+    const QString throwDelayTip = gtr(u8"\u5173\u6389\u8d1f\u538b\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u786e\u8ba4\u676f\u5b50\u677e\u5f00\u3002\u592a\u77ed\u4f1a\u5728\u676f\u5b50\u8fd8\u7c98\u7740\u65f6\u5c31\u62ac\u6293\u624b\uff0c\u628a\u8bd5\u676f\u5e26\u8d77\u6765\u3002\n\u4fdd\u5b58\u6293\u624b\u53c2\u6570\u65f6\uff0c\u8fd9\u4e2a\u65f6\u95f4\u4f1a\u548c\u8bd5\u5242\u6269\u5c55\u53c2\u6570\u4e00\u8d77\u5199\u5230\u4e3b\u677f\u3002");
+    tip(m_gripperThrowDelayLabel, m_gripperThrowDelaySpin, throwDelayTip);
+    tip(ui->checkBox_Recapture, nullptr, gtr(u8"\u5438\u676f\u5224\u5b9a\u6ca1\u8fc7\u65f6\uff0c\u518d\u52a0\u6df1\u91cd\u6293\u3002\u5173\u6389\u5219\u5931\u8d25\u540e\u8d70\u5f02\u5e38\u590d\u4f4d\uff0c\u4e0d\u518d\u8bd5\u7b2c\u4e8c\u6b21\u3002"));
+    tip(ui->pushButtonopenSuck, nullptr, gtr(u8"\u4eea\u5668\u81ea\u5df1\u8d70\u4e00\u904d\u7a7a\u8f7d\u3001\u5438\u4f4f\u3001\u4e22\u6389\uff0c\u628a\u6293\u4f4f\u5224\u5b9a\u3001\u4e22\u6389\u5224\u5b9a\u3001\u5438\u676f\u5ef6\u65f6\u548c\u4e22\u676f\u5ef6\u65f6\u586b\u8fdb\u6846\u91cc\u3002\u586b\u5b8c\u4ecd\u8981\u70b9\u4fdd\u5b58\u6293\u624b\u53c2\u6570\uff0c\u624d\u4f1a\u5199\u8fdb\u4e3b\u677f\u3002"));
+    tip(ui->pushButtonsplitAirs, nullptr, gtr(u8"\u505c\u4e0b\u6b63\u5728\u8fdb\u884c\u7684\u81ea\u52a8\u5224\u5b9a\u3002\u5224\u5b9a\u6ca1\u5728\u8dd1\u65f6\uff0c\u7528\u6765\u5173\u95ed\u8d1f\u538b\u5e76\u770b\u5f53\u524d\u7a7a\u8f7d\u6c14\u538b\u3002"));
+    tip(ui->label_showsuckVal, nullptr, gtr(u8"\u6700\u8fd1\u4e00\u6b21\u5438\u4f4f\u65f6\u8bfb\u5230\u7684\u6c14\u538b\u3002\u6570\u503c\u8d8a\u5c0f\uff0c\u5438\u529b\u8d8a\u5927\u3002"));
+    tip(ui->label_splitval, nullptr, gtr(u8"\u6700\u8fd1\u4e00\u6b21\u7a7a\u8f7d\u6216\u4e22\u6389\u65f6\u8bfb\u5230\u7684\u6c14\u538b\u3002\u5e94\u660e\u663e\u9ad8\u4e8e\u5438\u4f4f\u65f6\u7684\u6570\u3002"));
+    tip(ui->pushButtonHandsParaSave, nullptr, gtr(u8"\u628a\u4e0b\u964d\u9ad8\u5ea6\u3001\u8d1f\u538b\u5224\u5b9a\u3001\u5438\u676f\u5ef6\u65f6\u548c\u4e22\u676f\u5ef6\u65f6\u4fdd\u5b58\uff0c\u5e76\u5199\u5165\u4e3b\u677f\u3002"));
+
+    const QString mark = gtr(u8"\u25b8 ");
+    const QString clickNote = gtr(u8"\n\n\u84dd\u8272\u6807\u7b7e\u53ef\u4ee5\u70b9\uff1a\u6309\u65c1\u8fb9\u7684\u6beb\u7c73\u6570\u5b9e\u9645\u505a\u4e00\u6b21\u4e0b\u9488\u3002\u6b63\u5728\u6d4b\u8bd5\uff0c\u6216\u4eea\u5668\u6ca1\u8fde\u4e0a\u65f6\uff0c\u70b9\u4e86\u4e0d\u4f1a\u52a8\u3002\u505a\u5b8c\u6807\u7b7e\u4f1a\u4ece\u7eff\u8272\u53d8\u56de\u84dd\u8272\u3002");
+    const QMap<QLabel *, btnLable *> *maps[] = {
+        &m_pbloodLableList, &m_preagpinLableList, &m_pHandsLableList
+    };
+    for (const QMap<QLabel *, btnLable *> *one : maps) {
+        for (auto it = one->cbegin(); it != one->cend(); ++it) {
+            QLabel *label = it.key();
+            if (!label || label->property("clickNoted").toBool()) {
+                continue;
+            }
+            label->setProperty("clickNoted", true);
+            if (!label->text().startsWith(mark)) {
+                label->setText(mark + label->text());
+            }
+            styleClickDownLabel(label, false);
+            QString base = label->toolTip();
+            if (base.isEmpty() && it.value() && it.value()->pdownmovemm) {
+                base = it.value()->pdownmovemm->toolTip();
+            }
+            const QString full = base + clickNote;
+            label->setToolTip(full);
+            if (it.value() && it.value()->pdownmovemm) {
+                it.value()->pdownmovemm->setToolTip(full);
+            }
+        }
+    }
+    relayoutEquipmentPages();
+}
+
+void MachineSetting::relayoutEquipmentPages()
+{
+    if (ui->usechannel && ui->usechannel->property("modelCards").toBool()) {
+        return;
+    }
+    if (ui->usechannel) {
+        ui->usechannel->setProperty("modelCards", true);
+    }
+    int modules = 3;
+    if (m_typedequipment == KS600) {
+        modules = 1;
+    } else if (m_typedequipment == KS800) {
+        modules = 2;
+    }
+
+    QCheckBox *boxes[12] = {
+        ui->Channel_State_1, ui->Channel_State_2, ui->Channel_State_3, ui->Channel_State_4,
+        ui->Channel_State_5, ui->Channel_State_6, ui->Channel_State_7, ui->Channel_State_8,
+        ui->Channel_State_9, ui->Channel_State_10, ui->Channel_State_11, ui->Channel_State_12
+    };
+    QLabel *tempLab[3] = {
+        ui->label_Moduletemperature_1, ui->label_Moduletemperature_2, ui->label_Moduletemperature_3
+    };
+    QDoubleSpinBox *tempSp[3] = {
+        ui->doubleSpinBox_Moduletemperature_1,
+        ui->doubleSpinBox_Moduletemperature_2,
+        ui->doubleSpinBox_Moduletemperature_3
+    };
+
+    const QString cardQss = QStringLiteral(
+                "QFrame#moduleChannelCard {"
+                " background-color: rgba(255,255,255,0.78);"
+                " border: 1px solid #C5DFF0;"
+                " border-radius: 10px;"
+                "}");
+    const QString titleQss = QStringLiteral(
+                "color:#005A8C; font-weight:700; background:transparent; border:none;");
+    const QString subQss = QStringLiteral(
+                "color:#5C7C90; background:transparent; border:none;");
+
+    if (ui->gridLayout_11 && ui->usechannel) {
+        while (QLayoutItem *old = ui->gridLayout_11->takeAt(0)) {
+            delete old;
+        }
+        ui->gridLayout_11->setContentsMargins(12, 20, 12, 12);
+        ui->gridLayout_11->setHorizontalSpacing(12);
+        ui->gridLayout_11->setVerticalSpacing(8);
+
+        for (int m = 0; m < modules; ++m) {
+            QFrame *card = new QFrame(ui->usechannel);
+            card->setObjectName(QStringLiteral("moduleChannelCard"));
+            card->setStyleSheet(cardQss);
+            card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+            QVBoxLayout *v = new QVBoxLayout(card);
+            v->setContentsMargins(12, 10, 12, 12);
+            v->setSpacing(6);
+
+            QLabel *title = new QLabel(card);
+            title->setText(gtr(u8"\u6a21\u7ec4 %1").arg(m + 1));
+            title->setStyleSheet(titleQss);
+            v->addWidget(title);
+
+            QLabel *sub = new QLabel(card);
+            sub->setText(gtr(u8"\u901a\u9053 %1 \u2013 %2").arg(m * 4 + 1).arg(m * 4 + 4));
+            sub->setStyleSheet(subQss);
+            v->addWidget(sub);
+
+            QBoxLayout *chLay = 0;
+            if (modules == 1) {
+                QHBoxLayout *row = new QHBoxLayout;
+                row->setSpacing(12);
+                chLay = row;
+            } else {
+                QVBoxLayout *col = new QVBoxLayout;
+                col->setSpacing(2);
+                chLay = col;
+            }
+            for (int i = 0; i < 4; ++i) {
+                QCheckBox *box = boxes[m * 4 + i];
+                if (!box) {
+                    continue;
+                }
+                box->setParent(card);
+                box->setMinimumHeight(56);
+                box->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+                box->show();
+                chLay->addWidget(box);
+            }
+            v->addLayout(chLay);
+
+            if (tempLab[m] && tempSp[m]) {
+                tempLab[m]->setParent(card);
+                tempSp[m]->setParent(card);
+                tempLab[m]->setText(gtr(u8"\u76ee\u6807\u6e29\u5ea6"));
+                tempLab[m]->setStyleSheet(subQss);
+                tempLab[m]->setMaximumWidth(QWIDGETSIZE_MAX);
+                tempLab[m]->show();
+                tempSp[m]->setMinimumWidth(120);
+                tempSp[m]->setMaximumWidth(200);
+                tempSp[m]->show();
+                QHBoxLayout *tempRow = new QHBoxLayout;
+                tempRow->setSpacing(8);
+                tempRow->addWidget(tempLab[m]);
+                tempRow->addWidget(tempSp[m], 1);
+                v->addSpacing(4);
+                v->addLayout(tempRow);
+            }
+            ui->gridLayout_11->addWidget(card, 0, m);
+            ui->gridLayout_11->setColumnStretch(m, 1);
+        }
+        for (int i = modules * 4; i < 12; ++i) {
+            if (boxes[i]) {
+                boxes[i]->hide();
+            }
+        }
+        for (int m = modules; m < 3; ++m) {
+            if (tempLab[m]) {
+                tempLab[m]->hide();
+            }
+            if (tempSp[m]) {
+                tempSp[m]->hide();
+            }
+        }
+
+        QString model = QStringLiteral("KS1200");
+        if (m_typedequipment == KS600) {
+            model = QStringLiteral("KS600");
+        } else if (m_typedequipment == KS800) {
+            model = QStringLiteral("KS800");
+        }
+        ui->usechannel->setTitle(model + gtr(u8"  \u4f7f\u7528\u901a\u9053"));
+    }
+    if (ui->groupBox) {
+        ui->groupBox->hide();
+    }
+
+    QGridLayout *down = ui->gridLayout_2;
+    if (!down || !ui->groupBox_gripperDown) {
+        return;
+    }
+    while (QLayoutItem *old = down->takeAt(0)) {
+        delete old;
+    }
+    down->setContentsMargins(12, 22, 12, 12);
+    down->setHorizontalSpacing(10);
+    down->setVerticalSpacing(8);
+
+    const QString heightQss = QStringLiteral(
+                "QFrame#heightTuneCard {"
+                " background-color: rgba(255,255,255,0.82);"
+                " border: 1px solid #D3E6F2;"
+                " border-radius: 8px;"
+                "}");
+    const QString sectionQss = QStringLiteral(
+                "color:#0077B6; font-weight:700; background:transparent; border:none; padding-top:4px;");
+    const QString mark = gtr(u8"\u25b8 ");
+
+    QLabel *trayLab[4] = {
+        ui->label_testtray_0, ui->label_testtray_1, ui->label_testtray_2, ui->label_testtray_3
+    };
+    QSpinBox *traySp[4] = {
+        ui->spinBox_testtray_0, ui->spinBox_testtray_1, ui->spinBox_testtray_2, ui->spinBox_testtray_3
+    };
+    QLabel *modLab[3] = {
+        ui->label_handsdownchn_0, ui->label_handsdownchn_1, ui->label_handsdownchn_2
+    };
+    QSpinBox *modSp[3] = {
+        ui->spinBox_handsdownchn_0, ui->spinBox_handsdownchn_1, ui->spinBox_handsdownchn_2
+    };
+
+    int trayCount = 4;
+    int modCount = modules;
+    if (m_typedequipment == KS600) {
+        trayCount = 2;
+    } else if (m_typedequipment == KS800) {
+        trayCount = 3;
+    }
+    for (int i = trayCount; i < 4; ++i) {
+        if (trayLab[i]) {
+            trayLab[i]->hide();
+        }
+        if (traySp[i]) {
+            traySp[i]->hide();
+        }
+    }
+    for (int i = modCount; i < 3; ++i) {
+        if (modLab[i]) {
+            modLab[i]->hide();
+        }
+        if (modSp[i]) {
+            modSp[i]->hide();
+        }
+    }
+    int cols = trayCount;
+    if (modCount > cols) {
+        cols = modCount;
+    }
+    if (cols < 1) {
+        cols = 1;
+    }
+
+    int row = 0;
+    if (ui->label_handthrowcups && ui->spinBox_downthrowcups) {
+        ui->label_handthrowcups->setText(mark + gtr(u8"\u5f03\u676f\u5b54"));
+        QFrame *bar = new QFrame(ui->groupBox_gripperDown);
+        bar->setObjectName(QStringLiteral("heightTuneCard"));
+        bar->setStyleSheet(heightQss);
+        QHBoxLayout *h = new QHBoxLayout(bar);
+        h->setContentsMargins(12, 8, 12, 8);
+        h->setSpacing(12);
+        ui->label_handthrowcups->setParent(bar);
+        ui->spinBox_downthrowcups->setParent(bar);
+        ui->label_handthrowcups->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        ui->label_handthrowcups->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
+        ui->label_handthrowcups->show();
+        ui->spinBox_downthrowcups->show();
+        ui->spinBox_downthrowcups->setMinimumWidth(96);
+        ui->spinBox_downthrowcups->setMaximumWidth(140);
+        h->addWidget(ui->label_handthrowcups);
+        h->addWidget(ui->spinBox_downthrowcups);
+        h->addStretch(1);
+        down->addWidget(bar, row, 0, 1, cols);
+        ++row;
+    }
+
+    if (trayCount > 0) {
+        QLabel *sec = new QLabel(ui->groupBox_gripperDown);
+        sec->setText(gtr(u8"\u8bd5\u7ba1\u76d8"));
+        sec->setStyleSheet(sectionQss);
+        down->addWidget(sec, row, 0, 1, cols);
+        ++row;
+        int col = 0;
+        for (int i = 0; i < trayCount; ++i) {
+            if (!trayLab[i] || !traySp[i]) {
+                continue;
+            }
+            trayLab[i]->setText(mark + gtr(u8"\u8bd5\u7ba1\u76d8 %1").arg(i + 1));
+            QFrame *card = new QFrame(ui->groupBox_gripperDown);
+            card->setObjectName(QStringLiteral("heightTuneCard"));
+            card->setStyleSheet(heightQss);
+            QVBoxLayout *v = new QVBoxLayout(card);
+            v->setContentsMargins(8, 8, 8, 8);
+            v->setSpacing(6);
+            trayLab[i]->setParent(card);
+            traySp[i]->setParent(card);
+            trayLab[i]->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+            trayLab[i]->setAlignment(Qt::AlignCenter);
+            trayLab[i]->setWordWrap(true);
+            trayLab[i]->show();
+            traySp[i]->show();
+            traySp[i]->setMinimumWidth(88);
+            traySp[i]->setMaximumWidth(160);
+            v->addWidget(trayLab[i]);
+            v->addWidget(traySp[i], 0, Qt::AlignHCenter);
+            down->addWidget(card, row, col);
+            down->setColumnStretch(col, 1);
+            ++col;
+        }
+        ++row;
+    }
+
+    if (modCount > 0) {
+        QLabel *sec = new QLabel(ui->groupBox_gripperDown);
+        sec->setText(gtr(u8"\u653e\u5230\u6d4b\u8bd5\u901a\u9053"));
+        sec->setStyleSheet(sectionQss);
+        down->addWidget(sec, row, 0, 1, cols);
+        ++row;
+        int col = 0;
+        for (int i = 0; i < modCount; ++i) {
+            if (!modLab[i] || !modSp[i]) {
+                continue;
+            }
+            modLab[i]->setText(mark + gtr(u8"\u6a21\u7ec4 %1").arg(i + 1));
+            QFrame *card = new QFrame(ui->groupBox_gripperDown);
+            card->setObjectName(QStringLiteral("heightTuneCard"));
+            card->setStyleSheet(heightQss);
+            QVBoxLayout *v = new QVBoxLayout(card);
+            v->setContentsMargins(8, 8, 8, 8);
+            v->setSpacing(6);
+            modLab[i]->setParent(card);
+            modSp[i]->setParent(card);
+            modLab[i]->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+            modLab[i]->setAlignment(Qt::AlignCenter);
+            modLab[i]->setWordWrap(true);
+            modLab[i]->show();
+            modSp[i]->show();
+            modSp[i]->setMinimumWidth(88);
+            modSp[i]->setMaximumWidth(160);
+            v->addWidget(modLab[i]);
+            v->addWidget(modSp[i], 0, Qt::AlignHCenter);
+            down->addWidget(card, row, col);
+            down->setColumnStretch(col, 1);
+            ++col;
+        }
+    }
+}
+

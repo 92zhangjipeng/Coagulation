@@ -336,6 +336,8 @@ void MachineSetting::_initpara()
 
         emit SetParatoInstrument({ outParaOx1aWrite() },"0x1a参数");
     });
+
+    installParameterHints();
 }
 
 
@@ -1905,6 +1907,7 @@ void MachineSetting::configWrite2BoardReagentNeedlePara() {
         ini.setTypesReagentSuckAdd_Ratio(reagentTypes[i], suckReagentVolRatioadd[i]);
         ini.setTypesReagentNeedleDownHigh(reagentTypes[i], spitReagentDownHeigh[i]);
     }
+    ini.SetReagentAfterSuckLiftDelayMs(ui->spinBox_reagentSuckLiftDelay->value());
 
     // 5. 更新耗材容量和限位（提取成独立函数）
     updateReagentCapacityAndLimit();
@@ -2370,6 +2373,7 @@ void MachineSetting::reloadMaintenanceParamsFromIni()
     ui->spinBoxReagentNeedleFailehigh->setValue(ini.getFailedCleanLinqueReagNeedle());
     ui->spinBox_TestReagentFailedhigh->setValue(ini.GetFailedReagentsLinqueHigh());
     ui->spinBox_deptime->setValue(ini._getdelayedtime());
+    ui->spinBox_reagentSuckLiftDelay->setValue(ini.GetReagentAfterSuckLiftDelayMs());
 
     ui->spinBoxSuckAirsMax->setValue(ini.rConfigPara(GRIPPERLESSTHANMAX).toInt());
     ui->spinBoxSplitAirsMin->setValue(ini.rConfigPara(GRIPPERBIGTHANMIM).toInt());
@@ -2982,6 +2986,40 @@ void MachineSetting::configBloodpinparaSignals()
 
 
 
+void MachineSetting::styleClickDownLabel(QLabel *label, bool busy)
+{
+    if (!label) {
+        return;
+    }
+    label->setCursor(Qt::PointingHandCursor);
+    label->setAttribute(Qt::WA_Hover, true);
+    label->setMinimumHeight(26);
+    label->setStyleSheet(busy
+        ? QStringLiteral(
+            "QLabel {"
+            " color:#1B5E20;"
+            " background-color:#E8F5E9;"
+            " border:1px solid #2E7D32;"
+            " border-radius:5px;"
+            " padding:2px 8px;"
+            " font-weight:700;"
+            "}")
+        : QStringLiteral(
+            "QLabel {"
+            " color:#0B4F73;"
+            " background-color:#E3F2FB;"
+            " border:1px solid #2E86AB;"
+            " border-radius:5px;"
+            " padding:2px 8px;"
+            " font-weight:700;"
+            "}"
+            "QLabel:hover {"
+            " background-color:#B9DFF3;"
+            " color:#06344C;"
+            " border:1px solid #0B4F73;"
+            "}"));
+}
+
 void MachineSetting::_creatstupoint(QLabel* plable,QSpinBox* pgetdownmm,int index_, QMap<QLabel* ,btnLable* > &data_)
 {
     btnLable* pstuinfo = new btnLable;
@@ -2989,6 +3027,10 @@ void MachineSetting::_creatstupoint(QLabel* plable,QSpinBox* pgetdownmm,int inde
     pstuinfo->pdownmovemm = pgetdownmm;
     pstuinfo->index_ = index_;
     data_.insert(plable,pstuinfo);
+    if (plable) {
+        plable->installEventFilter(this);
+    }
+    styleClickDownLabel(plable, false);
 }
 
 void MachineSetting::_initBloodpinpara()
@@ -3055,13 +3097,6 @@ void MachineSetting::_initBloodpinpara()
 
     configBloodpinparaSignals();
 
-    auto iter = m_pbloodLableList.begin();
-    while(iter != m_pbloodLableList.end())
-    {
-        iter.key()->installEventFilter(this);
-        iter++;
-    }
-
     return;
 }
 
@@ -3090,6 +3125,10 @@ void MachineSetting::_configReagPinparaSignals()
     connect(ui->spinBox_deptime,&QSpinBox::editingFinished,this,[=](){
         INI_File()._setdelayedtime(ui->spinBox_deptime->value());
     });
+
+    connect(ui->spinBox_reagentSuckLiftDelay, &QSpinBox::editingFinished, this, [=](){
+        INI_File().SetReagentAfterSuckLiftDelayMs(ui->spinBox_reagentSuckLiftDelay->value());
+    });
 }
 void MachineSetting::_initReagPinpara()
 {
@@ -3109,16 +3148,9 @@ void MachineSetting::_initReagPinpara()
 
     //吐试剂到通道延时
     ui->spinBox_deptime->setValue(INI_File()._getdelayedtime());
+    ui->spinBox_reagentSuckLiftDelay->setValue(INI_File().GetReagentAfterSuckLiftDelayMs());
 
     _configReagPinparaSignals();
-
-    auto it = m_preagpinLableList.begin();
-    while(it != m_preagpinLableList.end())
-    {
-        it.key()->installEventFilter(this);
-        it++;
-    }
-
 }
 
 void MachineSetting::_hidecontrol(quint8 index,QLabel *plabel, QSpinBox* pspinbox,int _ks600 ,int _ks800)
@@ -3157,14 +3189,11 @@ void MachineSetting::_configHandsinitChn(quint8 equipmentIndex_)
     modulecontrol_.insert(ui->label_handsdownchn_1,ui->spinBox_handsdownchn_1);
     modulecontrol_.insert(ui->label_handsdownchn_2,ui->spinBox_handsdownchn_2);
 
-    QList<int> indexactiveList;
-    indexactiveList<<MODULE_1<<MODULE_2<<MODULE_3;
-    int k = 0;
     auto it = modulecontrol_.begin();
     while(it != modulecontrol_.end())
     {
-        _creatstupoint(it.key(),it.value(),indexactiveList.at(k),m_pHandsLableList);
         int key_chn = QUIUtils::StringFindintnum(it.key()->objectName());
+        _creatstupoint(it.key(), it.value(), HANDSDOWN_CHN_1 + key_chn * 4, m_pHandsLableList);
         if(equipmentIndex_ == KS600 && key_chn >= MODULE_1 )
         {
             it.key()->hide();
@@ -3186,7 +3215,6 @@ void MachineSetting::_configHandsinitChn(quint8 equipmentIndex_)
 
         });
         it++;
-        k++;
     }
 }
 void MachineSetting::innitHands(quint8 equipmentIndex_)
@@ -3206,14 +3234,11 @@ void MachineSetting::innitHands(quint8 equipmentIndex_)
     Traytestcontrol_.insert(ui->label_testtray_1, ui->spinBox_testtray_1);
     Traytestcontrol_.insert(ui->label_testtray_2, ui->spinBox_testtray_2);
     Traytestcontrol_.insert(ui->label_testtray_3, ui->spinBox_testtray_3);
-    QList<int> indexactiveList;
-    indexactiveList<<HANDSDOWN_TRAYTUBE_1<<HANDSDOWN_TRAYTUBE_2<<HANDSDOWN_TRAYTUBE_3<<HANDSDOWN_TRAYTUBE_4;
-    int k = 0;
     auto iter = Traytestcontrol_.begin();
     while(iter != Traytestcontrol_.end())
     {
-        _creatstupoint(iter.key(),iter.value(),indexactiveList.at(k),m_pHandsLableList);
         int key_chn = QUIUtils::StringFindintnum(iter.key()->objectName());
+        _creatstupoint(iter.key(), iter.value(), HANDSDOWN_TRAYTUBE_1 + key_chn, m_pHandsLableList);
         iter.key()->setText(QString("试管盘%1抓手下降深度:").arg(key_chn+1));
         iter.value()->setValue(INI_File()._gethandsdownheightinTesttray(key_chn));
         _hidecontrol(key_chn,iter.key(),iter.value(),2,3);
@@ -3234,7 +3259,6 @@ void MachineSetting::innitHands(quint8 equipmentIndex_)
             QLOG_DEBUG()<<"试管盘"<<index+1<<"设置下降深度="<<pspinbox->value();
         });
         iter++;
-        k++;
     }
 
     //弃杯
@@ -3259,7 +3283,7 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
            btnLable* pstuinfo = iter.value();
            if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
                return false;
-           plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
+           styleClickDownLabel(plabel, true);
            QByteArrayList senddata_ = QUIUtils::_controltestbloodpindownheigh(pstuinfo->index_,
                                                             pstuinfo->pdownmovemm->value()); //控制血样针下针命令
            emit testdownheight(senddata_,pstuinfo->index_);
@@ -3275,7 +3299,7 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
             btnLable* pstuinfo = it_.value();
             if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
                 return false;
-            plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
+            styleClickDownLabel(plabel, true);
             QByteArrayList senddata_ = QUIUtils::_controlReagpindownheih(pstuinfo->index_,pstuinfo->pdownmovemm->value());
             emit testdownheight(senddata_,pstuinfo->index_);
             return true;
@@ -3290,7 +3314,7 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
             btnLable* pstuinfo = it_.value();
             if(cglobal::g_StartTesting || !cglobal::gserialConnecStatus)
                 return false;
-            plabel->setStyleSheet("color: rgba(118 ,238, 0, 240);");
+            styleClickDownLabel(plabel, true);
             QByteArrayList senddata_ = QUIUtils::_controlHandsdowntest(pstuinfo->index_,pstuinfo->pdownmovemm->value());
             emit testdownheight(senddata_,pstuinfo->index_);
             return true;
@@ -3303,12 +3327,12 @@ bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
 
 void MachineSetting::_finishmovetestdownhigh(int index_)
 {
-	auto findAndResetStyle = [index_](auto& container) -> bool {
+	auto findAndResetStyle = [this, index_](auto& container) -> bool {
 		for (auto it = container.begin(); it != container.end(); ++it) {
 			// 使用Qt迭代器API 
 			btnLable* pstuinfo = it.value();  // 关键修正：value()方法
 			if (pstuinfo->index_ == index_) {
-				pstuinfo->plableinfo->setStyleSheet("");
+				styleClickDownLabel(pstuinfo->plableinfo, false);
 				return true;
 			}
 		}

@@ -175,7 +175,7 @@ private:
 
     void _TableLinqueLess(const quint8 index_,const quint8 total_);//液体耗材减少更新表格
 
-    //提示试管盘有已加样任务不能更换
+    // 本盘试杯仍被未完成样本占用时不能更换
     bool isHadAddSampleTube(quint8 indextray);
 
     void TrayHadFreetube(quint8 indextray, bool &hadtube);   //试管盘试管有未用

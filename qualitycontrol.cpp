@@ -19,6 +19,8 @@
 #include <QPen>
 #include <QVector>
 #include <QDateTime>
+#include <QSet>
+#include "structinstance.h"
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1900)
 #pragma execution_character_set("utf-8")
@@ -1240,27 +1242,35 @@ bool QualityControl::ReaminderUsbNotConnect()
 
 bool QualityControl::isHadAddSampleTube(quint8 indextray)
 {
-    bool _hadMarktube = true;
-
     const int startHole = (indextray - 1) * ONETRAY_TOTALTUBE;
-    const int EndHole =   startHole +  ONETRAY_TOTALTUBE;
+    const int endHole = startHole + ONETRAY_TOTALTUBE;
 
-    QVariantList tragtubeState;
-    tragtubeState.clear();
-    FullyAutomatedPlatelets::pinstancesqlData()->findEmptyTubesInRange(
-             startHole,EndHole,tragtubeState);
-
-    for(const QVariant &var : tragtubeState){
-        const auto &tube = var.value<AllTubeInfo>();
-        const uint status = tube.TubeStatus;
-        if(status == TESTTUBES_SAMPLED){
-            _hadMarktube = false;
-            QString outtext = QString("试管盘%1,有待测待测样本更换失败!").arg(indextray);
-            warn_interface::showTransientWarning(tr("更换操作异常"), outtext);
-            break;
+    QSet<int> liveHoles;
+    if (StructInstance *samples = StructInstance::getInstance()) {
+        for (const DATASAMPLESTRUCT *sample : samples->m_BloodsampleInfo) {
+            if (!sample)
+                continue;
+            liveHoles.insert(sample->spitanaemia_hole);
+            for (const BLOODY_INFO &hole : sample->bloody_tube)
+                liveHoles.insert(hole.bloody_hole);
         }
     }
-    return _hadMarktube;
+
+    QVariantList tragtubeState;
+    FullyAutomatedPlatelets::pinstancesqlData()->findEmptyTubesInRange(
+             startHole, endHole, tragtubeState);
+
+    for (const QVariant &var : tragtubeState) {
+        const auto &tube = var.value<AllTubeInfo>();
+        const uint status = tube.TubeStatus;
+        const bool stillReserved = (status == TESTTUBES_MARK || status == TESTTUBES_SAMPLED);
+        if (!stillReserved || !liveHoles.contains(tube.TubeNumbers))
+            continue;
+        const QString outtext = tr("试管盘%1还有未完成样本占用的试杯，不能更换").arg(indextray);
+        warn_interface::showTransientWarning(tr("更换操作异常"), outtext);
+        return false;
+    }
+    return true;
 }
 
 void QualityControl::TrayHadFreetube(quint8 indextray,bool &hadtube)

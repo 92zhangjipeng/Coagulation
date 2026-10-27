@@ -1729,8 +1729,18 @@ bool TestProjectProcess::handleAlternateReagentStrategy(quint8 primary,
         triggerConsumablesPause(primary, alternate);
         QLOG_WARN()<<"试剂和预留位置剩余试剂不足"<<primary;
         return false;
-    } else if(!isPrimarySufficient) {//左边试剂不足 启用右边
-       StructInstance::getInstance()->changesuckReagentFirstCommandLocation(m_focus_sample_id,alternate);
+    } else if(!isPrimarySufficient) {
+       const bool switched = StructInstance::getInstance()->changesuckReagentFirstCommandLocation(
+                   m_focus_sample_id, alternate);
+       if (!switched) {
+           QLOG_ERROR() << "左侧试剂不足，改吸右侧失败，已暂停" << primary;
+           triggerConsumablesPause(primary, alternate);
+           return false;
+       }
+       promptsareDisplayed(TESTINGLOG,
+                           tr("%1左侧低于报警限，本针改吸右侧预留位")
+                           .arg(GlobalData::mapIndexReagentnames(alternate)),
+                           false);
     }
     return true;
 }
@@ -3687,10 +3697,9 @@ bool TestProjectProcess::restartPrpAfterHome(quint8 reagent, const QString& tips
 {
     auto *inst = StructInstance::getInstance();
     m_restartReagent = reagent;
-    m_gripperRestartAwait = inst->prpReagentPortionCompleted(m_focus_sample_id, reagent)
-            ? GripperRestartPrpTray
-            : GripperRestartPrpReagent;
-    const QByteArray firstCmd =
+    const bool suckAlreadyDone = inst->prpReagentPortionCompleted(m_focus_sample_id, reagent);
+    m_gripperRestartAwait = suckAlreadyDone ? GripperRestartPrpTray : GripperRestartPrpReagent;
+    QByteArray firstCmd =
             inst->restartPrpClipResumePoint(m_focus_sample_id, reagent);
     if (firstCmd.isEmpty()) {
         m_gripperRestartAwait = GripperRestartNone;
@@ -3702,6 +3711,36 @@ bool TestProjectProcess::restartPrpAfterHome(quint8 reagent, const QString& tips
         }
         promptsareDisplayed(TESTINGLOG, outerr, true);
         return false;
+    }
+    if (!suckAlreadyDone) {
+        const ReagentWorkflow workflow = s_reagentWorkflow.value(reagent);
+        if (workflow.consumableIndex == 255) {
+            m_gripperRestartAwait = GripperRestartNone;
+            const QString outerr = tr("复位后无法重建抓PRP指令，停止推进");
+            QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
+            publishWorkflowStatus(outerr);
+            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
+                emit pauseTesting();
+            }
+            promptsareDisplayed(TESTINGLOG, outerr, true);
+            return false;
+        }
+        if (!controlsuckReagentLoc(workflow.consumableIndex, reagent)) {
+            m_gripperRestartAwait = GripperRestartNone;
+            return false;
+        }
+        firstCmd = inst->sendsuckReagentCatchCuptoTestChannelHead(m_focus_sample_id, reagent);
+        if (firstCmd.isEmpty()) {
+            m_gripperRestartAwait = GripperRestartNone;
+            const QString outerr = tr("复位后无法重建抓PRP指令，停止推进");
+            QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
+            publishWorkflowStatus(outerr);
+            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
+                emit pauseTesting();
+            }
+            promptsareDisplayed(TESTINGLOG, outerr, true);
+            return false;
+        }
     }
     promptsareDisplayed(TESTINGLOG, tips, false);
     writeCommandHeader(firstCmd, tips, DELAY_TIMENUM);

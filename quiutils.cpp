@@ -2929,7 +2929,7 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
         quint8 num = nextNum();
         staged.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffBloodPin, 0, 0, num));
         num = nextNum();
-        staged.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, failedBloodpin, 0, num, false,
+        staged.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, failedBloodpin, 0, num, true,
                                 failedBloodpin, false, GRIPPERNORMAL));
     } else {
         QLOG_ERROR() << QString::fromUtf8("双针清洗：血样针清洗位无效，跳过吸清洗液下针");
@@ -2955,7 +2955,7 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
         staged.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffReagnetPin, 0, 0, num));
         num = nextNum();
         staged.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX, failedreagentpin, 0,
-                          num, false, failedreagentpin, false, GRIPPERNORMAL));
+                          num, true, failedreagentpin, false, GRIPPERNORMAL));
     } else {
         QLOG_ERROR() << QString::fromUtf8("双针清洗：试剂针清洗位无效，跳过吸清洗液下针");
     }
@@ -3056,7 +3056,7 @@ void QUIUtils::CleanBloodPinActionCommd(int HadPorjects,QByteArrayList &CleanAct
         CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffBloodPin, 0, 0, num));
         num = static_cast<quint8>(CleanActionarry.count() % 255);
         CleanActionarry.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, failedBloodpin, 0, num,
-                                  false, failedBloodpin, false, GRIPPERNORMAL));
+                                  true, failedBloodpin, false, GRIPPERNORMAL));
 
         samplePumpStep += totalWashSteps;
         num = static_cast<quint8>(CleanActionarry.count() % 255);
@@ -3132,7 +3132,7 @@ void QUIUtils::CleanReagentsPinActionCommd(QVector<QByteArray> &CleanActionarry)
        CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffReagnetPin, 0, 0, num));
        num = static_cast<quint8>(CleanActionarry.count() % 255);
        CleanActionarry.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX, failedReagentPin, 0,
-                                                num, false, failedReagentPin, false, GRIPPERNORMAL));
+                                                num, true, failedReagentPin, false, GRIPPERNORMAL));
 
        num = static_cast<quint8>(CleanActionarry.count() % 255);
        CleanActionarry.push_back(pActive->SmallBenActive(true, cleanSteps, DIS_WASHES_PUMPS, num, 0));

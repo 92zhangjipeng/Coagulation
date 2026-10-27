@@ -447,7 +447,7 @@ public:
      */
     QByteArray sendsuckReagentCatchCuptoTestChannelHead(const int sampleid,quint8 reagentType);
 
-    void changesuckReagentFirstCommandLocation(const int sampleid,quint8 reagentType);
+    bool changesuckReagentFirstCommandLocation(const int sampleid,quint8 reagentType);
 
 
 

@@ -248,6 +248,9 @@ private:
                       int _ks600, int _ks800);
     void _creatstupoint(QLabel *plable, QSpinBox *pgetdownmm, int index_,
                         QMap<QLabel *, btnLable *> &data_);
+    void styleClickDownLabel(QLabel *label, bool busy = false);
+    void installParameterHints();
+    void relayoutEquipmentPages();
     void _initconfigmodulefucn();
 
     void loadPerformanceEvaluation(QWidget *parentWidget);
