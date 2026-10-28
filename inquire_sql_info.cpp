@@ -400,6 +400,13 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     plotRow->addWidget(ui->Inquire_curve_1, 1);
     followLayout->addWidget(m_curveFollowTitle);
     followLayout->addLayout(plotRow, 1);
+    m_curveResizeGrip = new QWidget(m_curveFollow);
+    m_curveResizeGrip->setObjectName(QStringLiteral("curveResizeGrip"));
+    m_curveResizeGrip->setFixedSize(18, 18);
+    m_curveResizeGrip->setCursor(Qt::SizeFDiagCursor);
+    m_curveResizeGrip->setStyleSheet(QStringLiteral(
+        "QWidget#curveResizeGrip { background: transparent; border: none;"
+        " border-right: 2px solid #1487B8; border-bottom: 2px solid #1487B8; }"));
     m_curveFollow->hide();
     setStyleSheet(QString::fromUtf8(
         "Inquire_Sql_Info, QWidget#Inquire_Sql_Info { background: #E8F4FD; }"
@@ -1028,6 +1035,62 @@ void Inquire_Sql_Info::RecvCurveData(const QVector<QString>& data)
 }
 
 
+void Inquire_Sql_Info::placeCurveResizeGrip()
+{
+    if (!m_curveFollow || !m_curveResizeGrip)
+        return;
+    m_curveResizeGrip->move(m_curveFollow->width() - m_curveResizeGrip->width() - 2,
+                            m_curveFollow->height() - m_curveResizeGrip->height() - 2);
+    m_curveResizeGrip->raise();
+}
+
+bool Inquire_Sql_Info::handleCurveResize(QObject *watched, QEvent *event)
+{
+    if (!event || !m_curveFollow || !m_curveResizeGrip)
+        return false;
+    if (watched == m_curveFollow && event->type() == QEvent::Resize) {
+        placeCurveResizeGrip();
+        return false;
+    }
+
+    const QEvent::Type type = event->type();
+    if (type == QEvent::MouseButtonPress) {
+        const QMouseEvent *mouse = static_cast<const QMouseEvent *>(event);
+        if (mouse->button() != Qt::LeftButton || !m_curveFollow->isVisible())
+            return false;
+        const QPoint onGrip = m_curveResizeGrip->mapFromGlobal(mouse->globalPos());
+        if (!m_curveResizeGrip->rect().contains(onGrip))
+            return false;
+        m_curveResizing = true;
+        m_curveResizeAnchor = mouse->globalPos();
+        m_curveResizeStartSize = m_curveFollow->size();
+        return true;
+    }
+    if (!m_curveResizing)
+        return false;
+    if (type == QEvent::MouseMove) {
+        const QMouseEvent *mouse = static_cast<const QMouseEvent *>(event);
+        const QPoint delta = mouse->globalPos() - m_curveResizeAnchor;
+        const int minW = 360;
+        const int minH = 200;
+        const int maxW = qMax(minW, width() - 16);
+        const int maxH = qMax(minH, height() - 16);
+        const int newW = qBound(minW, m_curveResizeStartSize.width() + delta.x(), maxW);
+        const int newH = qBound(minH, m_curveResizeStartSize.height() + delta.y(), maxH);
+        m_curveFollow->setGeometry(m_curveFollow->x(), m_curveFollow->y(), newW, newH);
+        m_curveFollowSize = m_curveFollow->size();
+        return true;
+    }
+    if (type == QEvent::MouseButtonRelease) {
+        m_curveResizing = false;
+        m_curveFollowSize = m_curveFollow->size();
+        if (ui && ui->Inquire_curve_1)
+            ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
+        return true;
+    }
+    return false;
+}
+
 void Inquire_Sql_Info::hideCurveFollow()
 {
     m_followSampleRow = -1;
@@ -1039,6 +1102,8 @@ void Inquire_Sql_Info::hideCurveFollow()
 
 bool Inquire_Sql_Info::eventFilter(QObject *watched, QEvent *event)
 {
+    if (handleCurveResize(watched, event))
+        return true;
     if (!event || event->type() != QEvent::MouseButtonPress)
         return false;
     if (!m_curveFollow || !m_curveFollow->isVisible())
@@ -1047,10 +1112,13 @@ bool Inquire_Sql_Info::eventFilter(QObject *watched, QEvent *event)
     QWidget *widget = qobject_cast<QWidget *>(watched);
     if (!widget)
         return false;
-    if (widget == m_curveFollow || m_curveFollow->isAncestorOf(widget))
+    if (m_curveResizing || widget == m_curveResizeGrip
+            || widget == m_curveFollow || m_curveFollow->isAncestorOf(widget))
         return false;
 
     const QMouseEvent *mouse = static_cast<const QMouseEvent *>(event);
+    if (m_curveFollow->rect().contains(m_curveFollow->mapFromGlobal(mouse->globalPos())))
+        return false;
     if (!rect().contains(mapFromGlobal(mouse->globalPos())))
         return false;
 
@@ -1102,10 +1170,7 @@ void Inquire_Sql_Info::placeCurveFollow(int sampleStartRow)
             : QString::fromUtf8("样本 %1    聚集率曲线").arg(sampleId));
     }
 
-    const int panelW = qBound(620, table->width() - 48, 860);
-    const int panelH = 340;
     const QPoint rowTop = table->viewport()->mapTo(this, QPoint(0, y));
-    int x = table->mapTo(this, QPoint(0, 0)).x() + (table->width() - panelW) / 2;
     int yPanel = rowTop.y() + blockH + 8;
     int topLimit = 8;
     int bottomLimit = height() - 8;
@@ -1113,6 +1178,13 @@ void Inquire_Sql_Info::placeCurveFollow(int sampleStartRow)
         topLimit = ui->widget_date_->geometry().bottom() + 6;
     if (ui->widget_curve && ui->widget_curve->isVisible())
         bottomLimit = qMin(bottomLimit, ui->widget_curve->geometry().top() - 6);
+    const int panelW = m_curveFollowSize.isValid()
+            ? m_curveFollowSize.width()
+            : qBound(620, table->width() - 48, 860);
+    const int panelH = m_curveFollowSize.isValid()
+            ? m_curveFollowSize.height()
+            : 340;
+    int x = table->mapTo(this, QPoint(0, 0)).x() + (table->width() - panelW) / 2;
     if (yPanel + panelH > bottomLimit) {
         const int above = rowTop.y() - panelH - 8;
         yPanel = above >= topLimit ? above : qMax(topLimit, bottomLimit - panelH);
@@ -1123,6 +1195,7 @@ void Inquire_Sql_Info::placeCurveFollow(int sampleStartRow)
     m_curveFollow->setGeometry(x, yPanel, panelW, panelH);
     m_curveFollow->show();
     m_curveFollow->raise();
+    placeCurveResizeGrip();
     if (ui->Inquire_curve_1)
         ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
 }

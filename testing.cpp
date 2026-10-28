@@ -34,6 +34,47 @@
 using namespace std;
 using namespace TestingConstants;
 
+namespace {
+const QColor kHoleEmpty(255, 255, 255);
+const QColor kHoleEdge(0x8A, 0xA4, 0xB6);
+const QColor kRingBand(0xC5, 0xD6, 0xE2);
+const QColor kHolePoor(0xF3, 0xD3, 0x6B);
+const QColor kHoleRich(0xF0, 0xA1, 0x4A);
+const QColor kHoleUsed(0x7E, 0x8B, 0x98);
+const QColor kHoleSelected(0xE3, 0x8B, 0x84);
+
+void drawStereoRing(QPainter &painter, const QPointF &center, qreal outerR, qreal innerR,
+                    const QColor &fill, const QColor &rimTint = QColor())
+{
+    if (outerR < 2.0) {
+        return;
+    }
+    Q_UNUSED(innerR);
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const qreal band = qBound(4.5, outerR * 0.32, 8.0);
+    qreal holeR = outerR - band;
+    if (holeR < outerR * 0.50) {
+        holeR = outerR * 0.50;
+    }
+
+    const QColor well = fill.isValid() ? fill : kHoleEmpty;
+    const bool reagent = rimTint.isValid();
+    const QColor edge = reagent ? rimTint : kHoleEdge;
+    const QColor ring = reagent ? rimTint : kRingBand;
+
+    painter.setPen(QPen(edge, 1.0));
+    painter.setBrush(ring);
+    painter.drawEllipse(center, outerR, outerR);
+
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(well);
+    painter.drawEllipse(center, holeR, holeR);
+    painter.restore();
+}
+}
+
 std::unique_ptr<UsbCodeDispose> Testing::m_TaskDll = nullptr;
 
 // 线程安全的单例访问
@@ -683,11 +724,7 @@ void Testing::showCleaningbit()
         {1, QPointF(kMargin + BIG_RADIUS_DEFAULT, widgetRect.height() - kTextSpacing - BIG_RADIUS_DEFAULT)}
     };
     for (const auto& pos : m_CleanPos) {
-        painter.setPen(cglobal::g_LineColor);
-        painter.setBrush(QBrush(cglobal::g_OuterRingColor, Qt::SolidPattern));
-        painter.drawEllipse(pos, BIG_RADIUS_DEFAULT, BIG_RADIUS_DEFAULT);
-        painter.setBrush(QBrush(cglobal::g_SamllBgmColor));
-        painter.drawEllipse(pos, SMALL_RADIUS_DEFAULT, SMALL_RADIUS_DEFAULT);
+        drawStereoRing(painter, pos, BIG_RADIUS_DEFAULT, SMALL_RADIUS_DEFAULT, kHoleEmpty);
     }
     QFont font = this->font();
     font.setPointSize(14);
@@ -1118,20 +1155,17 @@ void Testing::drawBloodHole(QPainter& painter, quint8 holeId, const QPoint& cent
 {
     QColor bgColor;
     switch (state) {
-        case TUBE_INIT:      bgColor = cglobal::g_SamllBgmColor; break;
-        case TUBE_CHECKED:   bgColor = (holeId % 2 == 0) ? cglobal::g_PoorBloodColor : cglobal::g_RichBloodColor; break;
-        case TUBE_OUTRESULT: bgColor = cglobal::g_OutResult; break;
-        default:             bgColor = cglobal::g_SamllBgmColor; break;
+        case TUBE_INIT:      bgColor = kHoleEmpty; break;
+        case TUBE_CHECKED:   bgColor = (holeId % 2 == 0) ? kHolePoor : kHoleRich; break;
+        case TUBE_OUTRESULT: bgColor = kHoleUsed; break;
+        default:             bgColor = kHoleEmpty; break;
     }
 
     // 保存当前画笔（外圈线条颜色）
     QPen oldPen = painter.pen();
 
-    painter.setBrush(QBrush(cglobal::g_OuterRingColor));
-    painter.drawEllipse(center, m_BloodBigRadius, m_BloodBigRadius);
-
-    painter.setBrush(QBrush(bgColor));
-    painter.drawEllipse(center, m_BloodSmallRadius, m_BloodSmallRadius);
+    painter.setBrush(Qt::NoBrush);
+    drawStereoRing(painter, QPointF(center), m_BloodBigRadius, m_BloodSmallRadius, bgColor);
 
     if (!showText.isEmpty()) {
         painter.setPen((holeId % 2 == 0) ? cglobal::g_TextColorRoorblood : cglobal::g_TextColorRichblood);
@@ -1556,15 +1590,15 @@ void Testing::drawTrayTube(QPainter& painter, const QPointF& center, quint8 hole
     QColor bgColor;
     //QMutexLocker locker(&m_tubeMutex);
     if (mEmptyTubeAssigned.contains(holeNum)) {
-        bgColor = cglobal::g_InnerRing_Checked;
+        bgColor = kHoleSelected;
     } else if (mEmptyTubeAbsorb_Poorblood.contains(holeNum)) {
-        bgColor = cglobal::g_PoorBloodColor;
+        bgColor = kHolePoor;
     } else if (mEmptyTubeAbsorb_Richblood.contains(holeNum)) {
-        bgColor = cglobal::g_RichBloodColor;
+        bgColor = kHoleRich;
     } else if (mEmptyTubeClipMoved.contains(holeNum)) {
-        bgColor = cglobal::g_OutResult;
+        bgColor = kHoleUsed;
     } else {
-        bgColor = cglobal::g_SamllBgmColor;
+        bgColor = kHoleEmpty;
     }
 
     if (mflashingTubeList.contains(holeNum)) {
@@ -1574,11 +1608,7 @@ void Testing::drawTrayTube(QPainter& painter, const QPointF& center, quint8 hole
             bgColor = QColor(255, 0, 0);
     }
 
-    painter.setPen(cglobal::g_LineColor);
-    painter.setBrush(QBrush(cglobal::g_OuterRingColor));
-    painter.drawEllipse(center, bigRadius, bigRadius);
-    painter.setBrush(QBrush(bgColor));
-    painter.drawEllipse(center, smallRadius, smallRadius);
+    drawStereoRing(painter, center, bigRadius, smallRadius, bgColor);
 
     QString sampleText = mEmptyText.value(holeNum);
     if (!sampleText.isEmpty()) {
@@ -1710,14 +1740,11 @@ void Testing::showPaintReagents()
     painter.setFont(font);
     quint8 index = 0;
     for (auto it = m_Reagent_Tray.begin(); it != m_Reagent_Tray.end(); ++it) {
-        painter.setPen(cglobal::g_LineColor);
-        painter.setBrush(QBrush(cglobal::g_OuterRingColor));
-        painter.drawEllipse(it.value(), BIG_RADIUS_DEFAULT, BIG_RADIUS_DEFAULT);
-        painter.setBrush(QBrush(cglobal::g_SamllBgmColor));
-        painter.drawEllipse(it.value(), SMALL_RADIUS_DEFAULT, SMALL_RADIUS_DEFAULT);
-
         quint8 indexreag = it.key()/2 + 1;
-        painter.setPen(GlobalData::customCurveColor(indexreag));
+        const QColor rim = GlobalData::customCurveColor(indexreag);
+        drawStereoRing(painter, it.value(), BIG_RADIUS_DEFAULT, SMALL_RADIUS_DEFAULT,
+                       kHoleEmpty, rim);
+        painter.setPen(rim);
         QString name = NameText.at(index/2);
         if (name.length() >= 3)
             painter.drawText(QPoint(it.value().x() - 11, it.value().y() + 5), name);
@@ -1735,11 +1762,8 @@ void Testing::showCleanreagent()
     painter.setRenderHint(QPainter::Antialiasing, true);
     m_CleanningReagent.setX(ui->widget_cleanagent->width() >> 1);
     m_CleanningReagent.setY(ui->widget_cleanagent->height() >> 1);
-    painter.setPen(cglobal::g_LineColor);
-    painter.setBrush(QBrush(cglobal::g_OuterRingColor));
-    painter.drawEllipse(m_CleanningReagent, TOP_DRAW_BIG_RADIUS, TOP_DRAW_BIG_RADIUS);
-    painter.setBrush(QBrush(cglobal::g_SamllBgmColor));
-    painter.drawEllipse(m_CleanningReagent, TOP_DRAW_SMALL_RADIUS, TOP_DRAW_SMALL_RADIUS);
+    drawStereoRing(painter, m_CleanningReagent, TOP_DRAW_BIG_RADIUS, TOP_DRAW_SMALL_RADIUS,
+                   kHoleEmpty);
     painter.setPen(cglobal::g_TextColorBlack);
     painter.drawText(QPoint(m_CleanningReagent.x() - 22, m_CleanningReagent.y() + 5), tr("清洗剂S1"));
 }
@@ -1755,11 +1779,8 @@ void Testing::showDiscardTheCup()
     m_DiscardCupHole.setX(centerX);
     m_DiscardCupHole.setY(centerY);
 
-    painter.setPen(cglobal::g_LineColor);
-    painter.setBrush(QBrush(cglobal::g_OuterRingColor));
-    painter.drawEllipse(m_DiscardCupHole, TOP_DRAW_BIG_RADIUS, TOP_DRAW_BIG_RADIUS);
-    painter.setBrush(QBrush(cglobal::g_SamllBgmColor));
-    painter.drawEllipse(m_DiscardCupHole, TOP_DRAW_SMALL_RADIUS, TOP_DRAW_SMALL_RADIUS);
+    drawStereoRing(painter, m_DiscardCupHole, TOP_DRAW_BIG_RADIUS, TOP_DRAW_SMALL_RADIUS,
+                   kHoleEmpty);
     painter.setPen(QColor(0, 0, 0));
     QString text = tr("弃杯孔");
     QRect textRect = painter.fontMetrics().boundingRect(text);

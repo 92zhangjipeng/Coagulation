@@ -167,8 +167,13 @@ private:
     QFrame* m_sampleFrame = nullptr;
     QFrame* m_curveFollow = nullptr;
     QLabel* m_curveFollowTitle = nullptr;
+    QWidget* m_curveResizeGrip = nullptr;
     QDialog* m_exactDialog = nullptr;
     int m_followSampleRow = -1;
+    QSize m_curveFollowSize;
+    bool m_curveResizing = false;
+    QPoint m_curveResizeAnchor;
+    QSize m_curveResizeStartSize;
 
 private:
     static const QString& getScrollBarStyle();
@@ -176,6 +181,8 @@ private:
     void updateCurveLabelsPosition(); // 更新曲线标注位置
     void placeCurveFollow(int sampleStartRow);
     void hideCurveFollow();
+    void placeCurveResizeGrip();
+    bool handleCurveResize(QObject *watched, QEvent *event);
 
     // 安全相关辅助函数
     static QString sanitizeInput(const QString& input);  // 输入过滤防注入

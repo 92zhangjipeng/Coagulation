@@ -2974,7 +2974,7 @@ public:
         label_failedhighreagentneedle->setFont(font9);
         label_failedhighreagentneedle->setAlignment(Qt::AlignBottom|Qt::AlignHCenter);
 
-        gridLayout_reagPinParams->addWidget(label_failedhighreagentneedle, 0, 1, 1, 1);
+        gridLayout_reagPinParams->addWidget(label_failedhighreagentneedle, 0, 3, 1, 1);
 
         label_delpms = new QLabel(widgetFucn);
         label_delpms->setObjectName(QStringLiteral("label_delpms"));
@@ -2990,7 +2990,7 @@ public:
         label_failedlinque_2->setFont(font9);
         label_failedlinque_2->setAlignment(Qt::AlignBottom|Qt::AlignHCenter);
 
-        gridLayout_reagPinParams->addWidget(label_failedlinque_2, 0, 3, 1, 1);
+        gridLayout_reagPinParams->addWidget(label_failedlinque_2, 0, 1, 1, 1);
 
         label_reagentSuckLiftDelay = new QLabel(widgetFucn);
         label_reagentSuckLiftDelay->setObjectName(QStringLiteral("label_reagentSuckLiftDelay"));
