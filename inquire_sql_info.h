@@ -5,6 +5,9 @@
 #include "InquireDataClass/querydatathread.h"
 #include <QTime>
 #include <QWidget>
+#include <QDialog>
+#include <QFrame>
+#include <QLabel>
 #include <QMultiMap>
 #include <QMutex>
 #include "customcreatsql.h" /*数据库*/
@@ -41,6 +44,7 @@ public:
 protected:
     virtual void resizeEvent(QResizeEvent *event) override;
     void closeEvent(QCloseEvent *event);
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 public slots:
 
@@ -160,10 +164,18 @@ private:
     QLineEdit* lineEdit_bednum = nullptr;
     QToolButton* toolButtonFindexatc = nullptr;
 
+    QFrame* m_sampleFrame = nullptr;
+    QFrame* m_curveFollow = nullptr;
+    QLabel* m_curveFollowTitle = nullptr;
+    QDialog* m_exactDialog = nullptr;
+    int m_followSampleRow = -1;
+
 private:
     static const QString& getScrollBarStyle();
     static const QString& getTableWidgetStyle();
     void updateCurveLabelsPosition(); // 更新曲线标注位置
+    void placeCurveFollow(int sampleStartRow);
+    void hideCurveFollow();
 
     // 安全相关辅助函数
     static QString sanitizeInput(const QString& input);  // 输入过滤防注入

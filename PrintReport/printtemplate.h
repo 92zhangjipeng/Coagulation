@@ -72,6 +72,7 @@ private:
     QVector<double> splitPercentages(const QString& input);
 
     // 动态表格管理
+    void applyFormOptions();
     void clearResultRows();                         // 清除所有动态行
     void addResultRow(const ReagentInfo &info);     // 添加一行试剂结果
     void updateResultRow(quint8 reagentId);         // 更新某一行的数据
@@ -106,8 +107,10 @@ private:
     QFrame *m_remarkSection;
 
     // 结果表格区域
+    QFrame *m_patientFrame;
     QFrame *m_resultFrame;
     QGridLayout *m_resultGrid;
+    QVector<QLabel*> m_columnHeaders;
     QLabel *m_adhesionHeaderLabel;      // 粘附率表头，用于动态显示/隐藏
 
     // 动态行的控件集合

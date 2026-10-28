@@ -83,6 +83,7 @@ public:
     void init_MchineCommon();
     void initial_ReferenceValue();
     void init_TabHospitalInfo();
+    void savePrintFormFromUi();
     void initializeHospitalDepartmentInformation();
     void InitTabTwoDate(int tabnum, QString str);
     void AnalyticalJsonTwo(QStringList);

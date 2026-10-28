@@ -59,8 +59,11 @@ public:
     virtual void setEditorData(QWidget *editor, const QModelIndex &) const override;
     // 更新编辑器集合属性
     virtual void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
-    // 设置模型数据
     virtual void setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const override;
+
+protected:
+    void drawDisplay(QPainter *painter, const QStyleOptionViewItem &option,
+                     const QRect &rect, const QString &text) const override;
 
     /*****根据项目需求增添辅佐函数*****/
 

@@ -59,14 +59,22 @@ public:
     QPushButton *pushButton_SWITCH;
     QGroupBox *groupBox_printReport;
     QGridLayout *gridLayout_printinfo;
-    QCheckBox *checkBox_Automatic_print;
-    QComboBox *comboBox_QC_sample_report;
-    QComboBox *comboBox_Patient_sample_report;
     QLabel *label_Tab0_hospital_name;
-    QLabel *label_QC_sample_report;
-    QCheckBox *checkBox_Automatic_review;
     QLineEdit *lineEdit_Tab0_hospital_name;
-    QLabel *label_Patient_sample_report;
+    QLabel *label_printReportTitle;
+    QLineEdit *lineEdit_printReportTitle;
+    QCheckBox *checkBox_printPatient;
+    QCheckBox *checkBox_printSec;
+    QCheckBox *checkBox_printMax;
+    QCheckBox *checkBox_printSlope;
+    QCheckBox *checkBox_printAuc;
+    QCheckBox *checkBox_printTma;
+    QCheckBox *checkBox_printLag;
+    QCheckBox *checkBox_printTimeAvg;
+    QCheckBox *checkBox_printRef;
+    QCheckBox *checkBox_printAdhesion;
+    QCheckBox *checkBox_printCurve;
+    QLabel *label_printFormHint;
     QWidget *tab_2;
     QVBoxLayout *verticalLayout_tableWidget_info_1;
     QWidget *widget_Info_0;
@@ -804,7 +812,7 @@ public:
 
         groupBox_printReport = new QGroupBox(tab_1);
         groupBox_printReport->setObjectName(QStringLiteral("groupBox_printReport"));
-        groupBox_printReport->setMaximumSize(QSize(16777215, 240));
+        groupBox_printReport->setMaximumSize(QSize(16777215, 420));
         groupBox_printReport->setStyleSheet(QString::fromUtf8("QGroupBox\n"
 "{\n"
 "    border: 2px solid #AACDE2;\n"
@@ -821,37 +829,10 @@ public:
 "    padding:0 5px;\n"
 "    color: #0077B6;\n"
 "}\n"
-"QComboBox{\n"
-"    background-color: #FFFFFF;\n"
-"    border: 1px solid #AACDE2;\n"
-"    border-radius: 6px;\n"
-"    padding: 4px 15px 4px 6px;\n"
-"    font-size: 14px;\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QComboBox::drop-down {\n"
-"    subcontrol-origin: padding;\n"
-"    subcontrol-position: top right;\n"
-"    width: 20px;\n"
-"    border-left: 1px solid #AACDE2;\n"
-"}\n"
-"QComboBox::down-arrow {\n"
-"    image: url(:/Picture/minus.png);\n"
-"}\n"
-"QComboBox QAbstractItemView {\n"
-"    background: #FFFFFF;\n"
-"    border: 1px solid #AACDE2;\n"
-"    font-size: 14px;\n"
-"}\n"
-""
-                        "QComboBox QAbstractItemView::item:hover,\n"
-"QComboBox QAbstractItemView::item:selected {\n"
-"    background-color: #5FA8D3;\n"
-"    color: #ffffff;\n"
-"}\n"
 "QCheckBox {\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
+"    font: 13px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
 "    color: #1A4D6B;\n"
+"    spacing: 6px;\n"
 "}\n"
 "QLineEdit {\n"
 "    background-color: #FFFFFF;\n"
@@ -863,94 +844,113 @@ public:
 "}\n"
 "QLineEdit:focus {\n"
 "    border: 2px solid #5FA8D3;\n"
+"}\n"
+"QLabel {\n"
+"    font: 13px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275"
+                        "\223\";\n"
+"    color: #1A4D6B;\n"
 "}"));
         gridLayout_printinfo = new QGridLayout(groupBox_printReport);
-        gridLayout_printinfo->setSpacing(5);
+        gridLayout_printinfo->setSpacing(8);
         gridLayout_printinfo->setObjectName(QStringLiteral("gridLayout_printinfo"));
-        gridLayout_printinfo->setContentsMargins(5, 5, 5, 5);
-        checkBox_Automatic_print = new QCheckBox(groupBox_printReport);
-        checkBox_Automatic_print->setObjectName(QStringLiteral("checkBox_Automatic_print"));
-        checkBox_Automatic_print->setMinimumSize(QSize(140, 0));
-        checkBox_Automatic_print->setMaximumSize(QSize(16777215, 30));
-        QFont font3;
-        font3.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221,\346\245\267\344\275\223"));
-        font3.setBold(false);
-        font3.setItalic(false);
-        font3.setWeight(50);
-        checkBox_Automatic_print->setFont(font3);
-
-        gridLayout_printinfo->addWidget(checkBox_Automatic_print, 4, 2, 1, 1);
-
-        comboBox_QC_sample_report = new QComboBox(groupBox_printReport);
-        comboBox_QC_sample_report->setObjectName(QStringLiteral("comboBox_QC_sample_report"));
-        comboBox_QC_sample_report->setMaximumSize(QSize(16777215, 30));
-        QFont font4;
-        font4.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
-        font4.setBold(false);
-        font4.setItalic(false);
-        font4.setWeight(50);
-        comboBox_QC_sample_report->setFont(font4);
-        comboBox_QC_sample_report->setMaxVisibleItems(30);
-
-        gridLayout_printinfo->addWidget(comboBox_QC_sample_report, 2, 2, 1, 1);
-
-        comboBox_Patient_sample_report = new QComboBox(groupBox_printReport);
-        comboBox_Patient_sample_report->setObjectName(QStringLiteral("comboBox_Patient_sample_report"));
-        QSizePolicy sizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-        sizePolicy.setHorizontalStretch(0);
-        sizePolicy.setVerticalStretch(0);
-        sizePolicy.setHeightForWidth(comboBox_Patient_sample_report->sizePolicy().hasHeightForWidth());
-        comboBox_Patient_sample_report->setSizePolicy(sizePolicy);
-        comboBox_Patient_sample_report->setMaximumSize(QSize(16777215, 30));
-        comboBox_Patient_sample_report->setFont(font4);
-        comboBox_Patient_sample_report->setMaxVisibleItems(30);
-
-        gridLayout_printinfo->addWidget(comboBox_Patient_sample_report, 1, 2, 1, 1);
-
+        gridLayout_printinfo->setContentsMargins(12, 12, 12, 12);
         label_Tab0_hospital_name = new QLabel(groupBox_printReport);
         label_Tab0_hospital_name->setObjectName(QStringLiteral("label_Tab0_hospital_name"));
         label_Tab0_hospital_name->setMinimumSize(QSize(100, 30));
-        label_Tab0_hospital_name->setMaximumSize(QSize(16777215, 30));
-        label_Tab0_hospital_name->setFont(font3);
-        label_Tab0_hospital_name->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
 
         gridLayout_printinfo->addWidget(label_Tab0_hospital_name, 0, 0, 1, 1);
 
-        label_QC_sample_report = new QLabel(groupBox_printReport);
-        label_QC_sample_report->setObjectName(QStringLiteral("label_QC_sample_report"));
-        label_QC_sample_report->setMaximumSize(QSize(140, 30));
-        label_QC_sample_report->setFont(font3);
-
-        gridLayout_printinfo->addWidget(label_QC_sample_report, 2, 0, 1, 1);
-
-        checkBox_Automatic_review = new QCheckBox(groupBox_printReport);
-        checkBox_Automatic_review->setObjectName(QStringLiteral("checkBox_Automatic_review"));
-        checkBox_Automatic_review->setMinimumSize(QSize(140, 0));
-        checkBox_Automatic_review->setMaximumSize(QSize(16777215, 30));
-        checkBox_Automatic_review->setFont(font3);
-
-        gridLayout_printinfo->addWidget(checkBox_Automatic_review, 3, 2, 1, 1);
-
         lineEdit_Tab0_hospital_name = new QLineEdit(groupBox_printReport);
         lineEdit_Tab0_hospital_name->setObjectName(QStringLiteral("lineEdit_Tab0_hospital_name"));
-        QSizePolicy sizePolicy1(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        sizePolicy1.setHorizontalStretch(0);
-        sizePolicy1.setVerticalStretch(0);
-        sizePolicy1.setHeightForWidth(lineEdit_Tab0_hospital_name->sizePolicy().hasHeightForWidth());
-        lineEdit_Tab0_hospital_name->setSizePolicy(sizePolicy1);
         lineEdit_Tab0_hospital_name->setMinimumSize(QSize(0, 30));
-        lineEdit_Tab0_hospital_name->setMaximumSize(QSize(16777215, 30));
-        lineEdit_Tab0_hospital_name->setFont(font4);
         lineEdit_Tab0_hospital_name->setAlignment(Qt::AlignCenter);
 
-        gridLayout_printinfo->addWidget(lineEdit_Tab0_hospital_name, 0, 2, 1, 1);
+        gridLayout_printinfo->addWidget(lineEdit_Tab0_hospital_name, 0, 1, 1, 3);
 
-        label_Patient_sample_report = new QLabel(groupBox_printReport);
-        label_Patient_sample_report->setObjectName(QStringLiteral("label_Patient_sample_report"));
-        label_Patient_sample_report->setMaximumSize(QSize(140, 30));
-        label_Patient_sample_report->setFont(font3);
+        label_printReportTitle = new QLabel(groupBox_printReport);
+        label_printReportTitle->setObjectName(QStringLiteral("label_printReportTitle"));
+        label_printReportTitle->setMinimumSize(QSize(100, 30));
 
-        gridLayout_printinfo->addWidget(label_Patient_sample_report, 1, 0, 1, 1);
+        gridLayout_printinfo->addWidget(label_printReportTitle, 1, 0, 1, 1);
+
+        lineEdit_printReportTitle = new QLineEdit(groupBox_printReport);
+        lineEdit_printReportTitle->setObjectName(QStringLiteral("lineEdit_printReportTitle"));
+        lineEdit_printReportTitle->setMinimumSize(QSize(0, 30));
+        lineEdit_printReportTitle->setAlignment(Qt::AlignCenter);
+
+        gridLayout_printinfo->addWidget(lineEdit_printReportTitle, 1, 1, 1, 3);
+
+        checkBox_printPatient = new QCheckBox(groupBox_printReport);
+        checkBox_printPatient->setObjectName(QStringLiteral("checkBox_printPatient"));
+        checkBox_printPatient->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printPatient, 2, 0, 1, 1);
+
+        checkBox_printSec = new QCheckBox(groupBox_printReport);
+        checkBox_printSec->setObjectName(QStringLiteral("checkBox_printSec"));
+        checkBox_printSec->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printSec, 2, 1, 1, 1);
+
+        checkBox_printMax = new QCheckBox(groupBox_printReport);
+        checkBox_printMax->setObjectName(QStringLiteral("checkBox_printMax"));
+        checkBox_printMax->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printMax, 2, 2, 1, 1);
+
+        checkBox_printSlope = new QCheckBox(groupBox_printReport);
+        checkBox_printSlope->setObjectName(QStringLiteral("checkBox_printSlope"));
+        checkBox_printSlope->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printSlope, 2, 3, 1, 1);
+
+        checkBox_printAuc = new QCheckBox(groupBox_printReport);
+        checkBox_printAuc->setObjectName(QStringLiteral("checkBox_printAuc"));
+        checkBox_printAuc->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printAuc, 3, 0, 1, 1);
+
+        checkBox_printTma = new QCheckBox(groupBox_printReport);
+        checkBox_printTma->setObjectName(QStringLiteral("checkBox_printTma"));
+        checkBox_printTma->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printTma, 3, 1, 1, 1);
+
+        checkBox_printLag = new QCheckBox(groupBox_printReport);
+        checkBox_printLag->setObjectName(QStringLiteral("checkBox_printLag"));
+        checkBox_printLag->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printLag, 3, 2, 1, 1);
+
+        checkBox_printTimeAvg = new QCheckBox(groupBox_printReport);
+        checkBox_printTimeAvg->setObjectName(QStringLiteral("checkBox_printTimeAvg"));
+        checkBox_printTimeAvg->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printTimeAvg, 3, 3, 1, 1);
+
+        checkBox_printRef = new QCheckBox(groupBox_printReport);
+        checkBox_printRef->setObjectName(QStringLiteral("checkBox_printRef"));
+        checkBox_printRef->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printRef, 4, 0, 1, 1);
+
+        checkBox_printAdhesion = new QCheckBox(groupBox_printReport);
+        checkBox_printAdhesion->setObjectName(QStringLiteral("checkBox_printAdhesion"));
+        checkBox_printAdhesion->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printAdhesion, 4, 1, 1, 1);
+
+        checkBox_printCurve = new QCheckBox(groupBox_printReport);
+        checkBox_printCurve->setObjectName(QStringLiteral("checkBox_printCurve"));
+        checkBox_printCurve->setChecked(true);
+
+        gridLayout_printinfo->addWidget(checkBox_printCurve, 4, 2, 1, 1);
+
+        label_printFormHint = new QLabel(groupBox_printReport);
+        label_printFormHint->setObjectName(QStringLiteral("label_printFormHint"));
+        label_printFormHint->setWordWrap(true);
+
+        gridLayout_printinfo->addWidget(label_printFormHint, 5, 0, 1, 4);
 
 
         verticalLayout_8->addWidget(groupBox_printReport);
@@ -973,6 +973,11 @@ public:
         label_Category->setObjectName(QStringLiteral("label_Category"));
         label_Category->setMinimumSize(QSize(0, 40));
         label_Category->setMaximumSize(QSize(16777215, 30));
+        QFont font3;
+        font3.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221,\346\245\267\344\275\223"));
+        font3.setBold(false);
+        font3.setItalic(false);
+        font3.setWeight(50);
         label_Category->setFont(font3);
 
         horizontalLayout_11->addWidget(label_Category);
@@ -981,6 +986,11 @@ public:
         comboBox_Category->setObjectName(QStringLiteral("comboBox_Category"));
         comboBox_Category->setMinimumSize(QSize(140, 40));
         comboBox_Category->setMaximumSize(QSize(16777215, 30));
+        QFont font4;
+        font4.setFamily(QString::fromUtf8("\345\276\256\350\275\257\351\233\205\351\273\221"));
+        font4.setBold(false);
+        font4.setItalic(false);
+        font4.setWeight(50);
         comboBox_Category->setFont(font4);
         comboBox_Category->setMaxVisibleItems(30);
 
@@ -3520,8 +3530,11 @@ public:
 
         toolButton_Import = new QToolButton(groupBox_setfile);
         toolButton_Import->setObjectName(QStringLiteral("toolButton_Import"));
-        sizePolicy1.setHeightForWidth(toolButton_Import->sizePolicy().hasHeightForWidth());
-        toolButton_Import->setSizePolicy(sizePolicy1);
+        QSizePolicy sizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        sizePolicy.setHorizontalStretch(0);
+        sizePolicy.setVerticalStretch(0);
+        sizePolicy.setHeightForWidth(toolButton_Import->sizePolicy().hasHeightForWidth());
+        toolButton_Import->setSizePolicy(sizePolicy);
         toolButton_Import->setMaximumSize(QSize(16777215, 30));
         toolButton_Import->setFont(font4);
 
@@ -3529,8 +3542,8 @@ public:
 
         toolButton_export = new QToolButton(groupBox_setfile);
         toolButton_export->setObjectName(QStringLiteral("toolButton_export"));
-        sizePolicy1.setHeightForWidth(toolButton_export->sizePolicy().hasHeightForWidth());
-        toolButton_export->setSizePolicy(sizePolicy1);
+        sizePolicy.setHeightForWidth(toolButton_export->sizePolicy().hasHeightForWidth());
+        toolButton_export->setSizePolicy(sizePolicy);
         toolButton_export->setMaximumSize(QSize(16777215, 30));
         toolButton_export->setFont(font4);
 
@@ -3868,8 +3881,6 @@ public:
 
         verticalLayout_big->addWidget(widgetcenter);
 
-        QWidget::setTabOrder(comboBox_Patient_sample_report, checkBox_Automatic_print);
-        QWidget::setTabOrder(checkBox_Automatic_print, listWidget_user);
         QWidget::setTabOrder(listWidget_user, pushButton_ADD);
         QWidget::setTabOrder(pushButton_ADD, pushButton_DELETE);
         QWidget::setTabOrder(pushButton_DELETE, pushButton_CHANGE);
@@ -3889,8 +3900,6 @@ public:
         QWidget::setTabOrder(tableWidget_info_6, tableWidget_info_7);
         QWidget::setTabOrder(tableWidget_info_7, toolButton_ADD);
         QWidget::setTabOrder(toolButton_ADD, toolButton_Delete);
-        QWidget::setTabOrder(toolButton_Delete, checkBox_Automatic_review);
-        QWidget::setTabOrder(checkBox_Automatic_review, comboBox_QC_sample_report);
 
         retranslateUi(MachineSetting);
 
@@ -3910,12 +3919,20 @@ public:
         pushButton_DELETE->setText(QApplication::translate("MachineSetting", "\345\210\240\351\231\244", nullptr));
         pushButton_CHANGE->setText(QApplication::translate("MachineSetting", "\344\277\256\346\224\271\345\257\206\347\240\201", nullptr));
         pushButton_SWITCH->setText(QApplication::translate("MachineSetting", "\345\210\207\346\215\242\347\224\250\346\210\267", nullptr));
-        groupBox_printReport->setTitle(QString());
-        checkBox_Automatic_print->setText(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\345\256\214\346\210\220\345\220\216\350\207\252\345\212\250\346\211\223\345\215\260", nullptr));
         label_Tab0_hospital_name->setText(QApplication::translate("MachineSetting", "\350\256\276\347\275\256\345\214\273\351\231\242\345\220\215:", nullptr));
-        label_QC_sample_report->setText(QApplication::translate("MachineSetting", "\350\264\250\346\216\247\346\212\245\350\241\250\346\250\241\346\235\277:", nullptr));
-        checkBox_Automatic_review->setText(QApplication::translate("MachineSetting", "\346\211\223\345\215\260\346\212\245\345\221\212\346\227\266\350\207\252\345\212\250\345\256\241\346\240\270\346\234\252\345\256\241\346\240\270\347\232\204\350\256\260\345\275\225", nullptr));
-        label_Patient_sample_report->setText(QApplication::translate("MachineSetting", "\346\202\243\350\200\205\346\240\267\346\234\254\346\212\245\345\221\212\346\250\241\346\235\277:", nullptr));
+        label_printReportTitle->setText(QApplication::translate("MachineSetting", "\346\212\245\345\221\212\346\240\207\351\242\230:", nullptr));
+        checkBox_printPatient->setText(QApplication::translate("MachineSetting", "\346\202\243\350\200\205\344\277\241\346\201\257", nullptr));
+        checkBox_printSec->setText(QApplication::translate("MachineSetting", "60/180/300\347\247\222", nullptr));
+        checkBox_printMax->setText(QApplication::translate("MachineSetting", "\346\234\200\345\244\247\350\201\232\351\233\206\347\216\207", nullptr));
+        checkBox_printSlope->setText(QApplication::translate("MachineSetting", "\346\234\200\351\231\241\346\226\234\347\216\207", nullptr));
+        checkBox_printAuc->setText(QApplication::translate("MachineSetting", "AUC\351\235\242\347\247\257", nullptr));
+        checkBox_printTma->setText(QApplication::translate("MachineSetting", "TMA\346\227\266\351\227\264", nullptr));
+        checkBox_printLag->setText(QApplication::translate("MachineSetting", "\345\273\266\350\277\237\346\227\266\351\227\264", nullptr));
+        checkBox_printTimeAvg->setText(QApplication::translate("MachineSetting", "\346\227\266\351\227\264\346\256\265\345\271\263\345\235\207", nullptr));
+        checkBox_printRef->setText(QApplication::translate("MachineSetting", "\345\217\202\350\200\203\350\214\203\345\233\264", nullptr));
+        checkBox_printAdhesion->setText(QApplication::translate("MachineSetting", "\347\262\230\351\231\204\347\216\207", nullptr));
+        checkBox_printCurve->setText(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\346\233\262\347\272\277", nullptr));
+        label_printFormHint->setText(QApplication::translate("MachineSetting", "\345\213\276\351\200\211\347\232\204\351\241\271\347\233\256\344\274\232\345\207\272\347\216\260\345\234\250\345\210\206\346\236\220\345\215\241\345\222\214\346\211\223\345\215\260\346\212\245\345\221\212\344\270\212\343\200\202\346\224\271\345\256\214\345\215\263\344\277\235\345\255\230\357\274\214\344\270\213\344\270\200\345\274\240\346\212\245\345\221\212\346\214\211\350\277\231\351\207\214\345\207\272\343\200\202", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_1), QApplication::translate("MachineSetting", "\347\224\250\346\210\267\347\256\241\347\220\206", nullptr));
         label_Category->setText(QApplication::translate("MachineSetting", "TextLabel", nullptr));
         toolButton_viewSQL->setText(QApplication::translate("MachineSetting", "...", nullptr));

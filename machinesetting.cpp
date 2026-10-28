@@ -23,6 +23,7 @@
 #include <QMetaType>
 #include <iostream>
 #include "globaldata.h"
+#include "ini_file.h"
 #include "LIS/lissettingspage.h"
 #include "mainwindow.h"
 #include "quiutils.h"
@@ -68,9 +69,9 @@ QString channelModuleCardStyle()
 {
     return QStringLiteral(
         "QWidget[channelRowCard=\"true\"] {"
-        "  background-color: #F4FAFE;"
-        "  border: 1px solid #D4EAF5;"
-        "  border-radius: 10px;"
+        "  background: transparent;"
+        "  border: none;"
+        "  border-radius: 0px;"
         "}");
 }
 
@@ -442,9 +443,8 @@ void MachineSetting::setupChannelDimmingMaintenanceTab()
 
     ui->widget_valuediaplay->setStyleSheet(QStringLiteral(
         "QWidget#widget_valuediaplay {"
-        "  background-color: #F4FAFE;"
+        "  background: transparent;"
         "  border: none;"
-        "  border-radius: 8px;"
         "}"));
     ui->widget_valuediaplay->setMaximumHeight(QWIDGETSIZE_MAX);
     ui->widget_valuediaplay->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -669,8 +669,18 @@ void MachineSetting::initSheet()
     }
 
     GlobalData::QLineEditSheet(ui->lineEdit_Tab0_hospital_name);
-    GlobalData::QCheckboxSheet(ui->checkBox_Automatic_review,tr("打印报告时自动审核未审核的记录"));
-    GlobalData::QCheckboxSheet(ui->checkBox_Automatic_print,tr("测试完成后自动打印"));
+    GlobalData::QLineEditSheet(ui->lineEdit_printReportTitle);
+    const QList<QCheckBox *> printFormBoxes = {
+        ui->checkBox_printPatient, ui->checkBox_printSec, ui->checkBox_printMax,
+        ui->checkBox_printSlope, ui->checkBox_printAuc, ui->checkBox_printTma,
+        ui->checkBox_printLag, ui->checkBox_printTimeAvg, ui->checkBox_printRef,
+        ui->checkBox_printAdhesion, ui->checkBox_printCurve
+    };
+    for (QCheckBox *box : printFormBoxes) {
+        if (box) {
+            GlobalData::QCheckboxSheet(box, box->text());
+        }
+    }
     GlobalData::QCheckboxSheet(ui->checkBoxExperimental,tr("实验模式"));
     GlobalData::QLineEditSheet(ui->lineEdit_showPath);
     GlobalData::QCommboxSheet(ui->comboBox_Category);
@@ -1367,12 +1377,91 @@ void MachineSetting::SetColumnText(QTableWidget * tablewiget,int row,int col,QSt
 void MachineSetting::init_TabHospitalInfo()
 {
     ui->groupBox_printReport->setTitle(tr("打印报告"));
-    QStringList Patient_sample_repor;
-    Patient_sample_repor.clear();
-    Patient_sample_repor<<tr("A3")<<tr("A4")<<tr("A5")<<tr("B3");
-    ui->comboBox_QC_sample_report->insertItems(0,Patient_sample_repor);
-    ui->comboBox_Patient_sample_report->insertItems(0,Patient_sample_repor);
+    INI_File ini;
+    const PrintFormOptions opt = ini.loadPrintForm();
 
+    auto setBox = [](QCheckBox *box, bool on) {
+        if (!box) {
+            return;
+        }
+        box->blockSignals(true);
+        box->setChecked(on);
+        box->blockSignals(false);
+    };
+    if (ui->lineEdit_printReportTitle) {
+        ui->lineEdit_printReportTitle->blockSignals(true);
+        ui->lineEdit_printReportTitle->setText(opt.title);
+        ui->lineEdit_printReportTitle->blockSignals(false);
+    }
+    setBox(ui->checkBox_printPatient, opt.patient);
+    setBox(ui->checkBox_printSec, opt.sec60);
+    setBox(ui->checkBox_printMax, opt.maxAgg);
+    setBox(ui->checkBox_printSlope, opt.slope);
+    setBox(ui->checkBox_printAuc, opt.auc);
+    setBox(ui->checkBox_printTma, opt.tma);
+    setBox(ui->checkBox_printLag, opt.lag);
+    setBox(ui->checkBox_printTimeAvg, opt.timeAvg);
+    setBox(ui->checkBox_printRef, opt.reference);
+    setBox(ui->checkBox_printAdhesion, opt.adhesion);
+    setBox(ui->checkBox_printCurve, opt.curve);
+    setBox(ui->checkBoxshowPrintAdhesion, opt.adhesion);
+
+    const QList<QCheckBox*> boxes = {
+        ui->checkBox_printPatient,
+        ui->checkBox_printSec,
+        ui->checkBox_printMax,
+        ui->checkBox_printSlope,
+        ui->checkBox_printAuc,
+        ui->checkBox_printTma,
+        ui->checkBox_printLag,
+        ui->checkBox_printTimeAvg,
+        ui->checkBox_printRef,
+        ui->checkBox_printAdhesion,
+        ui->checkBox_printCurve
+    };
+    for (QCheckBox *box : boxes) {
+        if (box) {
+            connect(box, &QCheckBox::toggled, this, [this](bool) { savePrintFormFromUi(); });
+        }
+    }
+    if (ui->lineEdit_printReportTitle) {
+        connect(ui->lineEdit_printReportTitle, &QLineEdit::editingFinished,
+                this, &MachineSetting::savePrintFormFromUi);
+    }
+    if (ui->checkBoxshowPrintAdhesion) {
+        connect(ui->checkBoxshowPrintAdhesion, &QCheckBox::toggled, this, [this](bool on) {
+            if (ui->checkBox_printAdhesion) {
+                ui->checkBox_printAdhesion->blockSignals(true);
+                ui->checkBox_printAdhesion->setChecked(on);
+                ui->checkBox_printAdhesion->blockSignals(false);
+            }
+            savePrintFormFromUi();
+        });
+    }
+}
+
+void MachineSetting::savePrintFormFromUi()
+{
+    PrintFormOptions opt;
+    opt.title = ui->lineEdit_printReportTitle ? ui->lineEdit_printReportTitle->text().trimmed() : QString();
+    opt.patient = ui->checkBox_printPatient && ui->checkBox_printPatient->isChecked();
+    opt.sec60 = ui->checkBox_printSec && ui->checkBox_printSec->isChecked();
+    opt.maxAgg = ui->checkBox_printMax && ui->checkBox_printMax->isChecked();
+    opt.slope = ui->checkBox_printSlope && ui->checkBox_printSlope->isChecked();
+    opt.auc = ui->checkBox_printAuc && ui->checkBox_printAuc->isChecked();
+    opt.tma = ui->checkBox_printTma && ui->checkBox_printTma->isChecked();
+    opt.lag = ui->checkBox_printLag && ui->checkBox_printLag->isChecked();
+    opt.timeAvg = ui->checkBox_printTimeAvg && ui->checkBox_printTimeAvg->isChecked();
+    opt.reference = ui->checkBox_printRef && ui->checkBox_printRef->isChecked();
+    opt.adhesion = ui->checkBox_printAdhesion && ui->checkBox_printAdhesion->isChecked();
+    opt.curve = ui->checkBox_printCurve && ui->checkBox_printCurve->isChecked();
+    INI_File ini;
+    ini.savePrintForm(opt);
+    if (ui->checkBoxshowPrintAdhesion && ui->checkBoxshowPrintAdhesion->isChecked() != opt.adhesion) {
+        ui->checkBoxshowPrintAdhesion->blockSignals(true);
+        ui->checkBoxshowPrintAdhesion->setChecked(opt.adhesion);
+        ui->checkBoxshowPrintAdhesion->blockSignals(false);
+    }
 }
 
 

@@ -1,4 +1,5 @@
 ﻿#include "PrintTemplate.h"
+#include "ini_file.h"
 #include <QDateTime>
 #include <QMessageBox>
 #include <QFormLayout>
@@ -6,6 +7,9 @@
 #include <QPageSetupDialog>
 #include <QFileDialog>
 #include <custom_style/custommessagebox.h>
+#include <QScrollArea>
+#include <QDesktopWidget>
+#include <QApplication>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1900)
 #pragma execution_character_set("utf-8")
@@ -15,7 +19,7 @@
 CurveWidget::CurveWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setMinimumHeight(400);
+    setMinimumHeight(280);
     setStyleSheet(QString::fromUtf8("background-color: white;"));
 }
 
@@ -199,6 +203,7 @@ void CurveWidget::paintEvent(QPaintEvent *event)
 PrintTemplate::PrintTemplate(QWidget *parent, CustomCreatSql *sql)
     : QWidget(parent)
     , m_sqlDatabase(sql)
+    , m_patientFrame(nullptr)
     , m_showAdhesionRate(true)
 {
     setWindowTitle(QString::fromUtf8("检验报告单"));
@@ -223,10 +228,21 @@ PrintTemplate::~PrintTemplate()
 
 void PrintTemplate::initUI()
 {
-    setMinimumSize(900, 1050);
-    m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setSpacing(15);
-    m_mainLayout->setContentsMargins(30, 30, 30, 30);
+    QWidget *page = new QWidget(this);
+    m_mainLayout = new QVBoxLayout(page);
+    m_mainLayout->setSpacing(8);
+    m_mainLayout->setContentsMargins(16, 8, 16, 8);
+
+    QScrollArea *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setWidget(page);
+
+    QVBoxLayout *outer = new QVBoxLayout(this);
+    outer->setContentsMargins(8, 8, 8, 8);
+    outer->setSpacing(6);
+    outer->addWidget(scroll, 1);
 
     // 1. 医院标题
     QString hospitalName = getHospitalNameFromDB();
@@ -252,13 +268,13 @@ void PrintTemplate::initUI()
     m_reportDateLabel->setAlignment(Qt::AlignRight);
     m_reportDateLabel->setStyleSheet(QString::fromUtf8("font-size: 12px; color: #666;"));
     m_mainLayout->addWidget(m_reportDateLabel);
-    m_mainLayout->addSpacing(25);
+    m_mainLayout->addSpacing(8);
 
     // 4. 患者信息区域
-    QFrame *patientFrame = new QFrame();
-    patientFrame->setFrameStyle(QFrame::NoFrame);
-    patientFrame->setStyleSheet(QString::fromUtf8("QFrame { background-color: #fff; }"));
-    QGridLayout *patientGrid = new QGridLayout(patientFrame);
+    m_patientFrame = new QFrame();
+    m_patientFrame->setFrameStyle(QFrame::NoFrame);
+    m_patientFrame->setStyleSheet(QString::fromUtf8("QFrame { background-color: #fff; }"));
+    QGridLayout *patientGrid = new QGridLayout(m_patientFrame);
     patientGrid->setSpacing(10);
     patientGrid->setContentsMargins(15, 15, 15, 15);
 
@@ -307,8 +323,8 @@ void PrintTemplate::initUI()
     patientGrid->addWidget(reviewPair.first, 2, 2);
     patientGrid->addWidget(reviewPair.second, 2, 3);
 
-    m_mainLayout->addWidget(patientFrame);
-    m_mainLayout->addSpacing(25);
+    m_mainLayout->addWidget(m_patientFrame);
+    m_mainLayout->addSpacing(8);
 
     // 5. 测试结果区域（动态表格）
     m_resultFrame = new QFrame();
@@ -335,12 +351,14 @@ void PrintTemplate::initUI()
         QString::fromUtf8("最陡斜率(%/分钟)"), QString::fromUtf8("TMA时间(分钟)"),
         QString::fromUtf8("延迟时间(分钟)"), QString::fromUtf8("粘附率(%)"), QString::fromUtf8("参考范围")
     };
+    m_columnHeaders.clear();
     for (int col = 0; col < headers.size(); ++col) {
         QLabel *label = new QLabel(headers[col]);
         label->setStyleSheet(QString::fromUtf8("font-weight: bold; background-color: #e0e0e0; padding: 8px; border: none;"));
         label->setAlignment(Qt::AlignCenter);
         m_resultGrid->addWidget(label, 2, col);
-        if (col == 9) m_adhesionHeaderLabel = label;   // 保存粘附率表头指针
+        m_columnHeaders.append(label);
+        if (col == 9) m_adhesionHeaderLabel = label;
     }
 
     m_mainLayout->addWidget(m_resultFrame);
@@ -388,9 +406,7 @@ void PrintTemplate::initUI()
     remarkLayout->addWidget(remarkTitle, 0, Qt::AlignVCenter);
     remarkLayout->addWidget(m_remarkLabel, 1, Qt::AlignVCenter);
     m_mainLayout->addWidget(m_remarkSection);
-    m_mainLayout->addStretch();
 
-    // 7. 底部按钮
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     m_showCurveCheck = new QCheckBox(QString::fromUtf8("输出时显示测试曲线图"));
     m_showCurveCheck->setChecked(true);
@@ -422,9 +438,18 @@ void PrintTemplate::initUI()
     buttonLayout->addWidget(m_exportPDFButton);
     buttonLayout->addWidget(m_closeButton);
     buttonLayout->addStretch();
-    m_mainLayout->addLayout(buttonLayout);
+    outer->addLayout(buttonLayout);
+
+    if (QApplication::desktop()) {
+        const QRect desk = QApplication::desktop()->availableGeometry(this);
+        const int w = qMin(1080, qMax(860, desk.width() - 48));
+        const int h = qMax(480, desk.height() - 48);
+        resize(w, h);
+    }
+    setMinimumSize(860, 480);
 
     clearData();
+    applyFormOptions();
 }
 
 void PrintTemplate::setSampleId(const QString &sampleId)
@@ -497,8 +522,7 @@ void PrintTemplate::updateReportDisplay()
         }
     }
 
-    // 根据粘附率显示状态控制列可见性
-    setShowAdhesionRate(m_showAdhesionRate);
+    applyFormOptions();
 }
 
 void PrintTemplate::clearResultRows()
@@ -817,15 +841,90 @@ QPair<double, double> PrintTemplate::parseReferenceRange(const QString &refRange
     return result;
 }
 
+void PrintTemplate::applyFormOptions()
+{
+    INI_File ini;
+    const PrintFormOptions opt = ini.loadPrintForm();
+    QString title = opt.title.trimmed();
+    if (title.isEmpty()) {
+        title = QString::fromUtf8("\xe8\xa1\x80\xe5\xb0\x8f\xe6\x9d\xbf\xe8\x81\x9a\xe9\x9b\x86\xe5\x88\x86\xe6\x9e\x90\xe6\x8a\xa5\xe5\x91\x8a");
+    }
+    if (m_reportTitleLabel) {
+        m_reportTitleLabel->setText(title);
+    }
+    if (m_patientFrame) {
+        m_patientFrame->setVisible(opt.patient);
+    }
+
+    auto showCell = [](QLabel *label, bool on) {
+        if (!label) {
+            return;
+        }
+        label->setVisible(on);
+        if (on) {
+            label->setMinimumSize(0, 0);
+            label->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        } else {
+            label->setFixedSize(0, 0);
+        }
+    };
+    const bool columnOn[] = {
+        true,
+        opt.sec60,
+        opt.sec60,
+        opt.sec60,
+        opt.maxAgg,
+        opt.auc,
+        opt.slope,
+        opt.tma,
+        opt.lag,
+        opt.adhesion,
+        opt.reference
+    };
+    const int columnCount = int(sizeof(columnOn) / sizeof(columnOn[0]));
+    for (int i = 0; i < m_columnHeaders.size() && i < columnCount; ++i) {
+        showCell(m_columnHeaders.at(i), columnOn[i]);
+    }
+    for (const RowWidgets &row : m_resultRows) {
+        showCell(row.testItemLabel, true);
+        showCell(row.result60SLabel, opt.sec60);
+        showCell(row.result180SLabel, opt.sec60);
+        showCell(row.result300SLabel, opt.sec60);
+        showCell(row.resultMaxLabel, opt.maxAgg);
+        showCell(row.aucLabel, opt.auc);
+        showCell(row.maxSlopeLabel, opt.slope);
+        showCell(row.tmaTimeLabel, opt.tma);
+        showCell(row.lagTimeLabel, opt.lag);
+        showCell(row.adhesionLabel, opt.adhesion);
+        showCell(row.refRangeLabel, opt.reference);
+    }
+    m_showAdhesionRate = opt.adhesion;
+    if (m_showCurveCheck) {
+        m_showCurveCheck->blockSignals(true);
+        m_showCurveCheck->setChecked(opt.curve);
+        m_showCurveCheck->blockSignals(false);
+    }
+    setShowCurveChart(opt.curve);
+}
+
 void PrintTemplate::setShowAdhesionRate(bool show)
 {
     m_showAdhesionRate = show;
-    // 控制表头的粘附率列
-    if (m_adhesionHeaderLabel)
-        m_adhesionHeaderLabel->setVisible(show);
-    // 控制每一行的粘附率单元格
+    auto showCell = [](QLabel *label, bool on) {
+        if (!label) {
+            return;
+        }
+        label->setVisible(on);
+        if (on) {
+            label->setMinimumSize(0, 0);
+            label->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        } else {
+            label->setFixedSize(0, 0);
+        }
+    };
+    showCell(m_adhesionHeaderLabel, show);
     for (const RowWidgets &row : m_resultRows) {
-        row.adhesionLabel->setVisible(show);
+        showCell(row.adhesionLabel, show);
     }
 }
 

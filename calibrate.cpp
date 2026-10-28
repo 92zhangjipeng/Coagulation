@@ -208,8 +208,9 @@ void Calibrate::InitSaveTableList(QTableWidget * pTable)
 	}
 
 	pTable->setAlternatingRowColors(true);
-	pTable->verticalHeader()->setDefaultSectionSize(40);
-	pTable->verticalHeader()->setMinimumSectionSize(40);
+	pTable->setWordWrap(true);
+	pTable->verticalHeader()->setDefaultSectionSize(64);
+	pTable->verticalHeader()->setMinimumSectionSize(64);
 	pTable->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
 	pTable->verticalHeader()->show();
 
@@ -267,6 +268,14 @@ void Calibrate::InitSaveTableList(QTableWidget * pTable)
 
 	connect(pTable, SIGNAL(itemChanged(QTableWidgetItem*)),
 		this, SLOT(dgvDellClick(QTableWidgetItem*)));
+
+	if (pTable->selectionModel()) {
+		connect(pTable->selectionModel(), &QItemSelectionModel::selectionChanged,
+			pTable, [pTable](const QItemSelection &, const QItemSelection &) {
+				if (pTable->viewport())
+					pTable->viewport()->update();
+			});
+	}
 
 }
 
@@ -673,7 +682,7 @@ void Calibrate::applyDefaultRowHeight(QTableWidget *table, int row)
 	if (!table || row < 0 || row >= table->rowCount()) {
 		return;
 	}
-	const int rowH = qMax(40, table->verticalHeader()->defaultSectionSize());
+	const int rowH = qMax(64, table->verticalHeader()->defaultSectionSize());
 	table->setRowHeight(row, rowH);
 }
 
@@ -683,7 +692,7 @@ void Calibrate::syncTableLayout()
 	if (!table) {
 		return;
 	}
-	const int rowH = qMax(40, table->verticalHeader()->defaultSectionSize());
+	const int rowH = qMax(64, table->verticalHeader()->defaultSectionSize());
 	for (int row = 0; row < table->rowCount(); ++row) {
 		if (table->rowHeight(row) != rowH) {
 			table->setRowHeight(row, rowH);

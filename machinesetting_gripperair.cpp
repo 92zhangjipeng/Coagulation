@@ -1232,9 +1232,8 @@ void MachineSetting::relayoutEquipmentPages()
 
     const QString cardQss = QStringLiteral(
                 "QFrame#moduleChannelCard {"
-                " background-color: #F4FAFE;"
-                " border: 1px solid #D4EAF5;"
-                " border-radius: 8px;"
+                " background: transparent;"
+                " border: none;"
                 "}");
     const QString headQss = QStringLiteral(
                 "QFrame#moduleHeadBar {"
@@ -1393,9 +1392,8 @@ void MachineSetting::relayoutEquipmentPages()
 
     const QString heightQss = QStringLiteral(
                 "QFrame#heightTuneCard {"
-                " background-color: #F4FAFE;"
-                " border: 1px solid #D4EAF5;"
-                " border-radius: 8px;"
+                " background: transparent;"
+                " border: none;"
                 "}");
     const QString sectionQss = QStringLiteral(
                 "color:#2C5F8A; font-weight:700; background:transparent; border:none; padding-top:4px;");
@@ -1546,9 +1544,8 @@ static QFrame *makeNeedleItemCard(QWidget *parent, QLabel *label, QWidget *edito
     card->setObjectName(QStringLiteral("heightTuneCard"));
     card->setStyleSheet(QStringLiteral(
                 "QFrame#heightTuneCard {"
-                " background-color: #F4FAFE;"
-                " border: 1px solid #D4EAF5;"
-                " border-radius: 8px;"
+                " background: transparent;"
+                " border: none;"
                 "}"));
     card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     card->setMinimumWidth(108);
@@ -1917,13 +1914,12 @@ static QFrame *makeCurveOptionCard(QWidget *parent, QCheckBox *box)
     card->setObjectName(QStringLiteral("curveOptionCard"));
     card->setStyleSheet(QStringLiteral(
                 "QFrame#curveOptionCard {"
-                " background-color: #F4FAFE;"
-                " border: 1px solid #D4EAF5;"
-                " border-radius: 8px;"
+                " background: transparent;"
+                " border: none;"
                 "}"
                 "QFrame#curveOptionCard[chosen=\"true\"] {"
-                " background-color: #E8F4FD;"
-                " border: 1px solid #3A9BD4;"
+                " background: transparent;"
+                " border: none;"
                 "}"));
     card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     card->setMinimumHeight(44);
@@ -1931,13 +1927,7 @@ static QFrame *makeCurveOptionCard(QWidget *parent, QCheckBox *box)
     lay->setContentsMargins(12, 8, 12, 8);
     if (box) {
         box->setParent(card);
-        box->setStyleSheet(QStringLiteral(
-                    "QCheckBox { background: transparent; color: #2C5F8A; spacing: 8px; }"
-                    "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; }"
-                    "QCheckBox::indicator:unchecked {"
-                    " background: #FFFFFF; border: 1px solid #7EC8F0; }"
-                    "QCheckBox::indicator:checked {"
-                    " background: #3A9BD4; border: 1px solid #2C7FB0; }"));
+        GlobalData::QCheckboxSheet(box, box->text());
         box->setMinimumHeight(28);
         box->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         box->show();
@@ -2179,7 +2169,7 @@ void MachineSetting::applyClinicalSettingsChrome()
 
     const QString groupQss = QStringLiteral(
         "QGroupBox {"
-        " background: #F4FAFE;"
+        " background: transparent;"
         " border: 1px solid #D4EAF5;"
         " border-radius: 8px;"
         " margin-top: 4px;"
@@ -2187,6 +2177,7 @@ void MachineSetting::applyClinicalSettingsChrome()
         " font-weight: 700;"
         " color: #2C5F8A;"
         "}"
+        "QGroupBox QCheckBox { background: transparent; border: none; }"
         "QGroupBox::title {"
         " subcontrol-origin: padding;"
         " subcontrol-position: top left;"

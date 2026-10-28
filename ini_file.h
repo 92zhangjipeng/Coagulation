@@ -38,6 +38,21 @@
 #define RATIOK4   "ratiok4"
 
 
+struct PrintFormOptions {
+    QString title;
+    bool patient;
+    bool sec60;
+    bool maxAgg;
+    bool slope;
+    bool auc;
+    bool tma;
+    bool lag;
+    bool timeAvg;
+    bool reference;
+    bool adhesion;
+    bool curve;
+};
+
 class INI_File
 {
 public:
@@ -256,6 +271,8 @@ public:
      */
     void setPrintAdhesion(const bool show);
     bool getPrintAdhesion();
+    PrintFormOptions loadPrintForm();
+    void savePrintForm(const PrintFormOptions &opt);
 
 
     //写入基础参数

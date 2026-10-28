@@ -143,6 +143,8 @@ void GlobalData::QCheckboxSheet(QCheckBox *pbox, const QString name)
                    "   font: 12px '微软雅黑', '楷体';"
                    "   color: #1A4D6B;"
                    "   spacing: 8px;"
+                   "   background: transparent;"
+                   "   border: none;"
                    "}"
                    "QCheckBox::indicator {"
                    "   width: 24px;"

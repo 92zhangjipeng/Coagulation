@@ -320,6 +320,7 @@ private:
     // 辅助方法
     QPair<double, double> markMaxAggregation(const QVector<double>& data, QCPGraph* graph);
     double calculateAndDrawAUC(const QVector<double>& data, QCPGraph* graph);
+    void refreshAucFill();
     double calculateAndDrawSlope(const QVector<double>& data, QCPGraph* graph);
     void clearAuxiliaryItems();
     QPair<int, int> findSteepestSegment(const QVector<double>& data, int windowSize = 10);

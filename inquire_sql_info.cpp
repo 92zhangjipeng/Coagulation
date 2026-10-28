@@ -4,7 +4,14 @@
 
 #include "inquire_sql_info.h"
 #include "ui_inquire_sql_info.h"
+#include <QApplication>
+#include <QMouseEvent>
+#include <QDialog>
+#include <QFrame>
+#include <QGridLayout>
+#include <QItemSelectionModel>
 #include <QPushButton>
+#include <QScrollBar>
 #include <QMessageBox>
 #include <QTimer>
 #include "testing.h"
@@ -29,18 +36,16 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     // 美化"聚集率曲线" GroupBox：浅蓝渐变背景 + 圆角边框
     ui->widget_curve->setStyleSheet(
         "QGroupBox#widget_curve { "
-        "  border: 1px solid #B8D4E8; "
-        "  border-radius: 6px; "
-        "  margin-top: 12px; "
-        "  padding-top: 0px; "
-        "  background: QLinearGradient(x1:0, y1:0, x2:0, y2:1, "
-        "    stop:0 #F5FAFF, stop:1 #E6F0F5); "
+        "  border: 1px solid #D4EAF5; "
+        "  border-radius: 8px; "
+        "  margin-top: 14px; "
+        "  background: transparent; "
         "} "
         "QGroupBox#widget_curve::title { "
         "  subcontrol-origin: margin; "
         "  left: 12px; "
-        "  padding: 2px 8px; "
-        "  color: #2E6DA4; "
+        "  padding: 0 4px; "
+        "  color: #2C5F8A; "
         "  font-weight: bold; "
         "}"
     );
@@ -86,99 +91,89 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     toolButtonFindexatc = new QToolButton(ui->widget_date_);
     toolButtonFindexatc->setText("精确查找");
 
-    // === 设置查询条件区各控件的固定宽度，确保整齐对齐（统一高度22px，一行显示） ===
-    const int FIXED_HEIGHT = 22;
+    QFont fieldFont(QStringLiteral("Microsoft YaHei"));
+    fieldFont.setPixelSize(12);
+    const int fieldH = 28;
+    const QFontMetrics fieldMetrics(fieldFont);
+    auto fitLabel = [&](QLabel *lab) {
+        lab->setFont(fieldFont);
+        lab->setFixedHeight(fieldH);
+        const int textW = fieldMetrics.boundingRect(lab->text()).width();
+        lab->setFixedWidth(textW + 28);
+        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lab->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        lab->setStyleSheet(QStringLiteral(
+            "QLabel { font-weight: normal; font-size: 12px; background: transparent;"
+            " color: #1A3344; padding: 0px 6px 0px 8px; }"));
+    };
+    auto fitCheck = [&](QCheckBox *box) {
+        box->setFont(fieldFont);
+        box->setFixedHeight(fieldH);
+        box->setFixedWidth(fieldMetrics.width(box->text()) + 40);
+        box->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    };
+    auto fitButton = [&](QToolButton *btn) {
+        btn->setFont(fieldFont);
+        btn->setFixedHeight(fieldH);
+        btn->setMinimumWidth(fieldMetrics.width(btn->text()) + 18);
+        btn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    };
+    auto fitField = [&](QWidget *editor, int width) {
+        editor->setFont(fieldFont);
+        editor->setFixedSize(width, fieldH);
+        editor->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    };
+    fitCheck(checkBox_today);
+    fitCheck(checkBox_this_month);
+    fitCheck(checkBox_all);
+    fitCheck(checkBox_select_time);
+    fitLabel(label_fromdate);
+    fitLabel(label);
+    fitLabel(label_Sample);
+    fitLabel(label_Name);
+    fitLabel(label_age);
+    fitLabel(label_Section);
+    fitLabel(label_sendingdoctor);
+    fitLabel(label_bednum);
+    fitField(dateEdit_begin, 118);
+    fitField(dateEdit_end, 118);
+    fitField(spinBox_label_Sample, 64);
+    fitField(lineEdit_Name, 108);
+    fitField(lineEdit_bednum, 72);
+    fitField(comboBox_age, 76);
+    fitField(comboBox_Section, 88);
+    fitField(comboBox_sendingdoctor, 88);
+    fitButton(toolButton_OK);
+    fitButton(toolButton_stats);
+    fitButton(toolButton_outPrint);
+    fitButton(toolButtonFindexatc);
 
-    // 标签宽度：固定宽度，确保对齐
-    label_fromdate->setFixedWidth(30);
-    label_fromdate->setFixedHeight(FIXED_HEIGHT);
-    label->setFixedWidth(30);
-    label->setFixedHeight(FIXED_HEIGHT);
-    label_Sample->setFixedWidth(45);
-    label_Sample->setFixedHeight(FIXED_HEIGHT);
-    label_Name->setFixedWidth(45);
-    label_Name->setFixedHeight(FIXED_HEIGHT);
-    label_age->setFixedWidth(35);
-    label_age->setFixedHeight(FIXED_HEIGHT);
-    label_Section->setFixedWidth(45);
-    label_Section->setFixedHeight(FIXED_HEIGHT);
-    label_sendingdoctor->setFixedWidth(60);
-    label_sendingdoctor->setFixedHeight(FIXED_HEIGHT);
-    label_bednum->setFixedWidth(45);
-    label_bednum->setFixedHeight(FIXED_HEIGHT);
+    QHBoxLayout *mainLayout = new QHBoxLayout(ui->widget_date_);
+    mainLayout->setContentsMargins(10, 12, 10, 6);
+    mainLayout->setSpacing(8);
+    ui->widget_date_->setMinimumHeight(0);
+    ui->widget_date_->setMaximumHeight(QWIDGETSIZE_MAX);
+    ui->widget_date_->setTitle(QString::fromUtf8("查询条件"));
+    ui->widget_curve->setTitle(QString::fromUtf8("试剂统计"));
+    ui->widget_curve->setMinimumHeight(180);
+    ui->widget_curve->hide();
 
-    // CheckBox固定宽度
-    checkBox_today->setFixedWidth(50);
-    checkBox_today->setFixedHeight(FIXED_HEIGHT);
-    checkBox_this_month->setFixedWidth(50);
-    checkBox_this_month->setFixedHeight(FIXED_HEIGHT);
-    checkBox_all->setFixedWidth(50);
-    checkBox_all->setFixedHeight(FIXED_HEIGHT);
-    checkBox_select_time->setFixedWidth(60);
-    checkBox_select_time->setFixedHeight(FIXED_HEIGHT);
-
-    // 输入框/下拉框/日期框：合理的固定宽度，适合一行显示
-    dateEdit_begin->setFixedSize(110, FIXED_HEIGHT);
-    dateEdit_end->setFixedSize(110, FIXED_HEIGHT);
-    spinBox_label_Sample->setFixedSize(70, FIXED_HEIGHT);
-    lineEdit_Name->setFixedSize(110, FIXED_HEIGHT);
-    lineEdit_bednum->setFixedSize(100, FIXED_HEIGHT);
-    comboBox_age->setFixedSize(70, FIXED_HEIGHT);
-    comboBox_Section->setFixedSize(90, FIXED_HEIGHT);
-    comboBox_sendingdoctor->setFixedSize(90, FIXED_HEIGHT);
-
-    // 按钮：固定合适的宽度
-    toolButton_OK->setFixedSize(60, FIXED_HEIGHT);
-    toolButton_stats->setFixedSize(70, FIXED_HEIGHT);
-    toolButton_outPrint->setFixedSize(70, FIXED_HEIGHT);
-    toolButtonFindexatc->setFixedSize(70, FIXED_HEIGHT);
-
-    // === 用QHBoxLayout一行布局，所有控件垂直居中 ===
-    QHBoxLayout* mainLayout = new QHBoxLayout(ui->widget_date_);
-    mainLayout->setContentsMargins(12, 10, 12, 10);
-    mainLayout->setSpacing(6);
-
-    // 确保GroupBox有足够高度容纳一行控件
-    ui->widget_date_->setMinimumHeight(60);
-
-    // 区块1：时间范围CheckBox
     mainLayout->addWidget(checkBox_today, 0, Qt::AlignVCenter);
     mainLayout->addWidget(checkBox_this_month, 0, Qt::AlignVCenter);
     mainLayout->addWidget(checkBox_all, 0, Qt::AlignVCenter);
     mainLayout->addWidget(checkBox_select_time, 0, Qt::AlignVCenter);
-    mainLayout->addSpacing(10);
-
-    // 区块2：日期选择
+    mainLayout->addSpacing(6);
     mainLayout->addWidget(label_fromdate, 0, Qt::AlignVCenter);
     mainLayout->addWidget(dateEdit_begin, 0, Qt::AlignVCenter);
     mainLayout->addWidget(label, 0, Qt::AlignVCenter);
     mainLayout->addWidget(dateEdit_end, 0, Qt::AlignVCenter);
-    mainLayout->addSpacing(8);
-
-    // 区块3：查询按钮组
+    mainLayout->addSpacing(4);
     mainLayout->addWidget(toolButton_OK, 0, Qt::AlignVCenter);
     mainLayout->addWidget(toolButton_stats, 0, Qt::AlignVCenter);
     mainLayout->addWidget(toolButton_outPrint, 0, Qt::AlignVCenter);
-    mainLayout->addSpacing(10);
-
-    // 区块4：详细查询条件
-    mainLayout->addWidget(label_Sample, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(spinBox_label_Sample, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(label_Name, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(lineEdit_Name, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(label_age, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(comboBox_age, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(label_Section, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(comboBox_Section, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(label_sendingdoctor, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(comboBox_sendingdoctor, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(label_bednum, 0, Qt::AlignVCenter);
-    mainLayout->addWidget(lineEdit_bednum, 0, Qt::AlignVCenter);
     mainLayout->addSpacing(8);
-
-    // 区块5：精确查找按钮
     mainLayout->addWidget(toolButtonFindexatc, 0, Qt::AlignVCenter);
-    mainLayout->addStretch();
+    mainLayout->addStretch(1);
 
     // === 其他初始化 ===
     m_group = std::make_unique<QButtonGroup>(this);
@@ -191,16 +186,40 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     initDateEditUI(dateEdit_begin, ui->widget_date_);
     initDateEditUI(dateEdit_end, ui->widget_date_);
 
-    // 强制恢复日期控件的高度和字体（initDateEditUI会覆盖设置）
-    QFont smallFont("Microsoft YaHei", 11);
-    dateEdit_begin->setFont(smallFont);
-    dateEdit_end->setFont(smallFont);
-    dateEdit_begin->setFixedSize(110, FIXED_HEIGHT);
-    dateEdit_end->setFixedSize(110, FIXED_HEIGHT);
-    for(auto lineEdit:dateEdit_begin->findChildren<QLineEdit*>()){ if(lineEdit) lineEdit->setFont(smallFont); }
-    for(auto lineEdit:dateEdit_end->findChildren<QLineEdit*>()){ if(lineEdit) lineEdit->setFont(smallFont); }
+    const QString compactDate = QStringLiteral(
+        "QDateEdit { font-family: 'Microsoft YaHei'; font-size: 12px;"
+        " background: #FFFFFF; border: 1px solid #C5D7E4; border-radius: 3px;"
+        " padding: 0px 0px 0px 4px; }"
+        "QDateEdit::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
+        " width: 16px; border: none; }"
+        "QDateEdit QLineEdit { font-family: 'Microsoft YaHei'; font-size: 12px;"
+        " border: none; background: transparent; padding: 0px; margin: 0px; }");
+    const QList<QDateEdit *> dateEditors = { dateEdit_begin, dateEdit_end };
+    for (QDateEdit *dateEdit : dateEditors) {
+        dateEdit->setFont(fieldFont);
+        dateEdit->setFixedSize(118, fieldH);
+        dateEdit->setStyleSheet(compactDate);
+        const QList<QLineEdit *> inners = dateEdit->findChildren<QLineEdit *>();
+        for (QLineEdit *inner : inners) {
+            inner->setFont(fieldFont);
+            inner->setStyleSheet(QStringLiteral(
+                "QLineEdit { font-size: 12px; border: none; background: transparent;"
+                " padding: 0px; margin: 0px; }"));
+        }
+    }
 
     checkBox_today->setChecked(true);
+    const auto syncCustomDates = [this]() {
+        const bool custom = checkBox_select_time && checkBox_select_time->isChecked();
+        if (label_fromdate) label_fromdate->setVisible(custom);
+        if (dateEdit_begin) dateEdit_begin->setVisible(custom);
+        if (label) label->setVisible(custom);
+        if (dateEdit_end) dateEdit_end->setVisible(custom);
+    };
+    connect(checkBox_select_time, &QCheckBox::toggled, this, [syncCustomDates](bool) {
+        syncCustomDates();
+    });
+    syncCustomDates();
 
     setupRealtimeDataDemo(ui->Inquire_curve_1);
     ui->Inquire_curve_1->yAxis->setRange(-20, 100);
@@ -218,12 +237,257 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
         Agenum.push_back(QString::number(i + 1));
     comboBox_age->addItems(Agenum);
     comboBox_age->setCurrentIndex(-1);
+    comboBox_age->setMaxVisibleItems(12);
+    const QString comboPopup = QStringLiteral(
+        "QAbstractItemView { background: #FFFFFF; color: #16384A; border: none; outline: 0; }"
+        "QAbstractItemView::item { min-height: 24px; padding: 2px 8px; }"
+        "QAbstractItemView::item:selected { background: #D4EAF5; color: #16384A; }"
+        "QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
+        "QScrollBar::handle:vertical { background: #8AA4BE; min-height: 18px; border-radius: 3px; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; width: 0px; border: none; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }");
+    const QList<QComboBox *> filterCombos = {
+        comboBox_age, comboBox_Section, comboBox_sendingdoctor
+    };
+    for (QComboBox *combo : filterCombos) {
+        combo->setMaxVisibleItems(12);
+        if (combo->view()) {
+            combo->view()->setMinimumWidth(qMax(combo->width(), 96));
+            combo->view()->setStyleSheet(comboPopup);
+            if (QScrollBar *bar = combo->view()->verticalScrollBar()) {
+                bar->setStyleSheet(QStringLiteral(
+                    "QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
+                    "QScrollBar::handle:vertical { background: #8AA4BE; min-height: 18px; border-radius: 3px; }"
+                    "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; width: 0px; }"
+                    "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"));
+            }
+        }
+    }
+
+    m_exactDialog = new QDialog(this);
+    m_exactDialog->setObjectName(QStringLiteral("exactFindDialog"));
+    m_exactDialog->setWindowTitle(QString::fromUtf8("精确查找"));
+    m_exactDialog->setModal(true);
+    m_exactDialog->setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
+    m_exactDialog->setStyleSheet(QStringLiteral(
+        "QDialog#exactFindDialog { background: #F4FAFE; }"
+        "QLabel { color: #1A3344; font-family: 'Microsoft YaHei'; font-size: 13px; background: transparent; }"
+        "QLineEdit, QComboBox, QSpinBox {"
+        " font-family: 'Microsoft YaHei'; font-size: 13px; color: #16384A;"
+        " background: #FFFFFF; border: 1px solid #C5D7E4; border-radius: 4px; padding: 0 8px; min-height: 28px; }"
+        "QComboBox::drop-down { width: 18px; border: none; }"
+        "QPushButton {"
+        " font-family: 'Microsoft YaHei'; font-size: 13px; color: white;"
+        " background: #1A6F99; border: none; border-radius: 4px; min-width: 72px; min-height: 28px; }"
+        "QPushButton:hover { background: #14597C; }"
+        "QPushButton#exactClose {"
+        " color: #1A6F99; background: #FFFFFF; border: 1px solid #8FBFD6; }"
+        "QPushButton#exactClose:hover { background: #E7F3FA; }"));
+    const QList<QWidget *> exactEditors = {
+        spinBox_label_Sample, lineEdit_Name, lineEdit_bednum,
+        comboBox_age, comboBox_Section, comboBox_sendingdoctor
+    };
+    for (QWidget *editor : exactEditors) {
+        editor->setParent(m_exactDialog);
+        editor->setFixedSize(168, 30);
+        editor->setFont(fieldFont);
+    }
+    const QList<QLabel *> exactLabels = {
+        label_Sample, label_Name, label_age, label_Section, label_sendingdoctor, label_bednum
+    };
+    for (QLabel *lab : exactLabels) {
+        lab->setParent(m_exactDialog);
+        lab->setFixedSize(88, 30);
+        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lab->setFont(fieldFont);
+    }
+    comboBox_Section->setEditable(true);
+    comboBox_sendingdoctor->setEditable(true);
+    if (comboBox_Section->lineEdit())
+        comboBox_Section->lineEdit()->setPlaceholderText(QString::fromUtf8("可输入科别"));
+    if (comboBox_sendingdoctor->lineEdit())
+        comboBox_sendingdoctor->lineEdit()->setPlaceholderText(QString::fromUtf8("可输入医生"));
+    QGridLayout *exactLayout = new QGridLayout(m_exactDialog);
+    exactLayout->setContentsMargins(22, 18, 22, 16);
+    exactLayout->setHorizontalSpacing(8);
+    exactLayout->setVerticalSpacing(12);
+    exactLayout->addWidget(label_Sample, 0, 0);
+    exactLayout->addWidget(spinBox_label_Sample, 0, 1);
+    exactLayout->addWidget(label_Name, 0, 2);
+    exactLayout->addWidget(lineEdit_Name, 0, 3);
+    exactLayout->addWidget(label_age, 1, 0);
+    exactLayout->addWidget(comboBox_age, 1, 1);
+    exactLayout->addWidget(label_Section, 1, 2);
+    exactLayout->addWidget(comboBox_Section, 1, 3);
+    exactLayout->addWidget(label_sendingdoctor, 2, 0);
+    exactLayout->addWidget(comboBox_sendingdoctor, 2, 1);
+    exactLayout->addWidget(label_bednum, 2, 2);
+    exactLayout->addWidget(lineEdit_bednum, 2, 3);
+    QPushButton *exactFindBtn = new QPushButton(QString::fromUtf8("查找"), m_exactDialog);
+    QPushButton *exactCloseBtn = new QPushButton(QString::fromUtf8("关闭"), m_exactDialog);
+    exactCloseBtn->setObjectName(QStringLiteral("exactClose"));
+    QHBoxLayout *exactButtons = new QHBoxLayout;
+    exactButtons->addStretch(1);
+    exactButtons->addWidget(exactFindBtn);
+    exactButtons->addSpacing(8);
+    exactButtons->addWidget(exactCloseBtn);
+    exactLayout->addLayout(exactButtons, 3, 0, 1, 4);
+    connect(exactFindBtn, &QPushButton::clicked, this, [this]() {
+        on_toolButtonFindexatc_clicked();
+        if (m_exactDialog)
+            m_exactDialog->accept();
+    });
+    connect(exactCloseBtn, &QPushButton::clicked, m_exactDialog, &QDialog::reject);
 
     // === 手动连接按钮信号槽 ===
     connect(toolButton_OK, &QToolButton::clicked, this, &Inquire_Sql_Info::on_toolButton_OK_clicked);
     connect(toolButton_stats, &QToolButton::clicked, this, &Inquire_Sql_Info::on_toolButton_stats_clicked);
     connect(toolButton_outPrint, &QToolButton::clicked, this, &Inquire_Sql_Info::on_toolButton_outPrint_clicked);
-    connect(toolButtonFindexatc, &QToolButton::clicked, this, &Inquire_Sql_Info::on_toolButtonFindexatc_clicked);
+    connect(toolButtonFindexatc, &QToolButton::clicked, this, [this]() {
+        if (m_exactDialog)
+            m_exactDialog->exec();
+    });
+
+    ui->Inquire_curve_1->setMinimumSize(0, 0);
+    ui->Inquire_curve_1->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    ui->widget_sats_curve->setMinimumWidth(280);
+    ui->widget_sats_curve->setMaximumWidth(QWIDGETSIZE_MAX);
+    if (ui->horizontalLayout_3) {
+        ui->horizontalLayout_3->removeWidget(ui->Inquire_curve_1);
+        const int statsIndex = ui->horizontalLayout_3->indexOf(ui->widget_sats_curve);
+        if (statsIndex >= 0)
+            ui->horizontalLayout_3->setStretch(statsIndex, 1);
+    }
+    if (ui->mainLayout) {
+        ui->mainLayout->setStretch(1, 1);
+        ui->mainLayout->setStretch(3, 0);
+    }
+
+    QTableWidget *inquireTable = ui->tableWidget_SQL_Inquire;
+    m_sampleFrame = new QFrame(inquireTable->viewport());
+    m_sampleFrame->setObjectName(QStringLiteral("sampleRowFrame"));
+    m_sampleFrame->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_sampleFrame->setStyleSheet(QStringLiteral(
+        "QFrame#sampleRowFrame { background: transparent;"
+        " border: 2px solid #1487B8; border-radius: 4px; }"));
+    m_sampleFrame->hide();
+
+    m_curveFollow = new QFrame(this);
+    m_curveFollow->setObjectName(QStringLiteral("curveFollow"));
+    m_curveFollow->setAutoFillBackground(true);
+    m_curveFollow->setStyleSheet(QStringLiteral(
+        "QFrame#curveFollow { background: #FFFFFF; border: 1px solid #7EB6D4; border-radius: 8px; }"
+        "QLabel#curveFollowTitle {"
+        " background: #E7F3FA; color: #14597C;"
+        " font-family: 'Microsoft YaHei'; font-size: 13px; font-weight: 700;"
+        " border: none; border-bottom: 1px solid #D4EAF5;"
+        " padding: 0px 12px; }"));
+    QVBoxLayout *followLayout = new QVBoxLayout(m_curveFollow);
+    followLayout->setContentsMargins(0, 0, 0, 8);
+    followLayout->setSpacing(0);
+    m_curveFollowTitle = new QLabel(m_curveFollow);
+    m_curveFollowTitle->setObjectName(QStringLiteral("curveFollowTitle"));
+    m_curveFollowTitle->setFixedHeight(34);
+    m_curveFollowTitle->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_curveFollowTitle->setStyleSheet(QStringLiteral(
+        "QLabel { background: #E7F3FA; color: #14597C;"
+        " font-family: 'Microsoft YaHei'; font-size: 13px; font-weight: 700;"
+        " border: none; border-bottom: 1px solid #D4EAF5; padding: 0px 12px; }"));
+    m_curveFollowTitle->setText(QString::fromUtf8("聚集率曲线"));
+    ui->Inquire_curve_1->setParent(m_curveFollow);
+    QHBoxLayout *plotRow = new QHBoxLayout;
+    plotRow->setContentsMargins(10, 8, 10, 0);
+    plotRow->addWidget(ui->Inquire_curve_1, 1);
+    followLayout->addWidget(m_curveFollowTitle);
+    followLayout->addLayout(plotRow, 1);
+    m_curveFollow->hide();
+    setStyleSheet(QString::fromUtf8(
+        "Inquire_Sql_Info, QWidget#Inquire_Sql_Info { background: #E8F4FD; }"
+        "QGroupBox { background: transparent; border: 1px solid #D4EAF5; border-radius: 8px;"
+        " margin-top: 14px; font-weight: 700; color: #2C5F8A; }"
+        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #2C5F8A; }"
+        "QLabel { background: transparent; color: #1A3344; font-weight: normal; font-size: 12px; }"
+        "QLineEdit, QComboBox, QSpinBox {"
+        " font-family: 'Microsoft YaHei'; font-size: 12px;"
+        " background: #FFFFFF; border: 1px solid #C5D7E4; border-radius: 3px;"
+        " padding: 0px 4px; color: #16384A; }"
+        "QComboBox::drop-down { width: 18px; border: none; }"
+        "QComboBox QAbstractItemView {"
+        " background: #FFFFFF; color: #16384A; border: 1px solid #AACDE2;"
+        " outline: 0; font-size: 12px; }"
+        "QComboBox QAbstractItemView::item {"
+        " min-height: 24px; padding: 2px 8px; color: #16384A; }"
+        "QComboBox QAbstractItemView::item:selected {"
+        " background: #D4EAF5; color: #16384A; }"
+        "QComboBox QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
+        "QComboBox QScrollBar::handle:vertical { background: #8AA4BE; min-height: 18px; border-radius: 3px; }"
+        "QComboBox QScrollBar::add-line:vertical, QComboBox QScrollBar::sub-line:vertical {"
+        " height: 0px; width: 0px; border: none; background: transparent; }"
+        "QComboBox QScrollBar::add-page:vertical, QComboBox QScrollBar::sub-page:vertical { background: transparent; }"
+        "QToolButton { font-family: 'Microsoft YaHei'; font-size: 12px;"
+        " background: #1A6F99; color: white; border: none; border-radius: 3px;"
+        " padding: 0px 12px; min-height: 28px; max-height: 28px; }"
+        "QToolButton:hover { background: #14597C; }"
+        "QCheckBox { background: transparent; color: #1A4D6B; spacing: 6px;"
+        " min-height: 28px; max-height: 28px; }"
+        "QHeaderView::section { background: #D4EAF5; color: #2C5F8A; border: none;"
+        " border-right: 1px solid #C5D7E4; padding: 6px; font-weight: 700; }"
+        "QTableWidget { background: white; alternate-background-color: #F4FAFE;"
+        " gridline-color: #E3EEF5; border: 1px solid #D4EAF5; }"
+        "QTableWidget::item:selected { background: #B8DFF7; color: #16384A; }"
+        "QTableWidget QScrollBar:vertical { width: 8px; margin: 0px; background: #E7EEF4; border: none; }"
+        "QTableWidget QScrollBar::handle:vertical { background: #7EA4BE; min-height: 28px;"
+        " border-radius: 4px; margin: 2px; }"
+        "QTableWidget QScrollBar::handle:vertical:hover { background: #1A6F99; }"
+        "QTableWidget QScrollBar::add-line:vertical, QTableWidget QScrollBar::sub-line:vertical {"
+        " height: 0px; width: 0px; border: none; background: transparent; }"
+        "QTableWidget QScrollBar::add-page:vertical, QTableWidget QScrollBar::sub-page:vertical {"
+        " background: transparent; }"
+        "QTableWidget QScrollBar:horizontal { height: 8px; margin: 0px; background: #E7EEF4; border: none; }"
+        "QTableWidget QScrollBar::handle:horizontal { background: #7EA4BE; min-width: 28px;"
+        " border-radius: 4px; margin: 2px; }"
+        "QTableWidget QScrollBar::handle:horizontal:hover { background: #1A6F99; }"
+        "QTableWidget QScrollBar::add-line:horizontal, QTableWidget QScrollBar::sub-line:horizontal {"
+        " height: 0px; width: 0px; border: none; background: transparent; }"
+        "QTableWidget QScrollBar::add-page:horizontal, QTableWidget QScrollBar::sub-page:horizontal {"
+        " background: transparent; }"
+        "QProgressBar { border: 1px solid #C5D7E4; border-radius: 4px; background: white; text-align: center; }"
+        "QProgressBar::chunk { background: #5FA8D3; }"));
+    const QString compactCheck = QStringLiteral(
+        "QCheckBox { background: transparent; color: #1A4D6B; spacing: 6px;"
+        " min-height: 28px; max-height: 28px; }"
+        "QCheckBox::indicator { width: 16px; height: 16px; border-radius: 3px; }"
+        "QCheckBox::indicator:unchecked { background: #FFFFFF; border: 1px solid #AACDE2; }"
+        "QCheckBox::indicator:checked { background: #5FA8D3; border: 1px solid #5FA8D3; }");
+    const QList<QCheckBox *> inquireBoxes = {
+        checkBox_today, checkBox_this_month, checkBox_all, checkBox_select_time
+    };
+    for (QCheckBox *box : inquireBoxes) {
+        if (box) {
+            box->setStyleSheet(compactCheck);
+        }
+    }
+    const QString tableBar = QStringLiteral(
+        "QScrollBar:vertical { width: 8px; margin: 0px; background: #E7EEF4; border: none; }"
+        "QScrollBar::handle:vertical { background: #7EA4BE; min-height: 28px; border-radius: 4px; margin: 2px; }"
+        "QScrollBar::handle:vertical:hover { background: #1A6F99; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; width: 0px; border: none; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
+        "QScrollBar:horizontal { height: 8px; margin: 0px; background: #E7EEF4; border: none; }"
+        "QScrollBar::handle:horizontal { background: #7EA4BE; min-width: 28px; border-radius: 4px; margin: 2px; }"
+        "QScrollBar::handle:horizontal:hover { background: #1A6F99; }"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { height: 0px; width: 0px; border: none; }"
+        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }");
+    if (ui->tableWidget_SQL_Inquire->verticalScrollBar())
+        ui->tableWidget_SQL_Inquire->verticalScrollBar()->setStyleSheet(tableBar);
+    if (ui->tableWidget_SQL_Inquire->horizontalScrollBar())
+        ui->tableWidget_SQL_Inquire->horizontalScrollBar()->setStyleSheet(tableBar);
+    toolButtonFindexatc->setStyleSheet(QStringLiteral(
+        "QToolButton { font-family: 'Microsoft YaHei'; font-size: 12px; color: #1A6F99;"
+        " background: #FFFFFF; border: 1px solid #1A6F99; border-radius: 3px;"
+        " padding: 0px 12px; min-height: 28px; max-height: 28px; }"
+        "QToolButton:hover { background: #E7F3FA; }"));
+    qApp->installEventFilter(this);
 
     LoginEngineerMode(false);
     initInputValidators();
@@ -231,13 +495,15 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
 
 void Inquire_Sql_Info::LoginEngineerMode(const bool Enginnermode)
 {
-    if(!Enginnermode){
+    if (!Enginnermode) {
         toolButton_stats->hide();
         ui->widget_sats_curve->hide();
-    }
-    else{
+        ui->widget_curve->hide();
+    } else {
         toolButton_stats->show();
         ui->widget_sats_curve->show();
+        ui->widget_curve->show();
+        stats_today_reagent();
     }
     update();
 }
@@ -268,21 +534,29 @@ void Inquire_Sql_Info::init_sats_curve(QVector<double> useed_reag)
     // 为柱状图设置一个文字类型的key轴，ticks决定了轴的范围，而labels决定了轴的刻度文字的显示
     QVector<double> ticks{1,2,3,4,5};
     QVector<QString> labels{"AA" , "ADP" , "EPI" , "COL" , "RIS"};
+    QVector<double> values(5, 0.0);
+    for (int i = 0; i < useed_reag.size() && i < values.size(); ++i) {
+        values[i] = useed_reag.at(i);
+    }
+    double ymax = 10.0;
+    for (double value : values) {
+        ymax = qMax(ymax, value);
+    }
     QSharedPointer<QCPAxisTickerText> textTicker(new QCPAxisTickerText);
     textTicker->addTicks(ticks, labels);
-    keyAxis->setTicker(textTicker);        // 设置为文字轴
-    fossil->setWidth(fossil->width()/5); // 设置柱状图的宽度大小
-    keyAxis->setTickLabelRotation(0);     // 轴刻度文字旋转60度
-    keyAxis->setSubTicks(false);           // 不显示子刻度
-    keyAxis->setTickLength(0, 4);          // 轴内外刻度的长度分别是0,4,也就是轴内的刻度线不显示
-    keyAxis->setRange(0, 8);               // 设置范围
+    keyAxis->setTicker(textTicker);
+    fossil->setWidth(fossil->width()/5);
+    keyAxis->setTickLabelRotation(0);
+    keyAxis->setSubTicks(false);
+    keyAxis->setTickLength(0, 4);
+    keyAxis->setRange(0, 6);
     keyAxis->setUpperEnding(QCPLineEnding::esSpikeArrow);
 
-    valueAxis->setRange(0, 1000);
-    valueAxis->setPadding(25); //轴的内边距
-    valueAxis->setLabel("仪器使用试剂统计");
+    valueAxis->setRange(0, ymax * 1.25);
+    valueAxis->setPadding(25);
+    valueAxis->setLabel(QString::fromUtf8("试剂使用次数"));
     valueAxis->setUpperEnding(QCPLineEnding::esSpikeArrow);
-    fossil->setData(ticks, useed_reag);
+    fossil->setData(ticks, values);
     ui->widget_sats_curve->repaint();
     ui->widget_sats_curve->replot(QCustomPlot::rpQueuedReplot);
 }
@@ -298,6 +572,8 @@ void Clear_table(QTableWidget* table)
 void Inquire_Sql_Info::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
+    if (m_followSampleRow >= 0)
+        placeCurveFollow(m_followSampleRow);
 }
 
 void Inquire_Sql_Info::initTableWidgetStyle()
@@ -319,7 +595,7 @@ void Inquire_Sql_Info::initTableWidgetStyle()
     table->setGridStyle(Qt::SolidLine);
     table->setAlternatingRowColors(true);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setSelectionMode(QAbstractItemView::SingleSelection);
+    table->setSelectionMode(QAbstractItemView::ContiguousSelection);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->verticalHeader()->setVisible(false);
     table->verticalHeader()->setDefaultSectionSize(32);
@@ -338,10 +614,20 @@ void Inquire_Sql_Info::initTableWidgetStyle()
     table->horizontalHeader()->setHighlightSections(false);
 
     connect(table, &QTableWidget::itemClicked, this, &Inquire_Sql_Info::onSelectRowItem);
+    connect(table->verticalScrollBar(), &QScrollBar::valueChanged, this, [this](int) {
+        if (m_followSampleRow >= 0)
+            placeCurveFollow(m_followSampleRow);
+    });
+    connect(table->horizontalScrollBar(), &QScrollBar::valueChanged, this, [this](int) {
+        if (m_followSampleRow >= 0)
+            placeCurveFollow(m_followSampleRow);
+    });
 }
 
 Inquire_Sql_Info::~Inquire_Sql_Info()
 {
+    if (qApp)
+        qApp->removeEventFilter(this);
     cancelInquireFill();
     if (m_threadInqure.isRunning()) {
         m_threadInqure.quit();
@@ -543,19 +829,15 @@ void Inquire_Sql_Info::creatCPGraph(QCustomPlot* pshowcurvedata)
 
         // 为每条曲线添加文本标注，标注在曲线上
         QCPItemText *textLabel = new QCPItemText(pshowcurvedata);
-        textLabel->setPositionAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+        textLabel->setPositionAlignment(Qt::AlignHCenter | Qt::AlignBottom);
         textLabel->position->setType(QCPItemPosition::ptPlotCoords);
-
-        // 初始位置设置在曲线的中间位置（X=150），Y值设为0
-        // 当有实际数据时，标注会自动跟随曲线移动
         textLabel->position->setCoords(150, 0);
-
-        //textLabel->setText(curveNameList.at(k));
         textLabel->setText("");
-        textLabel->setFont(QFont(font().family(), 10, QFont::Bold));
-        textLabel->setPen(QPen(curveColorList.at(k).color()));
-        textLabel->setBrush(QBrush(Qt::white));
-        textLabel->setPadding(QMargins(1, 1, 1, 1));
+        textLabel->setFont(QFont(QStringLiteral("Microsoft YaHei"), 8, QFont::Bold));
+        textLabel->setColor(Qt::white);
+        textLabel->setPen(Qt::NoPen);
+        textLabel->setBrush(QBrush(curveColorList.at(k).color()));
+        textLabel->setPadding(QMargins(5, 2, 5, 2));
 
         // 存储标签对象以便后续管理
         m_curveLabels.append(textLabel);
@@ -577,7 +859,8 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     }
 
     //性能优化：禁用抗锯齿
-    customPlot->setNotAntialiasedElements(QCP::aeAll);
+    customPlot->setNotAntialiasedElements(QCP::aeNone);
+    customPlot->setAntialiasedElements(QCP::aePlottables);
 
     connect(customPlot->xAxis, SIGNAL(rangeChanged(QCPRange)), customPlot->xAxis2, SLOT(setRange(QCPRange)));
     connect(customPlot->yAxis, SIGNAL(rangeChanged(QCPRange)), customPlot->yAxis2, SLOT(setRange(QCPRange)));
@@ -611,19 +894,29 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
         m_cursorValueTip->setVisible(false);
     }
 
-    // 设置背景色：浅蓝绿色渐变，让曲线区更有层次感
-    QLinearGradient bgGrad(0, 0, 0, 1);
-    bgGrad.setCoordinateMode(QGradient::ObjectBoundingMode);
-    bgGrad.setColorAt(0.0, QColor(248, 252, 255));
-    bgGrad.setColorAt(1.0, QColor(232, 244, 248));
-    customPlot->setBackground(QBrush(bgGrad));
+    customPlot->setAutoFillBackground(true);
+    customPlot->setBackground(QBrush(QColor(255, 255, 255)));
+    customPlot->axisRect()->setBackground(QBrush(QColor(255, 255, 255)));
+    customPlot->axisRect()->setMinimumMargins(QMargins(52, 16, 18, 40));
 
-    // 设置X/Y轴的标签
+    const QColor axisColor(26, 111, 153);
+    const QPen axisPen(axisColor, 1);
+    const QPen gridPen(QColor(210, 224, 234), 1, Qt::SolidLine);
+    customPlot->xAxis->setBasePen(axisPen);
+    customPlot->yAxis->setBasePen(axisPen);
+    customPlot->xAxis->setTickPen(axisPen);
+    customPlot->yAxis->setTickPen(axisPen);
+    customPlot->xAxis->setSubTickPen(axisPen);
+    customPlot->yAxis->setSubTickPen(axisPen);
+    customPlot->xAxis->setTickLabelColor(QColor(26, 51, 68));
+    customPlot->yAxis->setTickLabelColor(QColor(26, 51, 68));
+    customPlot->xAxis->grid()->setPen(gridPen);
+    customPlot->yAxis->grid()->setPen(gridPen);
+
     customPlot->xAxis->setLabel(tr("时间S"));
     customPlot->yAxis->setLabel(tr("百分比%"));
-    // 设置X/Y轴标签颜色
-    customPlot->xAxis->setLabelColor(QColor(Qt::red));
-    customPlot->yAxis->setLabelColor(QColor(Qt::red));
+    customPlot->xAxis->setLabelColor(axisColor);
+    customPlot->yAxis->setLabelColor(axisColor);
 
     // 设置X轴固定范围0-300，Y轴固定范围0-100（百分比聚集率）
     customPlot->xAxis->setRange(0, 300);
@@ -640,9 +933,7 @@ void Inquire_Sql_Info::setupRealtimeDataDemo(QCustomPlot *customPlot)
     customPlot->yAxis->setTicker(yTicker);
 
     //网格和零线设置
-    QPen zeroLinePen;
-    zeroLinePen.setColor(QColor(Qt::darkGreen));  // 修正：使用Qt::darkGreen
-    zeroLinePen.setWidth(2);
+    QPen zeroLinePen(QColor(176, 190, 200), 1, Qt::DashLine);
     customPlot->xAxis->grid()->setZeroLinePen(zeroLinePen);
     customPlot->yAxis->grid()->setZeroLinePen(zeroLinePen);
 
@@ -737,23 +1028,136 @@ void Inquire_Sql_Info::RecvCurveData(const QVector<QString>& data)
 }
 
 
-void Inquire_Sql_Info::onSelectRowItem(QTableWidgetItem *item)
+void Inquire_Sql_Info::hideCurveFollow()
 {
-    cleanPlogtandUpdate();
+    m_followSampleRow = -1;
+    if (m_sampleFrame)
+        m_sampleFrame->hide();
+    if (m_curveFollow)
+        m_curveFollow->hide();
+}
 
-    QTableWidget * ptablewidget = ui->tableWidget_SQL_Inquire;
-    int selrows = item->row(); //样本号的行
-    if (selrows % 4 != 0)
-        return;
-    if(ptablewidget->item(selrows,0) == 0)
-    {
-        CustomMessageBox::warning(this,tr("查询曲线失败"),tr("未查询到样本号"));
-        QLOG_DEBUG()<<"选中查看曲线失败,未查询到样本号"<< __FILEW__ << __LINE__<<endl;
+bool Inquire_Sql_Info::eventFilter(QObject *watched, QEvent *event)
+{
+    if (!event || event->type() != QEvent::MouseButtonPress)
+        return false;
+    if (!m_curveFollow || !m_curveFollow->isVisible())
+        return false;
+
+    QWidget *widget = qobject_cast<QWidget *>(watched);
+    if (!widget)
+        return false;
+    if (widget == m_curveFollow || m_curveFollow->isAncestorOf(widget))
+        return false;
+
+    const QMouseEvent *mouse = static_cast<const QMouseEvent *>(event);
+    if (!rect().contains(mapFromGlobal(mouse->globalPos())))
+        return false;
+
+    QTableWidget *table = ui ? ui->tableWidget_SQL_Inquire : nullptr;
+    if (table && (widget == table || table->isAncestorOf(widget))) {
+        const QPoint viewportPos = table->viewport()->mapFromGlobal(mouse->globalPos());
+        if (!table->indexAt(viewportPos).isValid())
+            hideCurveFollow();
+        return false;
+    }
+
+    hideCurveFollow();
+    return false;
+}
+
+void Inquire_Sql_Info::placeCurveFollow(int sampleStartRow)
+{
+    QTableWidget *table = ui->tableWidget_SQL_Inquire;
+    if (!table || !m_sampleFrame || !m_curveFollow || sampleStartRow < 0
+            || sampleStartRow >= table->rowCount()) {
+        hideCurveFollow();
         return;
     }
-    m_clickId = ptablewidget->item(selrows, 0)->text();
-    emit InquierCurveView(m_clickId); //查寻样本曲线点数据
-    return;
+
+    m_followSampleRow = sampleStartRow;
+    const int lastRow = qMin(sampleStartRow + 3, table->rowCount() - 1);
+    const int y = table->rowViewportPosition(sampleStartRow);
+    int blockH = 0;
+    for (int row = sampleStartRow; row <= lastRow; ++row)
+        blockH += table->rowHeight(row);
+
+    const QRect viewRect = table->viewport()->rect();
+    if (blockH <= 0 || y + blockH <= 0 || y >= viewRect.height()) {
+        m_sampleFrame->hide();
+        m_curveFollow->hide();
+        return;
+    }
+
+    m_sampleFrame->setGeometry(QRect(1, y + 1, viewRect.width() - 3, blockH - 2));
+    m_sampleFrame->show();
+    m_sampleFrame->raise();
+
+    QString sampleId;
+    if (QTableWidgetItem *sampleItem = table->item(sampleStartRow, 0))
+        sampleId = sampleItem->text();
+    if (m_curveFollowTitle) {
+        m_curveFollowTitle->setText(sampleId.isEmpty()
+            ? QString::fromUtf8("聚集率曲线")
+            : QString::fromUtf8("样本 %1    聚集率曲线").arg(sampleId));
+    }
+
+    const int panelW = qBound(620, table->width() - 48, 860);
+    const int panelH = 340;
+    const QPoint rowTop = table->viewport()->mapTo(this, QPoint(0, y));
+    int x = table->mapTo(this, QPoint(0, 0)).x() + (table->width() - panelW) / 2;
+    int yPanel = rowTop.y() + blockH + 8;
+    int topLimit = 8;
+    int bottomLimit = height() - 8;
+    if (ui->widget_date_)
+        topLimit = ui->widget_date_->geometry().bottom() + 6;
+    if (ui->widget_curve && ui->widget_curve->isVisible())
+        bottomLimit = qMin(bottomLimit, ui->widget_curve->geometry().top() - 6);
+    if (yPanel + panelH > bottomLimit) {
+        const int above = rowTop.y() - panelH - 8;
+        yPanel = above >= topLimit ? above : qMax(topLimit, bottomLimit - panelH);
+    }
+    if (yPanel < topLimit)
+        yPanel = topLimit;
+    x = qBound(8, x, qMax(8, width() - panelW - 8));
+    m_curveFollow->setGeometry(x, yPanel, panelW, panelH);
+    m_curveFollow->show();
+    m_curveFollow->raise();
+    if (ui->Inquire_curve_1)
+        ui->Inquire_curve_1->replot(QCustomPlot::rpQueuedReplot);
+}
+
+void Inquire_Sql_Info::onSelectRowItem(QTableWidgetItem *item)
+{
+    if (!item)
+        return;
+
+    QTableWidget *ptablewidget = ui->tableWidget_SQL_Inquire;
+    const int startRow = (item->row() / 4) * 4;
+    if (startRow < 0 || startRow >= ptablewidget->rowCount())
+        return;
+    if (ptablewidget->item(startRow, 0) == nullptr) {
+        CustomMessageBox::warning(this, tr("查询曲线失败"), tr("未查询到样本号"));
+        QLOG_DEBUG() << "选中查看曲线失败,未查询到样本号" << __FILEW__ << __LINE__ << endl;
+        return;
+    }
+    if (startRow == m_followSampleRow && m_curveFollow && m_curveFollow->isVisible()) {
+        hideCurveFollow();
+        return;
+    }
+
+    m_clickId = ptablewidget->item(startRow, 0)->text();
+    m_followSampleRow = startRow;
+    ptablewidget->setCurrentCell(startRow, 0);
+    const int lastRow = qMin(startRow + 3, ptablewidget->rowCount() - 1);
+    const QModelIndex topLeft = ptablewidget->model()->index(startRow, 0);
+    const QModelIndex bottomRight = ptablewidget->model()->index(lastRow, ptablewidget->columnCount() - 1);
+    ptablewidget->selectionModel()->select(QItemSelection(topLeft, bottomRight),
+                                           QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+
+    cleanPlogtandUpdate();
+    placeCurveFollow(startRow);
+    emit InquierCurveView(m_clickId);
 }
 
 
@@ -979,6 +1383,7 @@ void Inquire_Sql_Info::on_toolButtonFindexatc_clicked()
 //清空查找到的数据
 void Inquire_Sql_Info::DeleteStuData()
 {
+    hideCurveFollow();
     Clear_table(ui->tableWidget_SQL_Inquire);
 }
 
@@ -1665,8 +2070,15 @@ void Inquire_Sql_Info::updateCurveLabelsPosition()
                 }
             }
 
-            // 设置标注位置在固定X位置
-            label->position->setCoords(targetX, closestY);
+            const double lift = 10.0 + (i % 3) * 8.0;
+            double labelY = closestY + lift;
+            Qt::Alignment align = Qt::AlignHCenter | Qt::AlignBottom;
+            if (labelY > 96.0) {
+                labelY = closestY - lift;
+                align = Qt::AlignHCenter | Qt::AlignTop;
+            }
+            label->setPositionAlignment(align);
+            label->position->setCoords(targetX, labelY);
         } else {
             // 没有数据时隐藏整个标签框
             label->setText("");
@@ -1754,6 +2166,7 @@ void Inquire_Sql_Info::deleteSelectedItem()
     if (table->rowCount() == 0) {
         cleanPlogtandUpdate();
     }
+    hideCurveFollow();
 
     Q_EMIT sycnDelOthertableWidgetRow(sampleId);
     Q_EMIT sycnDelTestSample(sampleId); //取消分配了试管了样本号

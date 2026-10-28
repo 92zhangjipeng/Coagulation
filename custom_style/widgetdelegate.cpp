@@ -3,6 +3,7 @@
 #include <QDateTimeEdit>
 #include <QListWidget>
 #include <QStandardItemModel>
+#include <QStyle>
 #include <QTextOption>
 
 #pragma warning(disable:4100)
@@ -15,15 +16,27 @@ WidgetDelegate::WidgetDelegate(QItemDelegate *parent) : QItemDelegate(parent)
 WidgetDelegate::WidgetDelegate(QStringList list, QItemDelegate *parent) :QItemDelegate(parent)
 {
     this->m_comboBoxList = list;
-    this->m_Css = "QComboBox{border-radius:5px; padding:2px 4px; font: 19 17pt '楷体'; border: 2px solid rgba(220,220,220);background-color:rgba(188,187,183);}"
-                  "QComboBox::drop-down {subcontrol-origin: padding;subcontrol-position: top right;width: 15px; border:none;}"
-                  "QComboBox::down-arrow {height:30px; width:30px; image: url(:/Picture/minus.png);}"
-                  "QComboBox QAbstractItemView{background:rgba(255,255,255,1);border:1px solid rgba(150,150,150,1);border-radius:0px 0px 5px 5px;font: 24px; font-family: 楷体;outline: 0px;}"
-                  "QComboBox QAbstractItemView::item{ height:36px; color:#666666; padding-left:9px; background-color:#FFFFFF;}"
-                  "QComboBox QAbstractItemView::item:hover{background-color:#409CE1;color:#ffffff;}"
-                  "QComboBox QAbstractItemView::item:selected{background-color:#409CE1;color:#ffffff;}"
-                  "QComboBox:on { padding-top: 3px;padding-left: 3px;}"
-                  "QComboBox::down-arrow:on {top: 1px;left:3px;}";
+    this->m_Css = "QComboBox {"
+                  " font-family: 'Microsoft YaHei'; font-size: 13px; color: #16384A;"
+                  " background: #FFFFFF; border: 1px solid #8FBFD6; border-radius: 4px;"
+                  " padding: 0px 8px; }"
+                  "QComboBox:hover { border: 1px solid #1A6F99; }"
+                  "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
+                  " width: 22px; border: none; background: transparent; }"
+                  "QComboBox::down-arrow { width: 0px; height: 0px; image: none;"
+                  " border-left: 4px solid transparent; border-right: 4px solid transparent;"
+                  " border-top: 5px solid #1A6F99; }"
+                  "QComboBox QAbstractItemView {"
+                  " background: #FFFFFF; color: #16384A; border: 1px solid #8FBFD6;"
+                  " outline: 0; font-family: 'Microsoft YaHei'; font-size: 13px; }"
+                  "QComboBox QAbstractItemView::item { min-height: 28px; padding: 4px 10px; color: #16384A; }"
+                  "QComboBox QAbstractItemView::item:hover { background: #E7F3FA; color: #16384A; }"
+                  "QComboBox QAbstractItemView::item:selected { background: #D4EAF5; color: #16384A; }"
+                  "QComboBox QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
+                  "QComboBox QScrollBar::handle:vertical { background: #8AA4BE; min-height: 18px; border-radius: 3px; }"
+                  "QComboBox QScrollBar::add-line:vertical, QComboBox QScrollBar::sub-line:vertical {"
+                  " height: 0px; width: 0px; border: none; }"
+                  "QComboBox QScrollBar::add-page:vertical, QComboBox QScrollBar::sub-page:vertical { background: transparent; }";
 }
 
 WidgetDelegate::~WidgetDelegate() {
@@ -36,7 +49,19 @@ QWidget *WidgetDelegate::createEditor(QWidget *parent, const QStyleOptionViewIte
     // 创建自己需要的控件进行返回
     QComboBox *editor = new QComboBox(parent);
     editor->setStyleSheet(this->m_Css);
-    //static_cast<QStandardItemModel*>(editor->model())->item(pos)->setTextAlignment(Qt::AlignCenter);
+    editor->setMaxVisibleItems(8);
+    editor->setFont(QFont(QStringLiteral("Microsoft YaHei"), 9));
+    if (editor->view()) {
+        editor->view()->setMinimumWidth(qMax(option.rect.width(), 120));
+        editor->view()->setStyleSheet(QStringLiteral(
+            "QAbstractItemView { background: #FFFFFF; color: #16384A; border: none; outline: 0;"
+            " font-family: 'Microsoft YaHei'; font-size: 13px; }"
+            "QAbstractItemView::item { min-height: 28px; padding: 4px 10px; }"
+            "QAbstractItemView::item:selected { background: #D4EAF5; color: #16384A; }"
+            "QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
+            "QScrollBar::handle:vertical { background: #8AA4BE; min-height: 18px; border-radius: 3px; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; width: 0px; }"));
+    }
     return editor;
 }
 
@@ -62,8 +87,10 @@ void WidgetDelegate::setEditorData(QWidget *editor, const QModelIndex &/*index*/
 // 更新编辑器集合属性
 void WidgetDelegate::updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-    // 将编辑器设置为矩形属性
-    editor->setGeometry(option.rect);
+    Q_UNUSED(index);
+    const int editorH = qMin(30, qMax(24, option.rect.height() - 8));
+    const int y = option.rect.y() + (option.rect.height() - editorH) / 2;
+    editor->setGeometry(option.rect.x() + 4, y, qMax(40, option.rect.width() - 8), editorH);
 }
 
 // 设置模型数据
@@ -72,6 +99,23 @@ void WidgetDelegate::setModelData(QWidget *editor, QAbstractItemModel *model, co
     QComboBox *comboBox = static_cast<QComboBox *>(editor);	// 类型转换
     // 模型（单元格）显示的数据
     model->setData(index, comboBox->currentText());
+}
+
+void WidgetDelegate::drawDisplay(QPainter *painter, const QStyleOptionViewItem &option,
+                                 const QRect &rect, const QString &text) const
+{
+    painter->save();
+    painter->setFont(option.font);
+    const QPalette::ColorGroup group = (option.state & QStyle::State_Enabled)
+            ? QPalette::Normal : QPalette::Disabled;
+    if (option.state & QStyle::State_Selected)
+        painter->setPen(option.palette.color(group, QPalette::HighlightedText));
+    else
+        painter->setPen(option.palette.color(group, QPalette::Text));
+    const QRect textRect = rect.adjusted(4, 2, -4, -2);
+    const int flags = Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextWordWrap;
+    painter->drawText(textRect, flags, text);
+    painter->restore();
 }
 
 // 获取索引处的数据返回

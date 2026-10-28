@@ -46,6 +46,47 @@ bool INI_File::getPrintAdhesion()
     return m_psetting->value(key, true).toBool();
 }
 
+static QString printFormKey(const QString &name)
+{
+    return QString("PrintSettings/%1").arg(name);
+}
+
+PrintFormOptions INI_File::loadPrintForm()
+{
+    PrintFormOptions opt;
+    opt.title = m_psetting->value(
+        printFormKey("PrintTitle"),
+        QString::fromUtf8("\xe8\xa1\x80\xe5\xb0\x8f\xe6\x9d\xbf\xe8\x81\x9a\xe9\x9b\x86\xe5\x88\x86\xe6\x9e\x90\xe6\x8a\xa5\xe5\x91\x8a")).toString();
+    opt.patient = m_psetting->value(printFormKey("PrintPatient"), true).toBool();
+    opt.sec60 = m_psetting->value(printFormKey("PrintSec60"), true).toBool();
+    opt.maxAgg = m_psetting->value(printFormKey("PrintMax"), true).toBool();
+    opt.slope = m_psetting->value(printFormKey("PrintSlope"), true).toBool();
+    opt.auc = m_psetting->value(printFormKey("PrintAuc"), true).toBool();
+    opt.tma = m_psetting->value(printFormKey("PrintTma"), true).toBool();
+    opt.lag = m_psetting->value(printFormKey("PrintLag"), true).toBool();
+    opt.timeAvg = m_psetting->value(printFormKey("PrintTimeAvg"), true).toBool();
+    opt.reference = m_psetting->value(printFormKey("PrintReference"), true).toBool();
+    opt.curve = m_psetting->value(printFormKey("PrintCurve"), true).toBool();
+    opt.adhesion = getPrintAdhesion();
+    return opt;
+}
+
+void INI_File::savePrintForm(const PrintFormOptions &opt)
+{
+    m_psetting->setValue(printFormKey("PrintTitle"), opt.title.trimmed());
+    m_psetting->setValue(printFormKey("PrintPatient"), opt.patient);
+    m_psetting->setValue(printFormKey("PrintSec60"), opt.sec60);
+    m_psetting->setValue(printFormKey("PrintMax"), opt.maxAgg);
+    m_psetting->setValue(printFormKey("PrintSlope"), opt.slope);
+    m_psetting->setValue(printFormKey("PrintAuc"), opt.auc);
+    m_psetting->setValue(printFormKey("PrintTma"), opt.tma);
+    m_psetting->setValue(printFormKey("PrintLag"), opt.lag);
+    m_psetting->setValue(printFormKey("PrintTimeAvg"), opt.timeAvg);
+    m_psetting->setValue(printFormKey("PrintReference"), opt.reference);
+    m_psetting->setValue(printFormKey("PrintCurve"), opt.curve);
+    setPrintAdhesion(opt.adhesion);
+}
+
 //写入基础参数
 bool INI_File::wConfigPara(const QString& keyValue, const QVariant& data)
 {
