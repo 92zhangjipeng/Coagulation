@@ -326,6 +326,10 @@ SOURCES += \
     custom_style/custommessagebox.cpp \
     Custommovements/customChartWidget/medicalchartwidget.cpp \
     LIS/lisapiservice.cpp \
+    LIS/lisconfig.cpp \
+    LIS/lismessage.cpp \
+    LIS/lisbridge.cpp \
+    LIS/lissettingspage.cpp \
     pumppositionmanager.cpp \
     dilag/parameterdialog.cpp \
     LIS/curveimagegenerator.cpp \
@@ -481,6 +485,10 @@ HEADERS += \
     custom_style/custommessagebox.h \
     Custommovements/customChartWidget/medicalchartwidget.h \
     LIS/lisapiservice.h \
+    LIS/lisconfig.h \
+    LIS/lismessage.h \
+    LIS/lisbridge.h \
+    LIS/lissettingspage.h \
     pumppositionmanager.h \
     dilag/parameterdialog.h \
     LIS/curveimagegenerator.h \

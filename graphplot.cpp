@@ -2,6 +2,7 @@
 #include "cglobal.h"
 #include "structinstance.h"
 #include "sampledataprocess.h"
+#include "LIS/lisbridge.h"
 #include <operclass/fullyautomatedplatelets.h>
 #include <QSharedPointer>
 #include <PrintReport/AggregationAnalyzer.h>
@@ -382,6 +383,16 @@ void GraphPlot::CompleteOneSample(const quint8 indexChannel, const quint8 reagen
 
     // 有效：使用已获取的真实数据保存
     saveTestDataToSqllite(indexChannel, reagents, sampleid, testedDataMap);
+
+    if (!cglobal::g_quality_start.load() && sampleid > 0) {
+        const bool readyNow = StructInstance::getInstance()->sampleReagentsAllFinished(sampleid);
+        const bool readyMarked = StructInstance::getInstance()->takeLisReadySample(sampleid);
+        if (readyNow || readyMarked) {
+            bool followUp = false;
+            const QString lisSampleId = getFormattedSampleId(sampleid, followUp);
+            LisBridge::instance()->notifyTestFinished(lisSampleId);
+        }
+    }
 }
 // ==================== 辅助函数实现 ====================
 

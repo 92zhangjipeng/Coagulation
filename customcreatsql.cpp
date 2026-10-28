@@ -13,6 +13,7 @@
 #include "globaldata.h"
 #include "ini_file.h"
 #include "loadequipmentpos.h"
+#include "LIS/lisbridge.h"
 #include "quiutils.h"
 #include <operclass/fullyautomatedplatelets.h>
 #include <stdlib.h>
@@ -3058,6 +3059,10 @@ bool CustomCreatSql::updateTestResultTable(QString id,QString updateKey,QString 
     if (!sql_query.exec()) {
         QLOG_ERROR() << "更新失败：" << sql_query.lastError().text() << " SQL:" << sql;
         return false;
+    }
+    const QString reviewKey = QString::fromUtf8("\xe5\xae\xa1\xe6\xa0\xb8\xe5\x8c\xbb\xe7\x94\x9f");
+    if (updateKey == reviewKey && !val.trimmed().isEmpty()) {
+        LisBridge::instance()->notifyReviewed(id);
     }
     return true;
 }

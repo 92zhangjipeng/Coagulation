@@ -222,6 +222,15 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int totalSample)
         //从当前试管盘继续取空孔，当前盘用完再进下一盘
         out_reag_name = GlobalData::mapIndexReagentnames(ANEMIA);
         anemia_suck_to_hole = GetNextTube(tubeFreeState);
+        if (anemia_suck_to_hole == 255) {
+            QLOG_ERROR() << QString::fromUtf8("试管盘没有空孔，样本") << sampleId
+                         << QString::fromUtf8("不加入本次测试");
+            delete pSampleBasicInfo;
+            emit addprogress(index, totalSample);
+            ++index;
+            ++iter;
+            continue;
+        }
 
         EmptyTestTubeInfo *pAnemiaTestTubeState  = new EmptyTestTubeInfo;
         pAnemiaTestTubeState->IdSample = sampleId;
@@ -255,12 +264,24 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int totalSample)
 		int total_test_project = testbloody_project.size();
 		QPoint spit_bloody_axis(0, 0);
 		QList<QPoint> spit_bloody_poslist;
+		bool tubeShort = false;
 		foreach(quint8 index_, testbloody_project)
 		{
+			if (index_ < AA_REAGENT || index_ > RIS_REAGENT) {
+				QLOG_ERROR() << QString::fromUtf8("样本") << sampleId
+				             << QString::fromUtf8("试剂项目无法识别，已跳过") << index_;
+				continue;
+			}
 			BLOODY_INFO Bloodydata;
             out_reag_name = GlobalData::mapIndexReagentnames(index_);
             //PRP孔号
             bloody_suck_tohole = GetNextTube(tubeFreeState);
+            if (bloody_suck_tohole == 255) {
+                QLOG_ERROR() << QString::fromUtf8("试管不够分配试剂杯，样本") << sampleId
+                             << QString::fromUtf8("不加入本次测试");
+                tubeShort = true;
+                break;
+            }
 
             EmptyTestTubeInfo *pRichBloodTestTubeState  = new EmptyTestTubeInfo;
             pRichBloodTestTubeState->IdSample = sampleId;
@@ -282,6 +303,20 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int totalSample)
 			richHole_ = QString("%1|%2").arg(richHole_).arg(bloody_suck_tohole);
 			pSampleBasicInfo->bloody_tube.push_back(Bloodydata);
 		}
+		if (tubeShort || pSampleBasicInfo->bloody_tube.isEmpty()) {
+			for (int i = _UpdateTubeState.size() - 1; i >= 0; --i) {
+				if (_UpdateTubeState.at(i) && _UpdateTubeState.at(i)->IdSample == sampleId) {
+					delete _UpdateTubeState.at(i);
+					_UpdateTubeState.removeAt(i);
+				}
+			}
+			delete pSampleBasicInfo;
+			emit addprogress(index, totalSample);
+			++index;
+			++iter;
+			continue;
+		}
+		total_test_project = pSampleBasicInfo->bloody_tube.size();
 
 		//加样动作（PPP：XY到位后Z复位预探测，通过后再液面探测吸PPP）
 		QByteArrayList addSamplePrefix;

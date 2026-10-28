@@ -25,7 +25,7 @@
 #include <dbghelp.h>
 #include <shellapi.h>
 #include "operclass/ccreatedump.h"
-#include <LIS/lisapiservice.h>
+#include <LIS/lisbridge.h>
 #include <LIS/curveimagegenerator.h>
 #endif
 
@@ -416,12 +416,7 @@ int main(int argc, char* argv[])
     CurveImageGenerator::instance()->init(dbPath, "./CurveImages");
     // 单独设置数据文件的保存目录（可以不同于图片目录）
     CurveImageGenerator::instance()->setDataSaveDirectory("./TestResults");
-
-    // 创建并启动 LIS API 服务（父对象为 QApplication，确保整个生命周期存在）
-    //LisApiService *lisService = new LisApiService(8080, dbPath, qApp);
-    //lisService->setImageSaveDirectory("./CurveImages");
-    //lisService->setImageRetentionDays(60);  // 保留60天
-    //lisService->start();
+    LisBridge::instance()->start(dbPath);
 
 	int exitCode = runner.run();
 

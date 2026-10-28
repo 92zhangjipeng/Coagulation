@@ -27,6 +27,16 @@ public:
         }
         return m_pInstance;
     }
+
+    class DataGuard {
+    public:
+        DataGuard();
+        ~DataGuard();
+        void unlock();
+    private:
+        std::unique_lock<std::recursive_mutex> m_lock;
+    };
+
 public:
     //vec_sampledata_task m_BloodsampleInfo;  //血样信息
 
@@ -215,6 +225,10 @@ public:
 
     //单个试剂测试完
     void setupOneReagentsIsComplete(const QString SampleId, quint8 index_reag, const bool &testErr);
+
+    // 该样本已登记的试剂是否都已结束。样本不在列表里时返回 false。
+    bool sampleReagentsAllFinished(int sampleNum) const;
+    bool takeLisReadySample(int sampleNum);
 
 
     //获取样本针清洗状态
@@ -525,12 +539,13 @@ private:
     //定义单例指针
     static StructInstance* m_pInstance;
     static QMutex m_mutex;//互斥锁
-	mutable std::mutex m_reagentMutex;
+    mutable std::recursive_mutex m_dataMutex;
 
     int m_handsFailedtimes = 0; //抓手吸杯失败次数
     int m_handsThrowFailedtimes = 0; //抓手丢被失败次数
     bool m_throwAwaitingReleaseRead = false;
     int m_gripperWaitMs = 0;
+    QVector<int> m_lisReadySamples;
 
     enum GripperGrabReadPhase {
         GrabReadIdle = 0,

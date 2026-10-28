@@ -1732,12 +1732,16 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,
                                              const quint8 indexActive,
                                              const quint8 index_reagent)
 {
-    const auto *psample = StructInstance::getInstance()->rfindIdSample(sampleId);
-    if (!psample || psample->indexTestingChn < 0) {
-        QLOG_WARN() << "[TestChn] open_test_reject sample" << sampleId << "无有效测试通道";
-        return;
+    quint8 openChn = 0;
+    {
+        StructInstance::DataGuard guard;
+        const auto *psample = StructInstance::getInstance()->rfindIdSample(sampleId);
+        if (!psample || psample->indexTestingChn < 0) {
+            QLOG_WARN() << "[TestChn] open_test_reject sample" << sampleId << "无有效测试通道";
+            return;
+        }
+        openChn = static_cast<quint8>(psample->indexTestingChn);
     }
-    quint8 openChn = static_cast<quint8>(psample->indexTestingChn);
     QLOG_INFO() << "[TestChn] open_test_start sample" << sampleId
                 << "chn" << (openChn + 1) << "reag" << index_reagent
                 << "focusActive" << indexActive;

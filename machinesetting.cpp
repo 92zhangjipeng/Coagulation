@@ -23,6 +23,7 @@
 #include <QMetaType>
 #include <iostream>
 #include "globaldata.h"
+#include "LIS/lissettingspage.h"
 #include "mainwindow.h"
 #include "quiutils.h"
 #include "warn_interface.h"
@@ -176,6 +177,7 @@ MachineSetting::MachineSetting(QWidget *parent) :
 
 {
     ui->setupUi(this);
+    LisSettingsPage::attach(ui->tab_LIS);
     this->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     this->setWindowTitle(tr("仪器参数设置"));
     initCustomTitleBar();
@@ -189,7 +191,6 @@ MachineSetting::MachineSetting(QWidget *parent) :
 
     ui->checkBox_Recapture->hide();
     //ui->groupBox_setfile->hide();
-    ui->pushButton_backsetting->hide();
 
     initshowPPPinit();
 }

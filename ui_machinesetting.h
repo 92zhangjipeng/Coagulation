@@ -16,6 +16,7 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QDoubleSpinBox>
+#include <QtWidgets/QFormLayout>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QHBoxLayout>
@@ -24,7 +25,6 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QRadioButton>
 #include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QTabWidget>
@@ -185,62 +185,45 @@ public:
     QGridLayout *gridLayout_14;
     QWidget *tab_LIS;
     QVBoxLayout *verticalLayout_19;
-    QTabWidget *tabWidget_3;
-    QWidget *tab_TextOut;
-    QHBoxLayout *horizontalLayout_37;
-    QWidget *widget_12;
-    QVBoxLayout *verticalLayout_20;
-    QTableWidget *tableWidget_alwaysLIS;
-    QCheckBox *checkBox_endAuditoutdata;
-    QCheckBox *checkBox_testCompleteAutoOut;
-    QWidget *widget_11;
-    QVBoxLayout *verticalLayout_21;
-    QPushButton *pushButton_LiS_Used;
-    QPushButton *pushButton_LIS_Enable;
-    QPushButton *pushButton_LIS_Config;
-    QSpacerItem *verticalSpacer_4;
-    QWidget *tab_Nornal;
-    QVBoxLayout *verticalLayout_22;
-    QGroupBox *groupBox_5;
-    QHBoxLayout *horizontalLayout_38;
-    QRadioButton *radioButton_tab;
-    QRadioButton *radioButton_point;
-    QRadioButton *radioButton_Spaceing;
-    QRadioButton *radioButton_others;
-    QLineEdit *lineEdit_others;
-    QSpacerItem *horizontalSpacer_31;
-    QLabel *label_28;
-    QTableWidget *tableWidget_outTexts;
-    QCheckBox *checkBox_ResultAndInfo;
-    QGroupBox *groupBox_connectStyle;
-    QGridLayout *gridLayout_39;
-    QRadioButton *radioButton_sel_tcpip;
-    QLabel *label_TextOutPath;
-    QRadioButton *radioButton_selSerial;
-    QLineEdit *lineEdit_TextOutPath;
-    QPushButton *pushButton_SelTextOutPath;
-    QRadioButton *radioButton_Sel_text;
-    QWidget *widget_14;
-    QGridLayout *gridLayout_38;
-    QLabel *label_34;
-    QLabel *label_portname;
-    QLabel *label_35;
-    QSpinBox *spinBox_6;
-    QSpinBox *spinBox_5;
-    QLabel *label_33;
-    QComboBox *comboBox_6;
-    QComboBox *comboBox_5;
-    QLabel *label_36;
-    QPushButton *pushButton_backsetting;
-    QComboBox *comboBox_Serialportnum;
-    QWidget *widget_13;
-    QGridLayout *gridLayout_37;
-    QRadioButton *radioButton_10;
-    QRadioButton *radioButton_11;
-    QLabel *label_setaddr;
-    QSpinBox *spinBox_setPort;
-    QLabel *label_setAddr;
-    QLineEdit *lineEdit_setAddr;
+    QCheckBox *checkBox_lisEnabled;
+    QCheckBox *checkBox_lisPull;
+    QFormLayout *formLayout_lisPull;
+    QLabel *label_lisPullPort;
+    QSpinBox *spinBox_lisPullPort;
+    QLabel *label_lisPullUrlTitle;
+    QLabel *label_lisPullUrl;
+    QCheckBox *checkBox_lisPush;
+    QCheckBox *checkBox_lisOnComplete;
+    QCheckBox *checkBox_lisOnReview;
+    QFormLayout *formLayout_lisPush;
+    QLabel *label_lisProtocol;
+    QComboBox *comboBox_lisProtocol;
+    QLabel *label_lisHost;
+    QLineEdit *lineEdit_lisHost;
+    QLabel *label_lisPushPort;
+    QSpinBox *spinBox_lisPushPort;
+    QLabel *label_lisCharset;
+    QComboBox *comboBox_lisCharset;
+    QLabel *label_lisSendApp;
+    QLineEdit *lineEdit_lisSendApp;
+    QLabel *label_lisSendFacility;
+    QLineEdit *lineEdit_lisSendFacility;
+    QLabel *label_lisRecvApp;
+    QLineEdit *lineEdit_lisRecvApp;
+    QLabel *label_lisRecvFacility;
+    QLineEdit *lineEdit_lisRecvFacility;
+    QLabel *label_lisTimeout;
+    QSpinBox *spinBox_lisTimeout;
+    QLabel *label_lisRetry;
+    QSpinBox *spinBox_lisRetry;
+    QHBoxLayout *horizontalLayout_lisButtons;
+    QPushButton *pushButton_lisSave;
+    QPushButton *pushButton_lisTest;
+    QPushButton *pushButton_lisResend;
+    QPushButton *pushButton_lisRefresh;
+    QSpacerItem *horizontalSpacer_lis;
+    QLabel *label_lisStatus;
+    QTableWidget *tableWidget_lisOutbox;
     QWidget *tab_fucn;
     QVBoxLayout *verticalLayout_ParametersSet;
     QWidget *widget_side;
@@ -1766,465 +1749,231 @@ public:
         tabWidgetSetconfigure->addTab(tab_6, QString());
         tab_LIS = new QWidget();
         tab_LIS->setObjectName(QStringLiteral("tab_LIS"));
+        tab_LIS->setStyleSheet(QLatin1String("QCheckBox, QLabel { color: #1A4D6B; font: 13px \"Microsoft YaHei\"; }\n"
+"QLineEdit, QComboBox, QSpinBox { background: #FFFFFF; border: 1px solid #AACDE2; border-radius: 6px; padding: 4px; color: #1A4D6B; min-height: 26px; }\n"
+"QPushButton { background: #5FA8D3; color: white; border: 1px solid #3A86A8; border-radius: 8px; min-height: 34px; padding: 0 14px; font: 13px \"Microsoft YaHei\"; }\n"
+"QPushButton:hover { background: #3A86A8; }\n"
+"QTableWidget { background: #FFFFFF; alternate-background-color: #F2F9FC; border: 1px solid #B8D9E6; }\n"
+"QHeaderView::section { background: #D9EAF5; color: #1A4D6B; border: none; padding: 4px; }"));
         verticalLayout_19 = new QVBoxLayout(tab_LIS);
+        verticalLayout_19->setSpacing(8);
         verticalLayout_19->setObjectName(QStringLiteral("verticalLayout_19"));
-        tabWidget_3 = new QTabWidget(tab_LIS);
-        tabWidget_3->setObjectName(QStringLiteral("tabWidget_3"));
-        tabWidget_3->setStyleSheet(QString::fromUtf8("QTabWidget::pane{\n"
-"    border: 2px solid #B8D9E6;\n"
-"    background: #F0F9FF;\n"
-"    border-top-color: transparent;\n"
-"}\n"
-"QTabBar::tab{\n"
-"    width:173px;\n"
-"    height:45px;\n"
-"    background: #C2E0F0;\n"
-"    border: 2px solid #B8D9E6;\n"
-"    border-top-left-radius: 8px;\n"
-"    border-top-right-radius: 8px;\n"
-"    font: 14px \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QTabBar::tab:selected{\n"
-"    background: #F0F9FF;\n"
-"    border-bottom-color: #F0F9FF;\n"
-"    color: #005A8C;\n"
-"    font-weight: bold;\n"
-"}\n"
-"QCheckBox {\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QTableWidget {\n"
-"    background-color: #FFFFFF;\n"
-"    alternate-background-color: #F2F9FC;\n"
-"    border: 1px solid #B8D9E6;\n"
-"}\n"
-"QPushButton {\n"
-"    background-color: #5FA8D3;\n"
-"    border: 1px solid #3A86A8;\n"
-"    border-radius: 8px;\n"
-"    font: 14px \"\345\276\256\350\275"
-                        "\257\351\233\205\351\273\221\";\n"
-"    color: white;\n"
-"}\n"
-"QPushButton:hover {\n"
-"    background-color: #3A86A8;\n"
-"}\n"
-"QRadioButton {\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QGroupBox {\n"
-"    border: 2px solid #AACDE2;\n"
-"    border-radius: 10px;\n"
-"    margin-top: 2ex;\n"
-"    font: bold 16px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #005A8C;\n"
-"}\n"
-"QGroupBox::title {\n"
-"    subcontrol-origin: margin;\n"
-"    subcontrol-position: top center;\n"
-"    padding: 0 5px;\n"
-"    color: #0077B6;\n"
-"}"));
-        tab_TextOut = new QWidget();
-        tab_TextOut->setObjectName(QStringLiteral("tab_TextOut"));
-        horizontalLayout_37 = new QHBoxLayout(tab_TextOut);
-        horizontalLayout_37->setObjectName(QStringLiteral("horizontalLayout_37"));
-        widget_12 = new QWidget(tab_TextOut);
-        widget_12->setObjectName(QStringLiteral("widget_12"));
-        widget_12->setStyleSheet(QLatin1String("QWidget#widget_12\n"
-"{\n"
-"    border: 1px solid #B8D9E6;\n"
-"    background-color: #E8F4F8;\n"
-"    border-style: solid;\n"
-"    border-radius:8px;\n"
-"    padding:0 0px;\n"
-"}"));
-        verticalLayout_20 = new QVBoxLayout(widget_12);
-        verticalLayout_20->setObjectName(QStringLiteral("verticalLayout_20"));
-        tableWidget_alwaysLIS = new QTableWidget(widget_12);
-        tableWidget_alwaysLIS->setObjectName(QStringLiteral("tableWidget_alwaysLIS"));
-
-        verticalLayout_20->addWidget(tableWidget_alwaysLIS);
-
-        checkBox_endAuditoutdata = new QCheckBox(widget_12);
-        checkBox_endAuditoutdata->setObjectName(QStringLiteral("checkBox_endAuditoutdata"));
-
-        verticalLayout_20->addWidget(checkBox_endAuditoutdata);
-
-        checkBox_testCompleteAutoOut = new QCheckBox(widget_12);
-        checkBox_testCompleteAutoOut->setObjectName(QStringLiteral("checkBox_testCompleteAutoOut"));
-
-        verticalLayout_20->addWidget(checkBox_testCompleteAutoOut);
-
-
-        horizontalLayout_37->addWidget(widget_12);
-
-        widget_11 = new QWidget(tab_TextOut);
-        widget_11->setObjectName(QStringLiteral("widget_11"));
-        widget_11->setMinimumSize(QSize(100, 0));
-        widget_11->setMaximumSize(QSize(100, 16777215));
-        verticalLayout_21 = new QVBoxLayout(widget_11);
-        verticalLayout_21->setObjectName(QStringLiteral("verticalLayout_21"));
-        pushButton_LiS_Used = new QPushButton(widget_11);
-        pushButton_LiS_Used->setObjectName(QStringLiteral("pushButton_LiS_Used"));
-        pushButton_LiS_Used->setMinimumSize(QSize(0, 42));
-        QIcon icon;
-        icon.addFile(QStringLiteral(":/Picture/enable.png"), QSize(), QIcon::Normal, QIcon::Off);
-        pushButton_LiS_Used->setIcon(icon);
-
-        verticalLayout_21->addWidget(pushButton_LiS_Used);
-
-        pushButton_LIS_Enable = new QPushButton(widget_11);
-        pushButton_LIS_Enable->setObjectName(QStringLiteral("pushButton_LIS_Enable"));
-        pushButton_LIS_Enable->setMinimumSize(QSize(0, 42));
-        QIcon icon1;
-        icon1.addFile(QStringLiteral(":/Picture/forbid.png"), QSize(), QIcon::Normal, QIcon::Off);
-        pushButton_LIS_Enable->setIcon(icon1);
-        pushButton_LIS_Enable->setIconSize(QSize(16, 16));
-
-        verticalLayout_21->addWidget(pushButton_LIS_Enable);
-
-        pushButton_LIS_Config = new QPushButton(widget_11);
-        pushButton_LIS_Config->setObjectName(QStringLiteral("pushButton_LIS_Config"));
-        pushButton_LIS_Config->setMinimumSize(QSize(0, 42));
-        QIcon icon2;
-        icon2.addFile(QStringLiteral(":/Picture/setup.png"), QSize(), QIcon::Normal, QIcon::Off);
-        pushButton_LIS_Config->setIcon(icon2);
-
-        verticalLayout_21->addWidget(pushButton_LIS_Config);
-
-        verticalSpacer_4 = new QSpacerItem(20, 588, QSizePolicy::Minimum, QSizePolicy::Expanding);
-
-        verticalLayout_21->addItem(verticalSpacer_4);
-
-
-        horizontalLayout_37->addWidget(widget_11);
-
-        tabWidget_3->addTab(tab_TextOut, QString());
-        tab_Nornal = new QWidget();
-        tab_Nornal->setObjectName(QStringLiteral("tab_Nornal"));
-        tab_Nornal->setStyleSheet(QLatin1String("QWidget#tab_Nornal\n"
-"{\n"
-"    border: 1px solid #B8D9E6;\n"
-"    background-color: #E8F4F8;\n"
-"    border-style: solid;\n"
-"    border-radius:8px;\n"
-"    padding:0 0px;\n"
-"}"));
-        verticalLayout_22 = new QVBoxLayout(tab_Nornal);
-        verticalLayout_22->setObjectName(QStringLiteral("verticalLayout_22"));
-        groupBox_5 = new QGroupBox(tab_Nornal);
-        groupBox_5->setObjectName(QStringLiteral("groupBox_5"));
-        groupBox_5->setStyleSheet(QString::fromUtf8("QGroupBox\n"
-"{\n"
-"    border: 2px solid #AACDE2;\n"
-"    border-radius:10px;\n"
-"    margin-top:4ex;\n"
-"    font:bold 16px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #005A8C;\n"
-"    background-color: rgba(240, 249, 255, 0.6);\n"
-"}\n"
-"QGroupBox::title\n"
-"{\n"
-"    subcontrol-origin:margin;\n"
-"    subcontrol-position:top center;\n"
-"    padding:0 5px;\n"
-"    color: #0077B6;\n"
-"}\n"
-"QRadioButton {\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QLineEdit {\n"
-"    background-color: #FFFFFF;\n"
-"    border: 1px solid #AACDE2;\n"
-"    border-radius: 6px;\n"
-"    padding: 5px;\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
-"    color: #1A4D6B;\n"
-"}"));
-        horizontalLayout_38 = new QHBoxLayout(groupBox_5);
-        horizontalLayout_38->setObjectName(QStringLiteral("horizontalLayout_38"));
-        radioButton_tab = new QRadioButton(groupBox_5);
-        radioButton_tab->setObjectName(QStringLiteral("radioButton_tab"));
-        radioButton_tab->setMinimumSize(QSize(0, 30));
-
-        horizontalLayout_38->addWidget(radioButton_tab);
-
-        radioButton_point = new QRadioButton(groupBox_5);
-        radioButton_point->setObjectName(QStringLiteral("radioButton_point"));
-        radioButton_point->setMinimumSize(QSize(0, 30));
-
-        horizontalLayout_38->addWidget(radioButton_point);
-
-        radioButton_Spaceing = new QRadioButton(groupBox_5);
-        radioButton_Spaceing->setObjectName(QStringLiteral("radioButton_Spaceing"));
-        radioButton_Spaceing->setMinimumSize(QSize(0, 30));
-
-        horizontalLayout_38->addWidget(radioButton_Spaceing);
-
-        radioButton_others = new QRadioButton(groupBox_5);
-        radioButton_others->setObjectName(QStringLiteral("radioButton_others"));
-        radioButton_others->setMinimumSize(QSize(0, 30));
-
-        horizontalLayout_38->addWidget(radioButton_others);
-
-        lineEdit_others = new QLineEdit(groupBox_5);
-        lineEdit_others->setObjectName(QStringLiteral("lineEdit_others"));
-        lineEdit_others->setMinimumSize(QSize(0, 30));
-
-        horizontalLayout_38->addWidget(lineEdit_others);
-
-        horizontalSpacer_31 = new QSpacerItem(229, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-        horizontalLayout_38->addItem(horizontalSpacer_31);
-
-
-        verticalLayout_22->addWidget(groupBox_5);
-
-        label_28 = new QLabel(tab_Nornal);
-        label_28->setObjectName(QStringLiteral("label_28"));
-
-        verticalLayout_22->addWidget(label_28);
-
-        tableWidget_outTexts = new QTableWidget(tab_Nornal);
-        tableWidget_outTexts->setObjectName(QStringLiteral("tableWidget_outTexts"));
-
-        verticalLayout_22->addWidget(tableWidget_outTexts);
-
-        checkBox_ResultAndInfo = new QCheckBox(tab_Nornal);
-        checkBox_ResultAndInfo->setObjectName(QStringLiteral("checkBox_ResultAndInfo"));
-
-        verticalLayout_22->addWidget(checkBox_ResultAndInfo);
-
-        groupBox_connectStyle = new QGroupBox(tab_Nornal);
-        groupBox_connectStyle->setObjectName(QStringLiteral("groupBox_connectStyle"));
-        groupBox_connectStyle->setStyleSheet(QString::fromUtf8("QGroupBox\n"
-"{\n"
-"    border: 2px solid #AACDE2;\n"
-"    border-radius:10px;\n"
-"    margin-top:4ex;\n"
-"    font:bold 16px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #005A8C;\n"
-"    background-color: rgba(240, 249, 255, 0.6);\n"
-"}\n"
-"QGroupBox::title\n"
-"{\n"
-"    subcontrol-origin:margin;\n"
-"    subcontrol-position:top center;\n"
-"    padding:0 5px;\n"
-"    color: #0077B6;\n"
-"}\n"
-"QRadioButton {\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QLabel {\n"
-"    color: #1A4D6B;\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\", \"\346\245\267\344\275\223\";\n"
-"}\n"
-"QLineEdit {\n"
-"    background-color: #FFFFFF;\n"
-"    border: 1px solid #AACDE2;\n"
-"    border-radius: 6px;\n"
-"    padding: 5px;\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QPushButton {\n"
-"    background-color"
-                        ": #5FA8D3;\n"
-"    border: 1px solid #3A86A8;\n"
-"    border-radius: 8px;\n"
-"    font: 14px \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
-"    color: white;\n"
-"}\n"
-"QPushButton:hover {\n"
-"    background-color: #3A86A8;\n"
-"}\n"
-"QComboBox {\n"
-"    background-color: #FFFFFF;\n"
-"    border: 1px solid #AACDE2;\n"
-"    border-radius: 6px;\n"
-"    padding: 4px 15px 4px 6px;\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
-"    color: #1A4D6B;\n"
-"}\n"
-"QSpinBox {\n"
-"    background-color: #FFFFFF;\n"
-"    border: 1px solid #AACDE2;\n"
-"    border-radius: 6px;\n"
-"    padding: 4px;\n"
-"    font: 12px \"\345\276\256\350\275\257\351\233\205\351\273\221\";\n"
-"    color: #1A4D6B;\n"
-"}"));
-        gridLayout_39 = new QGridLayout(groupBox_connectStyle);
-        gridLayout_39->setSpacing(5);
-        gridLayout_39->setObjectName(QStringLiteral("gridLayout_39"));
-        gridLayout_39->setContentsMargins(5, 5, 5, 5);
-        radioButton_sel_tcpip = new QRadioButton(groupBox_connectStyle);
-        radioButton_sel_tcpip->setObjectName(QStringLiteral("radioButton_sel_tcpip"));
-
-        gridLayout_39->addWidget(radioButton_sel_tcpip, 0, 1, 1, 1);
-
-        label_TextOutPath = new QLabel(groupBox_connectStyle);
-        label_TextOutPath->setObjectName(QStringLiteral("label_TextOutPath"));
-        label_TextOutPath->setMaximumSize(QSize(140, 16777215));
-
-        gridLayout_39->addWidget(label_TextOutPath, 2, 0, 1, 1);
-
-        radioButton_selSerial = new QRadioButton(groupBox_connectStyle);
-        radioButton_selSerial->setObjectName(QStringLiteral("radioButton_selSerial"));
-
-        gridLayout_39->addWidget(radioButton_selSerial, 0, 2, 1, 2);
-
-        lineEdit_TextOutPath = new QLineEdit(groupBox_connectStyle);
-        lineEdit_TextOutPath->setObjectName(QStringLiteral("lineEdit_TextOutPath"));
-        lineEdit_TextOutPath->setMinimumSize(QSize(0, 30));
-
-        gridLayout_39->addWidget(lineEdit_TextOutPath, 2, 1, 1, 2);
-
-        pushButton_SelTextOutPath = new QPushButton(groupBox_connectStyle);
-        pushButton_SelTextOutPath->setObjectName(QStringLiteral("pushButton_SelTextOutPath"));
-        QIcon icon3;
-        icon3.addFile(QStringLiteral(":/Picture/documents.png"), QSize(), QIcon::Normal, QIcon::Off);
-        pushButton_SelTextOutPath->setIcon(icon3);
-        pushButton_SelTextOutPath->setIconSize(QSize(32, 32));
-
-        gridLayout_39->addWidget(pushButton_SelTextOutPath, 2, 3, 1, 1);
-
-        radioButton_Sel_text = new QRadioButton(groupBox_connectStyle);
-        radioButton_Sel_text->setObjectName(QStringLiteral("radioButton_Sel_text"));
-        radioButton_Sel_text->setMaximumSize(QSize(140, 16777215));
-
-        gridLayout_39->addWidget(radioButton_Sel_text, 0, 0, 1, 1);
-
-        widget_14 = new QWidget(groupBox_connectStyle);
-        widget_14->setObjectName(QStringLiteral("widget_14"));
-        widget_14->setStyleSheet(QLatin1String("QWidget#widget_14{\n"
-"    border: 1px solid #B8D9E6;\n"
-"    background-color: #D9EAF5;\n"
-"    border-style: solid;\n"
-"    border-radius:8px;\n"
-"    padding:0 0px;\n"
-"}"));
-        gridLayout_38 = new QGridLayout(widget_14);
-        gridLayout_38->setObjectName(QStringLiteral("gridLayout_38"));
-        label_34 = new QLabel(widget_14);
-        label_34->setObjectName(QStringLiteral("label_34"));
-
-        gridLayout_38->addWidget(label_34, 1, 5, 1, 1);
-
-        label_portname = new QLabel(widget_14);
-        label_portname->setObjectName(QStringLiteral("label_portname"));
-        label_portname->setMinimumSize(QSize(45, 0));
-
-        gridLayout_38->addWidget(label_portname, 0, 0, 1, 1);
-
-        label_35 = new QLabel(widget_14);
-        label_35->setObjectName(QStringLiteral("label_35"));
-
-        gridLayout_38->addWidget(label_35, 0, 3, 1, 1);
-
-        spinBox_6 = new QSpinBox(widget_14);
-        spinBox_6->setObjectName(QStringLiteral("spinBox_6"));
-
-        gridLayout_38->addWidget(spinBox_6, 0, 6, 1, 1);
-
-        spinBox_5 = new QSpinBox(widget_14);
-        spinBox_5->setObjectName(QStringLiteral("spinBox_5"));
-
-        gridLayout_38->addWidget(spinBox_5, 0, 4, 1, 1);
-
-        label_33 = new QLabel(widget_14);
-        label_33->setObjectName(QStringLiteral("label_33"));
-
-        gridLayout_38->addWidget(label_33, 1, 3, 1, 1);
-
-        comboBox_6 = new QComboBox(widget_14);
-        comboBox_6->setObjectName(QStringLiteral("comboBox_6"));
-
-        gridLayout_38->addWidget(comboBox_6, 1, 6, 1, 1);
-
-        comboBox_5 = new QComboBox(widget_14);
-        comboBox_5->setObjectName(QStringLiteral("comboBox_5"));
-
-        gridLayout_38->addWidget(comboBox_5, 1, 4, 1, 1);
-
-        label_36 = new QLabel(widget_14);
-        label_36->setObjectName(QStringLiteral("label_36"));
-
-        gridLayout_38->addWidget(label_36, 0, 5, 1, 1);
-
-        pushButton_backsetting = new QPushButton(widget_14);
-        pushButton_backsetting->setObjectName(QStringLiteral("pushButton_backsetting"));
-
-        gridLayout_38->addWidget(pushButton_backsetting, 1, 0, 1, 3);
-
-        comboBox_Serialportnum = new QComboBox(widget_14);
-        comboBox_Serialportnum->setObjectName(QStringLiteral("comboBox_Serialportnum"));
-
-        gridLayout_38->addWidget(comboBox_Serialportnum, 0, 1, 1, 2);
-
-
-        gridLayout_39->addWidget(widget_14, 4, 0, 1, 4);
-
-        widget_13 = new QWidget(groupBox_connectStyle);
-        widget_13->setObjectName(QStringLiteral("widget_13"));
-        widget_13->setStyleSheet(QLatin1String("QWidget#widget_13{\n"
-"    border: 1px solid #B8D9E6;\n"
-"    background-color: #D9EAF5;\n"
-"    border-style: solid;\n"
-"    border-radius:8px;\n"
-"    padding:0 0px;\n"
-"}"));
-        gridLayout_37 = new QGridLayout(widget_13);
-        gridLayout_37->setObjectName(QStringLiteral("gridLayout_37"));
-        radioButton_10 = new QRadioButton(widget_13);
-        radioButton_10->setObjectName(QStringLiteral("radioButton_10"));
-
-        gridLayout_37->addWidget(radioButton_10, 0, 0, 1, 2);
-
-        radioButton_11 = new QRadioButton(widget_13);
-        radioButton_11->setObjectName(QStringLiteral("radioButton_11"));
-
-        gridLayout_37->addWidget(radioButton_11, 0, 2, 1, 2);
-
-        label_setaddr = new QLabel(widget_13);
-        label_setaddr->setObjectName(QStringLiteral("label_setaddr"));
-        label_setaddr->setMinimumSize(QSize(45, 0));
-
-        gridLayout_37->addWidget(label_setaddr, 1, 0, 1, 1);
-
-        spinBox_setPort = new QSpinBox(widget_13);
-        spinBox_setPort->setObjectName(QStringLiteral("spinBox_setPort"));
-        spinBox_setPort->setMinimumSize(QSize(120, 0));
-
-        gridLayout_37->addWidget(spinBox_setPort, 1, 1, 1, 1);
-
-        label_setAddr = new QLabel(widget_13);
-        label_setAddr->setObjectName(QStringLiteral("label_setAddr"));
-
-        gridLayout_37->addWidget(label_setAddr, 1, 2, 1, 1);
-
-        lineEdit_setAddr = new QLineEdit(widget_13);
-        lineEdit_setAddr->setObjectName(QStringLiteral("lineEdit_setAddr"));
-        lineEdit_setAddr->setMinimumSize(QSize(0, 30));
-
-        gridLayout_37->addWidget(lineEdit_setAddr, 1, 3, 1, 1);
-
-
-        gridLayout_39->addWidget(widget_13, 3, 0, 1, 4);
-
-
-        verticalLayout_22->addWidget(groupBox_connectStyle);
-
-        tabWidget_3->addTab(tab_Nornal, QString());
-
-        verticalLayout_19->addWidget(tabWidget_3);
+        verticalLayout_19->setContentsMargins(12, 8, 12, 8);
+        checkBox_lisEnabled = new QCheckBox(tab_LIS);
+        checkBox_lisEnabled->setObjectName(QStringLiteral("checkBox_lisEnabled"));
+
+        verticalLayout_19->addWidget(checkBox_lisEnabled);
+
+        checkBox_lisPull = new QCheckBox(tab_LIS);
+        checkBox_lisPull->setObjectName(QStringLiteral("checkBox_lisPull"));
+
+        verticalLayout_19->addWidget(checkBox_lisPull);
+
+        formLayout_lisPull = new QFormLayout();
+        formLayout_lisPull->setObjectName(QStringLiteral("formLayout_lisPull"));
+        label_lisPullPort = new QLabel(tab_LIS);
+        label_lisPullPort->setObjectName(QStringLiteral("label_lisPullPort"));
+
+        formLayout_lisPull->setWidget(0, QFormLayout::LabelRole, label_lisPullPort);
+
+        spinBox_lisPullPort = new QSpinBox(tab_LIS);
+        spinBox_lisPullPort->setObjectName(QStringLiteral("spinBox_lisPullPort"));
+        spinBox_lisPullPort->setMinimum(1);
+        spinBox_lisPullPort->setMaximum(65535);
+        spinBox_lisPullPort->setValue(8080);
+
+        formLayout_lisPull->setWidget(0, QFormLayout::FieldRole, spinBox_lisPullPort);
+
+        label_lisPullUrlTitle = new QLabel(tab_LIS);
+        label_lisPullUrlTitle->setObjectName(QStringLiteral("label_lisPullUrlTitle"));
+
+        formLayout_lisPull->setWidget(1, QFormLayout::LabelRole, label_lisPullUrlTitle);
+
+        label_lisPullUrl = new QLabel(tab_LIS);
+        label_lisPullUrl->setObjectName(QStringLiteral("label_lisPullUrl"));
+        label_lisPullUrl->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+        formLayout_lisPull->setWidget(1, QFormLayout::FieldRole, label_lisPullUrl);
+
+
+        verticalLayout_19->addLayout(formLayout_lisPull);
+
+        checkBox_lisPush = new QCheckBox(tab_LIS);
+        checkBox_lisPush->setObjectName(QStringLiteral("checkBox_lisPush"));
+
+        verticalLayout_19->addWidget(checkBox_lisPush);
+
+        checkBox_lisOnComplete = new QCheckBox(tab_LIS);
+        checkBox_lisOnComplete->setObjectName(QStringLiteral("checkBox_lisOnComplete"));
+
+        verticalLayout_19->addWidget(checkBox_lisOnComplete);
+
+        checkBox_lisOnReview = new QCheckBox(tab_LIS);
+        checkBox_lisOnReview->setObjectName(QStringLiteral("checkBox_lisOnReview"));
+
+        verticalLayout_19->addWidget(checkBox_lisOnReview);
+
+        formLayout_lisPush = new QFormLayout();
+        formLayout_lisPush->setObjectName(QStringLiteral("formLayout_lisPush"));
+        label_lisProtocol = new QLabel(tab_LIS);
+        label_lisProtocol->setObjectName(QStringLiteral("label_lisProtocol"));
+
+        formLayout_lisPush->setWidget(0, QFormLayout::LabelRole, label_lisProtocol);
+
+        comboBox_lisProtocol = new QComboBox(tab_LIS);
+        comboBox_lisProtocol->addItem(QString());
+        comboBox_lisProtocol->addItem(QString());
+        comboBox_lisProtocol->setObjectName(QStringLiteral("comboBox_lisProtocol"));
+
+        formLayout_lisPush->setWidget(0, QFormLayout::FieldRole, comboBox_lisProtocol);
+
+        label_lisHost = new QLabel(tab_LIS);
+        label_lisHost->setObjectName(QStringLiteral("label_lisHost"));
+
+        formLayout_lisPush->setWidget(1, QFormLayout::LabelRole, label_lisHost);
+
+        lineEdit_lisHost = new QLineEdit(tab_LIS);
+        lineEdit_lisHost->setObjectName(QStringLiteral("lineEdit_lisHost"));
+
+        formLayout_lisPush->setWidget(1, QFormLayout::FieldRole, lineEdit_lisHost);
+
+        label_lisPushPort = new QLabel(tab_LIS);
+        label_lisPushPort->setObjectName(QStringLiteral("label_lisPushPort"));
+
+        formLayout_lisPush->setWidget(2, QFormLayout::LabelRole, label_lisPushPort);
+
+        spinBox_lisPushPort = new QSpinBox(tab_LIS);
+        spinBox_lisPushPort->setObjectName(QStringLiteral("spinBox_lisPushPort"));
+        spinBox_lisPushPort->setMinimum(1);
+        spinBox_lisPushPort->setMaximum(65535);
+        spinBox_lisPushPort->setValue(2575);
+
+        formLayout_lisPush->setWidget(2, QFormLayout::FieldRole, spinBox_lisPushPort);
+
+        label_lisCharset = new QLabel(tab_LIS);
+        label_lisCharset->setObjectName(QStringLiteral("label_lisCharset"));
+
+        formLayout_lisPush->setWidget(3, QFormLayout::LabelRole, label_lisCharset);
+
+        comboBox_lisCharset = new QComboBox(tab_LIS);
+        comboBox_lisCharset->addItem(QString());
+        comboBox_lisCharset->addItem(QString());
+        comboBox_lisCharset->setObjectName(QStringLiteral("comboBox_lisCharset"));
+
+        formLayout_lisPush->setWidget(3, QFormLayout::FieldRole, comboBox_lisCharset);
+
+        label_lisSendApp = new QLabel(tab_LIS);
+        label_lisSendApp->setObjectName(QStringLiteral("label_lisSendApp"));
+
+        formLayout_lisPush->setWidget(4, QFormLayout::LabelRole, label_lisSendApp);
+
+        lineEdit_lisSendApp = new QLineEdit(tab_LIS);
+        lineEdit_lisSendApp->setObjectName(QStringLiteral("lineEdit_lisSendApp"));
+
+        formLayout_lisPush->setWidget(4, QFormLayout::FieldRole, lineEdit_lisSendApp);
+
+        label_lisSendFacility = new QLabel(tab_LIS);
+        label_lisSendFacility->setObjectName(QStringLiteral("label_lisSendFacility"));
+
+        formLayout_lisPush->setWidget(5, QFormLayout::LabelRole, label_lisSendFacility);
+
+        lineEdit_lisSendFacility = new QLineEdit(tab_LIS);
+        lineEdit_lisSendFacility->setObjectName(QStringLiteral("lineEdit_lisSendFacility"));
+
+        formLayout_lisPush->setWidget(5, QFormLayout::FieldRole, lineEdit_lisSendFacility);
+
+        label_lisRecvApp = new QLabel(tab_LIS);
+        label_lisRecvApp->setObjectName(QStringLiteral("label_lisRecvApp"));
+
+        formLayout_lisPush->setWidget(6, QFormLayout::LabelRole, label_lisRecvApp);
+
+        lineEdit_lisRecvApp = new QLineEdit(tab_LIS);
+        lineEdit_lisRecvApp->setObjectName(QStringLiteral("lineEdit_lisRecvApp"));
+
+        formLayout_lisPush->setWidget(6, QFormLayout::FieldRole, lineEdit_lisRecvApp);
+
+        label_lisRecvFacility = new QLabel(tab_LIS);
+        label_lisRecvFacility->setObjectName(QStringLiteral("label_lisRecvFacility"));
+
+        formLayout_lisPush->setWidget(7, QFormLayout::LabelRole, label_lisRecvFacility);
+
+        lineEdit_lisRecvFacility = new QLineEdit(tab_LIS);
+        lineEdit_lisRecvFacility->setObjectName(QStringLiteral("lineEdit_lisRecvFacility"));
+
+        formLayout_lisPush->setWidget(7, QFormLayout::FieldRole, lineEdit_lisRecvFacility);
+
+        label_lisTimeout = new QLabel(tab_LIS);
+        label_lisTimeout->setObjectName(QStringLiteral("label_lisTimeout"));
+
+        formLayout_lisPush->setWidget(8, QFormLayout::LabelRole, label_lisTimeout);
+
+        spinBox_lisTimeout = new QSpinBox(tab_LIS);
+        spinBox_lisTimeout->setObjectName(QStringLiteral("spinBox_lisTimeout"));
+        spinBox_lisTimeout->setMinimum(2);
+        spinBox_lisTimeout->setMaximum(60);
+        spinBox_lisTimeout->setValue(8);
+
+        formLayout_lisPush->setWidget(8, QFormLayout::FieldRole, spinBox_lisTimeout);
+
+        label_lisRetry = new QLabel(tab_LIS);
+        label_lisRetry->setObjectName(QStringLiteral("label_lisRetry"));
+
+        formLayout_lisPush->setWidget(9, QFormLayout::LabelRole, label_lisRetry);
+
+        spinBox_lisRetry = new QSpinBox(tab_LIS);
+        spinBox_lisRetry->setObjectName(QStringLiteral("spinBox_lisRetry"));
+        spinBox_lisRetry->setMinimum(1);
+        spinBox_lisRetry->setMaximum(20);
+        spinBox_lisRetry->setValue(5);
+
+        formLayout_lisPush->setWidget(9, QFormLayout::FieldRole, spinBox_lisRetry);
+
+
+        verticalLayout_19->addLayout(formLayout_lisPush);
+
+        horizontalLayout_lisButtons = new QHBoxLayout();
+        horizontalLayout_lisButtons->setObjectName(QStringLiteral("horizontalLayout_lisButtons"));
+        pushButton_lisSave = new QPushButton(tab_LIS);
+        pushButton_lisSave->setObjectName(QStringLiteral("pushButton_lisSave"));
+
+        horizontalLayout_lisButtons->addWidget(pushButton_lisSave);
+
+        pushButton_lisTest = new QPushButton(tab_LIS);
+        pushButton_lisTest->setObjectName(QStringLiteral("pushButton_lisTest"));
+
+        horizontalLayout_lisButtons->addWidget(pushButton_lisTest);
+
+        pushButton_lisResend = new QPushButton(tab_LIS);
+        pushButton_lisResend->setObjectName(QStringLiteral("pushButton_lisResend"));
+
+        horizontalLayout_lisButtons->addWidget(pushButton_lisResend);
+
+        pushButton_lisRefresh = new QPushButton(tab_LIS);
+        pushButton_lisRefresh->setObjectName(QStringLiteral("pushButton_lisRefresh"));
+
+        horizontalLayout_lisButtons->addWidget(pushButton_lisRefresh);
+
+        horizontalSpacer_lis = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
+
+        horizontalLayout_lisButtons->addItem(horizontalSpacer_lis);
+
+
+        verticalLayout_19->addLayout(horizontalLayout_lisButtons);
+
+        label_lisStatus = new QLabel(tab_LIS);
+        label_lisStatus->setObjectName(QStringLiteral("label_lisStatus"));
+        label_lisStatus->setWordWrap(true);
+
+        verticalLayout_19->addWidget(label_lisStatus);
+
+        tableWidget_lisOutbox = new QTableWidget(tab_LIS);
+        tableWidget_lisOutbox->setObjectName(QStringLiteral("tableWidget_lisOutbox"));
+        tableWidget_lisOutbox->setAlternatingRowColors(true);
+        tableWidget_lisOutbox->setSelectionMode(QAbstractItemView::SingleSelection);
+        tableWidget_lisOutbox->setSelectionBehavior(QAbstractItemView::SelectRows);
+        tableWidget_lisOutbox->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+        verticalLayout_19->addWidget(tableWidget_lisOutbox);
 
         tabWidgetSetconfigure->addTab(tab_LIS, QString());
         tab_fucn = new QWidget();
@@ -4147,7 +3896,6 @@ public:
 
         tabWidgetSetconfigure->setCurrentIndex(7);
         tabWidget_info->setCurrentIndex(0);
-        tabWidget_3->setCurrentIndex(1);
         tabWidget_config->setCurrentIndex(0);
 
 
@@ -4218,36 +3966,37 @@ public:
         pushButtonsavedimming->setText(QApplication::translate("MachineSetting", "PushButton", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(ChannelVale_display), QApplication::translate("MachineSetting", "\351\200\232\351\201\223\345\200\274", nullptr));
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_6), QApplication::translate("MachineSetting", "\350\264\250\346\216\247", nullptr));
-        checkBox_endAuditoutdata->setText(QApplication::translate("MachineSetting", "\345\256\241\346\240\270\345\220\216\350\207\252\345\212\250\350\276\223\345\207\272\346\225\260\346\215\256", nullptr));
-        checkBox_testCompleteAutoOut->setText(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\345\256\214\346\210\220\345\220\216\350\207\252\345\212\250\350\276\223\345\207\272\346\225\260\346\215\256", nullptr));
-        pushButton_LiS_Used->setText(QApplication::translate("MachineSetting", "\345\220\257\347\224\250", nullptr));
-        pushButton_LIS_Enable->setText(QApplication::translate("MachineSetting", "\347\246\201\346\255\242 ", nullptr));
-        pushButton_LIS_Config->setText(QApplication::translate("MachineSetting", "\350\256\276\347\275\256", nullptr));
-        tabWidget_3->setTabText(tabWidget_3->indexOf(tab_TextOut), QApplication::translate("MachineSetting", "\345\270\270\350\247\204", nullptr));
-        groupBox_5->setTitle(QApplication::translate("MachineSetting", "\345\255\227\347\254\246\345\210\206\346\220\201\347\254\246", nullptr));
-        radioButton_tab->setText(QApplication::translate("MachineSetting", "Tab", nullptr));
-        radioButton_point->setText(QApplication::translate("MachineSetting", "\351\200\227\345\217\267 ", nullptr));
-        radioButton_Spaceing->setText(QApplication::translate("MachineSetting", "\347\251\272\346\240\274", nullptr));
-        radioButton_others->setText(QApplication::translate("MachineSetting", "\345\205\266\345\256\203", nullptr));
-        label_28->setText(QApplication::translate("MachineSetting", "\350\276\223\345\207\272\345\255\227\346\256\265", nullptr));
-        checkBox_ResultAndInfo->setText(QApplication::translate("MachineSetting", "\347\273\223\346\236\234\344\270\216\345\237\272\346\234\254\344\277\241\346\201\257\344\271\213\351\227\264\344\275\277\347\224\250\347\251\272\350\241\214\345\210\206\351\232\224", nullptr));
-        groupBox_connectStyle->setTitle(QApplication::translate("MachineSetting", "\346\216\245\345\217\243\346\226\271\345\274\217", nullptr));
-        radioButton_sel_tcpip->setText(QApplication::translate("MachineSetting", "TCP/IP", nullptr));
-        label_TextOutPath->setText(QApplication::translate("MachineSetting", "\346\226\207\344\273\266\350\276\223\345\207\272\347\233\256\345\275\225\357\274\232", nullptr));
-        radioButton_selSerial->setText(QApplication::translate("MachineSetting", "\344\270\262\345\217\243", nullptr));
-        pushButton_SelTextOutPath->setText(QApplication::translate("MachineSetting", "\351\200\211\346\213\251\346\226\207\344\273\266", nullptr));
-        radioButton_Sel_text->setText(QApplication::translate("MachineSetting", "\346\226\207\346\234\254\346\226\207\344\273\266", nullptr));
-        label_34->setText(QApplication::translate("MachineSetting", "\346\240\241\351\252\214\344\275\215", nullptr));
-        label_portname->setText(QApplication::translate("MachineSetting", "\347\253\257\345\217\243:", nullptr));
-        label_35->setText(QApplication::translate("MachineSetting", "\346\263\242\347\211\271\347\216\207 ", nullptr));
-        label_33->setText(QApplication::translate("MachineSetting", "\345\201\234\346\255\242\344\275\215 ", nullptr));
-        label_36->setText(QApplication::translate("MachineSetting", "\346\225\260\346\215\256\344\275\215", nullptr));
-        pushButton_backsetting->setText(QApplication::translate("MachineSetting", "\344\273\252\345\231\250\346\201\242\345\244\215\350\256\276\347\275\256", nullptr));
-        radioButton_10->setText(QApplication::translate("MachineSetting", "\344\275\234\344\270\272\346\234\215\345\212\241\345\231\250", nullptr));
-        radioButton_11->setText(QApplication::translate("MachineSetting", "\344\275\234\344\270\272\345\256\242\346\210\267\347\253\257", nullptr));
-        label_setaddr->setText(QApplication::translate("MachineSetting", "\347\253\257\345\217\243:", nullptr));
-        label_setAddr->setText(QApplication::translate("MachineSetting", "\345\234\260\345\235\200:", nullptr));
-        tabWidget_3->setTabText(tabWidget_3->indexOf(tab_Nornal), QApplication::translate("MachineSetting", "\346\226\207\346\234\254\345\257\274\345\207\272", nullptr));
+        checkBox_lisEnabled->setText(QApplication::translate("MachineSetting", "\345\220\257\347\224\250 LIS", nullptr));
+        checkBox_lisPull->setText(QApplication::translate("MachineSetting", "\345\205\201\350\256\270\345\214\273\351\231\242\346\235\245\345\217\226\347\273\223\346\236\234", nullptr));
+        label_lisPullPort->setText(QApplication::translate("MachineSetting", "\345\217\226\346\225\260\347\253\257\345\217\243", nullptr));
+        label_lisPullUrlTitle->setText(QApplication::translate("MachineSetting", "\345\217\226\346\225\260\345\234\260\345\235\200", nullptr));
+        label_lisPullUrl->setText(QApplication::translate("MachineSetting", "\346\234\252\345\274\200\345\220\257", nullptr));
+        checkBox_lisPush->setText(QApplication::translate("MachineSetting", "\344\270\273\345\212\250\345\217\221\347\273\231 LIS", nullptr));
+        checkBox_lisOnComplete->setText(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\345\256\214\346\210\220\345\220\216\345\217\221\351\200\201", nullptr));
+        checkBox_lisOnReview->setText(QApplication::translate("MachineSetting", "\345\256\241\346\240\270\345\220\216\345\217\221\351\200\201", nullptr));
+        label_lisProtocol->setText(QApplication::translate("MachineSetting", "\345\215\217\350\256\256", nullptr));
+        comboBox_lisProtocol->setItemText(0, QApplication::translate("MachineSetting", "HL7", nullptr));
+        comboBox_lisProtocol->setItemText(1, QApplication::translate("MachineSetting", "ASTM", nullptr));
+
+        label_lisHost->setText(QApplication::translate("MachineSetting", "LIS \345\234\260\345\235\200", nullptr));
+        lineEdit_lisHost->setPlaceholderText(QApplication::translate("MachineSetting", "192.168.1.10", nullptr));
+        label_lisPushPort->setText(QApplication::translate("MachineSetting", "LIS \347\253\257\345\217\243", nullptr));
+        label_lisCharset->setText(QApplication::translate("MachineSetting", "\347\274\226\347\240\201", nullptr));
+        comboBox_lisCharset->setItemText(0, QApplication::translate("MachineSetting", "UTF-8", nullptr));
+        comboBox_lisCharset->setItemText(1, QApplication::translate("MachineSetting", "GBK", nullptr));
+
+        label_lisSendApp->setText(QApplication::translate("MachineSetting", "\345\217\221\351\200\201\346\226\271", nullptr));
+        label_lisSendFacility->setText(QApplication::translate("MachineSetting", "\345\217\221\351\200\201\346\234\272\346\236\204", nullptr));
+        label_lisRecvApp->setText(QApplication::translate("MachineSetting", "\346\216\245\346\224\266\346\226\271", nullptr));
+        label_lisRecvFacility->setText(QApplication::translate("MachineSetting", "\346\216\245\346\224\266\346\234\272\346\236\204", nullptr));
+        label_lisTimeout->setText(QApplication::translate("MachineSetting", "\350\266\205\346\227\266", nullptr));
+        spinBox_lisTimeout->setSuffix(QApplication::translate("MachineSetting", " s", nullptr));
+        label_lisRetry->setText(QApplication::translate("MachineSetting", "\351\207\215\350\257\225\346\254\241\346\225\260", nullptr));
+        pushButton_lisSave->setText(QApplication::translate("MachineSetting", "\344\277\235\345\255\230\345\271\266\345\272\224\347\224\250", nullptr));
+        pushButton_lisTest->setText(QApplication::translate("MachineSetting", "\346\265\213\350\257\225\347\275\221\347\273\234", nullptr));
+        pushButton_lisResend->setText(QApplication::translate("MachineSetting", "\351\207\215\345\217\221\351\200\211\344\270\255", nullptr));
+        pushButton_lisRefresh->setText(QApplication::translate("MachineSetting", "\345\210\267\346\226\260", nullptr));
+        label_lisStatus->setText(QString());
         tabWidgetSetconfigure->setTabText(tabWidgetSetconfigure->indexOf(tab_LIS), QApplication::translate("MachineSetting", "LIS", nullptr));
         pushButtonBloodPinParasave->setText(QApplication::translate("MachineSetting", "\344\277\235\345\255\230", nullptr));
         poorBlood_changliang->setSuffix(QApplication::translate("MachineSetting", "ul", nullptr));

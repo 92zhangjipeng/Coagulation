@@ -1247,6 +1247,7 @@ bool QualityControl::isHadAddSampleTube(quint8 indextray)
 
     QSet<int> liveHoles;
     if (StructInstance *samples = StructInstance::getInstance()) {
+        StructInstance::DataGuard guard;
         for (const DATASAMPLESTRUCT *sample : samples->m_BloodsampleInfo) {
             if (!sample)
                 continue;

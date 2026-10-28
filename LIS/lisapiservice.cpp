@@ -465,10 +465,23 @@ QJsonArray LisApiService::querySamplesByDate(const QString &startDate, const QSt
 
 QJsonObject LisApiService::querySampleDetail(const QString &sampleId)
 {
+    return loadSampleDetail(m_dbPath, sampleId);
+}
+
+QJsonObject LisApiService::loadSampleDetail(const QString &dbPath, const QString &sampleId)
+{
     QJsonObject detail;
     QString connName = QString("lis_conn_%1").arg(quintptr(QThread::currentThread()));
+    {
+        QSqlDatabase existing = QSqlDatabase::database(connName, false);
+        if (existing.isValid()) {
+            existing.close();
+            QSqlDatabase::removeDatabase(connName);
+        }
+    }
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connName);
-    db.setDatabaseName(m_dbPath);
+    db.setDatabaseName(dbPath);
+    db.setConnectOptions("QSQLITE_BUSY_TIMEOUT=3000");
     if (!db.open()) {
         QLOG_WARN() << "DB open failed:" << db.lastError().text();
         return detail;

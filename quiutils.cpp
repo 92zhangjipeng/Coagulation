@@ -4137,16 +4137,25 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
 
     const int falilinquehigh = INI_File().GetFailedReagentsLinqueHigh();
 
-    //试剂位置
-    quint8 testingReag = 0XFF;
-    testingReag = indexReag - 1;
+    outputArry.clear();
+    if (indexReag < AA_REAGENT || indexReag > RIS_REAGENT
+            || emptyHole == 255
+            || TestChn < 0 || TestChn >= MACHINE_SETTING_CHANNEL) {
+        QLOG_ERROR() << "吸试剂参数无效 试剂" << indexReag
+                     << "孔" << emptyHole << "通道" << TestChn;
+        return;
+    }
+    auto* pActive = Testing::getTaskDll();
+    if (!pActive) {
+        QLOG_ERROR() << "运动库未加载，无法组吸试剂指令";
+        return;
+    }
+
+    //试剂位置。试剂坐标从 0 开始，AA-RIS 对应 0-4
+    const quint8 testingReag = static_cast<quint8>(indexReag - 1);
     QPoint AbsorbReaentAxis(0,0);
-    //试剂坐标从0-9下标开始 indexReag = AA-RIS 0 - 4
     SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT,testingReag,AbsorbReaentAxis);
     SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,emptyHole,MOTOR_HANDS_INDEX,bloodyHoleAxis);
-
-    auto* pActive = Testing::getTaskDll();
-    outputArry.clear();
     outputArry.reserve(12);
 
 
@@ -4185,6 +4194,15 @@ void QUIUtils::spitReanentToTestChn(const int ChnIndex, quint8 indexReagent,
     quint8 condeNum = 0;
     QPoint Channelpos(0,0);
     auto* pActive = Testing::getTaskDll();
+    if (!pActive) {
+        QLOG_ERROR() << "运动库未加载，无法组吐试剂指令";
+        return;
+    }
+    if (indexReagent < AA_REAGENT || indexReagent > RIS_REAGENT
+            || ChnIndex < 0 || ChnIndex >= MACHINE_SETTING_CHANNEL) {
+        QLOG_ERROR() << "吐试剂参数无效 试剂" << indexReagent << "通道" << ChnIndex;
+        return;
+    }
     quint8 spitReagentHeight = INI_File().getTypesReagentNeedleDownHigh(indexReagent);
     SpitReagentActive.reserve(SpitReagentActive.size() + 4);
     auto& manager = PumpPositionManager::instance(); //管理泵

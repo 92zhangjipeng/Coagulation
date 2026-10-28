@@ -25,6 +25,22 @@ StructInstance* StructInstance::m_pInstance = nullptr;
 StructInstance::Garbo m_Garbo;
 QMutex StructInstance::m_mutex;
 
+StructInstance::DataGuard::DataGuard()
+    : m_lock(StructInstance::getInstance()->m_dataMutex)
+{
+}
+
+StructInstance::DataGuard::~DataGuard()
+{
+}
+
+void StructInstance::DataGuard::unlock()
+{
+    if (m_lock.owns_lock()) {
+        m_lock.unlock();
+    }
+}
+
 
 
 
@@ -96,6 +112,7 @@ StructInstance::~StructInstance(){
 //清空内存
 void StructInstance::setemptynull()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     for (auto& sample : m_BloodsampleInfo) {
         if (sample != nullptr) {
             delete sample;
@@ -111,6 +128,7 @@ void StructInstance::setemptynull()
 
 
 bool StructInstance::getHandsStatus(const int sampleid){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto *itSample = rfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"获取抓手状态失败样本号"<<sampleid<<"为空";
@@ -120,6 +138,7 @@ bool StructInstance::getHandsStatus(const int sampleid){
 }
 
 void  StructInstance::setHandsErrStatus(const int sampleid,bool handsState){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *itSample = wfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"设置抓手状态失败样本号"<<sampleid<<"为空";
@@ -130,6 +149,7 @@ void  StructInstance::setHandsErrStatus(const int sampleid,bool handsState){
 
 
 bool StructInstance::getSampleGiveupStatus(const int sampleid){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto *itSample = rfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"获取放弃样本号样本"<<sampleid<<"为空";
@@ -140,6 +160,7 @@ bool StructInstance::getSampleGiveupStatus(const int sampleid){
 
 
 void  StructInstance::setSampleGiveupStatus(const int sampleid, bool isGiveup){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *itSample = wfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"设置放弃样本号样本"<<sampleid<<"为空";
@@ -150,6 +171,7 @@ void  StructInstance::setSampleGiveupStatus(const int sampleid, bool isGiveup){
 
 
 bool StructInstance::getSamplePendingtimeStatus(const int sampleid){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto *itSample = rfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"获取挂起样本号样本"<<sampleid<<"为空";
@@ -160,6 +182,7 @@ bool StructInstance::getSamplePendingtimeStatus(const int sampleid){
 
 void  StructInstance::setSamplePendingtimeStatus(const int sampleid, bool ispendingtime)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *itSample = wfindIdSample(sampleid);
     if(!itSample) {
         QLOG_ERROR()<<"设置挂起样本号样本"<<sampleid<<"为空";
@@ -170,6 +193,7 @@ void  StructInstance::setSamplePendingtimeStatus(const int sampleid, bool ispend
 
 
 bool StructInstance::continueTestPendTimeSample(quint8 &focuActive,int sampleId){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto *itSample = rfindIdSample(sampleId);
     if(!itSample) {
         QLOG_ERROR()<<"获取挂起样本号样本"<< sampleId <<"为空";
@@ -186,6 +210,7 @@ bool StructInstance::continueTestPendTimeSample(quint8 &focuActive,int sampleId)
 
 
 bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (nextCmd) {
         nextCmd->clear();
     }
@@ -219,6 +244,7 @@ bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum, 
 }
 
 void  StructInstance::fillRecvPrepatch(const int id,const QByteArrayList dataList) {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *itSample = wfindIdSample(id);
     if(!itSample) {
         QLOG_ERROR()<<"收样本抓手异常,失败样本号"<<id<<"为空";
@@ -247,6 +273,7 @@ void  StructInstance::fillRecvPrepatch(const int id,const QByteArrayList dataLis
 }
 
 void  StructInstance::clearRecvPrepatch(const int id){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *itSample = wfindIdSample(id);
     if(!itSample) {
         QLOG_ERROR()<<"收样本抓手异常,失败样本号"<<id<<"为空";
@@ -261,6 +288,7 @@ void  StructInstance::clearRecvPrepatch(const int id){
 
 void StructInstance::rootTestChnGetSampleInfo(const quint8 index_Chn, QString &infon_num, int &id)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = find_if(m_BloodsampleInfo.cbegin(),
                       m_BloodsampleInfo.cend(),
                       find_sampleinfo(index_Chn));
@@ -298,6 +326,7 @@ void StructInstance::rootGetinitvaluedata(const quint8 finishChn,quint8 index_re
                                            QVector<double> &TestedDatamap,
                                            quint8 &suckanemia,quint8 &suckbloody)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = find_if(m_testChnStructvec_.begin(),m_testChnStructvec_.end(),
                       finder_Chn(finishChn));
 
@@ -354,6 +383,7 @@ void StructInstance::rootGetinitvaluedata(const quint8 finishChn,quint8 index_re
 }
 
 void StructInstance::_Clearinvalidcommands(DATASAMPLESTRUCT *psanlpeinfo) {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     // 使用模板函数统一处理容器清理和日志记录
     auto CleanContainer = [&](auto &container, const QString &logMsg) {
@@ -407,6 +437,7 @@ void StructInstance::_Clearinvalidcommands(DATASAMPLESTRUCT *psanlpeinfo) {
 
 void StructInstance::SortemergencyattheTop()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 已开测的保持相对顺序；未开测的急诊稳定前移（开测时全部未开测，效果与整表前移相同）
     auto startedEnd = std::stable_partition(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(),
         [](const DATASAMPLESTRUCT *sample) {
@@ -426,6 +457,7 @@ void StructInstance::SortemergencyattheTop()
 
 void StructInstance::addSamplebloodInfo(DATASAMPLESTRUCT *&pinfo)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     _Clearinvalidcommands(pinfo);
 
     pinfo->_bthisSampleaddData = true;
@@ -441,6 +473,7 @@ void StructInstance::addSamplebloodInfo(DATASAMPLESTRUCT *&pinfo)
 
 bool StructInstance::outAlreadyAddSample(QString sampleId)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     return std::any_of(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
             [&sampleId](const DATASAMPLESTRUCT* entry) {
                 return entry && (entry->samplestr == sampleId);
@@ -451,6 +484,7 @@ bool StructInstance::outAlreadyAddSample(QString sampleId)
 //设置为焦点
 void StructInstance::config_focusSample(int indexSample,const bool bfcusin)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto  it = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(indexSample));
 
     if(it == m_BloodsampleInfo.end()) {
@@ -468,8 +502,7 @@ void StructInstance::config_focusSample(int indexSample,const bool bfcusin)
         return;
     }
 
-    // 异常情况处理（理论上不可达）
-    QLOG_FATAL() << "[焦点设置] 空指针异常 ID：" << indexSample;
+    QLOG_ERROR() << "[焦点设置] 空指针异常 ID：" << indexSample;
 
     return;
 }
@@ -477,6 +510,7 @@ void StructInstance::config_focusSample(int indexSample,const bool bfcusin)
 //取消焦点
 void StructInstance::config_dismissFocusSample(int indexSample)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(indexSample));
     if(it == m_BloodsampleInfo.end() || *it == nullptr) {
         QLOG_ERROR() << "[取消焦点样本] 未找到样本ID" << indexSample
@@ -492,6 +526,7 @@ void StructInstance::config_dismissFocusSample(int indexSample)
 
 void StructInstance::sycn_sampleneed_data(const int id, quint8 &tsetChn)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto it = find_if(m_BloodsampleInfo.cbegin(),m_BloodsampleInfo.cend(),find_id(id));
 
     if(it == m_BloodsampleInfo.cend()) {
@@ -523,6 +558,7 @@ void StructInstance::sycn_sampleneed_data(const int id, quint8 &tsetChn)
 
 void StructInstance::sycn_sample_all_test_tube(QString sample,QList<quint8> &anemiatube_bloodhole)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto iter = m_BloodsampleInfo.begin();
     while(iter != m_BloodsampleInfo.end())
     {
@@ -544,6 +580,7 @@ void StructInstance::sycn_sample_all_test_tube(QString sample,QList<quint8> &ane
 void StructInstance::cancelsampletask(quint8 cancelsanpleid,int &canceltube_num,quint8 &anemiahole,
                                       QList<quint8> &emptytubehole, quint8 &_cancelbackhole)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     const auto *psampleInfo = rfindIdSample(cancelsanpleid);
     if(!psampleInfo){
@@ -566,6 +603,7 @@ void StructInstance::cancelsampletask(quint8 cancelsanpleid,int &canceltube_num,
 
 void StructInstance::_safeDelReagentData(chntest_reagdata* pdelchndata)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (pdelchndata == nullptr) {
         QLOG_WARN() << "_safeDelReagentData: input pointer is null";
         return;
@@ -583,6 +621,7 @@ void StructInstance::_safeDelReagentData(chntest_reagdata* pdelchndata)
 
 void StructInstance::_deleteOneSampleTesteddata(const quint8 _chntested ,const int indexSample)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = find_if(m_testChnStructvec_.begin(), m_testChnStructvec_.end(),finder_Chn(_chntested));
     if(it != m_testChnStructvec_.end())
     {
@@ -631,6 +670,7 @@ void StructInstance::_deleteOneSampleTesteddata(const quint8 _chntested ,const i
 //删命令
 void StructInstance::_deleteCleanDoublepinorder(tSingleActive_list* pdelorder)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     for(auto& ptr : *pdelorder){
         delete ptr;
         ptr = nullptr;
@@ -641,6 +681,7 @@ void StructInstance::_deleteCleanDoublepinorder(tSingleActive_list* pdelorder)
 
 void  StructInstance::_delTestReagentActive(tVariousReagentsvec* ptestReagActive)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 定义lambda处理重复逻辑
     auto cleanMember = [this](QVector<single_action_commands*>& memberVec, const QString& actionName) {
             _deleteCleanDoublepinorder(&memberVec);
@@ -672,6 +713,7 @@ void  StructInstance::_delTestReagentActive(tVariousReagentsvec* ptestReagActive
 
 //测试完成删除样本
 void StructInstance::clearSampleDataByNumber(DATASAMPLESTRUCT& data, int targetSample) {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 仅处理匹配的样本号
     if (data.sample_num != targetSample) return;
 
@@ -722,6 +764,7 @@ void StructInstance::clearSampleDataByNumber(DATASAMPLESTRUCT& data, int targetS
 
 
 void StructInstance::clearTestingReagentData(TESTING_REAGENT* reagent) {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (!reagent) return;
 
     // 定义通用指针容器清理lambda
@@ -748,6 +791,7 @@ void StructInstance::clearTestingReagentData(TESTING_REAGENT* reagent) {
 }
 
 void StructInstance::clearTestingReagentContainer(tVariousReagentsvec& container) {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     for (auto* reagent : container) {
         clearTestingReagentData(reagent); // 清空内部数据
         delete reagent;                   // 释放结构体内存
@@ -757,6 +801,7 @@ void StructInstance::clearTestingReagentContainer(tVariousReagentsvec& container
 
 void StructInstance::clearAllContainersSafely()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 安全清理所有容器
     for (auto& item : m_testChnStructvec_) {
         if (item != nullptr) {
@@ -774,6 +819,7 @@ void StructInstance::clearAllContainersSafely()
 }
 
 void StructInstance::safeRemoveSampleFromContainer(DataSampleList& container, int target) {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if(container.empty()) return;
 
     auto it = container.begin();
@@ -793,17 +839,20 @@ void StructInstance::safeRemoveSampleFromContainer(DataSampleList& container, in
 }
 void StructInstance::onetestend_del(int indexSample)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     safeRemoveSampleFromContainer(m_BloodsampleInfo,indexSample);
 }
 
 void StructInstance::SampleTotal(int &num_total)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     num_total = m_BloodsampleInfo.size();
 }
 
 
 bool StructInstance::sampleHadFocus()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
    const bool hadFocus = std::any_of(m_BloodsampleInfo.cbegin(),
                                      m_BloodsampleInfo.cend(),
                                      find_bfocus(true)
@@ -813,6 +862,7 @@ bool StructInstance::sampleHadFocus()
 }
 
 QByteArray StructInstance::addSampleHeandCommand(const int taskNumid){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     const auto it = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
         [taskNumid](const auto& item) { return item->sample_num == taskNumid; });
@@ -828,7 +878,12 @@ QByteArray StructInstance::addSampleHeandCommand(const int taskNumid){
         << "测试状态" << test_state
         << "加样状态" << aspirationState<<endl;
     if (test_state && aspirationState == ADDING_SAMPLE) {
-        return (*it)->tadd_sample_active.front()->arrcode;
+        const tSingleActive_list &acts = (*it)->tadd_sample_active;
+        if (acts.isEmpty() || acts.front() == nullptr) {
+            QLOG_ERROR() << "加样指令列表为空，样本" << taskNumid;
+            return {};
+        }
+        return acts.front()->arrcode;
     }
     return {};
 }
@@ -837,6 +892,7 @@ QByteArray StructInstance::addSampleHeandCommand(const int taskNumid){
 
 void  StructInstance::OutputCommands(const int taskNum, QByteArrayList &sendData)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     sendData.clear();
 
     const auto it = std::find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(),
@@ -865,6 +921,7 @@ void  StructInstance::OutputCommands(const int taskNum, QByteArrayList &sendData
 
 void StructInstance::updateSampleState(const int indexNum, const quint8 state)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto list_it = find_if(m_BloodsampleInfo.cbegin(),m_BloodsampleInfo.cend(),find_id(indexNum));
     if(list_it != m_BloodsampleInfo.cend())
     {
@@ -887,6 +944,7 @@ void StructInstance::updateSampleState(const int indexNum, const quint8 state)
 
 int StructInstance::OutputPrepareAspirationNum()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto iter = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
            [](const DATASAMPLESTRUCT* sample) {
                return sample && !sample->bstartTesting;  // 显式空指针检查
@@ -908,6 +966,7 @@ int StructInstance::OutputPrepareAspirationNum()
 
 bool StructInstance::MoveAxisMapingHole(const QPoint sportpos,quint8 &movedLochole,bool &bemptyzone)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool b_anemina = false;
     auto iter = m_BloodsampleInfo.begin();
     while(iter != m_BloodsampleInfo.end())
@@ -958,6 +1017,7 @@ bool StructInstance::MoveAxisMapingHole(const QPoint sportpos,quint8 &movedLocho
 
 bool StructInstance::EmptytubeClipAway(const QPoint sportpos,quint8 &movedLochole)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool findedhole = false;
     auto iter = m_BloodsampleInfo.begin();
     while(iter != m_BloodsampleInfo.end())
@@ -977,7 +1037,7 @@ bool StructInstance::EmptytubeClipAway(const QPoint sportpos,quint8 &movedLochol
                 while(it_ != pcommand->ptestReagent_active.end())
                 {
                     Testing_reagents *preaghole = (*it_);
-                    if(preaghole->emptyHoleAxisHands == sportpos)
+                    if(preaghole && preaghole->emptyHoleAxisHands == sportpos)
                     {
                         findedhole = true;
                         movedLochole = preaghole->indexHole;
@@ -996,6 +1056,7 @@ bool StructInstance::EmptytubeClipAway(const QPoint sportpos,quint8 &movedLochol
 
 void StructInstance::setTestingChn(const int focuSampleID,const quint8 indexchn)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *psampleInfo = NULL;
     auto list_it = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(focuSampleID));
     if(list_it != m_BloodsampleInfo.end())
@@ -1035,6 +1096,7 @@ void StructInstance::setTestingChn(const int focuSampleID,const quint8 indexchn)
 
 void StructInstance::write_focusSampleActive(int sample_focu,quint8 index_active)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto itFocus = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sample_focu));
     if(itFocus == m_BloodsampleInfo.end() || *itFocus == nullptr){
         QLOG_ERROR() << "[设置样本焦点] 样本ID" << sample_focu<<"未找到"
@@ -1049,6 +1111,7 @@ void StructInstance::write_focusSampleActive(int sample_focu,quint8 index_active
 
 quint8 StructInstance::read_focusSampleActive(int sample_focu)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     quint8 index_active = 0;
 
     auto it = find_if(m_BloodsampleInfo.cbegin(),m_BloodsampleInfo.cend(),find_id(sample_focu));
@@ -1072,6 +1135,7 @@ quint8 StructInstance::read_focusSampleActive(int sample_focu)
 
 int StructInstance::ClipEndGetAnemiaValeChn(quint8 &TestingChn, quint8 indexActive, QString outText)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     int sampleid = 0;
     auto iter = m_BloodsampleInfo.begin();
     while(iter != m_BloodsampleInfo.end())
@@ -1095,6 +1159,7 @@ int StructInstance::ClipEndGetAnemiaValeChn(quint8 &TestingChn, quint8 indexActi
 
 void StructInstance::oper_AnemiaValue(bool bwrite,quint8 indexChn,int &valuedata)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto iter = std::find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(),
            [indexChn](DATASAMPLESTRUCT* p) { return p->indexTestingChn == indexChn; });
 
@@ -1110,6 +1175,7 @@ void StructInstance::oper_AnemiaValue(bool bwrite,quint8 indexChn,int &valuedata
 
 
 void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &firstTestReagentNum){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     auto *itSample = wfindIdSample(sampleId);
     if(!itSample) return;
@@ -1119,18 +1185,41 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         return;
     }
 
-    const quint8 testingChannel = itSample->indexTestingChn;
-    const quint8 testingReagnetNum = itSample->bloody_tube.size();
+    if (itSample->indexTestingChn < 0 || itSample->indexTestingChn >= MACHINE_SETTING_CHANNEL) {
+        QLOG_ERROR() << "样本" << sampleId << "测试通道无效" << itSample->indexTestingChn;
+        return;
+    }
+    const quint8 testingChannel = static_cast<quint8>(itSample->indexTestingChn);
+    const int testingReagnetNum = itSample->bloody_tube.size();
     QLOG_DEBUG()<<"样本"<<sampleId<<"丢完PPP要测试的试剂个数:"<<testingReagnetNum;
 
-    quint8 indexnum = 0;
+    auto pushAction = [](tSingleActive_list &dst, const QByteArray &cmd) {
+        if (cmd.size() <= GET_COMMAND_INDEX) {
+            QLOG_ERROR() << "试剂动作指令过短，已跳过，长度" << cmd.size();
+            return;
+        }
+        const char indexChar = cmd.at(GET_COMMAND_INDEX);
+        const quint8 indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
+        dst.push_back(new single_action_commands(indexnum, false, cmd));
+    };
+
     for(int n = 0; n < testingReagnetNum; ++n){
+        const quint8 reagentIndex = itSample->bloody_tube[n].index_reagent;
+        if (reagentIndex < AA_REAGENT || reagentIndex > RIS_REAGENT) {
+            QLOG_ERROR() << "样本" << sampleId << "试剂编号无效，已跳过" << reagentIndex;
+            continue;
+        }
         Testing_reagents *pReagentInfo = new Testing_reagents;
         QPoint BloodyoffHandsAxis(0,0);
         pReagentInfo->testfinished = false;
-        pReagentInfo->index_Reagent  = itSample->bloody_tube[n].index_reagent;
+        pReagentInfo->index_Reagent  = reagentIndex;
         pReagentInfo->indexHole = itSample->bloody_tube[n].bloody_hole;
         pReagentInfo->inintBloodyValue = 0;
+        if (pReagentInfo->indexHole == 255) {
+            QLOG_ERROR() << "样本" << sampleId << "试剂杯孔无效，已跳过试剂" << reagentIndex;
+            delete pReagentInfo;
+            continue;
+        }
 
         //丢杯指令
         QVector<QByteArray> kthrowCupvec;
@@ -1140,9 +1229,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         pReagentInfo->throwPRRsucknum = sucknum;
         pReagentInfo->throePRPsplitnum = splitnum;
         for(const QByteArray &throwcups : kthrowCupvec){
-            char indexChar = throwcups.at(GET_COMMAND_INDEX);
-            indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
-            pReagentInfo->pThrowCupsActive.push_back(new single_action_commands(indexnum ,false,throwcups));
+            pushAction(pReagentInfo->pThrowCupsActive, throwcups);
         }
         std::sort(pReagentInfo->pThrowCupsActive.begin(),pReagentInfo->pThrowCupsActive.end(),
                   sort_ascending);
@@ -1159,10 +1246,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         pReagentInfo->sSpitReagtcondeNum = SpitReagtcondeNum;
 
         for(const QByteArray &splitReagent : addReagentToTestChannel){
-            char indexChar = splitReagent.at(GET_COMMAND_INDEX);
-            indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
-            pReagentInfo->pSpitReagentsActive.push_back(new single_action_commands(indexnum,false,splitReagent));
-
+            pushAction(pReagentInfo->pSpitReagentsActive, splitReagent);
         }
         std::sort(pReagentInfo->pSpitReagentsActive.begin(),
                   pReagentInfo->pSpitReagentsActive.end(),
@@ -1174,9 +1258,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
         QUIUtils::CleanReagentsPinActionCommd(cleanReagpinVec);
         pReagentInfo->pCleanReagentActive.reserve(cleanReagpinVec.size());
         for(const QByteArray &cleanReagentNeedle : cleanReagpinVec){
-            char indexChar = cleanReagentNeedle.at(GET_COMMAND_INDEX);
-            indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
-            pReagentInfo->pCleanReagentActive.push_back(new single_action_commands(indexnum,false,cleanReagentNeedle));
+            pushAction(pReagentInfo->pCleanReagentActive, cleanReagentNeedle);
         }
         std::sort(pReagentInfo->pCleanReagentActive.begin(),pReagentInfo->pCleanReagentActive.end(),
                   sort_ascending);
@@ -1197,9 +1279,7 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
 
        pReagentInfo->pTestingReagentActive.reserve(suckCup2TestChannel.size());
        for(const QByteArray &suckPRP2Channel : suckCup2TestChannel){
-           char indexChar = suckPRP2Channel.at(GET_COMMAND_INDEX);
-           indexnum = QByteArray::fromRawData(&indexChar, 1).toHex().toUShort(nullptr, HEX_SWITCH);
-           pReagentInfo->pTestingReagentActive.push_back(new single_action_commands(indexnum,false,suckPRP2Channel));
+           pushAction(pReagentInfo->pTestingReagentActive, suckPRP2Channel);
        }
        pReagentInfo->testPRPsucknum = ktestPRPsuckBacknum;
        pReagentInfo->testPRPsplitnum = ktestPRPsplitBacknum;
@@ -1215,22 +1295,19 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
        itSample->ptestReagent_active.push_back(pReagentInfo);
     }
 
-    //找第一个测试的试剂
-    for(int i = 0; i < itSample->ptestReagent_active.size(); i++)
-    {
-        auto it_ =  itSample->ptestReagent_active.begin();
-        Testing_reagents * preag = (*it_);
-        if(preag->inintBloodyValue == 0){
-              firstTestReagentNum = preag->index_Reagent; //第一个测试的试剂
-              QLOG_DEBUG()<<QUIUtils::index_reagent_mapping_reagentName(firstTestReagentNum, "首测试的试剂:");
-              break;
-          }
+    for (Testing_reagents *preag : itSample->ptestReagent_active) {
+        if (preag && preag->inintBloodyValue == 0 && !preag->testfinished) {
+            firstTestReagentNum = preag->index_Reagent;
+            QLOG_DEBUG()<<QUIUtils::index_reagent_mapping_reagentName(firstTestReagentNum, "首测试的试剂:");
+            break;
+        }
     }
 
 }
 
 
 void StructInstance::testPrpGripperErr(const int sampleId,quint8 indexReag,bool &outErr){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     backorigintimes();
     outErr = GRIPPERMOVE_ABNORMALLY;
     resettheCupDropAnimation(sampleId, indexReag, false, false);
@@ -1245,6 +1322,7 @@ bool StructInstance::recvSuckReagentClipTube(const int sampleId,int index_code,
                                                ,bool &laterTimer
                                                ,bool &isnextStepUpReagentNeedle)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool iscomplete = false;
     const auto iter = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleId));
     if(iter == m_BloodsampleInfo.cend()|| *iter == nullptr){
@@ -1328,6 +1406,7 @@ bool StructInstance::recvSuckReagentClipTube(const int sampleId,int index_code,
     });
 }
 void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestReagent,bool &iscomplete,QByteArray &outdata){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 	auto itFinish = find_if(ptestReagent->pTestingReagentActive.cbegin(),
                             ptestReagent->pTestingReagentActive.cend(),
                             find_allactivefinish(false));
@@ -1348,6 +1427,7 @@ void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestRea
 
 bool StructInstance::changesuckReagentFirstCommandLocation(const int sampleid,quint8 reagentType)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto iter = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleid));
 
     if(iter == m_BloodsampleInfo.end() || *iter == nullptr) {
@@ -1411,6 +1491,7 @@ bool StructInstance::changesuckReagentFirstCommandLocation(const int sampleid,qu
 
 QByteArray StructInstance::sendsuckReagentCatchCuptoTestChannelHead(const int sampleid,quint8 reagentType)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto iter = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleid));
 
     //严格空指针检查 + 返回默认空数据
@@ -1451,6 +1532,7 @@ QByteArray StructInstance::sendsuckReagentCatchCuptoTestChannelHead(const int sa
 
 void StructInstance::setRichBloodInitValue(quint8 index_reag, int index_Chn,int setValue)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto iter = m_BloodsampleInfo.begin();
     while(iter != m_BloodsampleInfo.end())
     {
@@ -1479,6 +1561,7 @@ void StructInstance::setRichBloodInitValue(quint8 index_reag, int index_Chn,int 
 /**************************** 向 通道内加试剂  ******************************************************/
 QByteArray StructInstance::addReagentIntoChannel(const int SampleId, quint8 indexReagent)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 1. 查找样本
     auto it = find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(), find_id(SampleId));
     if (it == m_BloodsampleInfo.end()) {
@@ -1512,6 +1595,7 @@ QByteArray StructInstance::addReagentIntoChannel(const int SampleId, quint8 inde
 
 bool StructInstance::addReagentIntoChannelFinish(const int SampleId,quint8 indexReagent,const int indexNum,QByteArray &cmd, int *nextDelayMs)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     cmd.clear(); // 确保输出参数清空
     if (nextDelayMs) {
         *nextDelayMs = DELAY_TIMENUM;
@@ -1577,6 +1661,7 @@ bool StructInstance::addReagentIntoChannelFinish(const int SampleId,quint8 index
 
 void StructInstance::send_spitReagentData(const int SampleId, quint8 index_reagent,QByteArrayList &senddata)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     senddata.clear();
     DATASAMPLESTRUCT *pspatreag = NULL;
     Testing_reagents *ptestReag = NULL;
@@ -1589,12 +1674,16 @@ void StructInstance::send_spitReagentData(const int SampleId, quint8 index_reage
         if(it_ != pspatreag->ptestReagent_active.end())
         {
             ptestReag = (*it_);
+            if (!ptestReag) {
+                return;
+            }
             auto iter = ptestReag->pSpitReagentsActive.begin();
             while(iter != ptestReag->pSpitReagentsActive.end())
             {
                 psingleactv = (*iter);
-                QByteArray arrydata = psingleactv->arrcode;
-                senddata.push_back(arrydata);
+                if (psingleactv) {
+                    senddata.push_back(psingleactv->arrcode);
+                }
                 iter++;
             }
         }
@@ -1614,6 +1703,7 @@ void StructInstance::send_spitReagentData(const int SampleId, quint8 index_reage
 
 bool StructInstance::recv_spitReagentData(const int SampleId, quint8 index_reagent,const int index_num)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool bfinishactive = false;
     auto *psampleInfo = wfindIdSample(SampleId);
     if(!psampleInfo){
@@ -1670,10 +1760,11 @@ QString StructInstance::testingOutInitPPPandPRP(quint8 IndexChannel,
                                                 int &bloodyinitValue,
                                                 quint8 &index_reag,
                                                 int &testSample){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     const auto it = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
                      [IndexChannel](const DATASAMPLESTRUCT* sample) {
-                        return sample->indexTestingChn == IndexChannel;
+                        return sample && sample->indexTestingChn == IndexChannel;
                       });
 
     if (it == m_BloodsampleInfo.cend()) return "";
@@ -1685,8 +1776,8 @@ QString StructInstance::testingOutInitPPPandPRP(quint8 IndexChannel,
 
     const auto reagentIt = std::find_if(pcommand->ptestReagent_active.cbegin(),
                                         pcommand->ptestReagent_active.cend(),
-            [](const auto& reagent) {
-                return /*reagent->inintBloodyValue != 0 &&*/ !reagent->testfinished;
+            [](const Testing_reagents *reagent) {
+                return reagent && !reagent->testfinished;
             });
 
     if (reagentIt != pcommand->ptestReagent_active.cend()) {
@@ -1699,6 +1790,7 @@ QString StructInstance::testingOutInitPPPandPRP(quint8 IndexChannel,
 
 void StructInstance::setupOneReagentsIsComplete(const QString SampleId,quint8 index_reag,const bool& testErr)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 	QString idDate;
 	int completeSample = 0;
 	GlobalData::apartSampleId(SampleId, idDate, completeSample);
@@ -1720,31 +1812,59 @@ void StructInstance::setupOneReagentsIsComplete(const QString SampleId,quint8 in
     (*itFinishTest)->testfinished = true;
 
     if(testErr){
-       //删除除了  (*itFinishTest)->testfinished == true 的其它试剂数据信息
         Testing_reagents* finishedReagent  = *itFinishTest;
-        int deleteCount = 0;
-
-        // 创建新容器只保留完成项
-        tVariousReagentsvec tempVec;
-        tempVec.push_back(finishedReagent);
-
-        // 释放其他试剂项内存
-        for(auto ptr : itSample->ptestReagent_active) {
-            if(ptr != finishedReagent) {
-                delete ptr;  // 显式释放内存
-                deleteCount++;
+        int skipCount = 0;
+        // 测试线程可能正拿着这些试剂指针走动作，这里只标记完成，不在界面线程释放。
+        for (Testing_reagents *ptr : itSample->ptestReagent_active) {
+            if (ptr && ptr != finishedReagent && !ptr->testfinished) {
+                ptr->testfinished = true;
+                skipCount++;
             }
         }
-
-        itSample->ptestReagent_active = tempVec;
-        QLOG_DEBUG() << "已删除" << deleteCount << "个未完成试剂项，保留1个完成项";
+        QLOG_DEBUG() << "已跳过" << skipCount << "个未完成试剂，避免测试中释放动作指针";
+    }
+    bool allDone = !itSample->ptestReagent_active.isEmpty();
+    for (const Testing_reagents *reagent : itSample->ptestReagent_active) {
+        if (!reagent || !reagent->testfinished) {
+            allDone = false;
+            break;
+        }
+    }
+    if (allDone && !m_lisReadySamples.contains(itSample->sample_num)) {
+        m_lisReadySamples.append(itSample->sample_num);
     }
     return;
 }
 
+bool StructInstance::sampleReagentsAllFinished(int sampleNum) const
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    const DATASAMPLESTRUCT *sample = rfindIdSample(sampleNum);
+    if (!sample || sample->ptestReagent_active.isEmpty()) {
+        return false;
+    }
+    for (const Testing_reagents *reagent : sample->ptestReagent_active) {
+        if (!reagent || !reagent->testfinished) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool StructInstance::takeLisReadySample(int sampleNum)
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    const int index = m_lisReadySamples.indexOf(sampleNum);
+    if (index < 0) {
+        return false;
+    }
+    m_lisReadySamples.removeAt(index);
+    return true;
+}
 
 bool StructInstance::judge_alreadyCleanBloodpin(const int sampleId,quint8 indexActive)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool hadcleanBloodpin = false;
     const auto *itSample = rfindIdSample(sampleId);
     if(itSample == nullptr) return false;
@@ -1759,6 +1879,7 @@ bool StructInstance::judge_alreadyCleanBloodpin(const int sampleId,quint8 indexA
 void StructInstance::creat_cleanBloodyPin(bool bcleanDoublePin, QByteArrayList allcommand,
                                             DATASAMPLESTRUCT *&psampleinfo)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if(bcleanDoublePin)
         psampleinfo->clean_reag_blood_pin.reserve(allcommand.size());
     else
@@ -1786,6 +1907,7 @@ void StructInstance::creat_cleanBloodyPin(bool bcleanDoublePin, QByteArrayList a
 
 void StructInstance::send_CleanbloodyPinActive(const int sampleID, QByteArrayList &senddata)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     senddata.clear();
 
     const auto *itSample = rfindIdSample(sampleID);
@@ -1803,6 +1925,7 @@ void StructInstance::send_CleanbloodyPinActive(const int sampleID, QByteArrayLis
 
 bool StructInstance::isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double,int loseFocusSample)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool cleanfinished_ = false;
     auto iter_ = find_if(pclean_double->clean_reag_blood_pin.cbegin(),
                          pclean_double->clean_reag_blood_pin.cend(),
@@ -1824,6 +1947,7 @@ bool StructInstance::isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double
 
 bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample, QByteArray &nextCmd)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     nextCmd.clear();
     const auto sampleIt = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
             [loseFocusSample](const DATASAMPLESTRUCT* sample) {
@@ -1859,6 +1983,7 @@ bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample
 
 void StructInstance::sendCleanDoubleNeedle(const int sampleid, QByteArrayList &senddata)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     senddata.clear();
     auto it = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleid));
     if(it == m_BloodsampleInfo.end() || (*it)== nullptr){
@@ -1878,6 +2003,7 @@ void StructInstance::sendCleanDoubleNeedle(const int sampleid, QByteArrayList &s
 
 void StructInstance::send_cleanReagPin(const int sampleid, const quint8 index_reagent, QByteArrayList &senddata)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     senddata.clear();
     const auto *psampleinfo = rfindIdSample(sampleid);
     if(!psampleinfo){
@@ -1910,6 +2036,7 @@ void StructInstance::send_cleanReagPin(const int sampleid, const quint8 index_re
 bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample,
                                           QByteArray &nextCmd)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     nextCmd.clear();
 	auto *psampleInfo = wfindIdSample(loseFocusSample);
 	if (!psampleInfo) {
@@ -1953,6 +2080,7 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 
 bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     nextCmd.clear();
     auto *sampleinfo = wfindIdSample(loseFocusSample);
     if(!sampleinfo){
@@ -1988,6 +2116,7 @@ bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample
 
 QByteArray StructInstance::nextIncompletePrepatch(const int sampleId) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     QByteArray data;
     const auto *sample = rfindIdSample(sampleId);
     if (sample) {
@@ -1998,6 +2127,7 @@ QByteArray StructInstance::nextIncompletePrepatch(const int sampleId) const
 
 
 QByteArray StructInstance::sendCommandThrowCupFirst(const int SampleID, quint8 finishReag, bool isreplaceFlag){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     const auto itsample = find_if(m_BloodsampleInfo.cbegin(),m_BloodsampleInfo.cend(),find_id(SampleID));
     if(itsample == m_BloodsampleInfo.cend() || *itsample == nullptr){
@@ -2037,6 +2167,7 @@ QByteArray StructInstance::sendCommandThrowCupFirst(const int SampleID, quint8 f
 
 bool StructInstance::_boolThrowCupFinished(const int _sampleid,quint8 index_reag, Testing_reagents *ptestReag)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool bFinished = false;
     auto iter_ = find_if(ptestReag->pThrowCupsActive.begin(),ptestReag->pThrowCupsActive.end(),find_allactivefinish(false));
     if(iter_ != ptestReag->pThrowCupsActive.end())
@@ -2056,6 +2187,7 @@ bool StructInstance::_boolThrowCupFinished(const int _sampleid,quint8 index_reag
 
 
 void StructInstance::throwPRPFailed(const int sampleID,quint8 indexReag,bool &outErr){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     outErr = GRIPPERMOVE_ABNORMALLY;
     sendCommandThrowCupFirst(sampleID,indexReag,GRIPPERMOVE_ABNORMALLY);
     backorigintimes();
@@ -2065,6 +2197,7 @@ void StructInstance::throwPRPFailed(const int sampleID,quint8 indexReag,bool &ou
 bool StructInstance::recvThrowCupPara(const int sampleID,const int commandIndex,quint8 indexReag,
                                       bool HandsControl,bool isSuction,quint32 airvale,
                                       QByteArray &sendData,bool &outErr,bool &laterTimer){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     bool isthrocupfinish = false;
     auto itsample = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleID));
@@ -2123,6 +2256,7 @@ bool StructInstance::recvThrowCupPara(const int sampleID,const int commandIndex,
 
 void StructInstance::allThrowPRPFinish(const Testing_reagents *preagdata,
                                        bool &isthrocupfinish,QByteArray &outdata){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto itFinish = find_if(preagdata->pThrowCupsActive.cbegin(),preagdata->pThrowCupsActive.cend(),
                             find_allactivefinish(false));
     if(itFinish != preagdata->pThrowCupsActive.cend())
@@ -2140,6 +2274,7 @@ void StructInstance::allThrowPRPFinish(const Testing_reagents *preagdata,
 
 bool StructInstance::judge_hadWaitTestReag(const int testSample,quint8 &waitTestRrag)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     bool bhand_waittest_reag = false;
     const auto *psampleInfo = rfindIdSample(testSample);
     if(!psampleInfo){
@@ -2166,6 +2301,7 @@ bool StructInstance::judge_hadWaitTestReag(const int testSample,quint8 &waitTest
 
 bool StructInstance::alreadyadded_wait_chn(int &wait_sampleid)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = m_BloodsampleInfo.begin();
     while(it != m_BloodsampleInfo.end())
     {
@@ -2184,6 +2320,7 @@ bool StructInstance::alreadyadded_wait_chn(int &wait_sampleid)
 
 
 bool StructInstance::backSampleAddState(const DATASAMPLESTRUCT *itsample,QByteArray &data){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
    
     auto itaddsample = find_if(
             itsample->tadd_sample_active.cbegin(),
@@ -2231,7 +2368,6 @@ bool StructInstance::backSampleThrowPPP(const DATASAMPLESTRUCT *itsample, QByteA
 
 bool StructInstance::backTestReagentNotFinishArry(const DATASAMPLESTRUCT *itsample,
                                                   QByteArray &data,const quint8 testReagent){
-
     auto itindexReagent = find_if(itsample->ptestReagent_active.begin(),itsample->ptestReagent_active.end(),
                           findtest_testreagent(testReagent));
 
@@ -2279,6 +2415,7 @@ bool StructInstance::backThrowCupsNotFinishArry(const DATASAMPLESTRUCT *itsample
 }
 tSingleActive_list StructInstance::backSplitReagentComm(const DATASAMPLESTRUCT *itsample,
                                                     const quint8 testReagent){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     auto itindexReagent = find_if(itsample->ptestReagent_active.begin(),itsample->ptestReagent_active.end(),
                           findtest_testreagent(testReagent));
@@ -2292,6 +2429,7 @@ tSingleActive_list StructInstance::backSplitReagentComm(const DATASAMPLESTRUCT *
 
 tSingleActive_list StructInstance::backCleanReagentNeedleComm(const DATASAMPLESTRUCT *itsample,
                                                           const quint8 testReagent){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     auto itindexReagent = find_if(itsample->ptestReagent_active.begin(),itsample->ptestReagent_active.end(),
                           findtest_testreagent(testReagent));
@@ -2305,6 +2443,7 @@ tSingleActive_list StructInstance::backCleanReagentNeedleComm(const DATASAMPLEST
 
 
 QByteArrayList StructInstance::outputsIncompleteInstructionList(const int smapleId,const quint8 indexActive){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto *itsample = rfindIdSample(smapleId);
     if(!itsample){
         QLOG_ERROR()<<"查找样本未完成指令样本号为空"<<"样本号"<<smapleId;
@@ -2374,6 +2513,7 @@ bool StructInstance::firstIncompleteCommand(const tSingleActive_list &list, QByt
 }
 
 QByteArray StructInstance::outputstheFirstIncompleteInstruction(const int smapleId,const quint8 indexActive){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
    const auto *itsample = rfindIdSample(smapleId);
    if(!itsample){
        QLOG_ERROR()<<"查找样本未完成指令样本号为空"<<"样本号"<<smapleId;
@@ -2471,6 +2611,7 @@ QByteArray StructInstance::outputstheFirstIncompleteInstruction(const int smaple
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void StructInstance::addEquipmentChn(const QList<quint8> &equipmentOperChn)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     for(quint8 chn = 0; chn < MACHINE_SETTING_CHANNEL; chn++)
     {
         TESTCHNSTAUSINFO *pChninfo = new TESTCHNSTAUSINFO;
@@ -2500,6 +2641,7 @@ void StructInstance::addEquipmentChn(const QList<quint8> &equipmentOperChn)
 
 void StructInstance::config_testChn_State(const quint8 indexChn,quint8 ChnState)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = std::find_if(m_testChnStructvec_.begin(), m_testChnStructvec_.end(),
             [indexChn](const TESTCHNSTAUSINFO* p) {
                 return p && p->index_Chn == indexChn;
@@ -2530,6 +2672,7 @@ void StructInstance::config_testChn_State(const quint8 indexChn,quint8 ChnState)
 
 void StructInstance::config_testChn_test_reagent(const quint8 indexChn,const quint8 indexReag)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     QVector<TESTCHNSTAUSINFO *>::iterator _it = find_if(m_testChnStructvec_.begin(),
                                                         m_testChnStructvec_.end(),
                                                         finder_Chn(indexChn));
@@ -2547,6 +2690,7 @@ void StructInstance::config_testChn_test_reagent(const quint8 indexChn,const qui
 
 void StructInstance::config_testChn_test_SampleID(const quint8 indexChn,const int sampleID)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     QVector<TESTCHNSTAUSINFO *>::iterator _it = find_if(m_testChnStructvec_.begin(),m_testChnStructvec_.end(),finder_Chn(indexChn));
     if(_it != m_testChnStructvec_.end())
     {
@@ -2563,6 +2707,7 @@ void StructInstance::config_testChn_test_SampleID(const quint8 indexChn,const in
 
 bool StructInstance::hadFreeTestChn(quint8 &indexChn_)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto it = std::find_if(m_testChnStructvec_.begin(), m_testChnStructvec_.end(),
             [](const TESTCHNSTAUSINFO* p) { return p->Chn_Status == CHN_STATUS_FREE; });
 
@@ -2577,6 +2722,7 @@ bool StructInstance::hadFreeTestChn(quint8 &indexChn_)
 
 bool StructInstance::hadTestChnTestFinish(quint8 &indexChn_)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 使用 std::find_if 替代手动迭代器遍历
     const auto it = std::find_if(
         m_testChnStructvec_.cbegin(),
@@ -2595,6 +2741,7 @@ bool StructInstance::hadTestChnTestFinish(quint8 &indexChn_)
 }
 
 bool StructInstance::getNextFreeChnAfterTesting(quint8 &nextFreeChn){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (m_testChnStructvec_.empty()){
         return false;
     }
@@ -2662,6 +2809,7 @@ bool StructInstance::getNextFreeChnAfterTesting(quint8 &nextFreeChn){
 
 void  StructInstance::fetchTestDataTotal(QString samplename,quint8 index_reag,int &totalNum)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     totalNum = 0;
 
     QString sampleDate,idsampleNum;
@@ -2696,6 +2844,7 @@ void  StructInstance::fetchTestDataTotal(QString samplename,quint8 index_reag,in
 
 void StructInstance::updteSaveChnTestData(const quint8 &IndexChannel,const quint8 &index_reag,
                                            const int &testValue,const float &testcalculatingData){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     const quint8 relChannel = IndexChannel - 1; //从0开始
 
@@ -2741,6 +2890,7 @@ void StructInstance::updteSaveChnTestData(const quint8 &IndexChannel,const quint
 
 void StructInstance::delalltaskinfo(const bool exitapp)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     for(auto& item : m_testChnStructvec_){
         if(item != nullptr){
@@ -2798,6 +2948,7 @@ void StructInstance::creataddSampleCommands(const QByteArrayList addSamplecomman
                                             const QList<quint8> delayCommandsuckPRP,
                                             const QList<quint8> delayCommandspitPRP)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     for(const QByteArray& command : addSamplecommand) {
         if(command.isEmpty()) {
             QLOG_WARN() << "加样空指令数据，样本ID:" << psampleinfo->sample_num<<endl;
@@ -2833,6 +2984,7 @@ void StructInstance::setPppPreProbeMeta(DATASAMPLESTRUCT *sample,
                                         const QByteArrayList &pendingTail,
                                         quint8 preProbeCmdIndex)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (!sample) {
         return;
     }
@@ -2871,6 +3023,7 @@ void remapDelayIndexList(QList<quint8> &delayIndices, const QHash<quint8, quint8
 
 void StructInstance::markAddSampleCommandComplete(int sampleId, quint8 commandIndex)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *pIdsample = wfindIdSample(sampleId);
     if (!pIdsample) {
         return;
@@ -2885,6 +3038,7 @@ void StructInstance::markAddSampleCommandComplete(int sampleId, quint8 commandIn
 
 void StructInstance::appendPendingPppAddSampleTail(int sampleId)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *pIdsample = wfindIdSample(sampleId);
     if (!pIdsample || pIdsample->pppAddSamplePendingTail.isEmpty()) {
         return;
@@ -2933,6 +3087,7 @@ QByteArray StructInstance::recvAddSampleIndexCommand(const int sampleId,
                                                      const quint8 index,
                                                      bool &completedAddSample)
 {
+    std::unique_lock<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *pIdsample = wfindIdSample(sampleId);
     if(pIdsample == nullptr) return {};
     auto &ini = INI_File();
@@ -2942,11 +3097,6 @@ QByteArray StructInstance::recvAddSampleIndexCommand(const int sampleId,
 
     QList<quint8> delayCommandPRPsuck = pIdsample->sPRPsuckDelaytime;
     QList<quint8> delayCommandPRPspit = pIdsample->sPRPspitDelaytime;
-
-
-
-
-
 
     auto actionIt = find_if(pIdsample->tadd_sample_active.begin(),
                             pIdsample->tadd_sample_active.end(),
@@ -2963,30 +3113,32 @@ QByteArray StructInstance::recvAddSampleIndexCommand(const int sampleId,
 
     auto finishit = find_if(pIdsample->tadd_sample_active.cbegin(),
                             pIdsample->tadd_sample_active.cend(), find_finishall(false));
-    if (finishit == pIdsample->tadd_sample_active.cend()) {
+    if (finishit == pIdsample->tadd_sample_active.cend() || (*finishit) == nullptr) {
         QLOG_DEBUG() << "样本" << sampleId << "收加样指令" << index <<
                         "加样完毕状态完成;" << __LINE__ << endl;
         completedAddSample = true;
         return {};
     }
-    else {
-        completedAddSample = false;
-        // ========== 新增：判断当前 index  ==========
-        int SuckDelay = ini.GetAfterSuckDelayMs ();  // 默认 300
-        int spitDelay = ini.GetAfterSpitDelayMs();  // 默认 600
-        if (delayCommandPPPsuck.contains(index) || delayCommandPRPsuck.contains(index)) {
-            QThread::msleep(SuckDelay);
-        } else if (delayCommandPPPspit.contains(index) || delayCommandPRPspit.contains(index) ) {
-            QThread::msleep(spitDelay);
-        }
-        return (*finishit)->arrcode;
+
+    completedAddSample = false;
+    const QByteArray nextCmd = (*finishit)->arrcode;
+    int waitMs = 0;
+    if (delayCommandPPPsuck.contains(index) || delayCommandPRPsuck.contains(index)) {
+        waitMs = ini.GetAfterSuckDelayMs();
+    } else if (delayCommandPPPspit.contains(index) || delayCommandPRPspit.contains(index)) {
+        waitMs = ini.GetAfterSpitDelayMs();
     }
-    return {};
+    dataGuard.unlock();
+    if (waitMs > 0) {
+        QThread::msleep(waitMs);
+    }
+    return nextCmd;
 }
 
 
 bool  StructInstance::Recv_addsampleData(const int sampleId,const quint8 index)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto sampleIt = find_if(m_BloodsampleInfo.begin(),m_BloodsampleInfo.end(),find_id(sampleId));
     if (sampleIt == m_BloodsampleInfo.end()) {
         QLOG_DEBUG() << QString("样本id[%1]未找到(加样)").arg(sampleId);
@@ -3023,6 +3175,7 @@ bool  StructInstance::Recv_addsampleData(const int sampleId,const quint8 index)
 void StructInstance::creatSuckPPP2theTestChannel(const int sampleId, const QVector<QByteArray> CatchAnemiacommand,
                                                    const quint8 isSuctionPPPreset,const quint8 isSpitPPPreset)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto *pitSample = wfindIdSample(sampleId);
     if(!pitSample){
         QLOG_ERROR() << "未找到样本ID" << sampleId << "创建夹贫血到通道指令失败"<<endl;
@@ -3055,6 +3208,7 @@ void StructInstance::creatSuckPPP2theTestChannel(const int sampleId, const QVect
 
 QByteArray StructInstance::sendPPP2ChannelHeanderCommand(const int sampleId, bool isSetAllFalse)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 一级指针有效性检查
     auto* itsample = wfindIdSample(sampleId);
     if (!itsample) return QByteArray();
@@ -3081,6 +3235,7 @@ QByteArray StructInstance::sendPPP2ChannelHeanderCommand(const int sampleId, boo
 
 bool StructInstance::pppClipContainsCommandIndex(int sampleId, quint8 index) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
     if (!sample) {
         return false;
@@ -3097,6 +3252,7 @@ bool StructInstance::pppClipContainsCommandIndex(int sampleId, quint8 index) con
 
 bool StructInstance::pppClipXyAtTray(int sampleId, const QPoint &pos) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
     if (!sample) {
         return false;
@@ -3106,6 +3262,7 @@ bool StructInstance::pppClipXyAtTray(int sampleId, const QPoint &pos) const
 
 QByteArray StructInstance::restartPppClipFromXy(int sampleId)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *pitSample = wfindIdSample(sampleId);
     if (!pitSample) {
         return QByteArray();
@@ -3148,6 +3305,7 @@ QByteArray StructInstance::restartPppClipFromXy(int sampleId)
 ///丟测试通道内的杯子根据试剂号知道
 void StructInstance::creatThrowCupsCommands(const int sampleId,const quint8 indexChn)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     QVector<QByteArray> throwCups;
     quint8 sucknum,splitnum;
     QUIUtils::ThrowTestChnCup(indexChn, throwCups,sucknum,splitnum);
@@ -3198,6 +3356,7 @@ void StructInstance::creatThrowCupsCommands(const int sampleId,const quint8 inde
 
 
 void StructInstance::throwPPPFailed(const int sampleId,bool &kGripperFailed){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     backorigintimes();
     kGripperFailed = GRIPPERMOVE_ABNORMALLY;
     outputHeadnThrowCups(sampleId,GRIPPERMOVE_ABNORMALLY);
@@ -3205,6 +3364,7 @@ void StructInstance::throwPPPFailed(const int sampleId,bool &kGripperFailed){
 
 bool StructInstance::recv_throwCupcommd(const int sampleId,const quint8 index_code,bool HandsControl,bool isSuction,
                                           quint32 airvale,QByteArray &sendData,bool &kGripperFailed,bool &laterTimer){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     auto *pIdsample = wfindIdSample(sampleId);
     if (!pIdsample){
@@ -3244,6 +3404,7 @@ bool StructInstance::recv_throwCupcommd(const int sampleId,const quint8 index_co
 }
 
 void StructInstance::allGripperThrowFinish(const DATASAMPLESTRUCT *psampledata,bool &isthrowFinish,QByteArray &outdata){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto iter = find_if(psampledata->t_throw_anemiacups_active.cbegin(),psampledata->t_throw_anemiacups_active.cend(),
                         find_allactivefinish(false));
     if(iter != psampledata->t_throw_anemiacups_active.cend()){
@@ -3259,6 +3420,7 @@ void StructInstance::allGripperThrowFinish(const DATASAMPLESTRUCT *psampledata,b
 
 QByteArray StructInstance::outputHeadnThrowCups(const int sampleId, bool isSetAllFalse)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 一级指针有效性检查
 	auto* itsample = wfindIdSample(sampleId);
 	if (!itsample) return QByteArray();
@@ -3289,6 +3451,7 @@ QByteArray StructInstance::outputHeadnThrowCups(const int sampleId, bool isSetAl
 
 void StructInstance::cancel_sample_task(QList<int> &sample_tasklist,QList<int> &sampleid)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *psampleinfo = NULL;
     auto iter = m_BloodsampleInfo.constBegin();
     while(iter != m_BloodsampleInfo.constEnd())
@@ -3306,6 +3469,7 @@ void StructInstance::cancel_sample_task(QList<int> &sample_tasklist,QList<int> &
 //根据空试管号 返回样本id
 int StructInstance::sycn_emptytube_get_sampleid(quint8 indexhole)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     int sampleid = 0;
     DATASAMPLESTRUCT *psampleinfo = NULL;
     auto iter = m_BloodsampleInfo.begin();
@@ -3337,7 +3501,7 @@ QByteArray StructInstance::resettheCupDropAnimation(const int sampleId,
                                                     const std::atomic<bool> &ispendingtime,
                                                     const bool &isSendSuckCup){
 
-	std::lock_guard<std::mutex> lock(m_reagentMutex); // 线程安全
+	std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
    
     auto *itSample = wfindIdSample(sampleId);
 	if (!itSample) { 
@@ -3404,12 +3568,14 @@ QByteArray StructInstance::resettheCupDropAnimation(const int sampleId,
 
 bool StructInstance::gripperGrabRetriesExhausted() const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     return m_handsFailedtimes >= 3; // 与 kGripperMaxRetry 一致
 }
 
 QByteArray StructInstance::buildGripperTrayGrabDeepenCmd(quint8 suckCheckIndex,
                                                          quint8 trayHole) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const int deepenTimes = qMax(1, m_handsFailedtimes);
     return GlobalData::GrabtheCupAttheTestTubeTray(suckCheckIndex, deepenTimes, trayHole);
 }
@@ -3417,6 +3583,7 @@ QByteArray StructInstance::buildGripperTrayGrabDeepenCmd(quint8 suckCheckIndex,
 QByteArray StructInstance::buildGripperTrayReadVacuumCmd(const quint8 readIndex,
                                                          const quint8 trayHole)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     m_gripperGrabReadPhase = GrabWaitReadAckJudge;
     const quint8 maxIndex = 3;
     quint8 indexTray = trayHole / ONETRAY_TOTALTUBE;
@@ -3438,17 +3605,20 @@ QByteArray StructInstance::buildGripperTrayReadVacuumCmd(const quint8 readIndex,
 
 bool StructInstance::gripperNeedsDelayBeforeRead() const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     return m_gripperGrabReadPhase == GrabWaitDelayThenRead;
 }
 
 void StructInstance::clearGripperReadPhase()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     m_gripperGrabReadPhase = GrabReadIdle;
 }
 
 QByteArray StructInstance::buildGripperChannelGrabDeepenCmd(quint8 suckCheckIndex,
                                                             quint8 channelIndex) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const int deepenTimes = qMax(1, m_handsFailedtimes);
     return GlobalData::Grabthehandtotryagain(suckCheckIndex, deepenTimes, channelIndex);
 }
@@ -3456,6 +3626,7 @@ QByteArray StructInstance::buildGripperChannelGrabDeepenCmd(quint8 suckCheckInde
 QByteArray StructInstance::buildGripperChannelReadVacuumCmd(const quint8 readIndex,
                                                             const quint8 channelIndex)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     m_gripperGrabReadPhase = GrabWaitReadAckJudge;
     const int downMm = static_cast<int>(INI_File()._gethandsdownheiht(channelIndex));
     const bool bRepeat = INI_File().rConfigPara(REPEATGRABCUP).toBool();
@@ -3472,6 +3643,7 @@ QByteArray StructInstance::buildGripperChannelReadVacuumCmd(const quint8 readInd
 
 void StructInstance::resetGripperRetryCounters()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     backorigintimes();
     m_gripperGrabReadPhase = GrabReadIdle;
 }
@@ -3481,6 +3653,7 @@ QByteArray StructInstance::gripperLiftAfterSuckHoldPassed(const int sampleId,
                                                             const quint8 suckCheckIndex,
                                                             const quint8 reagentIndex)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     QByteArray out;
     auto *sample = wfindIdSample(sampleId);
     if (!sample) {
@@ -3512,18 +3685,21 @@ QByteArray StructInstance::gripperLiftAfterSuckHoldPassed(const int sampleId,
 
 void StructInstance::armGripperWait(bool forThrow)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     m_gripperWaitMs = forThrow ? GlobalData::gripperThrowDelayMs()
                                : GlobalData::gripperGrabDelayMs();
 }
 
 int StructInstance::takeGripperWaitMs()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const int waitMs = m_gripperWaitMs;
     m_gripperWaitMs = 0;
     return waitMs;
 }
 
 void  StructInstance::backorigintimes(){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
      m_handsFailedtimes = 0; //抓手吸杯失败次数
      m_handsThrowFailedtimes = 0; //助手丢被失败次数
      m_throwAwaitingReleaseRead = false;
@@ -3533,6 +3709,7 @@ void  StructInstance::backorigintimes(){
 
 void StructInstance::clearGripperVacuumPoll()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (m_gripperVacuumPoll.active) {
         QLOG_DEBUG() << "[GripperVac]" << m_gripperVacuumPoll.tag
                      << "样本" << m_gripperVacuumPoll.sampleId << "结束负压轮询";
@@ -3542,11 +3719,13 @@ void StructInstance::clearGripperVacuumPoll()
 
 bool StructInstance::isGripperVacuumPollActive() const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     return m_gripperVacuumPoll.active;
 }
 
 void StructInstance::stopGripperVacuumPoll()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     clearGripperVacuumPoll();
 }
 
@@ -3756,6 +3935,7 @@ StructInstance::GripperAckOutcome StructInstance::startVacuumPollPhase(
         quint8 putRetryPos,
         int sampleId)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     beginGripperVacuumPoll(mode, list, phaseCommandIndex, suckBack, spitBack, tag,
                            grabAtTray, putAtThrowHole, grabRetryPos, putRetryPos, sampleId);
     return GripperAckPoll;
@@ -3773,6 +3953,7 @@ void StructInstance::beginGripperVacuumPoll(GripperVacuumPollMode mode,
                                             quint8 putRetryPos,
                                             int sampleId)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const int waitMs = (mode == GripperPollGrab)
             ? GlobalData::gripperGrabDelayMs()
             : GlobalData::gripperThrowDelayMs();
@@ -3808,6 +3989,7 @@ void StructInstance::beginGripperVacuumPoll(GripperVacuumPollMode mode,
 
 QByteArray StructInstance::gripperVacuumProbeCommand() const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     UsbCodeDispose *taskDll = Testing::getTaskDll();
     if (!taskDll || !m_gripperVacuumPoll.active) {
         return QByteArray();
@@ -3825,6 +4007,7 @@ QByteArray StructInstance::gripperVacuumProbeCommand() const
 
 StructInstance::GripperVacuumPollResult StructInstance::finishGripperVacuumPollSuccess()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     GripperVacuumPollResult out;
     if (!m_gripperVacuumPoll.active || !m_gripperVacuumPoll.commandList) {
         return out;
@@ -3862,6 +4045,7 @@ StructInstance::GripperVacuumPollResult StructInstance::finishGripperVacuumPollS
 
 StructInstance::GripperVacuumPollResult StructInstance::gripperVacuumPollDepthRetry()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     GripperVacuumPollResult out;
     if (!m_gripperVacuumPoll.active) {
         return out;
@@ -3913,6 +4097,7 @@ StructInstance::GripperVacuumPollResult StructInstance::gripperVacuumPollDepthRe
 StructInstance::GripperVacuumPollResult StructInstance::feedGripperVacuumPollSample(quint32 airvale,
                                                                                   bool isSuctionBit)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     GripperVacuumPollResult out;
     if (!m_gripperVacuumPoll.active) {
         return out;
@@ -3962,6 +4147,7 @@ StructInstance::GripperVacuumPollResult StructInstance::feedGripperVacuumPollSam
 
 StructInstance::GripperVacuumPollResult StructInstance::tickGripperVacuumPollDeadline()
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     GripperVacuumPollResult out;
     if (!m_gripperVacuumPoll.active) {
         return out;
@@ -3985,24 +4171,28 @@ StructInstance::GripperVacuumPollResult StructInstance::tickGripperVacuumPollDea
 
 bool StructInstance::throwPppContainsCommandIndex(int sampleId, quint8 index) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
     return sample && listHasCommandIndex(sample->t_throw_anemiacups_active, index);
 }
 
 bool StructInstance::throwReagentContainsCommandIndex(int sampleId, quint8 reagent, quint8 index) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
     return reag && listHasCommandIndex(reag->pThrowCupsActive, index);
 }
 
 bool StructInstance::prpClipContainsCommandIndex(int sampleId, quint8 reagent, quint8 index) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
     return reag && listHasCommandIndex(reag->pTestingReagentActive, index);
 }
 
 bool StructInstance::gripperXyAtChannel(int sampleId, const QPoint &pos) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
     if (!sample || sample->indexTestingChn < 0) {
         return false;
@@ -4017,6 +4207,7 @@ bool StructInstance::gripperXyAtChannel(int sampleId, const QPoint &pos) const
 
 bool StructInstance::prpClipXyAtReagent(int sampleId, quint8 reagent, const QPoint &pos) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     Q_UNUSED(sampleId);
     if (reagent == 0) {
         return false;
@@ -4028,12 +4219,14 @@ bool StructInstance::prpClipXyAtReagent(int sampleId, quint8 reagent, const QPoi
 
 bool StructInstance::prpClipXyAtTrayHole(int sampleId, quint8 reagent, const QPoint &pos) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
     return reag && reag->emptyHoleAxisHands == pos;
 }
 
 QByteArray StructInstance::restartThrowPppFromXy(int sampleId)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
     if (!sample) {
         return QByteArray();
@@ -4057,6 +4250,7 @@ QByteArray StructInstance::restartThrowPppFromXy(int sampleId)
 
 QByteArray StructInstance::restartThrowReagentFromXy(int sampleId, quint8 reagent)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
     Testing_reagents *reag = findReagentPtr(sample, reagent);
     if (!reag) {
@@ -4137,6 +4331,7 @@ bool StructInstance::isGripperCupFailFocus(quint8 indexActive)
 
 QByteArray StructInstance::restartGripperFailTryAgain(int sampleId, quint8 indexActive)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     // 1) 吸 PPP 试杯失败 → XY 到 PPP 孔位再抓杯放通道
     if (indexActive == FOCUS_CLIP_ANEMIA_TO_CHN) {
         return restartPppClipFromXy(sampleId);
@@ -4176,6 +4371,7 @@ QByteArray StructInstance::restartGripperFailTryAgain(int sampleId, quint8 index
 
 QByteArray StructInstance::restartPrpClipFromGrabCup(int sampleId, quint8 reagent, bool fromXyOrigin)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
     Testing_reagents *reag = findReagentPtr(sample, reagent);
     if (!reag || !sample || sample->indexTestingChn < 0) {
@@ -4251,11 +4447,13 @@ QByteArray StructInstance::restartPrpClipFromGrabCup(int sampleId, quint8 reagen
 
 bool StructInstance::prpReagentPortionCompleted(int sampleId, quint8 reagent) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     return reagentSuckDoneBeforeGrab(findReagentPtrConst(rfindIdSample(sampleId), reagent));
 }
 
 QByteArray StructInstance::restartPrpClipResumePoint(int sampleId, quint8 reagent)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (reagentSuckDoneBeforeGrab(findReagentPtrConst(rfindIdSample(sampleId), reagent))) {
         return restartPrpClipFromGrabCup(sampleId, reagent, false);
     }
@@ -4264,6 +4462,7 @@ QByteArray StructInstance::restartPrpClipResumePoint(int sampleId, quint8 reagen
 
 QByteArray StructInstance::restartPrpClipFromFirst(int sampleId, quint8 reagent)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     DATASAMPLESTRUCT *sample = wfindIdSample(sampleId);
     Testing_reagents *reag = findReagentPtr(sample, reagent);
     if (!reag) {
@@ -4305,6 +4504,7 @@ QByteArray StructInstance::restartPrpClipFromFirst(int sampleId, quint8 reagent)
 
 bool StructInstance::prpClipFinishedAwaitingRead(int sampleId, quint8 reagent) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const Testing_reagents *reag = findReagentPtrConst(rfindIdSample(sampleId), reagent);
     if (!reag || reag->pTestingReagentActive.isEmpty()) {
         return false;
@@ -4314,6 +4514,7 @@ bool StructInstance::prpClipFinishedAwaitingRead(int sampleId, quint8 reagent) c
 
 bool StructInstance::pppClipFinishedAwaitingRead(int sampleId) const
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const DATASAMPLESTRUCT *sample = rfindIdSample(sampleId);
     if (!sample || sample->t_catchAnemiaTest.isEmpty()) {
         return false;
@@ -4337,6 +4538,7 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
         QByteArray &retryData,
         bool &lateTimer)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const bool grabQuad = suckBack >= 3;
     const quint8 suckRead = static_cast<quint8>(suckBack - 1);
     const quint8 suckOpen = static_cast<quint8>(suckBack - 2);
@@ -4523,6 +4725,7 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
 
 
 const DATASAMPLESTRUCT *StructInstance::rfindIdSample(const int idSample) const {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     const auto itSample = std::find_if(m_BloodsampleInfo.cbegin(), m_BloodsampleInfo.cend(),
         [idSample](const DATASAMPLESTRUCT* pSample) {
         return   pSample != nullptr &&  pSample->sample_num == idSample;
@@ -4536,6 +4739,7 @@ const DATASAMPLESTRUCT *StructInstance::rfindIdSample(const int idSample) const 
 }
 
 DATASAMPLESTRUCT *StructInstance::wfindIdSample(const int idSample){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto itSample = std::find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(),
         [idSample](const DATASAMPLESTRUCT* pSample) {
         return   pSample != nullptr &&  pSample->sample_num == idSample;
@@ -4549,6 +4753,7 @@ DATASAMPLESTRUCT *StructInstance::wfindIdSample(const int idSample){
 }
 
 void StructInstance::labelCancelTubes(const int sampleid,QList<quint8> &outCancelTube){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     outCancelTube.clear();
     const auto *itsample = rfindIdSample(sampleid);
     outCancelTube.append(itsample->spitanaemia_hole);
@@ -4581,6 +4786,7 @@ bool StructInstance::dispatchGripperAck(
         bool &lateTimer,
         const std::function<void(bool &finished, QByteArray &nextCmd)> &pullNext)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     sendData.clear();
     lateTimer = false;
     kGripperFailed = GRIPPERMOVE_NORMAL;
@@ -4645,6 +4851,7 @@ bool StructInstance::dispatchGripperAck(
 bool StructInstance::processPPPCupToChannel(const int sampleId,const quint8 index,bool HandsControl,
                                               bool isSuction, quint32 airvale,
                                               QByteArray &sendData,bool &kGripperFailed,bool &lateTimer){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 
     bool isMovePPPComplete = false;
     auto *itsample = wfindIdSample(sampleId);
@@ -4686,6 +4893,7 @@ bool StructInstance::processPPPCupToChannel(const int sampleId,const quint8 inde
 
 void StructInstance::forceAdvancePppClipQueue(const int sampleId, QByteArray &outSend)
 {
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     outSend.clear();
     auto *itsample = wfindIdSample(sampleId);
     if (!itsample) {
@@ -4696,6 +4904,7 @@ void StructInstance::forceAdvancePppClipQueue(const int sampleId, QByteArray &ou
 }
 
 void StructInstance::outsuckPPPOtherOrder(const DATASAMPLESTRUCT * psampledata,bool &allFinished,QByteArray &outdata){
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     auto itfinish = find_if(psampledata->t_catchAnemiaTest.cbegin(),psampledata->t_catchAnemiaTest.cend(),
                             find_allactivefinish(false));
     if(itfinish == psampledata->t_catchAnemiaTest.cend())

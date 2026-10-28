@@ -125,7 +125,7 @@ typedef struct find_recvIndex
     find_recvIndex(quint8 index) : m_index(index){ }
     bool operator()(single_action_commands *another ) const
     {
-        return (m_index == another->index_);
+        return another && (m_index == another->index_);
     }
 private:
     quint8 m_index;
@@ -138,7 +138,7 @@ typedef struct find_finishall
     find_finishall(bool bstate) : m_bcomplete(bstate){}
     bool operator()(single_action_commands *another ) const
     {
-        return (m_bcomplete == another->bcompleted);
+        return another && (m_bcomplete == another->bcompleted);
     }
 private:
     bool m_bcomplete;
@@ -182,7 +182,7 @@ typedef struct findtest_testreagent
     findtest_testreagent(quint8 num) : index_reag(num) {}
     bool operator()(Testing_reagents *another) const
     {
-        return (index_reag == another->index_Reagent);
+        return another && (index_reag == another->index_Reagent);
     }
 private:
     quint8 index_reag;
@@ -194,7 +194,7 @@ typedef struct find_nottest
     find_nottest(bool wait_test) : m_notTest(wait_test) {}
     bool operator()(Testing_reagents *another) const
     {
-        return (m_notTest == another->testfinished);
+        return another && (m_notTest == another->testfinished);
     }
 private:
     bool m_notTest;
@@ -293,7 +293,7 @@ typedef struct find_id
 	find_id(int sample_id) : m_id(sample_id) {}
     bool operator()(DATASAMPLESTRUCT* rhs) const
 	{
-		return (m_id == rhs->sample_num);
+		return rhs && (m_id == rhs->sample_num);
 	}
 private:
 	int m_id;
@@ -305,7 +305,7 @@ typedef struct find_not_testing
     find_not_testing(bool bfinished) : bsampleState(bfinished){}
     bool operator()(DATASAMPLESTRUCT* data) const
     {
-        return (bsampleState == data->bstartTesting);
+        return data && (bsampleState == data->bstartTesting);
     }
 private:
     bool bsampleState;
@@ -319,7 +319,7 @@ typedef struct find_sampleinfo
     find_sampleinfo(int testChn) : m_Chn(testChn) {}
     bool operator()(DATASAMPLESTRUCT* rhs)const
     {
-        return (m_Chn == rhs->indexTestingChn);
+        return rhs && (m_Chn == rhs->indexTestingChn);
     }
 private:
     int m_Chn;
@@ -330,7 +330,7 @@ typedef struct find_bfocus
     find_bfocus(bool hanfocuon) : m_hanfocus(hanfocuon) {}
     bool operator()(DATASAMPLESTRUCT* rhs)const
     {
-        return (m_hanfocus == rhs->fcus_in);
+        return rhs && (m_hanfocus == rhs->fcus_in);
     }
 private:
     bool m_hanfocus;
@@ -343,7 +343,7 @@ typedef struct find_id_str
     find_id_str(QString sample_idstr) : m_idstr(sample_idstr) {}
     bool operator()(DATASAMPLESTRUCT* other)const
     {
-        return (m_idstr == other->samplestr);
+        return other && (m_idstr == other->samplestr);
     }
 private:
 	QString m_idstr;
@@ -383,7 +383,7 @@ typedef struct finder_Chn
     finder_Chn(quint8 num) :index_testChn(num){}
     bool operator()(TESTCHNSTAUSINFO *another) const
     {
-        return (index_testChn == another->index_Chn);
+        return another && (index_testChn == another->index_Chn);
     }
 private:
     quint8 index_testChn;
@@ -394,7 +394,7 @@ typedef struct finder_sampleId
     finder_sampleId(QString num) :idstr(num){}
     bool operator()(TESTCHNSTAUSINFO *another) const
     {
-        return (idstr == another->samplename);
+        return another && (idstr == another->samplename);
     }
 private:
     QString idstr;
@@ -407,7 +407,7 @@ typedef struct finder_ChnSatte
 	finder_ChnSatte(quint8 num) :index_testState(num){}
     bool operator()(TESTCHNSTAUSINFO *another) const
     {
-        return (index_testState == another->Chn_Status);
+        return another && (index_testState == another->Chn_Status);
     }
 private:
     quint8 index_testState;

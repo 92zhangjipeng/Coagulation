@@ -17,6 +17,7 @@ public:
     void stop();
 
     QString getLocalIpAddress();                         // 获取本机IPv4地址
+    static QJsonObject loadSampleDetail(const QString &dbPath, const QString &sampleId);
 
     void setImageSaveDirectory(const QString &dir);
     void setImageRetentionDays(int days);

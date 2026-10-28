@@ -635,6 +635,7 @@ void TestProjectProcess::handleNoPendingSamples()
 // 分解子功能为独立方法
 void TestProjectProcess::executeSampleAddition(int sampleId, StructInstance& instance)
 {
+    StructInstance::DataGuard guard;
     if (const auto *ps = instance.rfindIdSample(sampleId)) {
         if (QUIUtils::isBloodSampleSuckAtOrigin(ps->suckanaemia_axis)
                 || QUIUtils::isBloodSampleSuckAtOrigin(ps->suckbloody_axis)) {
@@ -907,6 +908,7 @@ void TestProjectProcess::handleGripErrGiveupSample(const bool isGiveupSample,con
         const quint8 failedReagent = reagentFromFocus(indexAxtive);
         if (failedReagent != 0) {
             quint8 failedHole = 0;
+            StructInstance::DataGuard guard;
             if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
                 for (Testing_reagents *item : ps->ptestReagent_active) {
                     if (item && item->index_Reagent == failedReagent) {
@@ -1586,6 +1588,7 @@ void TestProjectProcess::handleOfflineVoidTimeout()
         return;
     }
 
+    StructInstance::DataGuard guard;
     for (TESTCHNSTAUSINFO *chnInfo : instance->m_testChnStructvec_) {
         if (!chnInfo || chnInfo->Chn_Status != CHN_STATUS_TESTING) {
             continue;
@@ -2166,6 +2169,7 @@ void TestProjectProcess::recv_throwCup(quint8 indexActive,const int commandIndex
         if (klaterTimer && handsControlActive && kGripperFailed == GRIPPERMOVE_NORMAL) {
             quint8 suckCheck = 0;
             quint8 channel = 0;
+            StructInstance::DataGuard guard;
             if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
                 if (ps->indexTestingChn >= 0) {
                     channel = static_cast<quint8>(ps->indexTestingChn);
@@ -2568,31 +2572,38 @@ void TestProjectProcess::confirmPppHangLiquidProceed()
     emit requestPauseUiSync(false);
 
     auto *instance = StructInstance::getInstance();
-    DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id);
-    if (!ps || ps->pppAddSamplePendingTail.isEmpty()) {
-        QLOG_WARN() << QString::fromUtf8("PPP挂液确定续跑时无待追加加样尾段 样本") << m_focus_sample_id;
-        return;
+    quint8 preProbeIndex = 0;
+    {
+        StructInstance::DataGuard guard;
+        DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id);
+        if (!ps || ps->pppAddSamplePendingTail.isEmpty()) {
+            QLOG_WARN() << QString::fromUtf8("PPP挂液确定续跑时无待追加加样尾段 样本") << m_focus_sample_id;
+            return;
+        }
+        ps->pppAwaitManualWipe = false;
+        ps->pppManualPreProbeRetry = false;
+        ps->pppPreProbeCompleted = false;
+        preProbeIndex = ps->pppPreProbeCmdIndex;
     }
-
-    ps->pppAwaitManualWipe = false;
-    ps->pppManualPreProbeRetry = false;
-    ps->pppPreProbeCompleted = false;
     clearPppPreProbeRecoveryState();
     publishWorkflowStatus(tr("按液面探测失败高度吸PPP"));
     promptsareDisplayed(TESTINGLOG,
                         tr("已确认擦针：跳过预探测，按失败高度液面探测吸PPP并吐PPP"),
                         false);
-    advanceAddSampleAfterPppPreProbePassed(ps->pppPreProbeCmdIndex);
+    advanceAddSampleAfterPppPreProbePassed(preProbeIndex);
 }
 
 void TestProjectProcess::advanceAddSampleAfterPppPreProbePassed(quint8 /*preProbeIndex*/)
 {
     auto *instance = StructInstance::getInstance();
-    instance->appendPendingPppAddSampleTail(m_focus_sample_id);
     quint8 handshakeIndex = 0;
-    if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
-        ps->pppPreProbeCompleted = true;
-        handshakeIndex = ps->pppPreProbePrefixCmdIndex;
+    {
+        StructInstance::DataGuard guard;
+        instance->appendPendingPppAddSampleTail(m_focus_sample_id);
+        if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
+            ps->pppPreProbeCompleted = true;
+            handshakeIndex = ps->pppPreProbePrefixCmdIndex;
+        }
     }
 
     bool iscompleteAddSample = false;
@@ -2602,9 +2613,20 @@ void TestProjectProcess::advanceAddSampleAfterPppPreProbePassed(quint8 /*preProb
     if (!iscompleteAddSample) {
         writeCommandHeader(outdata, tr("加样指令"), DELAY_TIMENUM);
     } else {
-        instance->updateSampleState(m_focus_sample_id, ADDED_COMPLETE_SAMPLE);
-        if (const auto *ps = instance->rfindIdSample(m_focus_sample_id)) {
-            emit bloodSampleHintStage(ps->suckanaemia_hole, ps->suckbloody_hole,
+        quint8 anemiaHole = 0;
+        quint8 bloodyHole = 0;
+        bool hasSample = false;
+        {
+            StructInstance::DataGuard guard;
+            instance->updateSampleState(m_focus_sample_id, ADDED_COMPLETE_SAMPLE);
+            if (const auto *ps = instance->rfindIdSample(m_focus_sample_id)) {
+                anemiaHole = ps->suckanaemia_hole;
+                bloodyHole = ps->suckbloody_hole;
+                hasSample = true;
+            }
+        }
+        if (hasSample) {
+            emit bloodSampleHintStage(anemiaHole, bloodyHole,
                                       TestingConstants::BLOOD_HINT_TESTING);
         }
         getFreeTimeTestChn();
@@ -2613,6 +2635,7 @@ void TestProjectProcess::advanceAddSampleAfterPppPreProbePassed(quint8 /*preProb
 
 void TestProjectProcess::finishPppPreProbeDecision(const QStringList &recvdata)
 {
+    StructInstance::DataGuard guard;
     auto *ps = StructInstance::getInstance()->wfindIdSample(m_focus_sample_id);
     if (!ps || ps->pppAddSamplePendingTail.isEmpty()) {
         return;
@@ -2622,6 +2645,7 @@ void TestProjectProcess::finishPppPreProbeDecision(const QStringList &recvdata)
     if (!QUIUtils::isZAxisLiquidLevelDetected(recvdata)) {
         ps->pppManualPreProbeRetry = false;
         promptsareDisplayed(TESTINGLOG, tr("PPP预探测未检测到挂液，继续液面探测吸样"), false);
+        guard.unlock();
         advanceAddSampleAfterPppPreProbePassed(preProbeIndex);
         return;
     }
@@ -2633,6 +2657,7 @@ void TestProjectProcess::finishPppPreProbeDecision(const QStringList &recvdata)
         promptsareDisplayed(TESTINGLOG,
                             tr("擦针后预探测仍报挂液，按液面探测失败高度吸PPP"),
                             false);
+        guard.unlock();
         advanceAddSampleAfterPppPreProbePassed(preProbeIndex);
         return;
     }
@@ -2693,14 +2718,21 @@ bool TestProjectProcess::tryHandlePppPreProbeAck(int index_num, int slaveAddr, i
         return true;
     }
 
-    auto *ps = StructInstance::getInstance()->wfindIdSample(m_focus_sample_id);
-    if (!ps || ps->pppAddSamplePendingTail.isEmpty()) {
+    bool preProbeCompleted = false;
+    quint8 preProbeCmdIndex = 0;
+    {
+        StructInstance::DataGuard guard;
+        auto *ps = StructInstance::getInstance()->wfindIdSample(m_focus_sample_id);
+        if (!ps || ps->pppAddSamplePendingTail.isEmpty()) {
+            return false;
+        }
+        preProbeCompleted = ps->pppPreProbeCompleted;
+        preProbeCmdIndex = ps->pppPreProbeCmdIndex;
+    }
+    if (preProbeCompleted) {
         return false;
     }
-    if (ps->pppPreProbeCompleted) {
-        return false;
-    }
-    if (static_cast<quint8>(index_num) != ps->pppPreProbeCmdIndex) {
+    if (static_cast<quint8>(index_num) != preProbeCmdIndex) {
         return false;
     }
     if (slaveAddr != Z_AXIS || axismovement != MOTOR_BLOOD_INDEX) {
@@ -2739,10 +2771,21 @@ void TestProjectProcess::receiveInstructionsSampleactive(int index_num, int slav
 
     }else{
         //设置加样完成状态
-        StructInstance::getInstance()->updateSampleState(m_focus_sample_id,
-                                                         ADDED_COMPLETE_SAMPLE);
-        if (const auto *ps = StructInstance::getInstance()->rfindIdSample(m_focus_sample_id)) {
-            emit bloodSampleHintStage(ps->suckanaemia_hole, ps->suckbloody_hole,
+        quint8 anemiaHole = 0;
+        quint8 bloodyHole = 0;
+        bool hasSample = false;
+        {
+            StructInstance::DataGuard guard;
+            StructInstance::getInstance()->updateSampleState(m_focus_sample_id,
+                                                             ADDED_COMPLETE_SAMPLE);
+            if (const auto *ps = StructInstance::getInstance()->rfindIdSample(m_focus_sample_id)) {
+                anemiaHole = ps->suckanaemia_hole;
+                bloodyHole = ps->suckbloody_hole;
+                hasSample = true;
+            }
+        }
+        if (hasSample) {
+            emit bloodSampleHintStage(anemiaHole, bloodyHole,
                                       TestingConstants::BLOOD_HINT_TESTING);
         }
         logTestFsmInfo(QStringLiteral("add_sample_done"), tr("样本%1").arg(m_focus_sample_id));
@@ -3160,6 +3203,7 @@ void TestProjectProcess::handlePrpBaselineInvalid()
 
 void TestProjectProcess::markReagentSkipped(int sampleId, quint8 reagent)
 {
+    StructInstance::DataGuard guard;
     auto *sample = StructInstance::getInstance()->wfindIdSample(sampleId);
     if (!sample) {
         return;
@@ -3556,6 +3600,7 @@ void TestProjectProcess::recvNextTestReagent(quint8 reagentIndex, quint8 focusAc
             && !bnextBackReagentNeedle) {
         quint8 suckCheck = 0;
         quint8 prpHole = 0;
+        StructInstance::DataGuard guard;
         if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
             for (const BLOODY_INFO &bh : ps->bloody_tube) {
                 if (bh.index_reagent == reagentIndex) {
