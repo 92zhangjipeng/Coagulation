@@ -1392,8 +1392,9 @@ void MachineSetting::relayoutEquipmentPages()
 
     const QString heightQss = QStringLiteral(
                 "QFrame#heightTuneCard {"
-                " background: transparent;"
-                " border: none;"
+                " background: #FFFFFF;"
+                " border: 1px solid #D4EAF5;"
+                " border-radius: 8px;"
                 "}");
     const QString sectionQss = QStringLiteral(
                 "color:#2C5F8A; font-weight:700; background:transparent; border:none; padding-top:4px;");
@@ -1544,8 +1545,9 @@ static QFrame *makeNeedleItemCard(QWidget *parent, QLabel *label, QWidget *edito
     card->setObjectName(QStringLiteral("heightTuneCard"));
     card->setStyleSheet(QStringLiteral(
                 "QFrame#heightTuneCard {"
-                " background: transparent;"
-                " border: none;"
+                " background: #FFFFFF;"
+                " border: 1px solid #D4EAF5;"
+                " border-radius: 8px;"
                 "}"));
     card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     card->setMinimumWidth(108);
