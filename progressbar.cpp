@@ -163,8 +163,9 @@ void ProgressBar::paintEvent(QPaintEvent* /*event*/)
         return;
     }
 
-    // 外圈直径 - 使用整个控件宽度
-    double outerDiameter = this->width();
+    // 外圈直径留出边，避免贴着控件底边被切成扁圆
+    const double margin = 4.0;
+    double outerDiameter = qMax(8.0, qMin(this->width(), this->height()) - margin * 2.0);
     double centerX = this->width() / 2.0;
     double centerY = this->height() / 2.0;
 

@@ -2627,16 +2627,11 @@ void MachineSetting::BloodPinParaWriteBoadr()
 
     };
 
-    double max_value = 400;
-    //应用四舍五入（避免浮点误差）
     const double dataheighOffset = ui->OffsetTestHeightValue->value() * 10.0;
     const quint8 safeValue = static_cast<quint8>(std::round(dataheighOffset));
 
-    const double pppratio = ui->doubleSpinBox_Ratio_ben->value()*100.0 ;
-    const quint8 pppValue = static_cast<quint8>((pppratio/max_value) * 255);
-
-    const double prpratio = ui->doubleSpinBox_PRPratio->value() * 100.00;
-    const quint8 prpValue = static_cast<quint8>((prpratio/max_value) * 255);
+    const quint8 pppValue = QUIUtils::scaleRatioToByte(ui->doubleSpinBox_Ratio_ben->value());
+    const quint8 prpValue = QUIUtils::scaleRatioToByte(ui->doubleSpinBox_PRPratio->value());
 
     quint8 prep = 0;
 

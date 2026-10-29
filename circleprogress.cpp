@@ -7,9 +7,9 @@
 CircleProgress::CircleProgress(QWidget *parent) : QWidget(parent)
 {
     m_value = 0;
-    m_width = 20;
-    m_color = QColor(0 ,191, 255);
-    m_fontSize = 16;
+    m_width = 8;
+    m_color = QColor(20, 135, 184);
+    m_fontSize = 15;
 }
 
 void CircleProgress::setValue(int value)
@@ -37,47 +37,45 @@ void CircleProgress::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
     QPainter painter(this);
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing, true);
 
-    // 设置反走样
-    painter.setRenderHint(QPainter::Antialiasing, true);
+    const int captionH = 16;
+    const int side = qMax(28, qMin(width() - 8, height() - captionH - 8));
+    const qreal left = (width() - side) / 2.0;
+    const qreal top = qMax(2.0, (height() - captionH - side) / 2.0);
+    const qreal ring = qBound(5.5, side * 0.11, 8.0);
+    const QRectF arcRect(left + ring / 2.0, top + ring / 2.0,
+                         side - ring, side - ring);
+    const QPointF center = arcRect.center();
 
-    // 获取中心点
-    float centerX = width() / 2;
-    float centerY = height() / 2;
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(255, 255, 255));
+    painter.drawEllipse(center, arcRect.width() / 2.0 - ring / 2.0,
+                        arcRect.height() / 2.0 - ring / 2.0);
 
-    // 外圆 灰色
-    float outerRectW = qMin(width(), height());
-    float outerRectX = centerX - outerRectW / 2;
-    float outerRectY = centerY - outerRectW / 2;
-    QRectF outerRect(outerRectX, outerRectY, outerRectW, outerRectW);
+    painter.setBrush(Qt::NoBrush);
+    painter.setPen(QPen(QColor(197, 214, 226), ring, Qt::SolidLine, Qt::FlatCap));
+    painter.drawEllipse(arcRect);
 
-    QPen pen(Qt::NoPen);
-    painter.setPen(pen);
-    painter.setBrush(QColor("#BEBEBE"));
-    painter.drawEllipse(outerRect);
+    const int shown = qBound(0, m_value, 100);
+    if (shown > 0) {
+        painter.setPen(QPen(m_color, ring, Qt::SolidLine, Qt::RoundCap));
+        painter.drawArc(arcRect, 90 * 16, -shown * 36 * 16 / 10);
+    }
 
-    // 环状进度条
-    int startAngle = 90 * 16;
-    int spanAngle = -m_value * 3.6 * 16;
-    painter.setBrush(m_color);
-    painter.drawPie(outerRect, startAngle, spanAngle);
-
-    // 内圆 窗口背景颜色为底色
-    float innerRectX = outerRectX + m_width;
-    float innerRectY = outerRectY + m_width;
-    float innerRectW = outerRectW - m_width * 2;
-    QRectF innerRect(innerRectX, innerRectY, innerRectW, innerRectW);
-    painter.setBrush(palette().window());
-    painter.drawEllipse(innerRect);
-
-    pen.setStyle(Qt::SolidLine);
-    pen.setWidth(2);
-    pen.setColor(QColor("#FFFFFF"));
-    painter.setPen(pen);
-    QFont font = painter.font();
-    font.setPixelSize(m_fontSize);
+    QFont font(QStringLiteral("Microsoft YaHei"));
+    font.setPixelSize(qBound(12, qMin(m_fontSize, side / 5), 16));
     painter.setFont(font);
-    painter.drawText(outerRect, Qt::AlignCenter, QString("%1%").arg(m_value));
+    painter.setPen(QColor(36, 59, 74));
+    painter.drawText(arcRect, Qt::AlignCenter, QStringLiteral("%1%").arg(shown));
+
+    QFont caption(QStringLiteral("Microsoft YaHei"));
+    caption.setPixelSize(11);
+    painter.setFont(caption);
+    painter.setPen(QColor(92, 115, 128));
+    const QRectF captionRect(0, top + side + 1, width(), captionH);
+    painter.drawText(captionRect, Qt::AlignHCenter | Qt::AlignTop,
+                     QString::fromUtf8("\xe6\x80\xbb\xe8\xbf\x9b\xe5\xba\xa6"));
 }
 
 

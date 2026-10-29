@@ -266,7 +266,7 @@ void TestProjectProcess::SampleReagTestFinish(QString finishid,const quint8 inde
         if (focus_index_set == 0) {
             QLOG_ERROR()<<"未找到完成试剂号"<<"行号"<<__LINE__<<endl;
         } else {
-            StructInstance::getInstance()->write_focusSampleActive(m_focus_sample_id, focus_index_set);
+            setSampleFocus(m_focus_sample_id, focus_index_set, tr("通道完成弃试剂杯"));
         }
         auto it = m_finishTestData.begin();
         while (it != m_finishTestData.end()) {
@@ -308,6 +308,7 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     mdataAArry.clear();
     m_lastOutboundCommands.clear();
     clearPendingConsumableDeducts();
+    emit instrumentMotionHint(0, 0);
 }
 
 void TestProjectProcess::prepareForNewTestRound()
@@ -365,6 +366,35 @@ void TestProjectProcess::setSampleFocus(int sampleId, quint8 newFocus, const QSt
                            .arg(reason));
     }
     instance->write_focusSampleActive(sampleId, newFocus);
+    quint8 hints = 0;
+    quint8 reagent = 0;
+    switch (newFocus) {
+    case FOCUS_CLEAN_BLOODPIN:
+    case FOCUS_CLEAN_DOUBLEPIN:
+    case FOCUS_CLEAN_EREAGENTPIN_AA:
+    case FOCUS_CLEAN_EREAGENTPIN_ADP:
+    case FOCUS_CLEAN_EREAGENTPIN_EPI:
+    case FOCUS_CLEAN_EREAGENTPIN_COL:
+    case FOCUS_CLEAN_EREAGENTPIN_RIS:
+        hints = 1 | 2;
+        break;
+    case FOCUS_TESTING_AA:  reagent = AA_REAGENT; break;
+    case FOCUS_TESTING_ADP: reagent = ADP_REAGENT; break;
+    case FOCUS_TESTING_EPI: reagent = EPI_REAGENT; break;
+    case FOCUS_TESTING_COL: reagent = COL_REAGENT; break;
+    case FOCUS_TESTING_RIS: reagent = RIS_REAGENT; break;
+    case FOCUS_THORW_ANEMIA:
+    case FOCUS_THROW_AA_TUBE:
+    case FOCUS_THROW_ADP_TUBE:
+    case FOCUS_THROW_EPI_TUBE:
+    case FOCUS_THROW_COL_TUBE:
+    case FOCUS_THROW_RIS_TUBE:
+        hints = 4;
+        break;
+    default:
+        break;
+    }
+    emit instrumentMotionHint(hints, reagent);
 }
 
 void TestProjectProcess::stallWithPause(const QString &event,
@@ -1862,7 +1892,7 @@ void TestProjectProcess::slotaddSampmeTestCleanPin(const int cleanPin ,const qui
     if(cleanPin == WASH_DOUBLE_NEDDLES)
     {
         focus_index_set = FOCUS_CLEAN_DOUBLEPIN;
-        StructInstance::getInstance()->write_focusSampleActive(m_focus_sample_id, focus_index_set);
+        setSampleFocus(m_focus_sample_id, focus_index_set, tr("清洗双针"));
         outtext = QString::fromUtf8("清洗双针");
         markPendingCleanDeduct(2); // BOTH_PINS
     }
@@ -1878,7 +1908,7 @@ void TestProjectProcess::slotaddSampmeTestCleanPin(const int cleanPin ,const qui
             default:break;
         }
         QLOG_DEBUG()<<"样本(清洗试剂针):"<<m_focus_sample_id<<GlobalData::mapIndexReagentnames(index_reagent);
-        StructInstance::getInstance()->write_focusSampleActive(m_focus_sample_id, focus_index_set);
+        setSampleFocus(m_focus_sample_id, focus_index_set, tr("清洗试剂针"));
         outtext = QString::fromUtf8("清洗试剂针");
         markPendingCleanDeduct(0); // REAGENT_PIN
     }
@@ -2027,7 +2057,7 @@ void TestProjectProcess::setupFocusSample(int sampleId, quint8 reagentType)
     //Q_ASSERT_X(focusType != FOCUS_UNKNOWN, Q_FUNC_INFO, "无效试剂类型");
 
     // 写入焦点状态
-    StructInstance::getInstance()->write_focusSampleActive(sampleId, focusType);
+    setSampleFocus(sampleId, focusType, tr("弃测试杯"));
 }
 
 // 发送控制命令
@@ -2065,8 +2095,7 @@ void TestProjectProcess::handleIdleChannelTasks()
 
     m_focus_sample_id = waitSampleId;
     StructInstance::getInstance()->config_focusSample(waitSampleId, true);
-    StructInstance::getInstance()->write_focusSampleActive(
-        waitSampleId, FOCUS_CLIP_ANEMIA_TO_CHN);
+    setSampleFocus(waitSampleId, FOCUS_CLIP_ANEMIA_TO_CHN, tr("空闲通道夹PPP"));
     StructInstance::getInstance()->setTestingChn(waitSampleId, freeChn);
 
     emit openChnMotor(freeChn, true);
@@ -3319,6 +3348,7 @@ void TestProjectProcess::dismissFocusSample(int sampleId)
 {
     if (m_focus_sample_id == sampleId) {
         m_pauseCommandQueue.clear();
+        emit instrumentMotionHint(0, 0);
     }
     StructInstance::getInstance()->config_dismissFocusSample(sampleId);
 }
@@ -3383,7 +3413,7 @@ bool TestProjectProcess::beginNextReagentForSample(int sampleId)
 
     instance->config_focusSample(sampleId, true);
     m_focus_sample_id = sampleId;
-    instance->write_focusSampleActive(sampleId, workflow.testingFocus);
+    setSampleFocus(sampleId, workflow.testingFocus, tr("吸试剂抓PRP"));
 
     const QString continueLog = QString::fromUtf8("样本%1继续吸试剂:%2")
             .arg(sampleId).arg(outLog);
@@ -3966,7 +3996,7 @@ void TestProjectProcess::exceptionRetest(QString tips){
             StructInstance::getInstance()->config_focusSample(sampleId,true);//++焦点
             m_focus_sample_id = sampleId;
             const quint8 focus_index_set = s_reagentWorkflow.value(finish_reag).throwFocus;
-            StructInstance::getInstance()->write_focusSampleActive(m_focus_sample_id, focus_index_set);
+            setSampleFocus(m_focus_sample_id, focus_index_set, tr("通道完成弃试剂杯"));
             emit setprogressinitboolwaittext(true,test_finish_chn,"");
 
             outputThrowTestChannelReagentFinish(m_focus_sample_id,finish_reag);

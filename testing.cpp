@@ -42,6 +42,9 @@ const QColor kHolePoor(0xF3, 0xD3, 0x6B);
 const QColor kHoleRich(0xF0, 0xA1, 0x4A);
 const QColor kHoleUsed(0x7E, 0x8B, 0x98);
 const QColor kHoleSelected(0xE3, 0x8B, 0x84);
+constexpr quint8 kHintWash = 1;
+constexpr quint8 kHintCleanLiquid = 2;
+constexpr quint8 kHintDiscard = 4;
 
 void drawStereoRing(QPainter &painter, const QPointF &center, qreal outerR, qreal innerR,
                     const QColor &fill, const QColor &rimTint = QColor())
@@ -71,6 +74,32 @@ void drawStereoRing(QPainter &painter, const QPointF &center, qreal outerR, qrea
     painter.setPen(Qt::NoPen);
     painter.setBrush(well);
     painter.drawEllipse(center, holeR, holeR);
+    painter.restore();
+}
+
+void drawMoveHint(QPainter &painter, const QPointF &center, qreal radius,
+                  const QString &tag, bool pulse)
+{
+    if (radius < 2.0) {
+        return;
+    }
+    painter.save();
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing, true);
+    const QColor ink(20, 110, 158);
+    painter.setPen(QPen(ink, pulse ? 2.4 : 1.6));
+    painter.setBrush(QColor(ink.red(), ink.green(), ink.blue(), pulse ? 36 : 18));
+    painter.drawEllipse(center, radius + 3.0, radius + 3.0);
+    if (!tag.isEmpty()) {
+        QFont font(QStringLiteral("Microsoft YaHei"));
+        font.setPixelSize(qBound(10, static_cast<int>(radius * 0.42), 13));
+        painter.setFont(font);
+        painter.setPen(ink);
+        const QFontMetrics fm(font);
+        const int textW = fm.width(tag);
+        painter.drawText(QPointF(center.x() - textW / 2.0,
+                                 center.y() - radius - 4.0),
+                         tag);
+    }
     painter.restore();
 }
 }
@@ -193,6 +222,12 @@ void Testing::updateBlinkWidgets()
     if (bloodHint && ui->widget_Sample_1) {
         ui->widget_Sample_1->update();
     }
+    if (m_motionHints != 0 || m_motionReagent != 0) {
+        if (ui->widget_Abandoned_new) ui->widget_Abandoned_new->update();
+        if (ui->widget_cleanagent) ui->widget_cleanagent->update();
+        if (ui->widget_Reagents) ui->widget_Reagents->update();
+        if (ui->DroptheCup) ui->DroptheCup->update();
+    }
 
     QList<quint8> flashing;
     {
@@ -250,7 +285,7 @@ void Testing::recalculateChannelLayout()
     const int appHeigh = ui->widget_main->size().height();
     const int boardSpaceX = 5;
     const int boardSpaceY = 5;
-    const int ChnBarHeight = 110;
+    const int ChnBarHeight = 132;
     const int Left_width = appWidth - boardSpaceX * 2 - 2 * 2;
 
     // 清除 widget_channelarea 的布局
@@ -350,7 +385,10 @@ void Testing::setupModuleLayout()
     int maxModuleWidth = (availableForModulesWidth - (modulesCount - 1) * moduleSpacing) / modulesCount;
     int maxBarWidthByWidth = (maxModuleWidth - totalSpacingForBars) / progressBarsPerModule;
     int progressBarSize = qMin(availableHeightForBar, maxBarWidthByWidth);
-    progressBarSize = qMax(progressBarSize, 65);
+    if (availableHeightForBar >= 65) {
+        progressBarSize = qMax(progressBarSize, 65);
+    }
+    progressBarSize = qMin(progressBarSize, qMax(1, availableHeightForBar));
 
     int moduleWidth = progressBarsPerModule * progressBarSize + (progressBarsPerModule - 1) * progressBarSpacing;
     int moduleHeight = moduleTopMargin + progressBarSize + labelTopMargin + labelHeight + moduleBottomMargin;
@@ -604,6 +642,7 @@ bool Testing::handlePaintEvents(QObject *watched, QEvent *event)
         UpdateBloodHoleColors(painter, TUBE_INIT, m_BloodHoleInitUiAxis);
         UpdateBloodHoleColors(painter, TUBE_CHECKED, m_Blood_Tray_Checked);
         UpdateBloodHoleColors(painter, TUBE_OUTRESULT, m_Blood_Tray_OutResult);
+        DrawBloodHoleInnerText(painter);
         DrawPutBloodReminders(painter);
         return true;
     }
@@ -726,13 +765,21 @@ void Testing::showCleaningbit()
     for (const auto& pos : m_CleanPos) {
         drawStereoRing(painter, pos, BIG_RADIUS_DEFAULT, SMALL_RADIUS_DEFAULT, kHoleEmpty);
     }
-    QFont font = this->font();
-    font.setPointSize(14);
+    QFont font(QStringLiteral("Microsoft YaHei"));
+    font.setPixelSize(14);
     painter.setFont(font);
     painter.setPen(cglobal::g_TextColorBlack);
     QRectF drawrect(m_CleanPos[1].x() - BIG_RADIUS_DEFAULT*2 - 5,
                     m_CleanPos[1].y() + kMargin, widgetRect.width(), kTextSpacing);
     painter.drawText(drawrect, Qt::AlignHCenter, "清洗位");
+    if (m_motionHints & kHintWash) {
+        for (auto it = m_CleanPos.constBegin(); it != m_CleanPos.constEnd(); ++it) {
+            const QString tag = (it.key() == 0)
+                    ? QString::fromUtf8("\xe6\xb8\x85\xe6\xb4\x97")
+                    : QString();
+            drawMoveHint(painter, it.value(), BIG_RADIUS_DEFAULT, tag, m_blinkState);
+        }
+    }
 }
 
 void Testing::initTheTaskInterface()
@@ -1034,10 +1081,8 @@ void Testing::VectorReplaceClear(quint8 Index)
 // ==================== 血样孔绘制相关 ====================
 QFont ConfigureTextstyle(int size)
 {
-    QFont Textfont;
-    Textfont.setFamily("楷体");
+    QFont Textfont(QStringLiteral("Microsoft YaHei"));
     Textfont.setPixelSize(size);
-    Textfont.setLetterSpacing(QFont::AbsoluteSpacing, 1);
     return Textfont;
 }
 
@@ -1086,10 +1131,26 @@ Testing::BloodAreaLayout Testing::computeBloodAreaLayout() const
         int x = spaceLeft + n * layout.oneWidth + n * columnSpacing;
         layout.columnStartX.append(x);
     }
-    int perHoleWidth = layout.oneWidth / 2;
-    int diameter = static_cast<int>(std::min(perHoleWidth, layout.perHoleHeight) * 0.95);
-    if (diameter < 16) diameter = 16;
-    layout.bigRadius = (diameter - 2) / 2;
+    // 行号留在每组左边，两个孔靠在一起，直径用行高和列宽里能放下的最大值
+    const int pairGap = 3;
+    const int rightPad = 4;
+    int labelLane = 16;
+    int pairBudget = layout.oneWidth - labelLane - pairGap - rightPad;
+    if (pairBudget < 20) {
+        labelLane = 12;
+        pairBudget = qMax(16, layout.oneWidth - labelLane - pairGap - rightPad);
+    }
+    int diameter = pairBudget / 2;
+    const int maxByHeight = qMax(12, layout.perHoleHeight - 2);
+    if (diameter > maxByHeight) {
+        diameter = maxByHeight;
+    }
+    if (diameter < 12) {
+        diameter = 12;
+    }
+    layout.labelLane = labelLane;
+    layout.pairGap = pairGap;
+    layout.bigRadius = qMax(4, diameter / 2);
     layout.smallRadius = qAbs(layout.bigRadius - 2);
     return layout;
 }
@@ -1110,7 +1171,7 @@ void Testing::CreatBloodZoneAxisPos()
     // 贫血孔（左列）
     for (int col = 0; col < layout.totalCols; ++col) {
         int colStartX = layout.columnStartX[col];
-        int leftCenterX = colStartX + layout.oneWidth * 0.28;
+        int leftCenterX = colStartX + layout.labelLane + layout.bigRadius;
         for (int row = 0; row < totalRows; ++row) {
             int y = topMargin + m_BloodBigRadius + row * (2 * m_BloodBigRadius + rowSpacing);
             int holeNumber = 2 * row + 10 * col;
@@ -1121,7 +1182,8 @@ void Testing::CreatBloodZoneAxisPos()
     // 富血孔（右列）
     for (int col = 0; col < layout.totalCols; ++col) {
         int colStartX = layout.columnStartX[col];
-        int rightCenterX = colStartX + layout.oneWidth * 0.72;
+        const int leftCenterX = colStartX + layout.labelLane + layout.bigRadius;
+        const int rightCenterX = leftCenterX + layout.bigRadius * 2 + layout.pairGap;
         for (int row = 0; row < totalRows; ++row) {
             int y = topMargin + m_BloodBigRadius + row * (2 * m_BloodBigRadius + rowSpacing);
             int holeNumber = 2 * row + 1 + 10 * col;
@@ -1142,7 +1204,9 @@ void Testing::DrawBloodTopText(QPainter& painter)
     painter.setPen(cglobal::g_TextColorBlack);
     QFontMetrics fm(font);
     for (int n = 0; n < layout.totalCols && n < topTexts.size(); ++n) {
-        int textCenterX = layout.columnStartX[n] + layout.oneWidth / 2;
+        const int leftCenter = layout.columnStartX[n] + layout.labelLane + layout.bigRadius;
+        const int rightCenter = leftCenter + layout.bigRadius * 2 + layout.pairGap;
+        int textCenterX = (leftCenter + rightCenter) / 2;
         QString text = topTexts[n];
         QRect textRect = fm.boundingRect(text);
         QPoint textPos(textCenterX - textRect.width() / 2, textHeight - 2);
@@ -1193,7 +1257,6 @@ void Testing::UpdateBloodHoleColors(QPainter& painter, int State, QMap<quint8, Q
         QString showText = m_BloodHoleNum.value(holeId);
         drawBloodHole(painter, holeId, it.value(), State, showText);
     }
-    DrawBloodHoleInnerText(painter, MapBloodHole);
 }
 
 void Testing::DrawPutBloodReminders(QPainter& painter)
@@ -1309,27 +1372,41 @@ void Testing::DrawPutBloodReminders(QPainter& painter)
     }
 }
 
-void Testing::DrawBloodHoleInnerText(QPainter& painter, const QMap<quint8, QPoint>& BloodHoleMap)
+void Testing::DrawBloodHoleInnerText(QPainter& painter)
 {
-    if (BloodHoleMap.isEmpty()) return;
-    QFont font = ConfigureTextstyle(14);
+    const BloodAreaLayout layout = computeBloodAreaLayout();
+    if (layout.columnStartX.isEmpty() || layout.labelLane < 4) {
+        return;
+    }
+    QFont font = ConfigureTextstyle(12);
     painter.setFont(font);
+    painter.setPen(QColor(36, 59, 74));
     QFontMetrics fm(font);
 
     static const QMap<quint8, QString> numberMap = {
         {0, "1"}, {2, "2"}, {4, "3"}, {1, "4"}, {3, "5"}
     };
-    constexpr int margin = 2;
-    for (auto it = BloodHoleMap.constBegin(); it != BloodHoleMap.constEnd(); ++it) {
-        if (it.key() % 2 == 0) {
+    const QMap<quint8, QPoint> *maps[] = {
+        &m_BloodHoleInitUiAxis, &m_Blood_Tray_Checked, &m_Blood_Tray_OutResult
+    };
+    for (const QMap<quint8, QPoint> *holes : maps) {
+        for (auto it = holes->constBegin(); it != holes->constEnd(); ++it) {
+            if (it.key() % 2 != 0) {
+                continue;
+            }
             auto numIt = numberMap.find(it.key() % 5);
-            if (numIt == numberMap.end()) continue;
-            QString text = numIt.value();
-            QRect textRect = fm.boundingRect(text);
-            int leftEdgeOfHole = it.value().x() - m_BloodBigRadius;
-            int textX = leftEdgeOfHole - margin - textRect.width();
-            QPoint textPos(textX, it.value().y() + textRect.height() / 2 - 2);
-            painter.drawText(textPos, text);
+            if (numIt == numberMap.end()) {
+                continue;
+            }
+            const int col = it.key() / 10;
+            if (col < 0 || col >= layout.columnStartX.size()) {
+                continue;
+            }
+            const QString text = numIt.value();
+            const QRect textRect = fm.boundingRect(text);
+            const int leftEdge = it.value().x() - m_BloodBigRadius;
+            const int textX = qMax(0, leftEdge - 6 - textRect.width());
+            painter.drawText(QPoint(textX, it.value().y() + textRect.height() / 2 - 2), text);
         }
     }
 }
@@ -1499,6 +1576,22 @@ void Testing::updateBloodHoleHintStage(quint8 anemiaHole, quint8 richHole, quint
     if (ui->widget_Sample_1) {
         ui->widget_Sample_1->update();
     }
+}
+
+void Testing::setInstrumentMotionHint(quint8 hints, quint8 reagentIndex)
+{
+    if (m_motionHints == hints && m_motionReagent == reagentIndex) {
+        return;
+    }
+    m_motionHints = hints;
+    m_motionReagent = reagentIndex;
+    if (mtimer && (hints != 0 || reagentIndex != 0) && !mtimer->isActive()) {
+        mtimer->start(500);
+    }
+    if (ui->widget_Abandoned_new) ui->widget_Abandoned_new->update();
+    if (ui->widget_cleanagent) ui->widget_cleanagent->update();
+    if (ui->widget_Reagents) ui->widget_Reagents->update();
+    if (ui->DroptheCup) ui->DroptheCup->update();
 }
 
 void Testing::SampleTestingChangInitColor(QPoint BloodPoint, quint8 FinishChannel)
@@ -1746,10 +1839,27 @@ void Testing::showPaintReagents()
                        kHoleEmpty, rim);
         painter.setPen(rim);
         QString name = NameText.at(index/2);
-        if (name.length() >= 3)
-            painter.drawText(QPoint(it.value().x() - 11, it.value().y() + 5), name);
-        else
-            painter.drawText(QPoint(it.value().x() - 8, it.value().y() + 5), name);
+        const qreal holeR = qMax(6.0, BIG_RADIUS_DEFAULT
+                                 - qBound(4.5, BIG_RADIUS_DEFAULT * 0.32, 8.0));
+        const int textLimit = qMax(8, static_cast<int>(holeR * 2.0) - 4);
+        QFont nameFont = font;
+        nameFont.setPixelSize(10);
+        QFontMetrics nameFm(nameFont);
+        while (nameFont.pixelSize() > 8 && nameFm.width(name) > textLimit) {
+            nameFont.setPixelSize(nameFont.pixelSize() - 1);
+            nameFm = QFontMetrics(nameFont);
+        }
+        painter.setFont(nameFont);
+        painter.drawText(QPoint(it.value().x() - nameFm.width(name) / 2,
+                                it.value().y() + nameFm.ascent() / 2 - 1),
+                         name);
+        painter.setFont(font);
+        if (m_motionReagent != 0 && indexreag == m_motionReagent) {
+            const QString tag = (it.key() % 2 == 0)
+                    ? QString::fromUtf8("\xe5\x90\xb8") + name
+                    : QString();
+            drawMoveHint(painter, it.value(), BIG_RADIUS_DEFAULT, tag, m_blinkState);
+        }
         ++index;
     }
 }
@@ -1757,15 +1867,26 @@ void Testing::showPaintReagents()
 void Testing::showCleanreagent()
 {
     QPainter painter(ui->widget_cleanagent);
-    QFont font = ConfigureTextstyle(12);
+    QFont font(QStringLiteral("Microsoft YaHei"));
+    font.setPixelSize(13);
     painter.setFont(font);
-    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
     m_CleanningReagent.setX(ui->widget_cleanagent->width() >> 1);
     m_CleanningReagent.setY(ui->widget_cleanagent->height() >> 1);
     drawStereoRing(painter, m_CleanningReagent, TOP_DRAW_BIG_RADIUS, TOP_DRAW_SMALL_RADIUS,
                    kHoleEmpty);
     painter.setPen(cglobal::g_TextColorBlack);
-    painter.drawText(QPoint(m_CleanningReagent.x() - 22, m_CleanningReagent.y() + 5), tr("清洗剂S1"));
+    painter.setFont(font);
+    const QString text = tr("清洗剂S1");
+    const QFontMetrics fm(font);
+    const QRect textRect = fm.boundingRect(text);
+    painter.drawText(m_CleanningReagent.x() - textRect.width() / 2,
+                     m_CleanningReagent.y() + textRect.height() / 3,
+                     text);
+    if (m_motionHints & kHintCleanLiquid) {
+        drawMoveHint(painter, m_CleanningReagent, TOP_DRAW_BIG_RADIUS,
+                     QString::fromUtf8("\xe5\x90\xb8\xe6\xb4\x97\xe6\xb6\xb2"), m_blinkState);
+    }
 }
 
 void Testing::showDiscardTheCup()
@@ -1786,6 +1907,10 @@ void Testing::showDiscardTheCup()
     QRect textRect = painter.fontMetrics().boundingRect(text);
     QPoint textPos(centerX - textRect.width() / 2, centerY + textRect.height() / 3);
     painter.drawText(textPos, text);
+    if (m_motionHints & kHintDiscard) {
+        drawMoveHint(painter, m_DiscardCupHole, TOP_DRAW_BIG_RADIUS,
+                     QString::fromUtf8("\xe5\xbc\x83\xe6\x9d\xaf"), m_blinkState);
+    }
 }
 
 void Testing::repPrpheight(const QString& idnum, bool falgrep)

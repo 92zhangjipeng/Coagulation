@@ -1165,6 +1165,10 @@ void MainWindow::initTestTaskThread()
             mptesting.data(),&Testing::updateBloodHoleHintStage,
             Qt::QueuedConnection);
 
+    connect(m_pdoingTesting.data(), &TestProjectProcess::instrumentMotionHint,
+            mptesting.data(), &Testing::setInstrumentMotionHint,
+            Qt::QueuedConnection);
+
     /*弃杯成功*/
     connect(m_pdoingTesting.data(),&TestProjectProcess::throwtesttube,
             mptesting.data(),&Testing::slotThrowtesttube,

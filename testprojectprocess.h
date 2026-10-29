@@ -71,6 +71,7 @@ signals:
 
     void sycn_SampleTestingChangInitColor(QPoint,quint8);
     void bloodSampleHintStage(quint8 anemiaHole, quint8 richHole, quint8 stage);
+    void instrumentMotionHint(quint8 hints, quint8 reagentIndex);
 
     void throwtesttube(); //弃杯成功
 

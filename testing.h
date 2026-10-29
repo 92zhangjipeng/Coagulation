@@ -142,6 +142,7 @@ public slots:
     void updateChannelProgressAndStatus(bool isWaitstate, quint8 index_Chn, const QString& status);
     void SampleTestingChangInitColor(QPoint maphole, quint8 indexChn);
     void updateBloodHoleHintStage(quint8 anemiaHole, quint8 richHole, quint8 stage);
+    void setInstrumentMotionHint(quint8 hints, quint8 reagentIndex);
     void onsycnDelTestSample(const QString delSampleId);
 
 private:
@@ -152,6 +153,8 @@ private:
         int perHoleHeight;
         int bigRadius;
         int smallRadius;
+        int labelLane;
+        int pairGap;
     };
 
     void recalculateChannelLayout();
@@ -180,7 +183,7 @@ private:
     void UpdateBloodHoleColors(QPainter& painter, int State, QMap<quint8, QPoint>& MapBloodHole);
     void CreatBloodZoneAxisPos();
     void DrawBloodTopText(QPainter& painter);
-    void DrawBloodHoleInnerText(QPainter& painter, const QMap<quint8, QPoint>& BloodHoleMap);
+    void DrawBloodHoleInnerText(QPainter& painter);
     void DrawPutBloodReminders(QPainter& painter);
     void plotReagentWellsCoordinates(quint8 totalReagents);
     void showPaintReagents();
@@ -233,6 +236,8 @@ private:
 
     QTimer* mtimer = nullptr;
     bool m_blinkState;
+    quint8 m_motionHints = 0;
+    quint8 m_motionReagent = 0;
 
     quint8  minstrumentType;
     bool mInituiBloodArea;
