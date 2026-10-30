@@ -3413,14 +3413,17 @@ bool MainWindow::reagentReplacementComplete(const int& indexReagent){
 
 
 void MainWindow::testingSuppileLoss(const quint8 index){
+   const bool alreadyWarned = (m_warmIndexReagent == static_cast<int>(index))
+           && cglobal::g_PauseTesting.load();
    QString warmmReagent =  GlobalData::mapReagentNames(index);
    m_warmIndexReagent = index;
-   QString outtext = "耗材:"+ warmmReagent +"余量报警!请更换"+ warmmReagent + "继续测试";
-   warn_interface::showTransientWarning(tr("暂停测试"),outtext);
+   if (!alreadyWarned) {
+       QString outtext = "耗材:"+ warmmReagent +"余量报警!请更换"+ warmmReagent + "继续测试";
+       warn_interface::showTransientWarning(tr("暂停测试"),outtext);
+   }
 
    // 集中UI状态修改
    updateContinueButtonState();
-   return;
 }
 
 

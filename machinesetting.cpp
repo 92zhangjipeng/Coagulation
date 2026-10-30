@@ -14,6 +14,8 @@
 #include <QLabel>
 #include <QSizePolicy>
 #include <QScrollArea>
+#include <QAbstractSpinBox>
+#include <QComboBox>
 #include <QFrame>
 #include <QFileDialog>
 #include <QEasingCurve>
@@ -825,6 +827,19 @@ void MachineSetting::showEvent(QShowEvent* event)
     if (ui->lineEdit_maintenance->isVisible()) {
         ui->lineEdit_maintenance->setFocus(Qt::OtherFocusReason);
     }
+    blockWheelOnValueEditors();
+}
+
+void MachineSetting::blockWheelOnValueEditors()
+{
+    const auto spins = findChildren<QAbstractSpinBox *>();
+    for (QAbstractSpinBox *box : spins) {
+        box->installEventFilter(this);
+    }
+    const auto combos = findChildren<QComboBox *>();
+    for (QComboBox *box : combos) {
+        box->installEventFilter(this);
+    }
 }
 
 void MachineSetting::hideEvent(QHideEvent *event)
@@ -905,10 +920,16 @@ void MachineSetting::SlotSetChannelValueUpdate(const int IndexChannel, const int
     return;
 }
 
+bool MachineSetting::engineerMode() const
+{
+    return m_engineerMode;
+}
+
 void MachineSetting::closeEvent(QCloseEvent *event)
 {
     event->accept();
     Engineerinterfacelayout(false);
+    m_engineerMode = false;
     emit LoginEngineerMode(false);
 
     ui->lineEdit_maintenance->show();
@@ -2957,6 +2978,7 @@ void MachineSetting::onMaintenanceButtonClicked(){
         ui->pushButton_maintenance->setText("退出维护");
         disconnectEnterReturnShortcuts();
         Engineerinterfacelayout(true);  // 统一由该函数管理界面状态
+        m_engineerMode = true;
         emit LoginEngineerMode(true);
 
         ui->tabWidgetSetconfigure->setCurrentIndex(TabMaintenance);
@@ -2973,6 +2995,7 @@ void MachineSetting::onMaintenanceButtonClicked(){
 
     } else {
         Engineerinterfacelayout(false);
+        m_engineerMode = false;
         emit LoginEngineerMode(false);
 		ui->lineEdit_maintenance->setFocus();
         ui->label_maintenance->show();
@@ -3423,8 +3446,11 @@ void MachineSetting::innitHands(quint8 equipmentIndex_)
 
 bool MachineSetting::eventFilter(QObject *obj, QEvent *ev)
 {
-    Q_UNUSED(obj);
-    Q_UNUSED(ev);
+    if (ev->type() == QEvent::Wheel
+            && (qobject_cast<QAbstractSpinBox *>(obj) || qobject_cast<QComboBox *>(obj))) {
+        ev->ignore();
+        return true;
+    }
     return QWidget::eventFilter(obj, ev);
 }
 

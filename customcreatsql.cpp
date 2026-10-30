@@ -7,6 +7,7 @@
 #include <QTableWidget>
 #include <QMessageBox>
 #include <QDateTime>
+#include <QDate>
 #include <QThread>
 #include <QImageReader>
 #include <QBuffer>
@@ -486,13 +487,13 @@ bool CustomCreatSql::tryUpdateReagent(const QString& date_, quint8 index_reag)
 void CustomCreatSql::testendAddStasReagent(const QString date_,const quint8 index_reag)
 {
     QString sampleDate;
-    int sampleId;
+    int sampleId = 0;
     GlobalData::apartSampleId(date_,sampleDate,sampleId);
+    // 样本号是日期+4位序号。当天统计按 yyyyMMdd 累加，避免整段样本号写进去后当天查不到。
+    const QString dayKey = (sampleDate.size() == 8) ? sampleDate : date_;
 
-
-    //先尝试更新记录（原子操作）
-    if (tryUpdateReagent(date_, index_reag)) {
-        return; // 更新成功直接返回
+    if (tryUpdateReagent(dayKey, index_reag)) {
+        return;
     }
 
     //更新失败（记录不存在），准备插入新记录
@@ -511,7 +512,7 @@ void CustomCreatSql::testendAddStasReagent(const QString date_,const quint8 inde
     QString sql = QString("INSERT INTO '%1'(测试日期,AA,ADP,EPI,COL,RIS) "
                              "VALUES('%2','%3','%4','%5','%6','%7')")
                   .arg(m_statisticstablename)
-                  .arg(date_)
+                  .arg(dayKey)
                   .arg(reagent_add[0])
                   .arg(reagent_add[1])
                   .arg(reagent_add[2])
@@ -532,7 +533,7 @@ void CustomCreatSql::testendAddStasReagent(const QString date_,const quint8 inde
 		int errCode = error.nativeErrorCode().toInt();  // 替代已弃用的number()
 		if (errCode == 19) {
 			QLOG_WARN() << "唯一约束冲突，尝试更新操作。错误详情：" << error.text() << "[[3]]";
-			if (!tryUpdateReagent(date_, index_reag)) {
+			if (!tryUpdateReagent(dayKey, index_reag)) {
 				QLOG_WARN() << "更新失败：" << error.text() << "[[19]]";
 			}
 		}
@@ -550,20 +551,16 @@ void CustomCreatSql::inquire_single_stas_total(const QString date_,QMap<quint8,i
 {
    used_map.clear();
 
-   // 构建动态列名字符串
-   QStringList columns;
-   for (const auto& reagent : REAGENT_MAP) {
-       columns.append(reagent.first);
-   }
-   QString columnStr = columns.join(",");
-
-    // 执行参数化查询
     QSqlQuery query(m_statistics_table);
-    QString sql = QString("SELECT %1 FROM '%2' WHERE 测试日期 = :date")
-                        .arg(columnStr).arg(m_statisticstablename);
+    // 新数据按当天日期一行累加；旧数据把整段样本号写在测试日期里，按日期前缀一并合计。
+    QString sql = QString("SELECT SUM(AA) AS AA, SUM(ADP) AS ADP, SUM(EPI) AS EPI, "
+                          "SUM(COL) AS COL, SUM(RIS) AS RIS FROM '%1' "
+                          "WHERE 测试日期 = :date OR 测试日期 LIKE :prefix")
+                        .arg(m_statisticstablename);
 
     query.prepare(sql);
     query.bindValue(":date", date_);
+    query.bindValue(":prefix", date_ + QLatin1String("%"));
 
     // 添加错误处理
     if (!query.exec()) {
@@ -2640,6 +2637,7 @@ bool CustomCreatSql::getOneDayTestResultData(const QString targetdate,
                    AA, ADP, EPI, COL, RIS, 样本号
             FROM ResultData
             WHERE SUBSTR(样本号, 1, 8) = :datePrefix
+            ORDER BY CAST(SUBSTR(样本号, -4) AS INTEGER)
         )";
 
     QSqlQuery sql_query(m_database);
@@ -2715,7 +2713,10 @@ bool CustomCreatSql::getAllTestResultData(QVector<PatientInformationStu *> &pain
         return false;
     }
 
-    const QString queryStr = "SELECT * FROM ResultData";
+    const QString queryStr =
+            "SELECT * FROM ResultData "
+            "ORDER BY SUBSTR(样本号, 1, LENGTH(样本号) - 4), "
+            "CAST(SUBSTR(样本号, -4) AS INTEGER)";
     QSqlQuery sql_query(m_database);
 
     if (!sql_query.exec(queryStr)) {
@@ -2799,7 +2800,10 @@ bool CustomCreatSql::getDesignateResultData(QList<QString> daysList,QVector<Pati
 
     if(!connectMyDB(m_database,SQL_PATH)) return false;
 
-    QString queryStr = "SELECT * FROM ResultData WHERE 样本日期 BETWEEN ? AND ?";
+    QString queryStr =
+            "SELECT * FROM ResultData WHERE 样本日期 BETWEEN ? AND ? "
+            "ORDER BY SUBSTR(样本号, 1, LENGTH(样本号) - 4), "
+            "CAST(SUBSTR(样本号, -4) AS INTEGER)";
 	QSqlQuery sql_query(m_database);
 	sql_query.prepare(queryStr);
     sql_query.addBindValue(formattedDateMin);
@@ -3232,6 +3236,20 @@ void CustomCreatSql::ensureQcChannelDailyTable()
             "PRIMARY KEY (level, lot))"))) {
         QLOG_WARN() << "QcLotHistory create failed:" << q.lastError().text();
     }
+    if (!q.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS QcRun ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "channel INTEGER NOT NULL,"
+            "qc_date TEXT NOT NULL,"
+            "qc_time TEXT NOT NULL,"
+            "level INTEGER NOT NULL,"
+            "value REAL NOT NULL,"
+            "lot TEXT NOT NULL DEFAULT '',"
+            "adopted INTEGER NOT NULL DEFAULT 0)"))) {
+        QLOG_WARN() << "QcRun create failed:" << q.lastError().text();
+    }
+    q.exec(QStringLiteral(
+        "CREATE INDEX IF NOT EXISTS idx_qcrun_channel_date ON QcRun(channel, qc_date)"));
 }
 
 QList<QcChannelDayValue> CustomCreatSql::queryQcChannelDaily(int channel)
@@ -3352,6 +3370,315 @@ bool CustomCreatSql::saveQcChannelDaily(int channel, const QString &qcDate,
         return false;
     }
     return true;
+}
+
+bool CustomCreatSql::insertQcRun(int channel, const QString &qcDate, const QString &qcTime,
+                                 int level, double value, const QString &lot)
+{
+    if (channel < 1 || qcDate.isEmpty() || level < 0 || level > 2)
+        return false;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return false;
+
+    bool levelTaken = false;
+    QSqlQuery sel(db);
+    sel.prepare(QStringLiteral(
+        "SELECT high_value, mid_value, low_value FROM QcChannelDaily "
+        "WHERE channel = ? AND qc_date = ?"));
+    sel.bindValue(0, channel);
+    sel.bindValue(1, qcDate);
+    if (sel.exec() && sel.next()) {
+        const double existing = sel.value(level).toDouble();
+        levelTaken = existing > 0.0;
+    }
+
+    QSqlQuery ins(db);
+    ins.prepare(QStringLiteral(
+        "INSERT INTO QcRun (channel, qc_date, qc_time, level, value, lot, adopted) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)"));
+    ins.bindValue(0, channel);
+    ins.bindValue(1, qcDate);
+    ins.bindValue(2, qcTime);
+    ins.bindValue(3, level);
+    ins.bindValue(4, value);
+    ins.bindValue(5, lot.trimmed());
+    ins.bindValue(6, levelTaken ? 0 : 1);
+    if (!ins.exec()) {
+        QLOG_WARN() << "QcRun insert failed:" << ins.lastError().text();
+        return false;
+    }
+    if (levelTaken)
+        return true;
+
+    const bool writeHigh = level == 0;
+    const bool writeMid = level == 1;
+    const bool writeLow = level == 2;
+    return saveQcChannelDaily(channel, qcDate,
+                              writeHigh, value, writeMid, value, writeLow, value,
+                              writeHigh ? lot : QString(),
+                              writeMid ? lot : QString(),
+                              writeLow ? lot : QString());
+}
+
+bool CustomCreatSql::adoptQcRun(qint64 runId)
+{
+    if (runId <= 0)
+        return false;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return false;
+
+    QSqlQuery sel(db);
+    sel.prepare(QStringLiteral(
+        "SELECT channel, qc_date, level, value, lot FROM QcRun WHERE id = ?"));
+    sel.bindValue(0, runId);
+    if (!sel.exec() || !sel.next())
+        return false;
+    const int channel = sel.value(0).toInt();
+    const QString qcDate = sel.value(1).toString();
+    const int level = sel.value(2).toInt();
+    const double value = sel.value(3).toDouble();
+    const QString lot = sel.value(4).toString();
+    if (level < 0 || level > 2)
+        return false;
+
+    QSqlQuery clearAdopted(db);
+    clearAdopted.prepare(QStringLiteral(
+        "UPDATE QcRun SET adopted = 0 WHERE channel = ? AND qc_date = ? AND level = ?"));
+    clearAdopted.bindValue(0, channel);
+    clearAdopted.bindValue(1, qcDate);
+    clearAdopted.bindValue(2, level);
+    if (!clearAdopted.exec()) {
+        QLOG_WARN() << "QcRun clear adopted failed:" << clearAdopted.lastError().text();
+        return false;
+    }
+    QSqlQuery mark(db);
+    mark.prepare(QStringLiteral("UPDATE QcRun SET adopted = 1 WHERE id = ?"));
+    mark.bindValue(0, runId);
+    if (!mark.exec()) {
+        QLOG_WARN() << "QcRun adopt failed:" << mark.lastError().text();
+        return false;
+    }
+
+    const bool writeHigh = level == 0;
+    const bool writeMid = level == 1;
+    const bool writeLow = level == 2;
+    return saveQcChannelDaily(channel, qcDate,
+                              writeHigh, value, writeMid, value, writeLow, value,
+                              writeHigh ? lot : QString(),
+                              writeMid ? lot : QString(),
+                              writeLow ? lot : QString());
+}
+
+bool CustomCreatSql::deleteQcRun(qint64 runId)
+{
+    if (runId <= 0)
+        return false;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return false;
+
+    QSqlQuery sel(db);
+    sel.prepare(QStringLiteral(
+        "SELECT channel, qc_date, level, adopted FROM QcRun WHERE id = ?"));
+    sel.bindValue(0, runId);
+    if (!sel.exec() || !sel.next())
+        return false;
+    const int channel = sel.value(0).toInt();
+    const QString qcDate = sel.value(1).toString();
+    const int level = sel.value(2).toInt();
+    const bool adopted = sel.value(3).toInt() != 0;
+
+    QSqlQuery del(db);
+    del.prepare(QStringLiteral("DELETE FROM QcRun WHERE id = ?"));
+    del.bindValue(0, runId);
+    if (!del.exec()) {
+        QLOG_WARN() << "QcRun delete failed:" << del.lastError().text();
+        return false;
+    }
+    if (!adopted)
+        return true;
+
+    QSqlQuery rest(db);
+    rest.prepare(QStringLiteral(
+        "SELECT id FROM QcRun WHERE channel = ? AND qc_date = ? AND level = ? "
+        "ORDER BY id DESC LIMIT 1"));
+    rest.bindValue(0, channel);
+    rest.bindValue(1, qcDate);
+    rest.bindValue(2, level);
+    if (rest.exec() && rest.next())
+        return adoptQcRun(rest.value(0).toLongLong());
+    return clearQcDailyLevel(channel, qcDate, level);
+}
+
+bool CustomCreatSql::clearQcDailyLevel(int channel, const QString &qcDate, int level)
+{
+    if (level < 0 || level > 2)
+        return false;
+    const bool writeHigh = level == 0;
+    const bool writeMid = level == 1;
+    const bool writeLow = level == 2;
+    return saveQcChannelDaily(channel, qcDate,
+                              writeHigh, 0.0, writeMid, 0.0, writeLow, 0.0);
+}
+
+QList<QcRunRecord> CustomCreatSql::queryQcRuns(int channel, const QString &qcDate)
+{
+    QList<QcRunRecord> rows;
+    if (channel < 1 || qcDate.isEmpty())
+        return rows;
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return rows;
+
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral(
+        "SELECT id, channel, qc_date, qc_time, level, value, lot, adopted "
+        "FROM QcRun WHERE channel = ? AND qc_date = ? "
+        "ORDER BY level ASC, id ASC"));
+    q.bindValue(0, channel);
+    q.bindValue(1, qcDate);
+    if (!q.exec()) {
+        QLOG_WARN() << "QcRun query failed:" << q.lastError().text();
+        return rows;
+    }
+    while (q.next()) {
+        QcRunRecord row;
+        row.id = q.value(0).toLongLong();
+        row.channel = q.value(1).toInt();
+        row.qcDate = q.value(2).toString();
+        row.qcTime = q.value(3).toString();
+        row.level = q.value(4).toInt();
+        row.value = q.value(5).toDouble();
+        row.lot = q.value(6).toString();
+        row.adopted = q.value(7).toInt() != 0;
+        rows.append(row);
+    }
+    return rows;
+}
+
+void CustomCreatSql::seedQcUiPreview()
+{
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return;
+    QSqlQuery count(db);
+    if (!count.exec(QStringLiteral("SELECT COUNT(*) FROM QcRun WHERE lot = 'UI-PREVIEW'")))
+        return;
+    if (count.next() && count.value(0).toInt() > 0)
+        return;
+
+    const QDate today = QDate::currentDate();
+    const QString lot = QStringLiteral("UI-PREVIEW");
+    for (int channel = 1; channel <= 3; ++channel) {
+        for (int ago = 6; ago >= 1; --ago) {
+            const QString date = today.addDays(-ago).toString(QStringLiteral("yyyy-MM-dd"));
+            const double wobble = channel * 0.4 + ago * 0.35;
+            insertQcRun(channel, date, QStringLiteral("09:00:00"), 0, 75.0 + wobble, lot);
+            insertQcRun(channel, date, QStringLiteral("09:12:00"), 1, 50.0 - wobble * 0.25, lot);
+            insertQcRun(channel, date, QStringLiteral("09:24:00"), 2, 25.0 + wobble * 0.2, lot);
+        }
+    }
+
+    const QString date = today.toString(QStringLiteral("yyyy-MM-dd"));
+    const double high1[] = {78.4, 76.8, 75.1, 79.6, 74.2};
+    const char *highTime1[] = {"08:41:00", "09:16:00", "10:02:00", "11:20:00", "14:05:00"};
+    for (int i = 0; i < 5; ++i)
+        insertQcRun(1, date, QLatin1String(highTime1[i]), 0, high1[i], lot);
+    const double mid1[] = {51.2, 49.4};
+    const char *midTime1[] = {"08:48:00", "10:11:00"};
+    for (int i = 0; i < 2; ++i)
+        insertQcRun(1, date, QLatin1String(midTime1[i]), 1, mid1[i], lot);
+    const double low1[] = {26.8, 24.1, 25.6, 23.9, 27.4, 22.7};
+    const char *lowTime1[] = {"08:55:00", "09:22:00", "10:18:00", "11:28:00", "13:40:00", "15:02:00"};
+    for (int i = 0; i < 6; ++i)
+        insertQcRun(1, date, QLatin1String(lowTime1[i]), 2, low1[i], lot);
+
+    const double high2[] = {77.0, 73.8, 76.2};
+    const char *highTime2[] = {"09:05:00", "11:40:00", "15:16:00"};
+    for (int i = 0; i < 3; ++i)
+        insertQcRun(2, date, QLatin1String(highTime2[i]), 0, high2[i], lot);
+    insertQcRun(2, date, QStringLiteral("09:12:00"), 1, 50.6, lot);
+    insertQcRun(2, date, QStringLiteral("11:48:00"), 1, 48.9, lot);
+    const double low2[] = {25.2, 24.4, 26.1, 23.5};
+    const char *lowTime2[] = {"09:20:00", "11:55:00", "15:24:00", "16:10:00"};
+    for (int i = 0; i < 4; ++i)
+        insertQcRun(2, date, QLatin1String(lowTime2[i]), 2, low2[i], lot);
+
+    insertQcRun(3, date, QStringLiteral("10:30:00"), 0, 74.6, lot);
+    insertQcRun(3, date, QStringLiteral("14:22:00"), 0, 76.9, lot);
+    insertQcRun(3, date, QStringLiteral("10:38:00"), 1, 50.1, lot);
+    insertQcRun(3, date, QStringLiteral("10:46:00"), 2, 24.8, lot);
+    insertQcRun(3, date, QStringLiteral("14:30:00"), 2, 25.9, lot);
+    insertQcRun(3, date, QStringLiteral("16:02:00"), 2, 23.2, lot);
+}
+
+void CustomCreatSql::clearQcUiPreview()
+{
+    ensureQcChannelDailyTable();
+    QSqlDatabase db = openQcChannelDailyDb();
+    if (!db.isOpen())
+        return;
+
+    QList<int> channels;
+    QStringList dates;
+    QSqlQuery listed(db);
+    if (listed.exec(QStringLiteral(
+            "SELECT DISTINCT channel, qc_date FROM QcRun WHERE lot = 'UI-PREVIEW'"))) {
+        while (listed.next()) {
+            channels.append(listed.value(0).toInt());
+            dates.append(listed.value(1).toString());
+        }
+    }
+    QSqlQuery removeRuns(db);
+    if (!removeRuns.exec(QStringLiteral("DELETE FROM QcRun WHERE lot = 'UI-PREVIEW'"))) {
+        QLOG_WARN() << "QcRun preview clear failed:" << removeRuns.lastError().text();
+        return;
+    }
+    for (int i = 0; i < channels.size(); ++i) {
+        const int channel = channels.at(i);
+        const QString date = dates.at(i);
+        for (int level = 0; level < 3; ++level) {
+            QSqlQuery lotQuery(db);
+            lotQuery.prepare(level == 0
+                ? QStringLiteral("SELECT high_lot FROM QcChannelDaily WHERE channel = ? AND qc_date = ?")
+                : level == 1
+                  ? QStringLiteral("SELECT mid_lot FROM QcChannelDaily WHERE channel = ? AND qc_date = ?")
+                  : QStringLiteral("SELECT low_lot FROM QcChannelDaily WHERE channel = ? AND qc_date = ?"));
+            lotQuery.bindValue(0, channel);
+            lotQuery.bindValue(1, date);
+            if (!lotQuery.exec() || !lotQuery.next())
+                continue;
+            if (lotQuery.value(0).toString() != QLatin1String("UI-PREVIEW"))
+                continue;
+            QSqlQuery adopted(db);
+            adopted.prepare(QStringLiteral(
+                "SELECT value, lot FROM QcRun WHERE channel = ? AND qc_date = ? "
+                "AND level = ? AND adopted = 1 ORDER BY id DESC LIMIT 1"));
+            adopted.bindValue(0, channel);
+            adopted.bindValue(1, date);
+            adopted.bindValue(2, level);
+            double value = 0.0;
+            QString lot;
+            if (adopted.exec() && adopted.next()) {
+                value = adopted.value(0).toDouble();
+                lot = adopted.value(1).toString();
+            }
+            const bool writeHigh = level == 0;
+            const bool writeMid = level == 1;
+            const bool writeLow = level == 2;
+            saveQcChannelDaily(channel, date, writeHigh, value, writeMid, value, writeLow, value,
+                               writeHigh ? lot : QString(),
+                               writeMid ? lot : QString(),
+                               writeLow ? lot : QString());
+        }
+    }
 }
 
 QcLotRecord CustomCreatSql::loadQcLots()

@@ -1,4 +1,7 @@
-﻿#include "performanceverification.h"  //性能验证
+﻿#ifdef _MSC_VER
+#pragma execution_character_set("utf-8")
+#endif
+#include "performanceverification.h"  //性能验证
 #include <loadequipmentpos.h>
 #include <cglobal.h>
 #include <ini_file.h>
@@ -7,6 +10,16 @@
 #include <globaldata.h>
 #include <mainwindow.h>
 #include <QString>
+#include <QTimer>
+#include <QPushButton>
+#include <QDialog>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QApplication>
+#include "QsLog/include/QsLog.h"
+#include <quiutils.h>
+#include <testing.h>
 
 Q_GLOBAL_STATIC(Performanceverification,globalInstance)
 
@@ -114,6 +127,9 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
     axis->bloodSampleZonePos(READ_OPERRAT, waterHole, suckWaterCoord);
     axis->bloodSampleZonePos(READ_OPERRAT, basicLinque, suckBasicCoord);
     axis->throwTubeHolePos(READ_OPERRAT,throwCoord);
+    m_peThrowCoord = throwCoord;
+    m_peThrowGripperDown = ini._gethandsdownthrowcpus();
+    clearPeGrabDetection();
 
     auto iter = channelList.cbegin();
     while(iter != channelList.cend()){
@@ -124,6 +140,7 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
         pdataPE->channelIndex = iter.value() - 1;
         const quint8 gripperDown = ini._gethandsdownheiht(pdataPE->channelIndex);
         const quint8 throwGripperDown = ini._gethandsdownthrowcpus();
+        m_peGripperDown = gripperDown;
         configureChannelCoordinates(*pdataPE);
 
         // 试管配置
@@ -172,6 +189,7 @@ void Performanceverification::gettestChannelList(const  QMap<QString,quint8> &ch
 
 void Performanceverification::runningPE(){
     QByteArrayList dataout;
+    clearPeGrabDetection();
     if(!outputSuckSplitWater(dataout)){
        emit controlChannelRevolve(m_peChannel,true);
        emit sendorderList(dataout,"PE蒸馏水加样");
@@ -245,15 +263,19 @@ void Performanceverification::insertBasicLinquedata(PerformanceData &dataPE,cons
 
 }
 
-void Performanceverification::insertTestWaterPEActivedata(PerformanceData &dataPE,const quint8 gripperDown){
+void Performanceverification::insertTestWaterPEActivedata(PerformanceData &dataPE,const quint8 gripperDown,
+                                                          bool forceRepeatGrab){
     QByteArrayList outdataList;
     quint8 ksuck,ksplit;
+    const quint8 trayGrabDown = QUIUtils::_hansdownheightinnertubetray(dataPE.waterTubeCount);
     QUIUtils::suckCupMoveChannelPut(dataPE.handswaterTubeCoord,
                                     dataPE.handsChannelCoord,
+                                    trayGrabDown,
                                     gripperDown,
-                                    outdataList,ksuck,ksplit);
+                                    outdataList,ksuck,ksplit,
+                                    forceRepeatGrab);
     dataPE.testWater.enabled = false;
-	//dataPE.testWater.commands.reserve(outdataList.size());
+    dataPE.testWater.commands.clear();
     for(const QByteArray &arry : outdataList){
         QByteArray indexField = arry.mid(GET_COMMAND_INDEX, 1);
         if (indexField.isEmpty()) {
@@ -271,14 +293,15 @@ void Performanceverification::insertTestWaterPEActivedata(PerformanceData &dataP
     }
 }
 
-void Performanceverification::insertTestBasicLinquePEActivedata(PerformanceData &dataPE,const quint8 gripperDown){
+void Performanceverification::insertTestBasicLinquePEActivedata(PerformanceData &dataPE,const quint8 gripperDown,
+                                                                bool forceRepeatGrab){
     QByteArrayList outdataList;
     quint8 ksuck =0;
     quint8 ksplit = 0;
 
     auto processCommands =[&](QByteArrayList &dataList, PerformanceData::TestOperation &liquidData, const QString &logPrefix){
         liquidData.enabled = false;
-        // liquidData.commands.reserve(dataList.size()); // 启用预分配（如需）
+        liquidData.commands.clear();
         for (const QByteArray &arry : dataList) {
             // 直接检查索引边界（避免临时对象）
             if (arry.size() <= GET_COMMAND_INDEX) {
@@ -294,22 +317,26 @@ void Performanceverification::insertTestBasicLinquePEActivedata(PerformanceData 
 
     //标准物质
     QUIUtils::suckCupMoveChannelPut(dataPE.handsBasicLinuidTubeCoord, dataPE.handsChannelCoord,
-                                    gripperDown, outdataList, ksuck, ksplit);
+                                    QUIUtils::_hansdownheightinnertubetray(dataPE.basicLiquidCount),
+                                    gripperDown, outdataList, ksuck, ksplit, forceRepeatGrab);
     processCommands(outdataList, dataPE.testStandardsolutions, "PE测试标准物质");
 
     // 高值处理
     QUIUtils::suckCupMoveChannelPut(dataPE.handsBasicLiquidCoord, dataPE.handsChannelCoord,
-                                    gripperDown, outdataList, ksuck, ksplit);
+                                    QUIUtils::_hansdownheightinnertubetray(dataPE.basicLiquidTubeCount),
+                                    gripperDown, outdataList, ksuck, ksplit, forceRepeatGrab);
     processCommands(outdataList, dataPE.testBasicLiquid, "PE测试标准物质高值");
 
     // 中值处理
     QUIUtils::suckCupMoveChannelPut(dataPE.handsBasicLiquidCoordM, dataPE.handsChannelCoord,
-                                    gripperDown, outdataList, ksuck, ksplit);
+                                    QUIUtils::_hansdownheightinnertubetray(dataPE.basicLiquidTubeCountM),
+                                    gripperDown, outdataList, ksuck, ksplit, forceRepeatGrab);
     processCommands(outdataList, dataPE.testBasicLiquidM, "PE测试标准物质中值");
 
     // 低值处理
     QUIUtils::suckCupMoveChannelPut(dataPE.handsBasicLiquidCoordL, dataPE.handsChannelCoord,
-                                    gripperDown, outdataList, ksuck, ksplit);
+                                    QUIUtils::_hansdownheightinnertubetray(dataPE.basicLiquidTubeCountL),
+                                    gripperDown, outdataList, ksuck, ksplit, forceRepeatGrab);
     processCommands(outdataList, dataPE.testBasicLiquidL, "PE测试标准物质低值");
 
 }
@@ -317,7 +344,8 @@ void Performanceverification::insertTestBasicLinquePEActivedata(PerformanceData 
 void Performanceverification::insetThrowTestingCup(PerformanceData &dataPE,
                                                     const QPoint &throwCoord,
                                                     const quint8 gripperDown,
-                                                    const quint8 throwGipperHeigh){
+                                                    const quint8 throwGipperHeigh,
+                                                    bool forceRepeatGrab){
     QByteArrayList throwCupsList;
     quint8 ksuck,ksplit;
     QUIUtils::ThrowChannelCup(gripperDown,throwGipperHeigh,
@@ -325,13 +353,18 @@ void Performanceverification::insetThrowTestingCup(PerformanceData &dataPE,
                               throwCoord,
                               ksuck,
                               ksplit,
-                              throwCupsList);
+                              throwCupsList,
+                              forceRepeatGrab);
     dataPE.drainWater.enabled = false;
+    dataPE.drainStandardsolutions.enabled = false;
     dataPE.drainBasicLiquid.enabled = false;
     dataPE.drainBasicLiquidM.enabled = false;
     dataPE.drainBasicLiquidL.enabled = false;
-	//dataPE.drainWater.commands.reserve(throwCupsList.size());
-	//dataPE.drainBasicLiquid.commands.reserve(throwCupsList.size());
+    dataPE.drainWater.commands.clear();
+    dataPE.drainStandardsolutions.commands.clear();
+    dataPE.drainBasicLiquid.commands.clear();
+    dataPE.drainBasicLiquidM.commands.clear();
+    dataPE.drainBasicLiquidL.commands.clear();
     for(const QByteArray &arry : throwCupsList){
         QByteArray indexField = arry.mid(GET_COMMAND_INDEX, 1);
         if (indexField.isEmpty()) {
@@ -419,19 +452,14 @@ bool Performanceverification::outputSuckSplitWater(QByteArrayList &outSend){
 		m_peChannel = (*it)->channelIndex;
         const CommandGroup& commands = (*it)->suckWater.commands;
 
-        // 预分配内存提升性能
-        outSend.reserve(commands.size());
-
-        // 使用const迭代器遍历
+        // 只发第一条未完成指令，后续在 ACK(MOTOR_FINISH) 后再发下一条
         for (CommandGroup::const_iterator cmdIt = commands.cbegin();
                 cmdIt != commands.cend(); ++cmdIt)
         {
             const ActiveCommand& cmd = cmdIt.value();
-            if (!cmd.isCompleted) {
+            if (!cmd.isCompleted && !cmd.cmdData.isEmpty()) {
                 outSend.push_back(cmd.cmdData);
-
-                // 如需更新完成状态（根据实际需求）
-                // const_cast<ActiveCommand&>(cmd).isCompleted = true;
+                break;
             }
         }
         mPE = activePE::suckWater;
@@ -451,6 +479,7 @@ bool Performanceverification::outputSuckSplitWater(QByteArrayList &outSend){
 void Performanceverification::outPutSuckBasicLiquid(QByteArrayList &outSend){
 
     mPE = activePE::suckBasicLinque;
+    clearPeGrabDetection();
     collectTestingCommands(outSend, m_peChannel,&PerformanceData::suckBasicLiquid,
                            "标准物加样PEChannel");
 }
@@ -461,7 +490,7 @@ void Performanceverification::outPutTestingWater(QByteArrayList &outSend){
     collectTestingCommands(outSend, m_peChannel,
                             &PerformanceData::testWater,
                             "测试水PEChannel");
-
+    armPeGrabDetection();
 }
 
 
@@ -488,6 +517,7 @@ void Performanceverification::outPutTestingBasicLiquid(QByteArrayList &outSend, 
                             &PerformanceData::testStandardsolutions,
                             "PE测试标准浊度物");
     }
+    armPeGrabDetection();
     return;
 }
 
@@ -495,6 +525,7 @@ void Performanceverification::outPutThrowWater(QByteArrayList &outSend){
     mPE = activePE::ThrowWater;
     collectTestingCommands(outSend, m_peChannel,&PerformanceData::drainWater,
                             "弃杯水PEChannel");
+    armPeGrabDetection();
     return;
 }
 void Performanceverification::outPutThrowBasicLiquid(QByteArrayList &outSend, const int indexValue){
@@ -517,11 +548,13 @@ void Performanceverification::outPutThrowBasicLiquid(QByteArrayList &outSend, co
         collectTestingCommands(outSend, m_peChannel,&PerformanceData::drainBasicLiquidL,
                                "PE弃杯标准物质低");
     }
+    armPeGrabDetection();
     return;
 }
 
 void Performanceverification::outCleanPin(QByteArrayList &outSend){
     mPE = activePE::CleanPin;
+    clearPeGrabDetection();
     collectTestingCommands(outSend, m_peChannel,
                             &PerformanceData::cleaningSystem,
                             "清洗针PEChannel");
@@ -539,8 +572,8 @@ void Performanceverification::suckWaterFunc(const quint8 /*addr*/, const quint8 
         return;
     }
 	
-    bool isFinished = processLiquidCommands(pdata->suckWater, indexnum);
-	//QLOG_WARN() << "PE NO." << indexnum<<"STATE="<< isFinished;
+    bool isFinished = processLiquidCommands(pdata->suckWater, indexnum,
+                                            QString::fromUtf8("PE蒸馏水加样"));
     if( isFinished){
         TrageIndexTube(pdata->waterTubeCount,TESTTUBES_SAMPLED);
         QByteArrayList suckBasicLiqune;
@@ -556,19 +589,28 @@ void Performanceverification::testWaterFunc(const quint8 /*addr*/, const quint8 
         return;
     }
 
-	bool isFinished = processLiquidCommands(pdata->testWater, indexnum);
+	bool isFinished = processLiquidCommands(pdata->testWater, indexnum,
+	                                        QString::fromUtf8("PE测试蒸馏水"));
 
 	if (isFinished) {
+		clearPeGrabDetection();
 		TrageIndexTube(pdata->waterTubeCount, TESTTUBES_CLIPPEDAWAY);
 		const int configDelay = INI_File()._getdelayedtime();
 		const int delayTime = DELAY_READ_TUBE_INITVALUE + configDelay;
+		const quint8 peCh = static_cast<quint8>(m_peChannel);
 		QLOG_DEBUG() << "蒸馏水放到通道测试开始去读延时" << delayTime << "获取通道值";
-		//实验读取数据
 		emit obtainChannelVal(m_peChannel, THROWPEWATER, true);
-		QTimer::singleShot(delayTime, this, [=, this]() {
-			obtainChannelTestVal(pdata->waterLevel, TestType::Water);
-            QLOG_DEBUG() << "PE延时" << delayTime << "结束获取蒸馏水值:" << pdata->waterLevel<<endl;
-			emit obtainChannelVal(m_peChannel, THROWPEWATER, false);
+		QTimer::singleShot(delayTime, this, [this, peCh, delayTime]() {
+			if (!returnPerformanceTestFlag()) {
+				return;
+			}
+			PerformanceData *alive = findChannel(peCh);
+			if (!alive) {
+				return;
+			}
+			obtainChannelTestVal(alive->waterLevel, TestType::Water);
+			QLOG_DEBUG() << "PE延时" << delayTime << "结束获取蒸馏水值:" << alive->waterLevel;
+			emit obtainChannelVal(peCh, THROWPEWATER, false);
 		});
 
 	}
@@ -611,8 +653,10 @@ void Performanceverification::throwWaterFunc(const quint8 /*addr*/, const quint8
         return;
     }
 
-	bool isFinished = processLiquidCommands(pdata->drainWater, indexnum);
+	bool isFinished = processLiquidCommands(pdata->drainWater, indexnum,
+	                                        QString::fromUtf8("弃杯水PEChannel"));
 	if (isFinished) {
+		clearPeGrabDetection();
 		QByteArrayList testBasicLiqune;
 		outPutTestingBasicLiquid(testBasicLiqune, BASICSOLUTIONS);
         emit sendorderList(testBasicLiqune, "PE测试标准浊度物");
@@ -627,9 +671,10 @@ void Performanceverification::cleanPinFunc(const quint8 /*addr*/, const quint8 i
         return;
     }
 
-	bool isFinished = processLiquidCommands(pdata->cleaningSystem, indexnum);
-	pdata->peCompleted = true;
+	bool isFinished = processLiquidCommands(pdata->cleaningSystem, indexnum,
+	                                        QString::fromUtf8("清洗针PEChannel"));
 	if (isFinished) {
+		pdata->peCompleted = true;
 		outputResult();
 		runningPE();
 	}
@@ -643,9 +688,14 @@ void Performanceverification::suckBasicLinqueFunc(const quint8 /*addr*/, const q
         QLOG_DEBUG()<<"PE标准物加样遍历指令为空";
         return;
     }
-	bool isFinished = processLiquidCommands(pdata->suckBasicLiquid, indexnum);
+	bool isFinished = processLiquidCommands(pdata->suckBasicLiquid, indexnum,
+	                                        QString::fromUtf8("加样"));
 	if (isFinished) {
+		// 标准物 + 高/中/低 四支试管均已加样
+		TrageIndexTube(pdata->basicLiquidCount, TESTTUBES_SAMPLED);
 		TrageIndexTube(pdata->basicLiquidTubeCount, TESTTUBES_SAMPLED);
+		TrageIndexTube(pdata->basicLiquidTubeCountM, TESTTUBES_SAMPLED);
+		TrageIndexTube(pdata->basicLiquidTubeCountL, TESTTUBES_SAMPLED);
 		QByteArrayList testWater;
 		outPutTestingWater(testWater);
         emit sendorderList(testWater, "PE测试蒸馏水");
@@ -660,18 +710,28 @@ void Performanceverification::testStandardsolutionsFunc(const quint8 /*addr*/,co
         return;
     }
 
-	bool isFinished = processLiquidCommands(pdata->testStandardsolutions, indexnum);
+	bool isFinished = processLiquidCommands(pdata->testStandardsolutions, indexnum,
+	                                        QString::fromUtf8("PE测试标准浊度物"));
 	if (isFinished) {
+		clearPeGrabDetection();
 		TrageIndexTube(pdata->basicLiquidCount, TESTTUBES_CLIPPEDAWAY);
 		const int configDelay = INI_File()._getdelayedtime();
 		const int delayTime = DELAY_READ_TUBE_INITVALUE + configDelay;
+		const quint8 peCh = static_cast<quint8>(m_peChannel);
         QLOG_DEBUG() << "PE标准浊度物取值开始读延时" << delayTime << "获取通道值";
 		emit obtainChannelVal(m_peChannel, THROWBASIC, true);
 
-		QTimer::singleShot(delayTime, this, [=, this]() {
-			obtainChannelTestVal(pdata->basicSolutions, TestType::Basic);
-            QLOG_DEBUG() << "PE标准浊度物:" << pdata->basicSolutions<<endl;
-			emit obtainChannelVal(m_peChannel, THROWBASIC, false);
+		QTimer::singleShot(delayTime, this, [this, peCh, delayTime]() {
+			if (!returnPerformanceTestFlag()) {
+				return;
+			}
+			PerformanceData *alive = findChannel(peCh);
+			if (!alive) {
+				return;
+			}
+			obtainChannelTestVal(alive->basicSolutions, TestType::Basic);
+            QLOG_DEBUG() << "PE标准浊度物:" << alive->basicSolutions;
+			emit obtainChannelVal(peCh, THROWBASIC, false);
 		});
 
 	}
@@ -684,20 +744,30 @@ void  Performanceverification::testBasicLinqueFunc(const quint8 /*addr*/,const q
         QLOG_DEBUG()<<"PE高浊度物测试遍历指令为空";
         return;
     }
-    bool isFinished = processLiquidCommands(pdata->testBasicLiquid, indexnum);
+    bool isFinished = processLiquidCommands(pdata->testBasicLiquid, indexnum,
+                                            QString::fromUtf8("PE测试浊度物高值"));
     if(isFinished){
+        clearPeGrabDetection();
         TrageIndexTube(pdata->basicLiquidTubeCount,TESTTUBES_CLIPPEDAWAY);
 
         const int configDelay  = INI_File()._getdelayedtime();
         const int delayTime = DELAY_READ_TUBE_INITVALUE + configDelay;
+        const quint8 peCh = static_cast<quint8>(m_peChannel);
 
         QLOG_DEBUG()<<"PE浊度物读取(高)值延时"<<delayTime<<"获取通道值";
         emit obtainChannelVal(m_peChannel,THROWHEIGHVAL,true);
 
-        QTimer::singleShot(delayTime, this, [=,this]() {
-            obtainChannelTestVal(pdata->basicLiquidLevel,TestType::High);
-            QLOG_DEBUG()<<"PE浊度物高值:"<<pdata->basicLiquidLevel<<endl;
-            emit obtainChannelVal(m_peChannel,THROWHEIGHVAL,false);
+        QTimer::singleShot(delayTime, this, [this, peCh, delayTime]() {
+            if (!returnPerformanceTestFlag()) {
+                return;
+            }
+            PerformanceData *alive = findChannel(peCh);
+            if (!alive) {
+                return;
+            }
+            obtainChannelTestVal(alive->basicLiquidLevel,TestType::High);
+            QLOG_DEBUG()<<"PE浊度物高值:"<<alive->basicLiquidLevel;
+            emit obtainChannelVal(peCh,THROWHEIGHVAL,false);
         });
 
     }
@@ -710,21 +780,30 @@ void Performanceverification::testBasicMidLinqueFunc(const quint8 /*addr*/, cons
         return;
     }
 
-    bool isFinished = processLiquidCommands(pdata->testBasicLiquidM, indexnum);
+    bool isFinished = processLiquidCommands(pdata->testBasicLiquidM, indexnum,
+                                            QString::fromUtf8("测试浊度物中值PE"));
     if(isFinished){
+        clearPeGrabDetection();
         TrageIndexTube(pdata->basicLiquidTubeCountM,TESTTUBES_CLIPPEDAWAY);
 
         const int configDelay  = INI_File()._getdelayedtime();
         const int delayTime = DELAY_READ_TUBE_INITVALUE + configDelay;
+        const quint8 peCh = static_cast<quint8>(m_peChannel);
         QLOG_DEBUG()<<"浊度物MID到通道读取值开始去读延时"<<delayTime<<"获取通道值";
 
-        //实验读取数据
         emit obtainChannelVal(m_peChannel,THROWMIDVAL,true);
 
-        QTimer::singleShot(delayTime, this, [=,this]() {
-            obtainChannelTestVal(pdata->basicLiquidLevelM,TestType::Mid);
-            QLOG_DEBUG()<<"PE浊度物MID准物质值:"<<pdata->basicLiquidLevelM<<endl;
-            emit obtainChannelVal(m_peChannel,THROWMIDVAL,false);
+        QTimer::singleShot(delayTime, this, [this, peCh, delayTime]() {
+            if (!returnPerformanceTestFlag()) {
+                return;
+            }
+            PerformanceData *alive = findChannel(peCh);
+            if (!alive) {
+                return;
+            }
+            obtainChannelTestVal(alive->basicLiquidLevelM,TestType::Mid);
+            QLOG_DEBUG()<<"PE浊度物MID准物质值:"<<alive->basicLiquidLevelM;
+            emit obtainChannelVal(peCh,THROWMIDVAL,false);
         });
 
     }
@@ -737,18 +816,28 @@ void Performanceverification::testBasicLowLinqueFunc(const quint8 /*addr*/, cons
         return;
     }
 
-    bool isFinished = processLiquidCommands(pdata->testBasicLiquidL, indexnum);
+    bool isFinished = processLiquidCommands(pdata->testBasicLiquidL, indexnum,
+                                            QString::fromUtf8("测试低值标准物质PE"));
 	if (isFinished) {
+		clearPeGrabDetection();
 		TrageIndexTube(pdata->basicLiquidTubeCountL, TESTTUBES_CLIPPEDAWAY);
 
 		const int configDelay = INI_File()._getdelayedtime();
 		const int delayTime = DELAY_READ_TUBE_INITVALUE + configDelay;
+		const quint8 peCh = static_cast<quint8>(m_peChannel);
 		QLOG_DEBUG() << "浊度物LOW取值开始去读延时" << delayTime << "获取通道值";
 		emit obtainChannelVal(m_peChannel, THROWLOWVAL, true);
-		QTimer::singleShot(delayTime, this, [=, this]() {
-			obtainChannelTestVal(pdata->basicLiquidLevelL, TestType::Low);
-			QLOG_DEBUG() << "PE浊度物LOW值:" << pdata->basicLiquidLevelL << endl;
-			emit obtainChannelVal(m_peChannel, THROWLOWVAL, false);
+		QTimer::singleShot(delayTime, this, [this, peCh, delayTime]() {
+			if (!returnPerformanceTestFlag()) {
+				return;
+			}
+			PerformanceData *alive = findChannel(peCh);
+			if (!alive) {
+				return;
+			}
+			obtainChannelTestVal(alive->basicLiquidLevelL, TestType::Low);
+			QLOG_DEBUG() << "PE浊度物LOW值:" << alive->basicLiquidLevelL;
+			emit obtainChannelVal(peCh, THROWLOWVAL, false);
 		});
 
 	}
@@ -761,8 +850,10 @@ void Performanceverification::throwStandardSolutions(const quint8 /*addr*/,const
         return;
     }
 
-    bool isFinished = processLiquidCommands(pdata->drainStandardsolutions, indexnum);
+    bool isFinished = processLiquidCommands(pdata->drainStandardsolutions, indexnum,
+                                            QString::fromUtf8("PE弃杯标准物"));
     if(isFinished){
+        clearPeGrabDetection();
         QByteArrayList testBasicLiqune;
         outPutTestingBasicLiquid(testBasicLiqune,HEIGHVALUE);
         emit sendorderList(testBasicLiqune,"PE测试浊度物高值");
@@ -778,8 +869,10 @@ void Performanceverification::throwBasicLinqueFunc(const quint8 /*addr*/,const q
         return;
     }
 
-    bool isFinished = processLiquidCommands(pdata->drainBasicLiquid, indexnum);
+    bool isFinished = processLiquidCommands(pdata->drainBasicLiquid, indexnum,
+                                            QString::fromUtf8("PE弃杯标准物质高"));
     if(isFinished){
+        clearPeGrabDetection();
         QByteArrayList testBasicLiqune;
         outPutTestingBasicLiquid(testBasicLiqune,MIDVALUE);
         emit sendorderList(testBasicLiqune,"测试浊度物中值PE");
@@ -792,9 +885,10 @@ void Performanceverification::throwBasicMidLinqueFunc(const quint8 ,const quint8
 	    QLOG_DEBUG()<<"PE标准物中值丟杯遍历指令为空";
 	    return;
 	}
-    bool isFinished = processLiquidCommands(pdata->drainBasicLiquidM, indexnum);
+    bool isFinished = processLiquidCommands(pdata->drainBasicLiquidM, indexnum,
+                                            QString::fromUtf8("PE弃杯标准物质中"));
     if( isFinished){
-
+        clearPeGrabDetection();
         QByteArrayList testBasicLiqune;
         outPutTestingBasicLiquid(testBasicLiqune,LOWVALUE);
         emit sendorderList(testBasicLiqune,"测试低值标准物质PE");
@@ -807,8 +901,10 @@ void Performanceverification::throwBasicLowLinqueFunc(const quint8 /*addr*/,cons
 	    QLOG_DEBUG()<<"PE标准物丟杯遍历指令为空";
 	    return;
 	}
-    bool isFinished = processLiquidCommands(pdata->drainBasicLiquidL, indexnum);
+    bool isFinished = processLiquidCommands(pdata->drainBasicLiquidL, indexnum,
+                                            QString::fromUtf8("PE弃杯标准物质低"));
     if (isFinished){
+        clearPeGrabDetection();
         QByteArrayList cleanPinList;
         outCleanPin(cleanPinList);
         emit sendorderList(cleanPinList,"PE单通道完成清洗针");
@@ -816,9 +912,388 @@ void Performanceverification::throwBasicLowLinqueFunc(const quint8 /*addr*/,cons
 }
 
 
+bool Performanceverification::isPeGripperPickPhase() const
+{
+    switch (mPE) {
+    case activePE::testingWater:
+    case activePE::testingStandardSolutions:
+    case activePE::testingBasicWater:
+    case activePE::testingBasicWaterM:
+    case activePE::testingBasicWaterL:
+    case activePE::ThrowWater:
+    case activePE::ThrowStandardSolutions:
+    case activePE::ThrowBasicLinque:
+    case activePE::ThrowBasicLinqueM:
+    case activePE::ThrowBasicLinqueL:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void Performanceverification::clearPeGrabDetection()
+{
+    m_peGrabArmed = false;
+    m_peGrabOk = false;
+    m_peGrabJudgeIndex = 255;
+    m_peGrabLiftIndex = 255;
+    m_peGrabDeepenTimes = 0;
+}
+
+void Performanceverification::armPeGrabDetection()
+{
+    clearPeGrabDetection();
+    CommandGroup *group = currentGripperCommandGroup();
+    if (!group || group->isEmpty()) {
+        return;
+    }
+    const ActiveCommand &cmd = group->constBegin().value();
+    m_peGrabJudgeIndex = cmd.ksuck;
+    m_peGrabLiftIndex = cmd.ksplit;
+    m_peGrabArmed = (m_peGrabJudgeIndex != 255 || m_peGrabLiftIndex != 255);
+    m_peGrabOk = false;
+    QLOG_INFO() << "[PE抓杯] 武装气密判定 阶段" << static_cast<int>(mPE)
+                << "判定号" << m_peGrabJudgeIndex
+                << "抬Z号" << m_peGrabLiftIndex
+                << "重抓" << m_peRegrab;
+}
+
+CommandGroup *Performanceverification::currentGripperCommandGroup()
+{
+    PerformanceData *pdata = findChannel(static_cast<quint8>(m_peChannel));
+    if (!pdata) {
+        return nullptr;
+    }
+    switch (mPE) {
+    case activePE::testingWater: return &pdata->testWater.commands;
+    case activePE::testingStandardSolutions: return &pdata->testStandardsolutions.commands;
+    case activePE::testingBasicWater: return &pdata->testBasicLiquid.commands;
+    case activePE::testingBasicWaterM: return &pdata->testBasicLiquidM.commands;
+    case activePE::testingBasicWaterL: return &pdata->testBasicLiquidL.commands;
+    case activePE::ThrowWater: return &pdata->drainWater.commands;
+    case activePE::ThrowStandardSolutions: return &pdata->drainStandardsolutions.commands;
+    case activePE::ThrowBasicLinque: return &pdata->drainBasicLiquid.commands;
+    case activePE::ThrowBasicLinqueM: return &pdata->drainBasicLiquidM.commands;
+    case activePE::ThrowBasicLinqueL: return &pdata->drainBasicLiquidL.commands;
+    default: return nullptr;
+    }
+}
+
+bool Performanceverification::markPeCommandCompleteOnly(quint8 indexnum)
+{
+    CommandGroup *group = currentGripperCommandGroup();
+    if (!group) {
+        return false;
+    }
+    for (auto it = group->begin(); it != group->end(); ++it) {
+        if (it.value().phaseNumber == indexnum && !it.value().isCompleted) {
+            it.value().isCompleted = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+void Performanceverification::peUpdateGrabOkFromAck(const QStringList &recv, quint8 commandIndex)
+{
+    if (!m_peGrabArmed) {
+        return;
+    }
+    if (commandIndex != m_peGrabJudgeIndex && commandIndex != m_peGrabLiftIndex) {
+        return;
+    }
+    bool suction = false;
+    quint32 air = 0;
+    GlobalData::analyzeWhetherGripperSuction(recv, suction, air);
+    const bool held = (commandIndex == m_peGrabLiftIndex)
+            ? GlobalData::isHandsLiftStillHolding(air, suction)
+            : GlobalData::isHandsVacuumStillSealed(air);
+    if (commandIndex == m_peGrabLiftIndex || held) {
+        m_peGrabOk = held;
+    }
+    QLOG_INFO() << "[PE抓杯] 判定 命令号" << commandIndex
+                << "air" << air << "suction" << int(suction)
+                << "held" << held << "grabOk" << m_peGrabOk;
+}
+
+bool Performanceverification::peIsGrabOpenDescend(quint8 commandIndex) const
+{
+    if (!m_peGrabArmed || m_peGrabJudgeIndex == 0 || m_peGrabJudgeIndex == 255) {
+        return false;
+    }
+    return commandIndex == static_cast<quint8>(m_peGrabJudgeIndex - 1);
+}
+
+QByteArray Performanceverification::peBuildGrabDeepenCmd(quint8 commandIndex) const
+{
+    if (!Testing::getTaskDll()) {
+        return QByteArray();
+    }
+    PerformanceData *pdata = findChannel(static_cast<quint8>(m_peChannel));
+    if (!pdata) {
+        return QByteArray();
+    }
+    const int times = m_peGrabDeepenTimes;
+    switch (mPE) {
+    case activePE::testingWater:
+        return GlobalData::GrabtheCupAttheTestTubeTray(commandIndex, times, pdata->waterTubeCount);
+    case activePE::testingStandardSolutions:
+        return GlobalData::GrabtheCupAttheTestTubeTray(commandIndex, times, pdata->basicLiquidCount);
+    case activePE::testingBasicWater:
+        return GlobalData::GrabtheCupAttheTestTubeTray(commandIndex, times, pdata->basicLiquidTubeCount);
+    case activePE::testingBasicWaterM:
+        return GlobalData::GrabtheCupAttheTestTubeTray(commandIndex, times, pdata->basicLiquidTubeCountM);
+    case activePE::testingBasicWaterL:
+        return GlobalData::GrabtheCupAttheTestTubeTray(commandIndex, times, pdata->basicLiquidTubeCountL);
+    case activePE::ThrowWater:
+    case activePE::ThrowStandardSolutions:
+    case activePE::ThrowBasicLinque:
+    case activePE::ThrowBasicLinqueM:
+    case activePE::ThrowBasicLinqueL:
+        return GlobalData::Grabthehandtotryagain(commandIndex, times, pdata->channelIndex);
+    default:
+        return QByteArray();
+    }
+}
+
+void Performanceverification::peSendFirstPending(const QString &info)
+{
+    CommandGroup *group = currentGripperCommandGroup();
+    if (!group) {
+        return;
+    }
+    for (auto it = group->constBegin(); it != group->constEnd(); ++it) {
+        const ActiveCommand &cmd = it.value();
+        if (!cmd.isCompleted && !cmd.cmdData.isEmpty()) {
+            QByteArrayList one;
+            one.append(cmd.cmdData);
+            emit sendorderList(one, info);
+            return;
+        }
+    }
+}
+
+bool Performanceverification::peRebuildCurrentGripperPhase()
+{
+    PerformanceData *pdata = findChannel(static_cast<quint8>(m_peChannel));
+    if (!pdata) {
+        return false;
+    }
+    auto &ini = INI_File();
+    const quint8 gripperDown = ini._gethandsdownheiht(pdata->channelIndex);
+    const quint8 throwDown = ini._gethandsdownthrowcpus();
+    m_peGripperDown = gripperDown;
+    m_peThrowGripperDown = throwDown;
+
+    switch (mPE) {
+    case activePE::testingWater:
+        insertTestWaterPEActivedata(*pdata, gripperDown, m_peRegrab);
+        break;
+    case activePE::testingStandardSolutions:
+    case activePE::testingBasicWater:
+    case activePE::testingBasicWaterM:
+    case activePE::testingBasicWaterL: {
+        // 四个抓杯组一起重建，保留与初始一致
+        insertTestBasicLinquePEActivedata(*pdata, gripperDown, m_peRegrab);
+        break;
+    }
+    case activePE::ThrowWater:
+    case activePE::ThrowStandardSolutions:
+    case activePE::ThrowBasicLinque:
+    case activePE::ThrowBasicLinqueM:
+    case activePE::ThrowBasicLinqueL:
+        insetThrowTestingCup(*pdata, m_peThrowCoord, gripperDown, throwDown, m_peRegrab);
+        break;
+    default:
+        return false;
+    }
+
+    // 重建后该阶段全部未完成
+    if (CommandGroup *group = currentGripperCommandGroup()) {
+        for (auto it = group->begin(); it != group->end(); ++it) {
+            it.value().isCompleted = false;
+        }
+        if (mPE == activePE::testingWater) {
+            pdata->testWater.enabled = false;
+        } else if (mPE == activePE::testingStandardSolutions) {
+            pdata->testStandardsolutions.enabled = false;
+        } else if (mPE == activePE::testingBasicWater) {
+            pdata->testBasicLiquid.enabled = false;
+        } else if (mPE == activePE::testingBasicWaterM) {
+            pdata->testBasicLiquidM.enabled = false;
+        } else if (mPE == activePE::testingBasicWaterL) {
+            pdata->testBasicLiquidL.enabled = false;
+        } else if (mPE == activePE::ThrowWater) {
+            pdata->drainWater.enabled = false;
+        } else if (mPE == activePE::ThrowStandardSolutions) {
+            pdata->drainStandardsolutions.enabled = false;
+        } else if (mPE == activePE::ThrowBasicLinque) {
+            pdata->drainBasicLiquid.enabled = false;
+        } else if (mPE == activePE::ThrowBasicLinqueM) {
+            pdata->drainBasicLiquidM.enabled = false;
+        } else if (mPE == activePE::ThrowBasicLinqueL) {
+            pdata->drainBasicLiquidL.enabled = false;
+        }
+    }
+    armPeGrabDetection();
+    return true;
+}
+
+void Performanceverification::peFinishAbortHome()
+{
+    m_peAbortHoming = false;
+    m_peAbortHome.clear();
+    m_peAbortExpect = 255;
+    setPerformanceTestFlag(false);
+    allfinishClearData();
+    if (FullyAutomatedPlatelets::pinstanceequipmentconfig()) {
+        FullyAutomatedPlatelets::pinstanceequipmentconfig()->completedPETest();
+    }
+    emit outErrInfo(QString::fromUtf8("PE抓杯失败"),
+                    QString::fromUtf8("未抓到试管，已放弃本次性能验证"));
+}
+
+void Performanceverification::peSendNextAbortHome()
+{
+    if (m_peAbortHome.isEmpty()) {
+        peFinishAbortHome();
+        return;
+    }
+    const QByteArray cmd = m_peAbortHome.takeFirst();
+    if (cmd.size() <= GET_COMMAND_INDEX) {
+        peSendNextAbortHome();
+        return;
+    }
+    m_peAbortExpect = static_cast<quint8>(cmd.at(GET_COMMAND_INDEX));
+    QByteArrayList one;
+    one.append(cmd);
+    emit sendorderList(one, QString::fromUtf8("PE放弃回原点"));
+}
+
+void Performanceverification::peAbortOnGrabGiveUp()
+{
+    clearPeGrabDetection();
+    m_peRegrab = false;
+    m_pePromptingRegrab = false;
+    emit controlChannelRevolve(static_cast<quint8>(m_peChannel), false);
+
+    m_peAbortHome = GlobalData::errMachineBackOrigin(200, MOTOR_HANDS_INDEX);
+    m_peAbortHoming = true;
+    if (m_peAbortHome.isEmpty()) {
+        peFinishAbortHome();
+        return;
+    }
+    peSendNextAbortHome();
+}
+
+void Performanceverification::peRequestRegrabPrompt()
+{
+    if (!returnPerformanceTestFlag() || m_pePromptingRegrab) {
+        return;
+    }
+    m_pePromptingRegrab = true;
+    QWidget *host = FullyAutomatedPlatelets::mainWindow();
+    QObject *target = host ? static_cast<QObject *>(host) : static_cast<QObject *>(this);
+    QTimer::singleShot(0, target, [this]() { pePromptRegrab(); });
+}
+
+void Performanceverification::pePromptRegrab()
+{
+    if (!returnPerformanceTestFlag() || !m_pePromptingRegrab) {
+        return;
+    }
+    QWidget *parent = QApplication::activeWindow();
+    if (!parent) {
+        parent = FullyAutomatedPlatelets::mainWindow();
+    }
+    QDialog dlg(parent);
+    dlg.setWindowTitle(QString::fromUtf8("抓杯失败"));
+    dlg.setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+    dlg.setWindowModality(Qt::ApplicationModal);
+    dlg.setStyleSheet(QString::fromUtf8(
+        "QDialog { background-color: #FFFFFF; }"
+        "QLabel#messageLabel { color: #1F2A3E; font: 14pt \"Microsoft YaHei\"; }"
+        "QPushButton { background-color: #F2F4F7; color: #1F2A3E; border: 1px solid #CBD0D8;"
+        " border-radius: 3px; padding: 4px 20px; min-width: 90px; min-height: 32px;"
+        " font: 12pt \"Microsoft YaHei\"; }"
+        "QPushButton:hover { background-color: #E6E9F0; }"
+        "QPushButton#againButton { background-color: #0078D7; color: white; border-color: #005A9E; font-weight: bold; }"
+        "QPushButton#againButton:hover { background-color: #106EBE; }"));
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(16);
+    const QString tip = (m_peGrabDeepenTimes >= 3)
+            ? QString::fromUtf8("负压没到，已经再往下吸了3次，还是没抓到试管。\n重抓会从头再抓一次。放弃后先抬起抓手和双针，再回到原点。")
+            : QString::fromUtf8("没有抓到试管。\n重抓会再抓一次。放弃后先抬起抓手和双针，再回到原点。");
+    QLabel *message = new QLabel(tip, &dlg);
+    message->setObjectName("messageLabel");
+    message->setWordWrap(true);
+    message->setMinimumWidth(360);
+    mainLayout->addWidget(message);
+
+    QHBoxLayout *buttons = new QHBoxLayout();
+    buttons->addStretch();
+    QPushButton *again = new QPushButton(QString::fromUtf8("重抓"), &dlg);
+    again->setObjectName("againButton");
+    again->setDefault(true);
+    QPushButton *giveUp = new QPushButton(QString::fromUtf8("放弃"), &dlg);
+    buttons->addWidget(again);
+    buttons->addWidget(giveUp);
+    mainLayout->addLayout(buttons);
+    QObject::connect(again, &QPushButton::clicked, &dlg, &QDialog::accept);
+    QObject::connect(giveUp, &QPushButton::clicked, &dlg, &QDialog::reject);
+    dlg.adjustSize();
+    dlg.setMinimumWidth(420);
+
+    const bool retry = dlg.exec() == QDialog::Accepted;
+    if (!returnPerformanceTestFlag()) {
+        m_pePromptingRegrab = false;
+        return;
+    }
+    m_pePromptingRegrab = false;
+    if (retry) {
+        m_peRegrab = true;
+        if (!peRebuildCurrentGripperPhase()) {
+            peAbortOnGrabGiveUp();
+            return;
+        }
+        peSendFirstPending(QString::fromUtf8("PE抓杯重试"));
+        return;
+    }
+    peAbortOnGrabGiveUp();
+}
+
 //接收
 // 执行命令的函数
 void Performanceverification::handleSerialData(const QStringList& recvdataList){
+
+    if (m_pePromptingRegrab) {
+        return;
+    }
+
+    if (m_peAbortHoming) {
+        quint8 commandIndex = GlobalData::analyzeCommandIndex(recvdataList);
+        int commandMode = 0;
+        int run_status = 0;
+        int speedMode = 0;
+        int actionMotor = 0;
+        GlobalData::Parse4thBytecommandstatus(recvdataList, commandMode, run_status, speedMode, actionMotor);
+        if (run_status == MOTOR_WAITING || run_status == MOTOR_RUNNING) {
+            return;
+        }
+        if (commandIndex != m_peAbortExpect) {
+            return;
+        }
+        QString homeErr;
+        if (!GlobalData::commandStatus(run_status, homeErr)) {
+            QLOG_WARN() << "[PE放弃] 回原点失败" << homeErr << recvdataList.join(" ");
+            peFinishAbortHome();
+            return;
+        }
+        peSendNextAbortHome();
+        return;
+    }
 
     quint8 slaveAddr =   GlobalData::analyzeSlave_addr(recvdataList,false);//从机地址
     quint8 commandIndex = GlobalData::analyzeCommandIndex(recvdataList);   //命令编号
@@ -826,12 +1301,77 @@ void Performanceverification::handleSerialData(const QStringList& recvdataList){
     int commandMode, run_status,speedMode ,Action_motor;
     GlobalData::Parse4thBytecommandstatus(recvdataList,commandMode,run_status,speedMode,Action_motor);
 
+    if (run_status == MOTOR_WAITING || run_status == MOTOR_RUNNING) {
+        return;
+    }
+
+    const bool picking = m_peGrabArmed && isPeGripperPickPhase();
+
     QString showErrorlog;
     if(!GlobalData::commandStatus(run_status,showErrorlog)){
         QString error_code = recvdataList.join(" ");
         showErrorlog += error_code;
         QLOG_DEBUG()<<"异常命令:"<<error_code<<showErrorlog<<endl;
+        if (picking) {
+            peRequestRegrabPrompt();
+        }
         return;
+    }
+
+    if (picking && peIsGrabOpenDescend(commandIndex)) {
+        markPeCommandCompleteOnly(commandIndex);
+        const int waitMs = GlobalData::gripperGrabDelayMs();
+        QLOG_INFO() << "[PE抓杯] 开负压下扎完成，等" << waitMs << "ms再读负压";
+        QTimer::singleShot(waitMs, this, [this]() {
+            if (!returnPerformanceTestFlag() || m_peAbortHoming || m_pePromptingRegrab) {
+                return;
+            }
+            peSendFirstPending(QString::fromUtf8("PE抓杯等负压后读"));
+        });
+        return;
+    }
+
+    if (picking && commandIndex == m_peGrabJudgeIndex) {
+        bool suction = false;
+        quint32 air = 0;
+        GlobalData::analyzeWhetherGripperSuction(recvdataList, suction, air);
+        const bool held = GlobalData::isHandsVacuumStillSealed(air);
+        QLOG_INFO() << "[PE抓杯] 读负压 命令号" << commandIndex
+                    << "air" << air << "held" << held
+                    << "加深次数" << m_peGrabDeepenTimes;
+        if (!held) {
+            if (m_peGrabDeepenTimes >= 3) {
+                QLOG_WARN() << "[PE抓杯] 加深3次仍未吸住，先不抬";
+                peRequestRegrabPrompt();
+                return;
+            }
+            ++m_peGrabDeepenTimes;
+            const QByteArray deepen = peBuildGrabDeepenCmd(commandIndex);
+            if (deepen.isEmpty()) {
+                peRequestRegrabPrompt();
+                return;
+            }
+            QByteArrayList one;
+            one.append(deepen);
+            QLOG_WARN() << "[PE抓杯] 负压未到，再下" << m_peGrabDeepenTimes << "mm，泵保持开";
+            emit sendorderList(one, QString::fromUtf8("PE抓杯负压未到再下"));
+            return;
+        }
+        m_peGrabDeepenTimes = 0;
+        m_peGrabOk = true;
+    }
+
+    if (picking && commandIndex == m_peGrabLiftIndex) {
+        peUpdateGrabOkFromAck(recvdataList, commandIndex);
+        if (!m_peGrabOk) {
+            markPeCommandCompleteOnly(commandIndex);
+            QLOG_WARN() << "[PE抓杯] 抬Z后气密未吸住，进入重抓";
+            peRequestRegrabPrompt();
+            return;
+        }
+        m_peRegrab = false;
+        // 抓取段已通过，后续放杯/丢杯不再做气密拦截
+        m_peGrabArmed = false;
     }
 
 	this->executeCommand(mPE, slaveAddr, commandIndex);

@@ -99,6 +99,7 @@ public:
     void onGripperAirMotionFinished();
     void openKeyboard();
     void runInThread();
+    bool engineerMode() const;
 
 protected:
     void closeEvent(QCloseEvent *event);
@@ -224,6 +225,7 @@ private:
     void _initReagPinpara();
     void innitHands(quint8 equipmentIndex_);
     void setupGripperVacuumSimpleUi();
+    void blockWheelOnValueEditors();
     void beginGripperAirDetect();
     void cancelGripperAirDetect();
     void finishGripperAirDetect();
@@ -339,6 +341,7 @@ private:
     QShortcut *m_keypadEnterShortcut = nullptr;
     bool shortcutsConnected = false;
     bool m_maintenanceButtonConnected = false;
+    bool m_engineerMode = false;
     bool m_gripperAirUiReady = false;
     int m_liveHoldAir = -1;
     int m_liveReleaseAir = -1;

@@ -116,6 +116,17 @@ struct QcLotRecord {
     QString lowLot;
 };
 
+struct QcRunRecord {
+    qint64 id = 0;
+    int channel = 0;
+    QString qcDate;
+    QString qcTime;
+    int level = 0;
+    double value = 0.0;
+    QString lot;
+    bool adopted = false;
+};
+
 struct QueryResult {
 
 	QueryResult() = default;
@@ -162,6 +173,14 @@ public:
                             const QString &highLot = QString(),
                             const QString &midLot = QString(),
                             const QString &lowLot = QString());
+    bool insertQcRun(int channel, const QString &qcDate, const QString &qcTime,
+                     int level, double value, const QString &lot);
+    bool adoptQcRun(qint64 runId);
+    bool deleteQcRun(qint64 runId);
+    bool clearQcDailyLevel(int channel, const QString &qcDate, int level);
+    QList<QcRunRecord> queryQcRuns(int channel, const QString &qcDate);
+    void seedQcUiPreview();
+    void clearQcUiPreview();
     QcLotRecord loadQcLots();
     bool saveQcLots(const QString &highLot, const QString &midLot, const QString &lowLot);
     QStringList loadQcLotChoices(int level);

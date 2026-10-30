@@ -2,6 +2,7 @@
 #define QCCHARTPAGE_H
 
 #include <QWidget>
+#include <QDate>
 
 #include <QList>
 #include <QVector>
@@ -15,8 +16,9 @@ class QCustomPlot;
 class QLabel;
 class QMouseEvent;
 class QPushButton;
+class QTableWidget;
 
-// QC page shell. Each channel keeps one high, mid and low point per day.
+// QC curves stay one point per channel per day. Every run is listed under the cursor day.
 class QcChartPage : public QWidget
 {
     Q_OBJECT
@@ -46,6 +48,9 @@ private slots:
     void onPlotMousePress(QMouseEvent *event);
     void onPlotMouseMove(QMouseEvent *event);
     void onPlotMouseRelease(QMouseEvent *event);
+    void onAdoptRun();
+    void setMaintenanceMode(bool on);
+    void onRunContextMenu(const QPoint &pos);
 
 private:
     struct CurveView {
@@ -59,6 +64,8 @@ private:
 
     void buildCharts();
     void buildBottomBar();
+    void buildRunTable();
+    void reloadRunTable();
     CurveView createChart(const QColor &pointColor, int centerPercent, const char *levelUtf8);
     void applySelectedLevels();
     void updateChartTitles();
@@ -81,6 +88,12 @@ private:
     QString m_highLot;
     QString m_midLot;
     QString m_lowLot;
+    QLabel *m_runTitle;
+    QTableWidget *m_runTable;
+    QDate m_cursorDate;
+    int m_runChannel;
+    bool m_runTableReady;
+    bool m_maintenanceMode;
     bool m_dragCursor;
     bool m_panX;
     bool m_pointerMoved;

@@ -14,6 +14,7 @@
 #include "suoweiserialport.h"
 
 #include <QDate>
+#include <QTime>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTimer>
@@ -723,10 +724,13 @@ void QcStartAction::succeed()
         const bool hasLow = reading.low > 0 && reading.lowStd > 0
                 && qcRatioPercent(reading.low, reading.lowStd, water, lowPct);
         if ((hasHigh || hasMid || hasLow) && sql) {
-            if (!sql->saveQcChannelDaily(it.key(), today,
-                                         hasHigh, highPct, hasMid, midPct, hasLow, lowPct,
-                                         m_highLot, m_midLot, m_lowLot))
-                QLOG_WARN() << "QC save failed channel" << it.key();
+            const QString now = QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
+            if (hasHigh && !sql->insertQcRun(it.key(), today, now, 0, highPct, m_highLot))
+                QLOG_WARN() << "QC run save failed channel" << it.key() << "high";
+            if (hasMid && !sql->insertQcRun(it.key(), today, now, 1, midPct, m_midLot))
+                QLOG_WARN() << "QC run save failed channel" << it.key() << "mid";
+            if (hasLow && !sql->insertQcRun(it.key(), today, now, 2, lowPct, m_lowLot))
+                QLOG_WARN() << "QC run save failed channel" << it.key() << "low";
         }
         QStringList parts;
         parts.append(channelName(it.key()));

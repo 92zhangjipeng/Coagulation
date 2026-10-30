@@ -290,6 +290,7 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_outstandingAcks = 0;
     m_Errorresetsfirst = false;
     m_needHomeBeforeResume = false;
+    m_pauseAwaitConsumable = false;
     mbackOriginnumList.clear();
     m_pauseCommandQueue.clear();
     m_waitingPppRead = false;
@@ -563,12 +564,16 @@ void TestProjectProcess::writeCommandHeader(const QByteArray data,const QString 
 }
 
 void TestProjectProcess::missingReagentResetPause(){
-    //先所有轴复位
+    // 缺试剂：先停住，再全轴复位；复位完成后不要自动续跑，否则会一边弹窗一边空转
     m_Errorresetsfirst = true;
+    m_pauseAwaitConsumable = true;
     mbackOriginnumList.clear();
+    cglobal::g_PauseTesting.store(true);
+    if (cglobal::g_StartTesting.load()) {
+        emit pauseTesting();
+    }
     QByteArrayList allAxisBackOrigin = GlobalData::letallAxisBackOrigin(mbackOriginnumList);
-    sendInstructionsWithDelay(allAxisBackOrigin,DELAY_TIMENUM, "缺少试剂复位暂停");
-    return;
+    sendInstructionsWithDelay(allAxisBackOrigin, DELAY_TIMENUM, tr("缺少试剂复位暂停"));
 }
 
 void TestProjectProcess::sendInstructionsWithDelay(const QByteArrayList data_,int late_time,
@@ -1143,6 +1148,15 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
         }
         if (mbackOriginnumList.isEmpty()) {
             m_Errorresetsfirst = false;
+            if (m_pauseAwaitConsumable) {
+                cglobal::g_PauseTesting.store(true);
+                emit pauseTesting();
+                publishWorkflowStatus(tr("试剂不足，全轴已复位，请更换后点「继续」"));
+                promptsareDisplayed(TESTINGLOG,
+                                    tr("试剂不足，全轴已复位，请更换试剂后点「继续」"),
+                                    false);
+                return;
+            }
             exceptionRetest(QString::fromUtf8("全轴复位完成继续测试"));
         }
         return;
@@ -2450,10 +2464,37 @@ void TestProjectProcess::handleResumeaTestTask()
 {
     StructInstance* instance = StructInstance::getInstance();
     const bool hasFocus = instance->sampleHadFocus();
+    const bool resumeAfterConsumable = m_pauseAwaitConsumable;
+    m_pauseAwaitConsumable = false;
 
     if (m_needHomeBeforeResume) {
         m_pauseCommandQueue.clear();
         equipment_err_continue();
+        return;
+    }
+
+    // 缺试剂停住后点「继续」：先清复位残留，再按调度续跑，避免卡在旧的抓手重跑状态
+    if (resumeAfterConsumable) {
+        m_Errorresetsfirst = false;
+        mbackOriginnumList.clear();
+        m_gripperRestartAwait = GripperRestartNone;
+        m_pauseCommandQueue.clear();
+        m_outstandingAcks = 0;
+        disarmAckWatchdog();
+        logTestFsmInfo(QStringLiteral("resume_after_consumable"),
+                       tr("样本焦点=%1").arg(hasFocus ? m_focus_sample_id : 0));
+        if (startPendingContinueReagent()) {
+            return;
+        }
+        if (!hasFocus) {
+            if (!m_finishTestData.isEmpty()) {
+                TraverseChnHadFinishTesting(THROW_CUPS_END);
+            } else {
+                StartSampleAdditionWorkflow();
+            }
+            return;
+        }
+        exceptionRetest(tr("更换试剂后继续"));
         return;
     }
 

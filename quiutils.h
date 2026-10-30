@@ -772,8 +772,10 @@ namespace QUIUtils
      * @param grippersuckCup2Channel
      */
     void suckCupMoveChannelPut(const QPoint GrriperSuckHoleAxis, const QPoint channelPutAxis,
-                                 quint8 gripperDown, QByteArrayList &grippersuckCup2Channel,
-                                 quint8 &sucknum, quint8 &splitnum);
+                                 quint8 trayGrabDown, quint8 channelPlaceDown,
+                                 QByteArrayList &grippersuckCup2Channel,
+                                 quint8 &sucknum, quint8 &splitnum,
+                                 bool forceRepeatGrab = false);
 
     /** 丢测试通道的试杯
      * @brief ThrowChannelCup
@@ -784,7 +786,8 @@ namespace QUIUtils
      * @param throwCupsList
      */
      void ThrowChannelCup(quint8 downsuck,const quint8 throwGipperHeigh,const QPoint channelAxis,const QPoint throwCupAxis, quint8 &throwSucknum,
-                            quint8 &throwSplitnum,QByteArrayList &throwCupsList);
+                            quint8 &throwSplitnum,QByteArrayList &throwCupsList,
+                            bool forceRepeatGrab = false);
 
 
     void _mapConsumablesName(quint8 index_, QString& out_);  //映射耗材名字

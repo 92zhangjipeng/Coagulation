@@ -4238,52 +4238,109 @@ void QUIUtils::spitReanentToTestChn(const int ChnIndex, quint8 indexReagent,
 
 void QUIUtils::suckCupMoveChannelPut(const QPoint GrriperSuckHoleAxis,
                                         const QPoint channelPutAxis,
-                                        quint8 gripperDown,
+                                        quint8 trayGrabDown,
+                                        quint8 channelPlaceDown,
                                         QByteArrayList &grippersuckCup2Channel,
                                         quint8 &sucknum,
-                                        quint8 &splitnum){
+                                        quint8 &splitnum,
+                                        bool forceRepeatGrab){
 
-
-    quint8 num = 0;
     grippersuckCup2Channel.clear();
-    grippersuckCup2Channel.reserve(6);
+    grippersuckCup2Channel.reserve(20);
     auto *pActive = Testing::getTaskDll();
-    grippersuckCup2Channel.push_back(pActive->DLL_XYMoveSpecifiedPosition(GrriperSuckHoleAxis,0,0,num));
+    sucknum = 0;
+    splitnum = 0;
+    if (!pActive || trayGrabDown == 0 || channelPlaceDown == 0) {
+        return;
+    }
 
-    sucknum = num;
-    grippersuckCup2Channel.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,gripperDown,0,num,
-                                                                      false,gripperDown,false,GRABCUPWITHGRIPPER));
-    grippersuckCup2Channel.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
+    auto appendList = [&](const QVector<QByteArray> &steps) {
+        for (const QByteArray &cmd : steps) {
+            if (!cmd.isEmpty()) {
+                grippersuckCup2Channel.push_back(cmd);
+            }
+        }
+    };
 
-    grippersuckCup2Channel.push_back(pActive->DLL_XYMoveSpecifiedPosition(channelPutAxis,0,0,num));
+    // 先抬抓手，再复位样本针/试剂针，最后才 XY（异常重试时抓手可能还在下面）
+    QVector<QByteArray> steps;
+    quint8 idx = 0;
+    steps.push_back(withGripperPump(
+                        pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, 0, 0, idx, false),
+                        GRIPPERMOVE_NORMAL));
+    appendBloodReagentNeedleResetBeforeGripperXy(steps, 0);
+    idx = static_cast<quint8>(steps.size() % 255);
+    steps.push_back(pActive->DLL_XYMoveSpecifiedPosition(GrriperSuckHoleAxis, 0, 0, idx));
 
-    splitnum = num;
-    grippersuckCup2Channel.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,gripperDown,0,num,
-                                                                        false,gripperDown,false,GRIPPERNORMAL));
-    grippersuckCup2Channel.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
+    const int gripAt = steps.size();
+    const bool bRepeat = forceRepeatGrab || INI_File().rConfigPara(REPEATGRABCUP).toBool();
+    quint8 liftIndex = 0;
+    appendGripperDescendThenVacuumHold(steps, trayGrabDown, bRepeat, liftIndex, 0);
+    if (steps.size() < gripAt + 3 || steps.at(gripAt + 2).size() <= GET_COMMAND_INDEX) {
+        QLOG_WARN() << "PE抓杯组包失败：负压抓杯序列不完整";
+        return;
+    }
+    // ksuck=气密判定命令号(第三次下扎)，ksplit=抬Z命令号
+    sucknum = static_cast<quint8>(steps.at(gripAt + 2).at(GET_COMMAND_INDEX));
+    splitnum = liftIndex;
+
+    // cmdIndexBase=0：编号按当前 steps.size() 续排
+    appendBloodReagentNeedleResetBeforeGripperXy(steps, 0);
+    idx = static_cast<quint8>(steps.size() % 255);
+    steps.push_back(pActive->DLL_XYMoveSpecifiedPosition(channelPutAxis, 0, 0, idx));
+    quint8 placeLift = 0;
+    appendGripperDescendThenVacuumRelease(steps, channelPlaceDown, placeLift, 0);
+    appendList(steps);
 }
 
 
 void QUIUtils::ThrowChannelCup(quint8 downsuck, const quint8 throwGipperHeigh,const QPoint channelAxis,
                                 const QPoint throwCupAxis, quint8 &throwSucknum,
-                                quint8 &throwSplitnum,QByteArrayList &throwCupsList){
-    quint8 num = 0;
+                                quint8 &throwSplitnum,QByteArrayList &throwCupsList,
+                                bool forceRepeatGrab){
     throwCupsList.clear();
-    throwCupsList.reserve(6);
+    throwCupsList.reserve(20);
     auto *pActive = Testing::getTaskDll();
-    throwCupsList.push_back(pActive->DLL_XYMoveSpecifiedPosition(channelAxis,0,0,num));
+    throwSucknum = 0;
+    throwSplitnum = 0;
+    if (!pActive || downsuck == 0 || throwGipperHeigh == 0) {
+        return;
+    }
 
-    throwSucknum = num;
-    throwCupsList.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,downsuck,0,num,
-                                        false,downsuck,false,GRABCUPWITHGRIPPER));
-    throwCupsList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
+    auto appendList = [&](const QVector<QByteArray> &steps) {
+        for (const QByteArray &cmd : steps) {
+            if (!cmd.isEmpty()) {
+                throwCupsList.push_back(cmd);
+            }
+        }
+    };
 
-    throwCupsList.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwCupAxis,0,0,num));
+    QVector<QByteArray> steps;
+    quint8 idx = 0;
+    steps.push_back(withGripperPump(
+                        pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, 0, 0, idx, false),
+                        GRIPPERMOVE_NORMAL));
+    appendBloodReagentNeedleResetBeforeGripperXy(steps, 0);
+    idx = static_cast<quint8>(steps.size() % 255);
+    steps.push_back(pActive->DLL_XYMoveSpecifiedPosition(channelAxis, 0, 0, idx));
 
-    throwSplitnum = num;
-    throwCupsList.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,throwGipperHeigh,0,num,
-                                    false,throwGipperHeigh,false,GRIPPERNORMAL));
-    throwCupsList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false));
+    const int gripAt = steps.size();
+    const bool bRepeat = forceRepeatGrab || INI_File().rConfigPara(REPEATGRABCUP).toBool();
+    quint8 liftIndex = 0;
+    appendGripperDescendThenVacuumHold(steps, downsuck, bRepeat, liftIndex, 0);
+    if (steps.size() < gripAt + 3 || steps.at(gripAt + 2).size() <= GET_COMMAND_INDEX) {
+        QLOG_WARN() << "PE丢杯组包失败：负压抓杯序列不完整";
+        return;
+    }
+    throwSucknum = static_cast<quint8>(steps.at(gripAt + 2).at(GET_COMMAND_INDEX));
+    throwSplitnum = liftIndex;
+
+    appendBloodReagentNeedleResetBeforeGripperXy(steps, 0);
+    idx = static_cast<quint8>(steps.size() % 255);
+    steps.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwCupAxis, 0, 0, idx));
+    quint8 placeLift = 0;
+    appendGripperDescendThenVacuumRelease(steps, throwGipperHeigh, placeLift, 0);
+    appendList(steps);
 }
 
 

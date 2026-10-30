@@ -12,7 +12,6 @@
 #include <globaldata.h>
 #include "cglobal.h"
 #include "ini_file.h"
-#define BLOODLAYER_STATIC
 #include "bloodlayer_api.h"
 #include <QStandardPaths>
 #include <cstring>
@@ -1029,8 +1028,12 @@ void TestOpcv::trayfindImg()
     const QByteArray utf8Path = m_detectImagePath.toUtf8();
     const int apiOk = bloodlayer_detect_interface(utf8Path.constData(), &det, nullptr);
     const QString detMsg = QString::fromUtf8(det.message);
+    const QString layerVer = QString::fromLatin1(bloodlayer_version());
+    const bool layerLibMissing = layerVer.contains(QStringLiteral("missing"), Qt::CaseInsensitive)
+            || detMsg.contains(QString::fromUtf8("\xe6\x9c\xaa\xe9\x93\xbe\xe6\x8e\xa5 bloodlayer"));
 
     QLOG_INFO() << "[血浆分层] bloodlayer" << detMsg
+                << " ver=" << layerVer
                 << " apiOk=" << apiOk
                 << " ok=" << det.ok
                 << " 横管=" << det.horizontal
@@ -1042,6 +1045,28 @@ void TestOpcv::trayfindImg()
                 << " 分界数=" << det.nInterfaces
                 << " refHeightPx=" << det.refHeightPx
                 << " pxPerMm=" << det.pxPerMm;
+
+    if (layerLibMissing) {
+        QLOG_WARN() << "[测高] bloodlayer 正式库未接入，当前是占位桩，全血测高无法识别";
+        ui->label_ratio->setText(agentInfoHtml(
+                                     QStringLiteral("#ff8b6a"),
+                                     QString::fromUtf8("视觉识别  ·  库未接入"),
+                                     QString::fromUtf8("全血测高需要 bloodlayer 识别库"),
+                                     false, QString(), QString(), QString(), QString()));
+        QMessageBox box(this);
+        box.setIcon(QMessageBox::Warning);
+        box.setWindowTitle(tr("全血测高"));
+        box.setText(tr("全血测高的血浆分层识别库还没接入。\n"
+                       "现在看到的参照物=(0,0)、分界=(-1,-1)不是坐标或摄像头问题。"));
+        box.setInformativeText(tr("请从太原 testOpencv 取到 bloodlayer.lib 和 bloodlayer.dll，"
+                                  "放入 thirdparty/bloodlayer/lib 与 bin，"
+                                  "再把工程从占位桩改成链接正式库后重编。"));
+        box.setStandardButtons(QMessageBox::Ok);
+        box.setWindowFlags(box.windowFlags() | Qt::WindowStaysOnTopHint);
+        box.setWindowModality(Qt::WindowModal);
+        box.exec();
+        return;
+    }
 
     referenceObjectRect = Rect(det.refX, det.refY, det.refW, det.refH);
     s_tubeRoi = Rect(det.tubeX, det.tubeY, det.tubeW, det.tubeH);

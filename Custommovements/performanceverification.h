@@ -10,6 +10,7 @@
 #include <QVector>
 #include <QMap>
 #include <QTimer>
+#include <QByteArrayList>
 #include <unordered_map>
 #include <functional>
 
@@ -187,42 +188,48 @@ public:
 			const OperationType& operation = pData->*operationPtr;
 
 			if (operation.enabled) {
-				//QLOG_WARN() << logTag << channel << "operation disabled";
 				return;
 			}
 
 			const CommandGroup& commands = operation.commands;
-			outSend.reserve(commands.size());
-
-			// C++11 兼容遍历方式
+			// 只取下一条未完成指令：等 MOTOR_FINISH 再发，避免 XY 未到位就下样本针
 			for (auto it = commands.constBegin(); it != commands.constEnd(); ++it) {
 				const ActiveCommand& cmd = it.value();
 				if (!cmd.isCompleted && !cmd.cmdData.isEmpty()) {
 					outSend.push_back(cmd.cmdData);
+					break;
 				}
 			}
-
-			//QLOG_DEBUG() << logTag << channel
-				//<< "sent" << outSend.size() << "commands";
-		}
-		else {
-			//QLOG_ERROR() << logTag << channel << "channel data not found";
 		}
 	}
 
     template<typename LiquidContainer>
-    bool processLiquidCommands(LiquidContainer& container, const quint8 indexnum) {
+    bool processLiquidCommands(LiquidContainer& container, const quint8 indexnum,
+                               const QString& continueInfo = QString()) {
         auto& commands = container.commands;
+        bool matched = false;
         auto target = std::find_if(commands.begin(), commands.end(),
                                     [indexnum](const auto& cmd) {
                                         return cmd.phaseNumber == indexnum && !cmd.isCompleted;
                                       });
         if (target != commands.end()) {
             target->isCompleted = true;
+            matched = true;
         }
         bool allFinish = std::all_of(commands.begin(), commands.end(),
                                         [](const auto& cmd) { return cmd.isCompleted; });
         container.enabled = allFinish;
+        if (!allFinish && matched && !continueInfo.isEmpty()) {
+            for (auto it = commands.constBegin(); it != commands.constEnd(); ++it) {
+                const ActiveCommand& cmd = it.value();
+                if (!cmd.isCompleted && !cmd.cmdData.isEmpty()) {
+                    QByteArrayList nextCmd;
+                    nextCmd.append(cmd.cmdData);
+                    emit sendorderList(nextCmd, continueInfo);
+                    break;
+                }
+            }
+        }
         return allFinish;
     }
 
@@ -234,6 +241,26 @@ public:
     void outPutThrowWater(QByteArrayList &outSend);
     void outPutThrowBasicLiquid(QByteArrayList &outSend,const int indexValue);
     void outCleanPin(QByteArrayList &outSend);
+
+    /** 当前阶段是否为抓杯（需负压判定） */
+    bool isPeGripperPickPhase() const;
+    /** 从当前抓杯指令组同步气密判定/抬Z命令号 */
+    void armPeGrabDetection();
+    void clearPeGrabDetection();
+    CommandGroup *currentGripperCommandGroup();
+    bool markPeCommandCompleteOnly(quint8 indexnum);
+    void peUpdateGrabOkFromAck(const QStringList &recv, quint8 commandIndex);
+    /** 开负压下扎（读负压的前一步）。这一步完成后先等负压，再发读负压。 */
+    bool peIsGrabOpenDescend(quint8 commandIndex) const;
+    /** 读负压未吸住时，按测试流程在原命令号上再下 1～3mm，泵保持开，先不抬。 */
+    QByteArray peBuildGrabDeepenCmd(quint8 commandIndex) const;
+    void peRequestRegrabPrompt();
+    void pePromptRegrab();
+    bool peRebuildCurrentGripperPhase();
+    void peAbortOnGrabGiveUp();
+    void peSendNextAbortHome();
+    void peFinishAbortHome();
+    void peSendFirstPending(const QString &info);
 
 
     // 命令执行入口函数
@@ -291,13 +318,16 @@ private:
 
     void   insertBasicLinquedata(PerformanceData &dataPE,const QPoint& suckBasicLinqueCoord);
 
-    void   insertTestWaterPEActivedata(PerformanceData &dataPE, const quint8 gripperDown);
+    void   insertTestWaterPEActivedata(PerformanceData &dataPE, const quint8 gripperDown,
+                                       bool forceRepeatGrab = false);
 
-    void   insertTestBasicLinquePEActivedata(PerformanceData &dataPE,const quint8 gripperDown);
+    void   insertTestBasicLinquePEActivedata(PerformanceData &dataPE,const quint8 gripperDown,
+                                             bool forceRepeatGrab = false);
 
     void   insetThrowTestingCup(PerformanceData &dataPE,
                                  const QPoint &throwCoord
-                                , const quint8 gripperDown, const quint8 throwGipperHeigh);
+                                , const quint8 gripperDown, const quint8 throwGipperHeigh,
+                                 bool forceRepeatGrab = false);
 
     void  insertCleanendPE(PerformanceData &dataPE);
 
@@ -343,6 +373,20 @@ private:
     PerformanceDataset mdatatest;
     int m_peChannel;
     activePE mPE;
+
+    bool m_peGrabArmed = false;
+    bool m_peGrabOk = false;
+    bool m_pePromptingRegrab = false;
+    bool m_peRegrab = false;
+    quint8 m_peGrabJudgeIndex = 255;
+    quint8 m_peGrabLiftIndex = 255;
+    int m_peGrabDeepenTimes = 0;
+    QPoint m_peThrowCoord;
+    quint8 m_peGripperDown = 0;
+    quint8 m_peThrowGripperDown = 0;
+    bool m_peAbortHoming = false;
+    quint8 m_peAbortExpect = 255;
+    QByteArrayList m_peAbortHome;
 
 };
 

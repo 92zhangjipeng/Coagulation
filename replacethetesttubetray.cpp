@@ -10,6 +10,7 @@
 #include <QMenu>
 #include <QStyle>
 #include <QMessageBox>
+#include <QPushButton>
 #include <cglobal.h>
 #include <QDateTime>
 #include <QSet>
@@ -534,6 +535,18 @@ void ReplaceTheTestTubeTray::on_toolButton_clicked()
                                   tr("空试管不足，当前空闲%1个，本次需要%2个（每个通道5个：水/标准物/高/中/低）")
                                   .arg(freeTubes)
                                   .arg(needTubes));
+        return;
+    }
+
+    // 血样孔下标 0、1，界面孔号是下标+1
+    QMessageBox placeBox(this);
+    placeBox.setIcon(QMessageBox::Information);
+    placeBox.setWindowTitle(tr("性能验证"));
+    placeBox.setText(tr("开始前请在血样孔放好：\n1号孔：蒸馏水\n2号孔：标准物"));
+    QPushButton *startBtn = placeBox.addButton(tr("开始"), QMessageBox::AcceptRole);
+    placeBox.addButton(tr("取消"), QMessageBox::RejectRole);
+    placeBox.exec();
+    if (placeBox.clickedButton() != startBtn) {
         return;
     }
 

@@ -501,6 +501,7 @@ private:
     QList<quint8> mbackOriginnumList;
     bool m_Errorresetsfirst; //发生异常先所有轴复位
     bool m_needHomeBeforeResume = false; //电机异常后点「继续」须先全轴复位
+    bool m_pauseAwaitConsumable = false; //缺试剂复位后不得自动续跑，等人换试剂再点继续
     bool m_prepatchAckPaced = false; // 预填指令按应答逐条发（清洗针）
 
     // P1：待扣试剂耗材（XY 到试剂位时记录，流程成功完成后再扣）
