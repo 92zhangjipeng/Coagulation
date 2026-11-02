@@ -35,6 +35,21 @@
 
 namespace {
 
+void omitTaskbarButton(QWidget *widget)
+{
+    if (!widget)
+        return;
+    HWND hwnd = reinterpret_cast<HWND>(widget->winId());
+    if (!hwnd)
+        return;
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    style &= ~WS_EX_APPWINDOW;
+    style |= WS_EX_TOOLWINDOW;
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, style);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
+
 QIcon makeQcNavIcon()
 {
     QImage image(QStringLiteral(":/Picture/backorigin.png"));
@@ -188,8 +203,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
 {
     ui->setupUi(this);
 
-    // 窗口属性设置
-    setWindowFlags(Qt::FramelessWindowHint | windowFlags());
+    // 无边框，且不在任务栏占按钮。软件图标只留在托盘。
+    setWindowFlags((windowFlags() & ~Qt::WindowType_Mask)
+                   | Qt::Tool
+                   | Qt::FramelessWindowHint);
 
     // 预加载图标资源
     m_connectedIcon.load(":/Picture/SetPng/Serial_connect.png");
@@ -2083,49 +2100,52 @@ void MainWindow::showTrayMessage(const QString& title, const QString& message,
     m_systemTray->showMessage(title, message, icon, timeout);
 }
 
-void MainWindow::toggleWindowVisibility()
+void MainWindow::showMainFromTray()
 {
-    if (isVisible() && !isMinimized()) {
-        hide();
-    } else {
-        showNormal();
-        raise();
-        activateWindow();
-    }
+    if (m_forceQuit)
+        return;
+    if (isMinimized())
+        setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+    show();
+    omitTaskbarButton(this);
+    raise();
+    activateWindow();
 }
 void MainWindow::setTrayIcon()
 {
+    if (!m_systemTray)
+        return;
+
     QIcon trayIcon;
-    QString customIconPath = ":/Picture/suowei.png";
+    const QString customIconPath = QStringLiteral(":/Picture/suowei.png");
 
     if (QFile::exists(customIconPath)) {
         trayIcon = QIcon(customIconPath);
         QLOG_DEBUG() << "成功加载自定义图标:" << customIconPath;
     } else {
         QLOG_WARN() << "自定义图标不存在:" << customIconPath;
-        // 尝试使用内置图标
         trayIcon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
     }
 
     m_systemTray->setIcon(trayIcon);
     QLOG_DEBUG() << "托盘图标设置" << (trayIcon.isNull() ? "失败" : "成功");
 }
-void MainWindow::checkTrayAvailability()
+bool MainWindow::checkTrayAvailability()
 {
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {
-        CustomMessageBox::warning(this,
-                            tr("系统托盘"),
-                            tr("系统不支持托盘功能！\n请确保系统托盘服务正在运行."));
-        QCoreApplication::exit(EXIT_FAILURE);
+        QLOG_WARN() << "系统托盘不可用，主界面仍正常打开";
+        return false;
     }
 
-    // 额外检查消息系统支持
-    if (!QSystemTrayIcon::supportsMessages()) {
+    if (!QSystemTrayIcon::supportsMessages())
         QLOG_WARN() << "系统不支持托盘消息提示功能";
-    }
+    return true;
 }
 void MainWindow::setupTrayMenuStyle()
 {
+    if (!m_trayMenu)
+        return;
+    m_trayMenu->setAttribute(Qt::WA_StyledBackground, true);
     m_trayMenu->setStyleSheet(R"(
         QMenu {
             background: rgb(253,253,254);
@@ -2148,43 +2168,52 @@ void MainWindow::setupTrayMenuStyle()
 
 void MainWindow::createTrayActions()
 {
-    // 清空现有菜单项（如果之前已创建）
+    if (!m_trayMenu)
+        return;
     m_trayMenu->clear();
 
-    // 创建并添加消息通知动作
     auto* messageAction = new QAction(tr("关于"), m_trayMenu);
     connect(messageAction, &QAction::triggered, this, [this] {
-        ui->toolButton_about->click(); // 触发信号
+        if (m_forceQuit || !ui->toolButton_about)
+            return;
+        showMainFromTray();
+        ui->toolButton_about->click();
     });
     m_trayMenu->addAction(messageAction);
     m_trayMenu->addSeparator();
 
-     // 使用函数添加动作，避免结构体初始化问题
      auto addTrayAction = [this](const QString& text, std::function<void()> handler, bool addSeparator = false) {
          auto* action = new QAction(text, m_trayMenu);
          connect(action, &QAction::triggered, this, handler);
          m_trayMenu->addAction(action);
-         if (addSeparator) {
+         if (addSeparator)
              m_trayMenu->addSeparator();
-         }
      };
 
-     // 添加窗口控制动作
      addTrayAction(tr("显示主窗口"), [this] {
-         showNormal();
-         raise();
-         activateWindow();
+         showMainFromTray();
      });
 
      addTrayAction(tr("最小化到托盘"), [this] {
+         if (m_forceQuit)
+             return;
          hide();
+         showTrayMessage(tr("全自动血小板聚集分析系统"),
+                         tr("程序已最小化到托盘，单击图标可重新打开"),
+                         QSystemTrayIcon::Information,
+                         3000);
      });
 
      addTrayAction(tr("打开设置"), [this] {
+         if (m_forceQuit)
+             return;
+         showMainFromTray();
          openSettingsDialog();
-     }, true); // 添加分隔符
+     }, true);
 
      addTrayAction(tr("退出系统"), [this] {
+         if (m_forceQuit)
+             return;
          m_forceQuit = true;
          writeConsumablesExit();
      });
@@ -2192,28 +2221,29 @@ void MainWindow::createTrayActions()
 
 void MainWindow::connectTraySignals()
 {
-    // 托盘激活事件
+    if (!m_systemTray)
+        return;
+
     connect(m_systemTray, &QSystemTrayIcon::activated, this,
         [this](QSystemTrayIcon::ActivationReason reason) {
-            if (reason == QSystemTrayIcon::DoubleClick) {
-                toggleWindowVisibility();
-            }else if(reason == QSystemTrayIcon::Trigger){
-
-            }
+            if (reason == QSystemTrayIcon::Trigger
+                    || reason == QSystemTrayIcon::DoubleClick)
+                showMainFromTray();
         });
 
-    // 消息点击处理
-    connect(m_systemTray, &QSystemTrayIcon::messageClicked, this, [] {
-        QDesktopServices::openUrl(QUrl("app:notifications"));
+    connect(m_systemTray, &QSystemTrayIcon::messageClicked, this, [this] {
+        showMainFromTray();
     });
 }
 
 void MainWindow::initTrayFunction()
 {
-    // 检查系统托盘可用性
-    checkTrayAvailability();
+    if (!checkTrayAvailability()) {
+        showMaximized();
+        omitTaskbarButton(this);
+        return;
+    }
 
-    // 初始化托盘图标
     m_systemTray = new QSystemTrayIcon(this);
 
     // 设置托盘图标
@@ -2236,6 +2266,7 @@ void MainWindow::initTrayFunction()
     m_systemTray->show();
 
     showMaximized();
+    omitTaskbarButton(this);
     return;
 }
 

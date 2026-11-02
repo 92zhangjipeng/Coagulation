@@ -291,6 +291,8 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_Errorresetsfirst = false;
     m_needHomeBeforeResume = false;
     m_pauseAwaitConsumable = false;
+    m_continueAfterReagentHome = false;
+    m_holdReagentPause = false;
     mbackOriginnumList.clear();
     m_pauseCommandQueue.clear();
     m_waitingPppRead = false;
@@ -564,13 +566,28 @@ void TestProjectProcess::writeCommandHeader(const QByteArray data,const QString 
 }
 
 void TestProjectProcess::missingReagentResetPause(){
+    // 换试剂后点继续仍被判不足：人已经在原点，再发全轴复位看起来像没动，任务也发不出去
+    if (m_holdReagentPause) {
+        m_pauseAwaitConsumable = true;
+        m_continueAfterReagentHome = false;
+        cglobal::g_PauseTesting.store(true);
+        emit requestPauseUiSync(true);
+        publishWorkflowStatus(tr("试剂仍不足，请更换报警的那一瓶后再点「继续」"));
+        promptsareDisplayed(TESTINGLOG,
+                            tr("试剂仍不足，已停在原点，请更换报警的那一瓶后再点「继续」"),
+                            false);
+        return;
+    }
+
     // 缺试剂：先停住，再全轴复位；复位完成后不要自动续跑，否则会一边弹窗一边空转
     m_Errorresetsfirst = true;
     m_pauseAwaitConsumable = true;
+    m_continueAfterReagentHome = false;
     mbackOriginnumList.clear();
     cglobal::g_PauseTesting.store(true);
     if (cglobal::g_StartTesting.load()) {
         emit pauseTesting();
+        emit requestPauseUiSync(true);
     }
     QByteArrayList allAxisBackOrigin = GlobalData::letallAxisBackOrigin(mbackOriginnumList);
     sendInstructionsWithDelay(allAxisBackOrigin, DELAY_TIMENUM, tr("缺少试剂复位暂停"));
@@ -1148,9 +1165,17 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
         }
         if (mbackOriginnumList.isEmpty()) {
             m_Errorresetsfirst = false;
+            if (m_continueAfterReagentHome) {
+                m_continueAfterReagentHome = false;
+                m_pauseAwaitConsumable = false;
+                const bool hasFocus = StructInstance::getInstance()->sampleHadFocus();
+                resumeTestingAfterReagentPause(hasFocus);
+                return;
+            }
             if (m_pauseAwaitConsumable) {
                 cglobal::g_PauseTesting.store(true);
                 emit pauseTesting();
+                emit requestPauseUiSync(true);
                 publishWorkflowStatus(tr("试剂不足，全轴已复位，请更换后点「继续」"));
                 promptsareDisplayed(TESTINGLOG,
                                     tr("试剂不足，全轴已复位，请更换试剂后点「继续」"),
@@ -2473,28 +2498,18 @@ void TestProjectProcess::handleResumeaTestTask()
         return;
     }
 
-    // 缺试剂停住后点「继续」：先清复位残留，再按调度续跑，避免卡在旧的抓手重跑状态
+    // 缺试剂停住后点「继续」。回原点还在飞时先记下来，等应答到齐再发吸试剂，避免把复位跟踪清掉。
     if (resumeAfterConsumable) {
-        m_Errorresetsfirst = false;
-        mbackOriginnumList.clear();
-        m_gripperRestartAwait = GripperRestartNone;
-        m_pauseCommandQueue.clear();
-        m_outstandingAcks = 0;
-        disarmAckWatchdog();
-        logTestFsmInfo(QStringLiteral("resume_after_consumable"),
-                       tr("样本焦点=%1").arg(hasFocus ? m_focus_sample_id : 0));
-        if (startPendingContinueReagent()) {
+        if (m_Errorresetsfirst && !mbackOriginnumList.isEmpty()) {
+            m_continueAfterReagentHome = true;
+            m_pauseAwaitConsumable = true;
+            publishWorkflowStatus(tr("试剂已更换，回原点完成后继续"));
+            promptsareDisplayed(TESTINGLOG,
+                                tr("试剂已更换，等全轴回到原点后继续"),
+                                false);
             return;
         }
-        if (!hasFocus) {
-            if (!m_finishTestData.isEmpty()) {
-                TraverseChnHadFinishTesting(THROW_CUPS_END);
-            } else {
-                StartSampleAdditionWorkflow();
-            }
-            return;
-        }
-        exceptionRetest(tr("更换试剂后继续"));
+        resumeTestingAfterReagentPause(hasFocus);
         return;
     }
 
@@ -3458,11 +3473,52 @@ bool TestProjectProcess::beginNextReagentForSample(int sampleId)
 
     const QString continueLog = QString::fromUtf8("样本%1继续吸试剂:%2")
             .arg(sampleId).arg(outLog);
+    QByteArray suckCmd = instance->sendsuckReagentCatchCuptoTestChannelHead(sampleId, waittest_reag);
+    if (suckCmd.isEmpty()) {
+        suckCmd = instance->restartPrpClipFromFirst(sampleId, waittest_reag);
+    }
+    if (suckCmd.isEmpty()) {
+        const QString outerr = QString::fromUtf8("样本%1吸试剂指令为空，已暂停").arg(sampleId);
+        QLOG_ERROR() << outerr;
+        publishWorkflowStatus(outerr);
+        promptsareDisplayed(TESTINGLOG, outerr, false);
+        m_pauseAwaitConsumable = true;
+        cglobal::g_PauseTesting.store(true);
+        enqueueContinueReagent(sampleId);
+        emit requestPauseUiSync(true);
+        return true;
+    }
     promptsareDisplayed(TESTINGLOG, continueLog, false);
-    writeCommandHeader(instance->sendsuckReagentCatchCuptoTestChannelHead(sampleId, waittest_reag),
-                       continueLog,
-                       DELAY_TIMENUM);
+    writeCommandHeader(suckCmd, continueLog, DELAY_TIMENUM);
     return true;
+}
+
+void TestProjectProcess::resumeTestingAfterReagentPause(bool hasFocus)
+{
+    m_Errorresetsfirst = false;
+    m_continueAfterReagentHome = false;
+    mbackOriginnumList.clear();
+    m_gripperRestartAwait = GripperRestartNone;
+    m_pauseCommandQueue.clear();
+    m_outstandingAcks = 0;
+    disarmAckWatchdog();
+    cglobal::g_PauseTesting.store(false);
+    emit requestPauseUiSync(false);
+    logTestFsmInfo(QStringLiteral("resume_after_consumable"),
+                   tr("样本焦点=%1").arg(hasFocus ? m_focus_sample_id : 0));
+
+    m_holdReagentPause = true;
+    const bool started = startPendingContinueReagent();
+    if (!started && hasFocus) {
+        exceptionRetest(tr("更换试剂后继续"));
+    } else if (!started) {
+        if (!m_finishTestData.isEmpty()) {
+            TraverseChnHadFinishTesting(THROW_CUPS_END);
+        } else {
+            StartSampleAdditionWorkflow();
+        }
+    }
+    m_holdReagentPause = false;
 }
 
 void TestProjectProcess::noteCommandsSent(int count)

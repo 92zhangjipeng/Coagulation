@@ -8,6 +8,7 @@
 #include "threadremindertsettube.h"
 #include "QsLog/include/QsLog.h"
 #include <QApplication>
+#include <QTimer>
 #include <unordered_map>
 #include <operclass/fullyautomatedplatelets.h>
 
@@ -140,6 +141,18 @@ void ThreadReminderTsetTube::showTestTubeZoneOneWarning( const int zoneNumber){
         return;
     }
 
+    if (QWidget *modal = QApplication::activeModalWidget()) {
+        if (!m_deferredTrayZones.contains(zoneNumber))
+            m_deferredTrayZones.append(zoneNumber);
+        if (QDialog *dlg = qobject_cast<QDialog *>(modal)) {
+            connect(dlg, &QDialog::finished, this,
+                    &ThreadReminderTsetTube::showDeferredTrayWarnings,
+                    Qt::UniqueConnection);
+        }
+        QLOG_INFO() << zoneName << "脱位提示延后，先关掉当前提示框";
+        return;
+    }
+
     PMessageBox* pWidgetTube = ensureMessageBoxInitialized(zoneNumber);
     if (!pWidgetTube)
         return;
@@ -189,14 +202,35 @@ void ThreadReminderTsetTube::positionMessageBoxCentered(PMessageBox *pWidget)
 
 void ThreadReminderTsetTube::showMessageBox(PMessageBox *pWidget)
 {
+    if (QApplication::activeModalWidget()) {
+        pWidget->hide();
+        return;
+    }
     pWidget->setWindowFlags(pWidget->windowFlags() | Qt::WindowStaysOnTopHint | Qt::Window);
     pWidget->setWindowModality(Qt::NonModal);
     pWidget->show();
-    if (QApplication::activeModalWidget()) {
-        return;
-    }
     pWidget->raise();
     pWidget->activateWindow();
+}
+
+void ThreadReminderTsetTube::showDeferredTrayWarnings()
+{
+    QTimer::singleShot(0, this, [this]() {
+        if (QApplication::activeModalWidget() || m_deferredTrayZones.isEmpty())
+            return;
+        const int zone = m_deferredTrayZones.takeFirst();
+        showTestTubeZoneOneWarning(zone);
+        if (m_deferredTrayZones.isEmpty())
+            return;
+        auto shown = messageBoxMap.find(zone);
+        if (shown != messageBoxMap.end() && shown->second && shown->second->isVisible()) {
+            connect(shown->second, &QDialog::finished, this,
+                    &ThreadReminderTsetTube::showDeferredTrayWarnings,
+                    Qt::UniqueConnection);
+            return;
+        }
+        showDeferredTrayWarnings();
+    });
 }
 
 void ThreadReminderTsetTube::handleTrayUpdateConfirmed(int index)

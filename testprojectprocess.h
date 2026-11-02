@@ -147,6 +147,8 @@ private:
                                    const QString instructioninfo);
     //缺少试剂复位暂停
     void missingReagentResetPause();
+    // 换完试剂点继续：等回原点走完再发下一组，避免清掉还在飞的复位
+    void resumeTestingAfterReagentPause(bool hasFocus);
 
     //开始样本加样指令
     void StartSampleAdditionWorkflow();
@@ -502,6 +504,8 @@ private:
     bool m_Errorresetsfirst; //发生异常先所有轴复位
     bool m_needHomeBeforeResume = false; //电机异常后点「继续」须先全轴复位
     bool m_pauseAwaitConsumable = false; //缺试剂复位后不得自动续跑，等人换试剂再点继续
+    bool m_continueAfterReagentHome = false; //回原点未完成时已点继续，原点应答到齐后再续跑
+    bool m_holdReagentPause = false; //本次是换试剂后的继续，仍不足时只停住，不再回一次原点
     bool m_prepatchAckPaced = false; // 预填指令按应答逐条发（清洗针）
 
     // P1：待扣试剂耗材（XY 到试剂位时记录，流程成功完成后再扣）

@@ -15,8 +15,11 @@
 
 #include <QDate>
 #include <QTime>
-#include <QMessageBox>
+#include <QDialog>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QPushButton>
+#include <QVBoxLayout>
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
@@ -105,10 +108,20 @@ QcStartAction::QcStartAction(QObject *parent)
     , m_jobIndex(0)
     , m_expectIndex(0)
     , m_grabJudgeIndex(255)
+    , m_grabOpenIndex(255)
+    , m_grabLiftIndex(255)
+    , m_grabDeepenTimes(0)
+    , m_pickDownMm(0)
     , m_grabOk(false)
     , m_placing(false)
     , m_regrab(false)
     , m_promptingRegrab(false)
+    , m_stepwise(false)
+    , m_aborting(false)
+    , m_pending()
+    , m_pendingPos(0)
+    , m_abortCmds()
+    , m_abortPos(0)
     , m_waitTimer(new QTimer(this))
     , m_waitChannel1(0)
     , m_waitChannel0(0)
@@ -297,6 +310,10 @@ bool QcStartAction::buildGripLeg(const QPoint &target, int downMm, bool picking,
         return false;
 
     QVector<QByteArray> steps;
+    if (picking && m_regrab) {
+        quint8 resetIndex = static_cast<quint8>(steps.size() % 255);
+        steps.push_back(dll->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, 0, 0, resetIndex, false));
+    }
     QUIUtils::appendBloodReagentNeedleResetBeforeGripperXy(steps, 0);
     quint8 idx = static_cast<quint8>(steps.size() % 255);
     steps.push_back(dll->DLL_XYMoveSpecifiedPosition(target, 0, 0, idx));
@@ -305,12 +322,18 @@ bool QcStartAction::buildGripLeg(const QPoint &target, int downMm, bool picking,
     if (picking) {
         const bool repeat = m_regrab || INI_File().rConfigPara(REPEATGRABCUP).toBool();
         QUIUtils::appendGripperDescendThenVacuumHold(steps, downMm, repeat, endNo, 0);
-        if (steps.size() < gripAt + 3 || steps.at(gripAt + 2).size() <= GET_COMMAND_INDEX)
+        if (steps.size() < gripAt + 4 || steps.at(gripAt + 2).size() <= GET_COMMAND_INDEX)
             return false;
+        m_pickDownMm = downMm;
+        m_grabOpenIndex = static_cast<quint8>(steps.at(gripAt + 1).at(GET_COMMAND_INDEX));
         m_grabJudgeIndex = static_cast<quint8>(steps.at(gripAt + 2).at(GET_COMMAND_INDEX));
+        m_grabLiftIndex = endNo;
         m_grabOk = false;
     } else {
         m_grabJudgeIndex = 255;
+        m_grabOpenIndex = 255;
+        m_grabLiftIndex = 255;
+        m_pickDownMm = 0;
         QUIUtils::appendGripperDescendThenVacuumRelease(steps, downMm, endNo, 0);
     }
     for (int i = 0; i < steps.size(); ++i)
@@ -331,24 +354,186 @@ void QcStartAction::promptRegrab()
 {
     if (!m_running || !m_promptingRegrab)
         return;
-    QMessageBox box(FullyAutomatedPlatelets::mainWindow());
-    box.setIcon(QMessageBox::Warning);
-    box.setWindowTitle(u8("\xe6\x8a\x93\xe6\x9d\xaf\xe5\xa4\xb1\xe8\xb4\xa5"));
-    box.setText(u8("\xe6\xb2\xa1\xe6\x9c\x89\xe6\x8a\x93\xe5\x88\xb0\xe8\xaf\x95\xe7\xae\xa1\xef\xbc\x8c\xe8\xa6\x81\xe9\x87\x8d\xe6\x8a\x93\xe4\xb8\x80\xe6\xac\xa1\xe5\x90\x97\xef\xbc\x9f"));
-    QPushButton *again = box.addButton(u8("\xe9\x87\x8d\xe6\x8a\x93"), QMessageBox::AcceptRole);
-    box.addButton(u8("\xe6\x94\xbe\xe5\xbc\x83"), QMessageBox::RejectRole);
-    box.exec();
+    QWidget *parent = FullyAutomatedPlatelets::mainWindow();
+    QDialog dlg(parent);
+    dlg.setWindowTitle(u8("\xe6\x8a\x93\xe6\x9d\xaf\xe5\xa4\xb1\xe8\xb4\xa5"));
+    dlg.setModal(true);
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setWindowModality(Qt::ApplicationModal);
+    dlg.setAttribute(Qt::WA_StyledBackground, true);
+    dlg.setMinimumWidth(460);
+    dlg.setStyleSheet(QString::fromUtf8(
+        "QDialog { background: #eef4f8; border: 1px solid #c5d4e2; border-radius: 14px; }"));
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
+    mainLayout->setContentsMargins(0, 0, 0, 18);
+    mainLayout->setSpacing(0);
+
+    QWidget *accent = new QWidget(&dlg);
+    accent->setFixedHeight(6);
+    accent->setStyleSheet(QString::fromUtf8(
+        "background: #4a7ab5; border: none;"
+        " border-top-left-radius: 14px; border-top-right-radius: 14px;"));
+    mainLayout->addWidget(accent);
+
+    QVBoxLayout *body = new QVBoxLayout();
+    body->setContentsMargins(22, 18, 22, 0);
+    body->setSpacing(14);
+    mainLayout->addLayout(body);
+
+    QLabel *title = new QLabel(u8("\xe6\x8a\x93\xe6\x9d\xaf\xe5\xa4\xb1\xe8\xb4\xa5"), &dlg);
+    title->setStyleSheet(QString::fromUtf8(
+        "QLabel { font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 24px; color: #1a4d6b;"
+        " background: transparent; border: none; }"));
+    body->addWidget(title);
+    const QString giveUpTip = u8(
+        "\xe6\x94\xbe\xe5\xbc\x83\xe5\x90\x8e\xe5\x85\x88\xe6\x8a\xac\xe8\xb5\xb7\xe6\x8a\x93\xe6\x89\x8b\xe5\x92\x8c\xe5\x8f\x8c\xe9\x92\x88\xef\xbc\x8c"
+        "\xe5\x9b\x9e\xe5\x88\xb0\xe5\x8e\x9f\xe7\x82\xb9\xef\xbc\x8c\xe5\x86\x8d\xe6\xb8\x85\xe6\xb4\x97\xe8\xa1\x80\xe6\xa0\xb7\xe9\x92\x88\xe3\x80\x82");
+    const QString tip = (m_grabDeepenTimes >= 3)
+            ? u8("\xe8\xb4\x9f\xe5\x8e\x8b\xe6\xb2\xa1\xe5\x88\xb0\xef\xbc\x8c\xe5\xb7\xb2\xe7\xbb\x8f\xe5\x86\x8d\xe5\xbe\x80\xe4\xb8\x8b\xe5\x90\xb8\xe4\xba\x86")
+              + QStringLiteral("3")
+              + u8("\xe6\xac\xa1\xef\xbc\x8c"
+                 "\xe8\xbf\x98\xe6\x98\xaf\xe6\xb2\xa1\xe6\x8a\x93\xe5\x88\xb0\xe8\xaf\x95\xe7\xae\xa1\xe3\x80\x82\n"
+                 "\xe9\x87\x8d\xe6\x8a\x93\xe4\xbc\x9a\xe4\xbb\x8e\xe5\xa4\xb4\xe5\x86\x8d\xe6\x8a\x93\xe4\xb8\x80\xe6\xac\xa1\xe3\x80\x82") + giveUpTip
+            : u8("\xe6\xb2\xa1\xe6\x9c\x89\xe6\x8a\x93\xe5\x88\xb0\xe8\xaf\x95\xe7\xae\xa1\xe3\x80\x82\n"
+                 "\xe9\x87\x8d\xe6\x8a\x93\xe4\xbc\x9a\xe5\x86\x8d\xe6\x8a\x93\xe4\xb8\x80\xe6\xac\xa1\xe3\x80\x82") + giveUpTip;
+    QLabel *message = new QLabel(tip, &dlg);
+    message->setWordWrap(true);
+    message->setMinimumWidth(400);
+    message->setStyleSheet(QString::fromUtf8(
+        "QLabel { font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 16px; color: #2c3a48;"
+        " background: transparent; border: none; }"));
+    body->addWidget(message);
+
+    QHBoxLayout *buttons = new QHBoxLayout();
+    buttons->setSpacing(12);
+    buttons->addStretch();
+    QPushButton *giveUp = new QPushButton(u8("\xe6\x94\xbe\xe5\xbc\x83"), &dlg);
+    QPushButton *again = new QPushButton(u8("\xe9\x87\x8d\xe6\x8a\x93"), &dlg);
+    again->setDefault(true);
+    again->setCursor(Qt::PointingHandCursor);
+    giveUp->setCursor(Qt::PointingHandCursor);
+    giveUp->setStyleSheet(QString::fromUtf8(
+        "QPushButton {"
+        "  font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 18px;"
+        "  min-width: 96px; min-height: 40px; padding: 0 8px;"
+        "  border: 1px solid #b7c5d3; border-radius: 8px;"
+        "  background: #ffffff; color: #2c3a48;"
+        "}"
+        "QPushButton:hover { background: #f4f8fb; border-color: #8aa4be; }"));
+    again->setStyleSheet(QString::fromUtf8(
+        "QPushButton {"
+        "  font-family: '\xe6\xa5\xb7\xe4\xbd\x93'; font-size: 18px;"
+        "  min-width: 96px; min-height: 40px; padding: 0 8px;"
+        "  border: 1px solid #4a7ab5; border-radius: 8px;"
+        "  background: #4a7ab5; color: white;"
+        "}"
+        "QPushButton:hover { background: #3d6aa0; }"
+        "QPushButton:pressed { background: #325884; }"));
+    buttons->addWidget(giveUp);
+    buttons->addWidget(again);
+    body->addLayout(buttons);
+    QObject::connect(again, &QPushButton::clicked, &dlg, &QDialog::accept);
+    QObject::connect(giveUp, &QPushButton::clicked, &dlg, &QDialog::reject);
+    dlg.adjustSize();
+
+    const bool retry = dlg.exec() == QDialog::Accepted;
     if (!m_running)
         return;
     m_promptingRegrab = false;
-    if (box.clickedButton() == again) {
+    if (retry) {
         m_regrab = true;
         m_placing = false;
         m_grabOk = false;
+        m_grabDeepenTimes = 0;
         runJob();
         return;
     }
-    fail(u8("\xe6\x8a\x93\xe6\x9d\xaf\xe5\xa4\xb1\xe8\xb4\xa5"));
+    beginAbort();
+}
+
+void QcStartAction::beginAbort()
+{
+    m_waitTimer->stop();
+    m_promptingRegrab = false;
+    m_stepwise = false;
+    m_pending.clear();
+    m_phase = PhaseIdle;
+    for (int i = 0; i < m_channels.size(); ++i)
+        setSpin(m_channels.at(i) - 1, false);
+
+    m_abortCmds = GlobalData::errMachineBackOrigin(200, MOTOR_HANDS_INDEX);
+    QByteArrayList wash;
+    QUIUtils::CleanBloodPinActionCommd(1, wash);
+    for (int i = 0; i < wash.size(); ++i) {
+        if (!wash.at(i).isEmpty())
+            m_abortCmds.append(wash.at(i));
+    }
+    m_aborting = true;
+    emit progressText(u8("\xe6\x8a\x93\xe6\x9d\xaf\xe5\xa4\xb1\xe8\xb4\xa5\xef\xbc\x8c\xe6\xad\xa3\xe5\x9c\xa8\xe5\xa4\x8d\xe4\xbd\x8d\xe5\xb9\xb6\xe6\xb8\x85\xe6\xb4\x97"));
+    if (m_abortCmds.isEmpty()) {
+        fail(u8("\xe6\x8a\x93\xe6\x9d\xaf\xe5\xa4\xb1\xe8\xb4\xa5"));
+        return;
+    }
+    sendAbortAt(0);
+}
+
+void QcStartAction::sendOne(const QByteArray &cmd, const QString &info)
+{
+    if (cmd.size() <= GET_COMMAND_INDEX) {
+        fail(u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88"));
+        return;
+    }
+    m_batchIndexes.clear();
+    m_batchIndexes.append(static_cast<quint8>(cmd.at(GET_COMMAND_INDEX)));
+    m_expectIndex = m_batchIndexes.last();
+    m_stepwise = true;
+    m_phase = PhaseAck;
+    QByteArrayList one;
+    one.append(cmd);
+    emit sendOrderList(one, info);
+}
+
+void QcStartAction::sendPendingAt(int pos)
+{
+    if (!m_running || m_aborting || m_promptingRegrab)
+        return;
+    if (pos < 0 || pos >= m_pending.size()) {
+        requestRegrabPrompt();
+        return;
+    }
+    m_pendingPos = pos;
+    sendOne(m_pending.at(pos), QStringLiteral("QC"));
+}
+
+void QcStartAction::sendAbortAt(int pos)
+{
+    while (pos < m_abortCmds.size() && m_abortCmds.at(pos).size() <= GET_COMMAND_INDEX)
+        ++pos;
+    if (pos >= m_abortCmds.size()) {
+        m_aborting = false;
+        fail(u8("\xe6\x9c\xaa\xe6\x8a\x93\xe5\x88\xb0\xe8\xaf\x95\xe7\xae\xa1\xef\xbc\x8c\xe5\xb7\xb2\xe5\xa4\x8d\xe4\xbd\x8d\xe5\xb9\xb6\xe6\xb8\x85\xe6\xb4\x97"));
+        return;
+    }
+    m_abortPos = pos;
+    sendOne(m_abortCmds.at(pos), QStringLiteral("QC abort"));
+}
+
+QByteArray QcStartAction::buildGrabDeepen(quint8 commandIndex) const
+{
+    UsbCodeDispose *dll = Testing::getTaskDll();
+    if (!dll || m_pickDownMm <= 0)
+        return QByteArray();
+    int extra = m_grabDeepenTimes;
+    if (extra < 1)
+        extra = 1;
+    if (extra > 3)
+        extra = 3;
+    const int down = m_pickDownMm + extra;
+    return QUIUtils::withGripperPump(
+                dll->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, down, 0, commandIndex, false,
+                                           down, true, GRABCUPWITHGRIPPER),
+                GRIPPERMOVE_ABNORMALLY);
 }
 
 bool QcStartAction::commandForJob(const Job &job, QByteArrayList &out, QString *reason)
@@ -594,7 +779,14 @@ bool QcStartAction::start(const QList<int> &levels, const QList<int> &channels,
     m_grabOk = false;
     m_regrab = false;
     m_promptingRegrab = false;
+    m_aborting = false;
+    m_stepwise = false;
+    m_grabDeepenTimes = 0;
     m_grabJudgeIndex = 255;
+    m_grabOpenIndex = 255;
+    m_grabLiftIndex = 255;
+    m_pending.clear();
+    m_abortCmds.clear();
     m_highLot = highLot.trimmed();
     m_midLot = midLot.trimmed();
     m_lowLot = lowLot.trimmed();
@@ -650,6 +842,15 @@ void QcStartAction::runJob()
         fail(u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88"));
         return;
     }
+    const bool pickStep = gripJob(job.kind) && !m_placing;
+    if (pickStep) {
+        m_pending = cmds;
+        m_grabDeepenTimes = 0;
+        sendPendingAt(0);
+        return;
+    }
+    m_stepwise = false;
+    m_pending.clear();
     m_expectIndex = m_batchIndexes.last();
     m_phase = PhaseAck;
     emit sendOrderList(cmds, QStringLiteral("QC"));
@@ -679,8 +880,14 @@ void QcStartAction::fail(const QString &text)
 {
     m_waitTimer->stop();
     m_promptingRegrab = false;
+    m_aborting = false;
+    m_stepwise = false;
+    m_pending.clear();
+    m_abortCmds.clear();
     m_placing = false;
     m_grabJudgeIndex = 255;
+    m_grabOpenIndex = 255;
+    m_grabLiftIndex = 255;
     for (int i = 0; i < m_channels.size(); ++i)
         setSpin(m_channels.at(i) - 1, false);
     m_phase = PhaseIdle;
@@ -770,20 +977,35 @@ void QcStartAction::succeed()
 
 void QcStartAction::onSerial(const QStringList &recv)
 {
-    if (!m_running || m_promptingRegrab || m_phase != PhaseAck)
+    if (!m_running || m_promptingRegrab)
         return;
+
     int commandMode = 0;
     int runStatus = 0;
     int speedMode = 0;
     int motor = 0;
     GlobalData::Parse4thBytecommandstatus(recv, commandMode, runStatus, speedMode, motor);
     const quint8 index = GlobalData::analyzeCommandIndex(recv);
-    if (!m_batchIndexes.contains(index))
+    if (runStatus == MOTOR_WAITING || runStatus == MOTOR_RUNNING)
+        return;
+
+    if (m_aborting) {
+        if (m_phase != PhaseAck || index != m_expectIndex)
+            return;
+        QString err;
+        if (!GlobalData::commandStatus(runStatus, err)) {
+            QLOG_WARN() << "QC abort step failed" << err;
+            fail(u8("\xe5\xa4\x8d\xe4\xbd\x8d\xe5\xa4\xb1\xe8\xb4\xa5 ") + err);
+            return;
+        }
+        sendAbortAt(m_abortPos + 1);
+        return;
+    }
+
+    if (m_phase != PhaseAck || !m_batchIndexes.contains(index))
         return;
     const bool picking = m_jobIndex >= 0 && m_jobIndex < m_jobs.size()
             && gripJob(m_jobs.at(m_jobIndex).kind) && !m_placing;
-    if (runStatus == MOTOR_WAITING || runStatus == MOTOR_RUNNING)
-        return;
     QString err;
     if (!GlobalData::commandStatus(runStatus, err)) {
         if (picking)
@@ -792,32 +1014,76 @@ void QcStartAction::onSerial(const QStringList &recv)
             fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8 ") + err);
         return;
     }
-    if (picking && (index == m_grabJudgeIndex || index == m_expectIndex)) {
-        bool suction = false;
-        quint32 air = 0;
-        GlobalData::analyzeWhetherGripperSuction(recv, suction, air);
-        const bool held = (index == m_expectIndex)
-                ? GlobalData::isHandsLiftStillHolding(air, suction)
-                : GlobalData::isHandsVacuumStillSealed(air);
-        if (index == m_expectIndex || held)
-            m_grabOk = held;
-        QLOG_INFO() << "QC grab index" << index << "air" << air
-                    << "suction" << int(suction) << "held" << held;
+
+    if (m_stepwise && picking) {
+        if (index == m_grabOpenIndex) {
+            m_phase = PhaseIdle;
+            const int waitMs = GlobalData::gripperGrabDelayMs();
+            const int openPos = m_pendingPos;
+            QLOG_INFO() << "QC grab vacuum open, wait" << waitMs;
+            QTimer::singleShot(waitMs, this, [this, openPos]() {
+                if (!m_running || m_aborting || m_promptingRegrab || !m_stepwise)
+                    return;
+                if (m_pendingPos != openPos)
+                    return;
+                sendPendingAt(openPos + 1);
+            });
+            return;
+        }
+        if (index == m_grabJudgeIndex) {
+            bool suction = false;
+            quint32 air = 0;
+            GlobalData::analyzeWhetherGripperSuction(recv, suction, air);
+            const bool held = GlobalData::isHandsVacuumStillSealed(air);
+            QLOG_INFO() << "QC grab judge" << index << "air" << air
+                        << "held" << held << "deepen" << m_grabDeepenTimes;
+            if (!held) {
+                if (m_grabDeepenTimes >= 3) {
+                    QLOG_WARN() << "QC grab deepen exhausted";
+                    requestRegrabPrompt();
+                    return;
+                }
+                ++m_grabDeepenTimes;
+                const QByteArray deepen = buildGrabDeepen(index);
+                if (deepen.isEmpty()) {
+                    requestRegrabPrompt();
+                    return;
+                }
+                QLOG_WARN() << "QC grab deepen" << m_grabDeepenTimes << "mm, pump stays on";
+                sendOne(deepen, QStringLiteral("QC grab deepen"));
+                return;
+            }
+            m_grabDeepenTimes = 0;
+            m_grabOk = true;
+            sendPendingAt(m_pendingPos + 1);
+            return;
+        }
+        if (index == m_grabLiftIndex) {
+            bool suction = false;
+            quint32 air = 0;
+            GlobalData::analyzeWhetherGripperSuction(recv, suction, air);
+            const bool held = GlobalData::isHandsLiftStillHolding(air, suction);
+            QLOG_INFO() << "QC grab lift" << index << "air" << air << "held" << held;
+            if (!held) {
+                requestRegrabPrompt();
+                return;
+            }
+            m_placing = true;
+            m_regrab = false;
+            m_grabJudgeIndex = 255;
+            m_grabOpenIndex = 255;
+            m_grabLiftIndex = 255;
+            m_stepwise = false;
+            runJob();
+            return;
+        }
+        sendPendingAt(m_pendingPos + 1);
+        return;
     }
+
     if (index != m_expectIndex)
         return;
     m_phase = PhaseIdle;
-    if (picking) {
-        if (!m_grabOk) {
-            requestRegrabPrompt();
-            return;
-        }
-        m_placing = true;
-        m_regrab = false;
-        m_grabJudgeIndex = 255;
-        runJob();
-        return;
-    }
     advance();
 }
 

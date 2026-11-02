@@ -40,6 +40,8 @@ private:
 
     void showMessageBox(PMessageBox *pWidget);
 
+    void showDeferredTrayWarnings();
+
 
 
 
@@ -59,6 +61,7 @@ private:
 
 
     std::unordered_map<int, PMessageBox*> messageBoxMap;
+    QList<int> m_deferredTrayZones;
     PMessageBox *messageBox_= nullptr;
     PMessageBox *messageBox_II= nullptr;
     PMessageBox *messageBox_III= nullptr;

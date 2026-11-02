@@ -14,6 +14,7 @@
 #include <QTime>
 #include <QDialog>
 #include <QFont>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QTextEdit>
 #include <QGridLayout>
@@ -1150,9 +1151,36 @@ void QcChartPage::onRunContextMenu(const QPoint &pos)
     const qint64 runId = item->data(Qt::UserRole).toLongLong();
     const int level = item->data(Qt::UserRole + 1).toInt();
 
+    const QString deleteLabel = QString::fromUtf8(
+        "\xe5\x88\xa0\xe9\x99\xa4\xe8\xaf\xa5\xe9\xa1\xb9");
+    QFont menuFont(QString::fromUtf8("\xe6\xa5\xb7\xe4\xbd\x93"));
+    menuFont.setPixelSize(16);
+    const int menuWidth = QFontMetrics(menuFont).width(deleteLabel) + 64;
+
     QMenu menu(m_runTable);
-    QAction *del = menu.addAction(QString::fromUtf8(
-        "\xe5\x88\xa0\xe9\x99\xa4\xe8\xaf\xa5\xe9\xa1\xb9"));
+    menu.setFont(menuFont);
+    menu.setAttribute(Qt::WA_StyledBackground, true);
+    menu.setMinimumWidth(menuWidth);
+    menu.setStyleSheet(QString::fromUtf8(
+        "QMenu {"
+        "  background: #ffffff;"
+        "  border: 1px solid #b7c5d3;"
+        "  border-radius: 8px;"
+        "  padding: 6px;"
+        "  font-family: '\xe6\xa5\xb7\xe4\xbd\x93';"
+        "  font-size: 16px;"
+        "}"
+        "QMenu::item {"
+        "  background: transparent;"
+        "  color: #1a4d6b;"
+        "  padding: 8px 20px;"
+        "  min-width: %1px;"
+        "}"
+        "QMenu::item:selected {"
+        "  background: #e7f0f8;"
+        "  color: #1a4d6b;"
+        "}").arg(menuWidth));
+    QAction *del = menu.addAction(deleteLabel);
     if (menu.exec(m_runTable->viewport()->mapToGlobal(pos)) != del)
         return;
     if (QMessageBox::question(

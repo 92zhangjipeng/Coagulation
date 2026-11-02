@@ -448,6 +448,8 @@ private slots:
     void on_toolButton_quality_cleaning_clicked();
     void on_toolButton_quality_sample_clicked();
     void on_sStatusInfo_text_clicked();
+    void showTrayMessage(const QString& title, const QString& message,
+                         QSystemTrayIcon::MessageIcon icon, int timeout);
 
 private:
     QIcon m_pauseIcon;
@@ -503,16 +505,14 @@ private:
 
 private:
     QSystemTrayIcon *m_systemTray = nullptr; //托盘
-    QMenu*   m_trayMenu; //托盘目录
+    QMenu*   m_trayMenu = nullptr; //托盘目录
     void initTrayFunction();   //初始化托盘功能
     void createTrayActions();
     void setupTrayMenuStyle();
     void connectTraySignals();
-    void checkTrayAvailability();
+    bool checkTrayAvailability();
     void setTrayIcon();
-    void toggleWindowVisibility();
-    void showTrayMessage(const QString& title, const QString& message,
-                         QSystemTrayIcon::MessageIcon icon, int timeout);
+    void showMainFromTray();
 
 private:
     Ui::MainWindow *ui;

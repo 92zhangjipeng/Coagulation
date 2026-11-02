@@ -1293,11 +1293,19 @@ void GlobalData::outputtheAbsorbentIndex(const quint8 focuinActive,
 
 bool GlobalData::determineReagentontheleftIsSufficient(quint8 consumableIndex,quint8 reagentIndex)
 {
-    // 获取试剂消耗量
+    quint16 bottleRatio = 0;
+    ConsumablesOper::updateReplaceLocRatio(READ_OPERRAT, consumableIndex, bottleRatio);
+    // 界面更换写满 512 后，点继续只认这一格。再按「扣完这一针还剩百分之几」去比报警限，
+    // 满瓶会被判成不够，于是再回一次原点，人看起来就是仪器不动。
+    if (bottleRatio >= MAX_RATIO_SWITCT) {
+        return true;
+    }
+
+    // 获取试剂消耗量。吸量为 0 时没有可扣的量，不能当成试剂不够把任务停死。
     const double usedVolume = QUIUtils::reagentSuckVolumeUl(reagentIndex);
     if (usedVolume <= 0) {
-        QLOG_WARN() << "试剂消耗量为0，跳过更新流程，类型:" << reagentIndex;
-        return false;
+        QLOG_WARN() << "试剂消耗量为0，不拦截吸试剂，类型:" << reagentIndex;
+        return true;
     }
 
     double remainingRatio  = 0.0; //输出剩余比
