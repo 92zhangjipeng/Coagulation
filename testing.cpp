@@ -1333,6 +1333,10 @@ void Testing::DrawPutBloodReminders(QPainter& painter)
             hint = QColor(46, 170, 100, 230);
             tag = QString::fromUtf8("\xE5\xAE\x8C\xE6\x88\x90"); // 完成
             pulse = false;
+        } else if (stage == BLOOD_HINT_GIVEUP) {
+            hint = QColor(198, 40, 40, 230);
+            tag = QString::fromUtf8("\xE5\xBC\x83\xE6\xA0\xB7"); // 弃样
+            pulse = false;
         }
 
         const int haloAlpha = pulse ? (m_blinkState ? 70 : 36) : 52;

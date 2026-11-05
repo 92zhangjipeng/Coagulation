@@ -1497,6 +1497,23 @@ void Inquire_Sql_Info::InsertInqireResult(int Rows,quint8 Cols,QString Datastr)
 
 void Inquire_Sql_Info::CheckWhetherTestOrNot(QString &ResultCheck)
 {
+    const QString abnormal = QString::fromUtf8("\xe5\xbc\x82\xe5\xb8\xb8");
+    const QString trimmed = ResultCheck.trimmed();
+    if (!trimmed.isEmpty()) {
+        const QStringList parts = trimmed.split(QLatin1Char(','));
+        bool allAbnormal = true;
+        for (const QString &part : parts) {
+            if (part.trimmed() != abnormal) {
+                allAbnormal = false;
+                break;
+            }
+        }
+        if (allAbnormal) {
+            ResultCheck = abnormal + QLatin1Char(',') + abnormal + QLatin1Char(',')
+                    + abnormal + QLatin1Char(',') + abnormal;
+            return;
+        }
+    }
     if (ResultCheck == "" || ResultCheck == "null")
     {
         ResultCheck = "/,/,/,/";

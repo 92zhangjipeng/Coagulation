@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QMap>
+#include <QTimer>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1900)
 #pragma execution_character_set("utf-8")
@@ -137,6 +138,7 @@ CustomMessageBox::CustomMessageBox(const QString &title, const QString &text,
     if (buttons & QMessageBox::Ok) {
         QPushButton *btn = new QPushButton(tr("确定"), this);
         btn->setObjectName("okButton");
+        m_okButton = btn;
         buttonMap[QMessageBox::Ok] = btn;
         buttonLayout->addWidget(btn);
         connect(btn, &QPushButton::clicked, [this, btn]() { m_result = QMessageBox::Ok; accept(); });
@@ -172,10 +174,43 @@ CustomMessageBox::CustomMessageBox(const QString &title, const QString &text,
     // 如果没有指定任何按钮，默认添加一个“确定”
     if (buttonMap.isEmpty()) {
         QPushButton *btn = new QPushButton(tr("确定"), this);
+        m_okButton = btn;
         buttonMap[QMessageBox::Ok] = btn;
         buttonLayout->insertWidget(0, btn);
         connect(btn, &QPushButton::clicked, [this, btn]() { m_result = QMessageBox::Ok; accept(); });
     }
+}
+
+void CustomMessageBox::armAutoAccept(int seconds)
+{
+    if (!m_okButton || seconds <= 0) {
+        return;
+    }
+    m_autoLeft = seconds;
+    m_okBaseText = m_okButton->text();
+    m_okButton->setMinimumWidth(120);
+    m_okButton->setText(QStringLiteral("%1(%2)").arg(m_okBaseText).arg(m_autoLeft));
+    if (!m_autoTimer) {
+        m_autoTimer = new QTimer(this);
+        connect(m_autoTimer, &QTimer::timeout, this, [this]() {
+            if (m_autoLeft <= 1) {
+                m_autoTimer->stop();
+                m_result = QMessageBox::Ok;
+                accept();
+                return;
+            }
+            --m_autoLeft;
+            if (m_okButton) {
+                m_okButton->setText(QStringLiteral("%1(%2)").arg(m_okBaseText).arg(m_autoLeft));
+            }
+        });
+        connect(this, &QDialog::finished, this, [this]() {
+            if (m_autoTimer) {
+                m_autoTimer->stop();
+            }
+        });
+    }
+    m_autoTimer->start(1000);
 }
 
 QMessageBox::StandardButton CustomMessageBox::question(QWidget *parent, const QString &title, const QString &text,

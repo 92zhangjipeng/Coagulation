@@ -50,6 +50,7 @@ namespace TestingConstants {
     constexpr quint8 BLOOD_HINT_ADDING = 1;
     constexpr quint8 BLOOD_HINT_TESTING = 2;
     constexpr quint8 BLOOD_HINT_DONE = 3;
+    constexpr quint8 BLOOD_HINT_GIVEUP = 4;
     constexpr int TUBES_PER_TRAY = 60;
 }
 

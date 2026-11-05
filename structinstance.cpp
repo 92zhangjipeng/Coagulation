@@ -4228,6 +4228,28 @@ bool StructInstance::prpClipXyAtTrayHole(int sampleId, quint8 reagent, const QPo
     return reag && reag->emptyHoleAxisHands == pos;
 }
 
+bool fillThrowHoleReleaseOnly(tSingleActive_list &list, quint8 &splitBack)
+{
+    splitBack = 0;
+    QVector<QByteArray> cmds;
+    auto *pActive = Testing::getTaskDll();
+    const int throwMm = static_cast<int>(INI_File()._gethandsdownthrowcpus());
+    QPoint throwAxis(0, 0);
+    SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT, throwAxis);
+    if (!pActive || throwMm <= 0 || (throwAxis.x() == 0 && throwAxis.y() == 0)) {
+        return false;
+    }
+    QUIUtils::appendBloodReagentNeedleResetBeforeGripperXy(cmds);
+    quint8 idx = static_cast<quint8>(cmds.size() % 255);
+    cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwAxis, 0, 0, idx));
+    QUIUtils::appendGripperDescendThenVacuumRelease(cmds, throwMm, splitBack);
+    if (cmds.isEmpty() || splitBack == 0) {
+        return false;
+    }
+    fillCommandList(list, cmds);
+    return !list.isEmpty();
+}
+
 QByteArray StructInstance::restartThrowPppFromXy(int sampleId)
 {
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
@@ -4239,10 +4261,23 @@ QByteArray StructInstance::restartThrowPppFromXy(int sampleId)
         QLOG_ERROR() << "重建丢PPP失败：样本" << sampleId << "没有测试通道";
         return QByteArray();
     }
+    const bool channelCupGone = sample->throwPPPsuckBacknum != 0
+            && actionIndexDone(sample->t_throw_anemiacups_active, sample->throwPPPsuckBacknum);
     qDeleteAll(sample->t_throw_anemiacups_active);
     sample->t_throw_anemiacups_active.clear();
     sample->throwPPPsuckBacknum = 0;
     sample->throwPPPsplitBacknum = 0;
+    if (channelCupGone) {
+        quint8 splitBack = 0;
+        if (!fillThrowHoleReleaseOnly(sample->t_throw_anemiacups_active, splitBack)) {
+            QLOG_ERROR() << "样本" << sampleId << "杯子已离开通道，但无法重建弃杯孔放杯";
+            return QByteArray();
+        }
+        sample->throwPPPsplitBacknum = splitBack;
+        backorigintimes();
+        QLOG_INFO() << "样本" << sampleId << "通道杯子已经抓走，重试只回弃杯孔放杯";
+        return firstCommandCode(sample->t_throw_anemiacups_active);
+    }
     backorigintimes();
     creatThrowCupsCommands(sampleId, static_cast<quint8>(sample->indexTestingChn));
     std::sort(sample->t_throw_anemiacups_active.begin(),
@@ -4265,8 +4300,23 @@ QByteArray StructInstance::restartThrowReagentFromXy(int sampleId, quint8 reagen
         QLOG_ERROR() << "重建丢试剂杯失败：样本" << sampleId << "没有测试通道";
         return QByteArray();
     }
+    const bool channelCupGone = reag->throwPRRsucknum != 0
+            && actionIndexDone(reag->pThrowCupsActive, reag->throwPRRsucknum);
     qDeleteAll(reag->pThrowCupsActive);
     reag->pThrowCupsActive.clear();
+    if (channelCupGone) {
+        quint8 splitBack = 0;
+        if (!fillThrowHoleReleaseOnly(reag->pThrowCupsActive, splitBack)) {
+            QLOG_ERROR() << "样本" << sampleId << "通道杯子已经丢掉，但无法重建弃杯孔放杯";
+            return QByteArray();
+        }
+        reag->throwPRRsucknum = 0;
+        reag->throePRPsplitnum = splitBack;
+        backorigintimes();
+        QLOG_INFO() << "样本" << sampleId << "通道杯子已经丢掉，重试只回弃杯孔放杯"
+                    << GlobalData::mapIndexReagentnames(reagent);
+        return firstCommandCode(reag->pThrowCupsActive);
+    }
     QVector<QByteArray> throwCups;
     quint8 sucknum = 0;
     quint8 splitnum = 0;
@@ -4684,6 +4734,16 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
         }
         if (m_handsThrowFailedtimes >= kGripperMaxRetry) {
             m_throwAwaitingReleaseRead = false;
+            if (putAtThrowHole && !GlobalData::isHandsVacuumStillSealed(airvale)) {
+                retryData = commandBytesForIndex(list, spitBack);
+                if (!retryData.isEmpty()) {
+                    m_handsThrowFailedtimes = 0;
+                    trace(QString::fromUtf8("弃杯孔负压%1没到丢掉线%2，但已不是吸牢，杯子在孔里")
+                          .arg(airvale).arg(spitTh),
+                          QString::fromUtf8("下一步:抬Z结束，不再从通道重抓"));
+                    return GripperAckRetry;
+                }
+            }
             trace(QString::fromUtf8("原位复读:仍未松开(负压%1，需要≥%2)，不抬，避免把杯子带走")
                   .arg(airvale).arg(spitTh),
                   QString::fromUtf8("下一步:异常善后"));
@@ -4705,19 +4765,19 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
 
     if (index == spitBack) {
         m_throwAwaitingReleaseRead = false;
+        m_handsThrowFailedtimes = 0;
+        markAllActionIndexDone(list, spitBack);
         if (GlobalData::isHandsThrowCupFinish(airvale)) {
-            m_handsThrowFailedtimes = 0;
-            markAllActionIndexDone(list, spitBack);
             trace(putAtThrowHole
                   ? QString::fromUtf8("抬Z确认:负压仍在丢掉线以上，弃杯已松开")
                   : QString::fromUtf8("抬Z确认:负压仍在丢掉线以上，放杯已松开"),
                   QString::fromUtf8("下一步:本段放杯结束"));
-            return GripperAckAdvance;
+        } else {
+            trace(QString::fromUtf8("抬Z时负压%1低于丢掉线%2，放杯前已经确认松开")
+                  .arg(airvale).arg(spitTh),
+                  QString::fromUtf8("下一步:本段放杯结束，不再当成抓杯失败"));
         }
-        trace(QString::fromUtf8("抬Z确认:负压%1仍低于丢掉线%2，杯子可能还在吸盘上")
-              .arg(airvale).arg(spitTh),
-              QString::fromUtf8("下一步:异常善后，不继续后面的动作"));
-        return GripperAckFailed;
+        return GripperAckAdvance;
     }
 
     return GripperAckUnhandled;

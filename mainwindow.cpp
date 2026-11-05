@@ -1092,7 +1092,7 @@ void MainWindow::initTestTaskThread()
             tr("样本%1 PPP读初值连续8次为0，已停止该样本").arg(sampleId));
         CustomMessageBox box(
                     tr("PPP读初值异常"),
-                    tr("样本%1 的PPP通道读数连续 8 次为 0。\n\n点击确定后将丢弃该通道PPP，并放弃该样本（后续PRP不再测试）。")
+                    tr("样本%1 的PPP通道读数连续 8 次为 0。\n\n点击确定后将丢弃该通道PPP，并放弃该样本（后续PRP不再测试）。\n60 秒内未操作将自动确定。")
                         .arg(sampleId),
                     QMessageBox::Warning, QMessageBox::Ok, nullptr);
         box.setWindowModality(Qt::ApplicationModal);
@@ -1103,6 +1103,7 @@ void MainWindow::initTestTaskThread()
         }
         box.raise();
         box.activateWindow();
+        box.armAutoAccept(60);
         box.exec();
         if (m_pdoingTesting) {
             m_pdoingTesting->handlePppZeroGiveUp(sampleId, channel);
@@ -1114,9 +1115,12 @@ void MainWindow::initTestTaskThread()
         emit ReminderTextOut(TESTINGLOG,
             tr("样本%1 %2 PRP读初值连续8次为0，将丢弃当前试剂杯")
                 .arg(sampleId).arg(reagentName));
+        if (m_pdoingTesting) {
+            m_pdoingTesting->showPrpAbnormalMarks(sampleId, reagent);
+        }
         CustomMessageBox box(
                     tr("PRP读初值异常"),
-                    tr("样本%1 的%2 PRP通道读数连续 8 次为 0。\n\n点击确定后将丢弃当前试剂杯；若该样本还有其他试剂，将继续测试。")
+                    tr("样本%1 的%2 PRP通道读数连续 8 次为 0。\n\n点击确定后将丢弃当前试剂杯；若该样本还有其他试剂，将继续测试。\n60 秒内未操作将自动确定。")
                         .arg(sampleId).arg(reagentName),
                     QMessageBox::Warning, QMessageBox::Ok, nullptr);
         box.setWindowModality(Qt::ApplicationModal);
@@ -1127,6 +1131,7 @@ void MainWindow::initTestTaskThread()
         }
         box.raise();
         box.activateWindow();
+        box.armAutoAccept(60);
         box.exec();
         if (m_pdoingTesting) {
             m_pdoingTesting->handlePrpZeroSkipReagent(sampleId, reagent, focusActive);
@@ -1242,6 +1247,20 @@ void MainWindow::initTestTaskThread()
     //测试过程中抓手吸 吐试杯失败
     connect(m_pdoingTesting.data(),&TestProjectProcess::theGripperFailed,
             this,&MainWindow::handletheGripperFailed);
+
+    connect(m_pdoingTesting.data(), &TestProjectProcess::askRemoveFinishedCup,
+            this, [this](int sampleId, int channelNo) {
+        const QString where = channelNo > 0
+                ? tr("通道%1").arg(channelNo)
+                : tr("测试通道");
+        CustomMessageBox::warning(this, tr("请取出通道内试管杯"),
+            tr("样本%1 的PRP已经测试完成，丢杯时没有抓住杯子。\n请手动取出%2里的试管杯，确认通道是空的后再点确定，避免挡住下一次测试。")
+                .arg(sampleId).arg(where));
+        if (m_pdoingTesting) {
+            QMetaObject::invokeMethod(m_pdoingTesting.data(), "confirmFinishedCupRemoved",
+                                      Qt::QueuedConnection);
+        }
+    }, Qt::QueuedConnection);
 
     connect(this,&MainWindow::gripErrGiveupSample,
             m_pdoingTesting.data(),&TestProjectProcess::handleGripErrGiveupSample,

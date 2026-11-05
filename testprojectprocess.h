@@ -78,6 +78,7 @@ signals:
     void reminderTextOut(quint8 ReminderKind,const QString dataStr); //提示文字界面信号
 
     void theGripperFailed(const int, const QString,const quint8 );
+    void askRemoveFinishedCup(int sampleId, int channelNo);
 
     void pauseSycnMainuiUpdate(const quint8 lossReagent);
 
@@ -99,9 +100,11 @@ public slots:
     void handlePrpGripNotReady();
     void handlePppZeroGiveUp(int sampleId, quint8 channel);
     void handlePrpZeroSkipReagent(int sampleId, quint8 reagent, quint8 focusActive);
+    void showPrpAbnormalMarks(int sampleId, quint8 reagent);
 
     //抓手异常处理
     void handleGripErrGiveupSample(const bool , const quint8 indexAxtive);
+    void confirmFinishedCupRemoved();
     void handlePendingtimeoutSampleTest(const quint8 indexAxtive);
 
     void slottestingaddsample();
@@ -142,6 +145,10 @@ private:
 
 
     bool gripperExceptionHandling(const quint8 commandIndex,const quint8 indexActive);
+    bool isFinishedThrowFocus(quint8 focusActive) const;
+    bool prepareFinishedThrowLeaveCup(quint8 focusActive);
+    void finishFinishedThrowLeaveCup();
+    void proceedAfterFinishedCupLeft(bool continueReagent, int sampleId);
 
     //向仪器发送指令
     void sendInstructionsWithDelay(const QByteArrayList data_,
@@ -320,6 +327,7 @@ private:
     void requestPrpBaselineRead(quint8 reagentIndex, quint8 focusActive);
     void markReagentSkipped(int sampleId, quint8 reagent);
     void restoreChannelAfterAbnormal(quint8 channel);
+    bool beginPrpAbnormalReagentWash(quint8 reagent);
     void writeAbnormalReagentResult(int sampleId, quint8 reagent);
 
 public:
@@ -488,6 +496,12 @@ private:
     bool m_startClipAfterGripperRecovery = false;
     // 当前PRP抓杯失败并放弃后，清洗完继续同一样本的下一个试剂，不删整份样本。
     bool m_resumeNextReagentAfterGripGiveup = false;
+    bool m_finishedThrowLeaveCup = false; //测试已完成，丢杯没抓住，杯子留在通道里
+    bool m_leaveCupNeedPrompt = false;
+    bool m_leaveCupContinueReagent = false;
+    int m_leaveCupChannel = -1;
+    bool m_waitCupRemovedContinue = false;
+    int m_waitCupRemovedSample = 0;
     bool m_gripperFailPromptShown = false;
 
     QQueue<Finish_Data_> m_finishTestData; //完成测试通道
@@ -511,6 +525,11 @@ private:
     bool m_prp0SpitDelayPending = false; //已记下PRP0，正在等延时再吐试剂
     bool m_abandonAfterThrowPpp = false;
     bool m_prpZeroSkipAfterThrow = false;
+    bool m_prpAbnormalWashPending = false; //丢异常PRP后先洗一次试剂针，洗完再继续或放弃
+    bool m_prpAbnormalGiveupAfterWash = false;
+    bool m_prpAbnormalContinueAfterWash = false;
+    quint8 m_prpAbnormalReagent = 0;
+    int m_prpAbnormalMarkedSample = 0; //通道红圈标在这个样本上，下一试剂开始再恢复
     quint8 m_pendingPrpReagent = 0;
     quint8 m_pendingPrpFocus = 0;
     quint64 m_prpMotionEpoch = 0;

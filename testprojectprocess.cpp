@@ -304,6 +304,12 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     ++m_prp0SpitToken;
     m_spitWashPending = false;
     ++m_spitOpenToken;
+    m_prpZeroSkipAfterThrow = false;
+    m_prpAbnormalWashPending = false;
+    m_prpAbnormalGiveupAfterWash = false;
+    m_prpAbnormalContinueAfterWash = false;
+    m_prpAbnormalReagent = 0;
+    m_prpAbnormalMarkedSample = 0;
     m_offlineWaitingReconnect = false;
     m_offlineVoided = false;
     m_prepatchAckPaced = false;
@@ -311,6 +317,12 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_gripperErrStartMs = 0;
     m_gripperFailPromptShown = false;
     m_resumeNextReagentAfterGripGiveup = false;
+    m_finishedThrowLeaveCup = false;
+    m_leaveCupNeedPrompt = false;
+    m_leaveCupContinueReagent = false;
+    m_leaveCupChannel = -1;
+    m_waitCupRemovedContinue = false;
+    m_waitCupRemovedSample = 0;
     m_hasPendingReagentDeduct = false;
     m_hasPendingCleanDeduct = false;
     mdataAArry.clear();
@@ -875,6 +887,11 @@ void TestProjectProcess::testSampleTryAgain(const quint8 indexActive,const std::
 void TestProjectProcess::giveupSamplenum(const int sampleid){
      m_abandonAfterThrowPpp = false;
      m_prpZeroSkipAfterThrow = false;
+     m_prpAbnormalWashPending = false;
+     m_prpAbnormalGiveupAfterWash = false;
+     m_prpAbnormalContinueAfterWash = false;
+     m_prpAbnormalReagent = 0;
+     m_prpAbnormalMarkedSample = 0;
      m_waitingPppRead = false;
      m_pendingPppReread = false;
      m_waitingPrpRead = false;
@@ -889,6 +906,10 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
          QLOG_ERROR()<<"放弃样本"<<sampleid<<"失败";
          return ;
      }
+
+     const quint8 anemiaHole = itsample->suckanaemia_hole;
+     const quint8 bloodyHole = itsample->suckbloody_hole;
+     emit bloodSampleHintStage(anemiaHole, bloodyHole, TestingConstants::BLOOD_HINT_GIVEUP);
 
      releaseSampleChannel(sampleid, true);
 
@@ -959,6 +980,98 @@ void TestProjectProcess::pendingTimeSample(const int sampleid){
     TraverseChnHadFinishTesting(THROW_CUPS_END);
 }
 
+bool TestProjectProcess::isFinishedThrowFocus(quint8 focusActive) const
+{
+    return focusActive == FOCUS_THROW_AA_TUBE
+            || focusActive == FOCUS_THROW_ADP_TUBE
+            || focusActive == FOCUS_THROW_EPI_TUBE
+            || focusActive == FOCUS_THROW_COL_TUBE
+            || focusActive == FOCUS_THROW_RIS_TUBE;
+}
+
+bool TestProjectProcess::prepareFinishedThrowLeaveCup(quint8 focusActive)
+{
+    if (!isFinishedThrowFocus(focusActive)) {
+        return false;
+    }
+    auto *instance = StructInstance::getInstance();
+    m_finishedThrowLeaveCup = true;
+    m_leaveCupContinueReagent = false;
+    m_leaveCupNeedPrompt = false;
+    m_leaveCupChannel = -1;
+    quint8 nextReagent = 0;
+    const bool hasNext = instance->judge_hadWaitTestReag(m_focus_sample_id, nextReagent);
+    int otherId = 0;
+    const bool otherWaiting = instance->alreadyadded_wait_chn(otherId)
+            && otherId != m_focus_sample_id;
+    int total = 0;
+    instance->SampleTotal(total);
+    m_leaveCupContinueReagent = hasNext;
+    m_leaveCupNeedPrompt = hasNext || otherWaiting || total > 1;
+    if (const auto *ps = instance->rfindIdSample(m_focus_sample_id)) {
+        m_leaveCupChannel = ps->indexTestingChn;
+    }
+    promptsareDisplayed(TESTINGLOG,
+                        tr("样本%1 测试已完成，丢杯没抓住，不作为异常样本")
+                            .arg(m_focus_sample_id),
+                        false);
+    return true;
+}
+
+void TestProjectProcess::finishFinishedThrowLeaveCup()
+{
+    const bool needPrompt = m_leaveCupNeedPrompt;
+    const bool continueReagent = m_leaveCupContinueReagent;
+    const int channel = m_leaveCupChannel;
+    const int sampleId = m_focus_sample_id;
+    m_finishedThrowLeaveCup = false;
+    m_leaveCupNeedPrompt = false;
+    m_leaveCupContinueReagent = false;
+    auto *instance = StructInstance::getInstance();
+    instance->setHandsErrStatus(sampleId, GRIPPERMOVE_NORMAL);
+    m_pauseCommandQueue.clear();
+    if (!needPrompt) {
+        proceedAfterFinishedCupLeft(continueReagent, sampleId);
+        return;
+    }
+    m_waitCupRemovedContinue = continueReagent;
+    m_waitCupRemovedSample = sampleId;
+    cglobal::g_PauseTesting.store(true);
+    emit requestPauseUiSync(true);
+    const int channelNo = channel >= 0 ? channel + 1 : 0;
+    emit askRemoveFinishedCup(sampleId, channelNo);
+}
+
+void TestProjectProcess::confirmFinishedCupRemoved()
+{
+    const bool continueReagent = m_waitCupRemovedContinue;
+    const int sampleId = m_waitCupRemovedSample;
+    m_waitCupRemovedContinue = false;
+    m_waitCupRemovedSample = 0;
+    cglobal::g_PauseTesting.store(false);
+    emit requestPauseUiSync(false);
+    if (sampleId <= 0) {
+        return;
+    }
+    proceedAfterFinishedCupLeft(continueReagent, sampleId);
+}
+
+void TestProjectProcess::proceedAfterFinishedCupLeft(bool continueReagent, int sampleId)
+{
+    if (m_focus_sample_id <= 0) {
+        m_focus_sample_id = sampleId;
+    }
+    if (continueReagent) {
+        enqueueContinueReagent(sampleId);
+        dismissFocusSample(sampleId);
+        if (!startPendingContinueReagent()) {
+            TraverseChnHadFinishTesting(THROW_CUPS_END);
+        }
+        return;
+    }
+    theTestChannelStopTesting(false);
+}
+
 void TestProjectProcess::handleGripErrGiveupSample(const bool isGiveupSample,const quint8 indexAxtive){
     auto* instance = StructInstance::getInstance();
     instance->clearRecvPrepatch(m_focus_sample_id);
@@ -998,39 +1111,42 @@ void TestProjectProcess::handleGripErrGiveupSample(const bool isGiveupSample,con
         QByteArrayList cleanData;
         QUIUtils::cleaningDoubleNeedleAction(cleanData,2);
         m_resumeNextReagentAfterGripGiveup = false;
-        const quint8 failedReagent = reagentFromFocus(indexAxtive);
-        if (failedReagent != 0) {
-            quint8 failedHole = 0;
-            StructInstance::DataGuard guard;
-            if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
-                for (Testing_reagents *item : ps->ptestReagent_active) {
-                    if (item && item->index_Reagent == failedReagent) {
-                        failedHole = item->indexHole;
-                        break;
+        const bool leaveFinishedCup = prepareFinishedThrowLeaveCup(indexAxtive);
+        if (!leaveFinishedCup) {
+            const quint8 failedReagent = reagentFromFocus(indexAxtive);
+            if (failedReagent != 0) {
+                quint8 failedHole = 0;
+                StructInstance::DataGuard guard;
+                if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
+                    for (Testing_reagents *item : ps->ptestReagent_active) {
+                        if (item && item->index_Reagent == failedReagent) {
+                            failedHole = item->indexHole;
+                            break;
+                        }
                     }
                 }
-            }
-            markReagentSkipped(m_focus_sample_id, failedReagent);
-            quint8 nextReagent = 0;
-            if (instance->judge_hadWaitTestReag(m_focus_sample_id, nextReagent)) {
-                m_resumeNextReagentAfterGripGiveup = true;
-                if (failedHole > 0) {
-                    emit EmptyTubeCatched(failedHole);
+                markReagentSkipped(m_focus_sample_id, failedReagent);
+                quint8 nextReagent = 0;
+                if (instance->judge_hadWaitTestReag(m_focus_sample_id, nextReagent)) {
+                    m_resumeNextReagentAfterGripGiveup = true;
+                    if (failedHole > 0) {
+                        emit EmptyTubeCatched(failedHole);
+                    }
+                    const QString failedName = GlobalData::mapIndexReagentnames(failedReagent);
+                    const QString nextName = GlobalData::mapIndexReagentnames(nextReagent);
+                    QLOG_INFO() << "[抓手异常] 样本" << m_focus_sample_id
+                                << "| 放弃当前" << failedName
+                                << "，清洗后继续" << nextName;
+                    promptsareDisplayed(TESTINGLOG,
+                                        tr("样本%1 当前%2抓杯失败已放弃，清洗后继续%3")
+                                            .arg(m_focus_sample_id)
+                                            .arg(failedName)
+                                            .arg(nextName),
+                                        false);
                 }
-                const QString failedName = GlobalData::mapIndexReagentnames(failedReagent);
-                const QString nextName = GlobalData::mapIndexReagentnames(nextReagent);
-                QLOG_INFO() << "[抓手异常] 样本" << m_focus_sample_id
-                            << "| 放弃当前" << failedName
-                            << "，清洗后继续" << nextName;
-                promptsareDisplayed(TESTINGLOG,
-                                    tr("样本%1 当前%2抓杯失败已放弃，清洗后继续%3")
-                                        .arg(m_focus_sample_id)
-                                        .arg(failedName)
-                                        .arg(nextName),
-                                    false);
             }
         }
-        if (!m_resumeNextReagentAfterGripGiveup) {
+        if (!m_resumeNextReagentAfterGripGiveup && !leaveFinishedCup) {
             instance->setSampleGiveupStatus(m_focus_sample_id,SAMPLE_GIVEUP);
         }
         instance->fillRecvPrepatch(m_focus_sample_id,cleanData);
@@ -1040,7 +1156,10 @@ void TestProjectProcess::handleGripErrGiveupSample(const bool isGiveupSample,con
             instance->setHandsErrStatus(m_focus_sample_id, GRIPPERMOVE_NORMAL);
             FullyAutomatedPlatelets::pinstanceinstrument()->LosserOneReagentul(
                         INDEX_CLEANLINQUE_CONSUMABLE, 2);
-            if (m_resumeNextReagentAfterGripGiveup) {
+            if (leaveFinishedCup) {
+                m_finishedThrowLeaveCup = false;
+                finishFinishedThrowLeaveCup();
+            } else if (m_resumeNextReagentAfterGripGiveup) {
                 m_resumeNextReagentAfterGripGiveup = false;
                 cglobal::g_PauseTesting.store(false);
                 emit requestPauseUiSync(false);
@@ -1051,9 +1170,11 @@ void TestProjectProcess::handleGripErrGiveupSample(const bool isGiveupSample,con
                 giveupSamplenum(m_focus_sample_id);
             }
         } else {
-            sendFirstPrepatchCommand(m_resumeNextReagentAfterGripGiveup
+            sendFirstPrepatchCommand(leaveFinishedCup
+                                     ? QString::fromUtf8("测试已完成，丢杯失败后清洗复位")
+                                     : (m_resumeNextReagentAfterGripGiveup
                                      ? QString::fromUtf8("放弃当前PRP，清洗后继续下一个试剂")
-                                     : QString::fromUtf8("抓手异常取消测试任务"));
+                                     : QString::fromUtf8("抓手异常取消测试任务")));
         }
     }
 }
@@ -1104,6 +1225,19 @@ bool TestProjectProcess::gripperExceptionHandling(const quint8 commandIndex,cons
         const bool sampleGiveUp = instance->getSampleGiveupStatus(m_focus_sample_id);
         const bool samplePendingtime = instance->getSamplePendingtimeStatus(m_focus_sample_id);
         m_gripperRecoveryFinished = true;
+        if (m_finishedThrowLeaveCup) {
+            m_gripperFailPromptShown = true;
+            m_pauseCommandQueue.clear();
+            cglobal::g_PauseTesting.store(false);
+            emit requestPauseUiSync(false);
+            if (instrument) {
+                instrument->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE, 2);
+            }
+            QLOG_INFO() << "[抓手异常] 样本" << m_focus_sample_id
+                        << "| 测试已完成的丢杯放弃，清洗复位后不标异常";
+            finishFinishedThrowLeaveCup();
+            return true;
+        }
         if (m_resumeNextReagentAfterGripGiveup && !samplePendingtime) {
             m_resumeNextReagentAfterGripGiveup = false;
             m_gripperFailPromptShown = true;
@@ -2094,6 +2228,24 @@ void TestProjectProcess::continueCleanNeedleAckMode(bool finished, const QByteAr
 {
     if (finished) {
         deductPendingCleanConsumable();
+        if (m_prpAbnormalWashPending) {
+            const bool giveupAfter = m_prpAbnormalGiveupAfterWash;
+            const bool continueAfter = m_prpAbnormalContinueAfterWash;
+            const int sampleId = m_focus_sample_id;
+            m_prpAbnormalWashPending = false;
+            m_prpAbnormalGiveupAfterWash = false;
+            m_prpAbnormalContinueAfterWash = false;
+            dismissFocusSample(sampleId);
+            if (giveupAfter) {
+                giveupSamplenum(sampleId);
+                return;
+            }
+            if (continueAfter) {
+                enqueueContinueReagent(sampleId);
+            }
+            TraverseChnHadFinishTesting(cleanKind);
+            return;
+        }
         dismissFocusSample(m_focus_sample_id);
         TraverseChnHadFinishTesting(cleanKind);
         return;
@@ -2390,12 +2542,25 @@ void TestProjectProcess::throwCupFinish()
      const bool bhand_waittest_reag = instance->judge_hadWaitTestReag(m_focus_sample_id,waittest_reag);
      const bool skipFailedPrp = m_prpZeroSkipAfterThrow;
      m_prpZeroSkipAfterThrow = false;
+     if (skipFailedPrp) {
+         const bool willContinue = bhand_waittest_reag;
+         if (beginPrpAbnormalReagentWash(m_prpAbnormalReagent)) {
+             m_prpAbnormalGiveupAfterWash = !willContinue;
+             m_prpAbnormalContinueAfterWash = willContinue;
+             promptsareDisplayed(TESTINGLOG,
+                                 willContinue
+                                     ? tr("样本%1 异常PRP已丢弃，清洗试剂针后继续测试试剂%2")
+                                           .arg(m_focus_sample_id)
+                                           .arg(GlobalData::mapIndexReagentnames(waittest_reag))
+                                     : tr("样本%1 异常PRP已丢弃，清洗试剂针后放弃该样本")
+                                           .arg(m_focus_sample_id),
+                                 false);
+             return;
+         }
+     }
      if(bhand_waittest_reag)
      {
         if (skipFailedPrp) {
-            const auto *continuing = instance->rfindIdSample(m_focus_sample_id);
-            if (continuing && continuing->indexTestingChn >= 0)
-                restoreChannelAfterAbnormal(static_cast<quint8>(continuing->indexTestingChn));
             promptsareDisplayed(TESTINGLOG,
                                 tr("样本%1 当前PRP已丢弃，继续测试试剂%2")
                                     .arg(m_focus_sample_id)
@@ -3573,8 +3738,64 @@ void TestProjectProcess::handlePrpZeroSkipReagent(int sampleId, quint8 reagent, 
     publishWorkflowStatus(tips);
 
     m_prpZeroSkipAfterThrow = true;
+    m_prpAbnormalReagent = reagent;
     setupFocusSample(sampleId, reagent);
     outputThrowTestChannelReagentFinish(sampleId, reagent);
+}
+
+void TestProjectProcess::showPrpAbnormalMarks(int sampleId, quint8 reagent)
+{
+    const auto *sample = StructInstance::getInstance()->rfindIdSample(sampleId);
+    if (!sample) {
+        return;
+    }
+    quint8 hole = 0;
+    for (const Testing_reagents *item : sample->ptestReagent_active) {
+        if (item && item->index_Reagent == reagent) {
+            hole = item->indexHole;
+            break;
+        }
+    }
+    if (sample->indexTestingChn >= 0) {
+        const quint8 chn = static_cast<quint8>(sample->indexTestingChn);
+        emit setprogressinitboolwaittext(false, chn, tr("[异常]"));
+        emit giveupChannelFlash(false, chn);
+    }
+    if (hole > 0 && hole != 255) {
+        emit giveupSampleHolesChanged(QList<quint8>() << hole);
+        emit EmptyTubeCatched(hole);
+    }
+    m_prpAbnormalMarkedSample = sampleId;
+}
+
+bool TestProjectProcess::beginPrpAbnormalReagentWash(quint8 reagent)
+{
+    quint8 focus = 0;
+    switch (reagent) {
+    case AA_REAGENT: focus = FOCUS_CLEAN_EREAGENTPIN_AA; break;
+    case ADP_REAGENT: focus = FOCUS_CLEAN_EREAGENTPIN_ADP; break;
+    case EPI_REAGENT: focus = FOCUS_CLEAN_EREAGENTPIN_EPI; break;
+    case COL_REAGENT: focus = FOCUS_CLEAN_EREAGENTPIN_COL; break;
+    case RIS_REAGENT: focus = FOCUS_CLEAN_EREAGENTPIN_RIS; break;
+    default:
+        return false;
+    }
+    if (m_focus_sample_id <= 0) {
+        return false;
+    }
+    auto *instance = StructInstance::getInstance();
+    const QByteArray firstCmd = instance->outputstheFirstIncompleteInstruction(m_focus_sample_id, focus);
+    if (firstCmd.isEmpty()) {
+        promptsareDisplayed(TESTINGLOG,
+                            tr("PRP异常后试剂针清洗指令为空，本次复位跳过清洗"),
+                            true);
+        return false;
+    }
+    setSampleFocus(m_focus_sample_id, focus, tr("PRP异常丢杯后清洗试剂针"));
+    markPendingCleanDeduct(0);
+    m_prpAbnormalWashPending = true;
+    startCleanNeedleAckMode(tr("PRP异常丢杯后清洗试剂针"));
+    return true;
 }
 
 void TestProjectProcess::requestPrpBaselineRead()
@@ -3735,6 +3956,16 @@ bool TestProjectProcess::beginNextReagentForSample(int sampleId)
     instance->config_focusSample(sampleId, true);
     m_focus_sample_id = sampleId;
     setSampleFocus(sampleId, workflow.testingFocus, tr("吸试剂抓PRP"));
+    if (sampleId == m_prpAbnormalMarkedSample) {
+        m_prpAbnormalMarkedSample = 0;
+        if (const auto *ps = instance->rfindIdSample(sampleId)) {
+            if (ps->indexTestingChn >= 0) {
+                const quint8 chn = static_cast<quint8>(ps->indexTestingChn);
+                restoreChannelAfterAbnormal(chn);
+                emit setprogressinitboolwaittext(true, chn, QString());
+            }
+        }
+    }
 
     const QString continueLog = QString::fromUtf8("样本%1继续吸试剂:%2")
             .arg(sampleId).arg(outLog);

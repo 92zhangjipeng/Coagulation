@@ -55,6 +55,12 @@ public:
 	static QMessageBox::StandardButton question(QWidget *parent, const QString &title, const QString &text,
 		QMessageBox::StandardButtons buttons = QMessageBox::Yes | QMessageBox::No);
 
+	void armAutoAccept(int seconds);
+
 private:
 	QMessageBox::StandardButton m_result;
+	QPushButton *m_okButton = nullptr;
+	class QTimer *m_autoTimer = nullptr;
+	int m_autoLeft = 0;
+	QString m_okBaseText;
 };
