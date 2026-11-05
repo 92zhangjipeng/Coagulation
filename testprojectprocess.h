@@ -295,6 +295,8 @@ private:
 
     // 处理空闲通道
     void handleIdleChannelTasks();
+    // 加样已完成但还没上通道：有空通道或还没洗针就先处理它，否则交给后面的调度
+    bool resumeDeferredClipIfNeeded();
 
     //提示显示到主界面
     void promptsareDisplayed(const quint8 proIndex, const QString tips, const bool outwidgetTips);
@@ -502,6 +504,7 @@ private:
     int m_leaveCupChannel = -1;
     bool m_waitCupRemovedContinue = false;
     int m_waitCupRemovedSample = 0;
+    int m_deferClipSampleId = 0; //加样已完成，但要先丢完通道里的杯子再夹PPP
     bool m_gripperFailPromptShown = false;
 
     QQueue<Finish_Data_> m_finishTestData; //完成测试通道

@@ -281,6 +281,12 @@ void TestProjectProcess::SampleReagTestFinish(QString finishid,const quint8 inde
 
         emit setprogressinitboolwaittext(true,index_Chn,"");
         outputThrowTestChannelReagentFinish(m_focus_sample_id,indexReage);
+    } else {
+        emit setprogressinitboolwaittext(true,index_Chn,"");
+        logTestFsmInfo(QStringLiteral("throw_queued"),
+                       tr("样本%1 通道%2 已测完，机械臂正忙，丢杯排队")
+                           .arg(completeSample)
+                           .arg(index_Chn + 1));
     }
     return;
 }
@@ -323,6 +329,7 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_leaveCupChannel = -1;
     m_waitCupRemovedContinue = false;
     m_waitCupRemovedSample = 0;
+    m_deferClipSampleId = 0;
     m_hasPendingReagentDeduct = false;
     m_hasPendingCleanDeduct = false;
     mdataAArry.clear();
@@ -512,6 +519,11 @@ void TestProjectProcess::slottestingaddsample()
     StructInstance::getInstance()->SortemergencyattheTop();
     if(!StructInstance::getInstance()->sampleHadFocus())
     {
+       if (!m_finishTestData.isEmpty()) {
+           publishWorkflowStatus(tr("新样本已加入，先丢掉通道里测完的杯子"));
+           TraverseChnHadFinishTesting(THROW_CUPS_END);
+           return;
+       }
        StartSampleAdditionWorkflow();
        publishWorkflowStatus(tr("新样本加入，开始加样"));
     }
@@ -1533,12 +1545,25 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
 
 void TestProjectProcess::getFreeTimeTestChn()
 {
+    if (!m_finishTestData.isEmpty()) {
+        if (m_deferClipSampleId <= 0) {
+            m_deferClipSampleId = m_focus_sample_id;
+        }
+        QLOG_INFO() << "加样完成，通道里还有测完的杯子，先丢杯。待夹样本"
+                    << m_deferClipSampleId << "队列" << m_finishTestData.size();
+        processFinishedChannelTask();
+        return;
+    }
+
     auto* instance = StructInstance::getInstance();
     quint8 freeChannel = 0;
     //const bool hasFreeChannel = instance->hadFreeTestChn(freeChannel);
     const bool hasFreeChannel = instance->getNextFreeChnAfterTesting(freeChannel);
 
     if (hasFreeChannel) {
+        if (m_deferClipSampleId == m_focus_sample_id) {
+            m_deferClipSampleId = 0;
+        }
         instance->setTestingChn(m_focus_sample_id, freeChannel);
         restoreChannelAfterAbnormal(freeChannel);
         emit openChnMotor(freeChannel, true);
@@ -1550,6 +1575,23 @@ void TestProjectProcess::getFreeTimeTestChn()
         writeCommandHeader(instance->sendPPP2ChannelHeanderCommand(m_focus_sample_id,false),
                     tr("吸PPP试管到测试通道首命令"),DELAY_TIMENUM);
     } else {
+        const DATASAMPLESTRUCT *waiting = instance->rfindIdSample(m_focus_sample_id);
+        if (waiting && waiting->bcleanbloody_state && waiting->bcleanDoublePin_state) {
+            const int waitingId = m_focus_sample_id;
+            if (m_deferClipSampleId <= 0) {
+                m_deferClipSampleId = waitingId;
+            }
+            QLOG_INFO() << "样本" << waitingId << "针已洗净，没有空闲通道，先调度其它任务";
+            dismissFocusSample(waitingId);
+            if (m_focus_sample_id == waitingId) {
+                m_focus_sample_id = 0;
+            }
+            handleIdleChannelTasks();
+            return;
+        }
+        if (m_deferClipSampleId <= 0) {
+            m_deferClipSampleId = m_focus_sample_id;
+        }
         logTestFsmInfo(QStringLiteral("no_free_chn_wash_blood"),
                        tr("等待通道，先洗样本针"));
         setSampleFocus(m_focus_sample_id, FOCUS_CLEAN_BLOODPIN, tr("无空闲通道"));
@@ -2383,8 +2425,41 @@ void TestProjectProcess::sendControlCommands(quint8 chn, int sampleId, quint8 re
 }
 
 // 处理空闲通道
+bool TestProjectProcess::resumeDeferredClipIfNeeded()
+{
+    if (m_deferClipSampleId <= 0) {
+        return false;
+    }
+    if (!m_finishTestData.isEmpty()) {
+        processFinishedChannelTask();
+        return true;
+    }
+    auto *instance = StructInstance::getInstance();
+    const int clipId = m_deferClipSampleId;
+    const DATASAMPLESTRUCT *ps = instance->rfindIdSample(clipId);
+    if (!ps) {
+        m_deferClipSampleId = 0;
+        return false;
+    }
+    quint8 freeChn = 0;
+    const bool hasFree = instance->getNextFreeChnAfterTesting(freeChn);
+    const bool cleaned = ps->bcleanbloody_state && ps->bcleanDoublePin_state;
+    if (!hasFree && cleaned) {
+        return false;
+    }
+    m_focus_sample_id = clipId;
+    instance->config_focusSample(clipId, true);
+    QLOG_INFO() << "丢杯结束，继续把已加样样本" << clipId << "夹到通道";
+    getFreeTimeTestChn();
+    return true;
+}
+
 void TestProjectProcess::handleIdleChannelTasks()
 {
+    if (resumeDeferredClipIfNeeded()) {
+        return;
+    }
+
     if (!m_pendingtimeSample.isEmpty()) {
         loadPedningtimeTask();
         if (StructInstance::getInstance()->sampleHadFocus()) {
@@ -3869,6 +3944,9 @@ void TestProjectProcess::enqueueContinueReagent(int sampleId)
 void TestProjectProcess::removeSampleFromSchedulerQueues(int sampleId)
 {
     m_pendingContinueReagent.removeAll(sampleId);
+    if (m_deferClipSampleId == sampleId) {
+        m_deferClipSampleId = 0;
+    }
 }
 
 void TestProjectProcess::dropFinishTasksForSample(int sampleId)
@@ -4645,7 +4723,7 @@ void TestProjectProcess::exceptionRetest(QString tips){
                 }
                 if (!m_finishTestData.isEmpty()) {
                     TraverseChnHadFinishTesting(THROW_CUPS_END);
-                } else if (!startPendingContinueReagent()) {
+                } else if (!startPendingContinueReagent() && !resumeDeferredClipIfNeeded()) {
                     StartSampleAdditionWorkflow();
                 }
             }
@@ -4672,7 +4750,7 @@ void TestProjectProcess::exceptionRetest(QString tips){
                                  << complete_.CompleteSampleid << "通道" << (test_finish_chn + 1);
                     if (!m_finishTestData.isEmpty()) {
                         processFinishedChannelTask();
-                    } else if (!startPendingContinueReagent()) {
+                    } else if (!startPendingContinueReagent() && !resumeDeferredClipIfNeeded()) {
                         StartSampleAdditionWorkflow();
                     }
                     return;
@@ -4683,7 +4761,7 @@ void TestProjectProcess::exceptionRetest(QString tips){
             }
             if (sampleId <= 0) {
                 QLOG_ERROR() << "完成队列通道" << (test_finish_chn + 1) << "未找到样本，跳过弃杯";
-                if (!startPendingContinueReagent()) {
+                if (!startPendingContinueReagent() && !resumeDeferredClipIfNeeded()) {
                     StartSampleAdditionWorkflow();
                 }
                 return;
@@ -4700,7 +4778,7 @@ void TestProjectProcess::exceptionRetest(QString tips){
         {
             QString outtext = tips + QString::fromUtf8("测试通道内无完成测试样本,继续遍历加样样本");
             promptsareDisplayed(TESTINGLOG,outtext,false);
-            if (!startPendingContinueReagent()) {
+            if (!startPendingContinueReagent() && !resumeDeferredClipIfNeeded()) {
                 StartSampleAdditionWorkflow();
             }
         }
