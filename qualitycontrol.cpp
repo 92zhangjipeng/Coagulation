@@ -1071,11 +1071,10 @@ void QualityControl::consumeCleaningFluid(const CleaningFluidDepleteType deplete
 
     const double warmRatio = lastRatioPercent * 100.00;
     updateCleaningFluidStatus(warmRatio, updateratio);
-    if (warmRatio <= 0 || warmRatio < limitRatio) {
-        QLOG_WARN() << "内清洗液S1不足警报限";
-        if (cglobal::g_StartTesting) {
-            emit consumablesLackPauses(INDEX_CLEANLINQUE_CONSUMABLE);
-        } else {
+    if (warmRatio < static_cast<double>(limitRatio)) {
+        QLOG_WARN() << "清洗液S1扣量后低于报警限，下次清洗前再提示更换"
+                    << warmRatio << "limit" << limitRatio;
+        if (!cglobal::g_StartTesting.load() && !cglobal::g_hitTesting.load()) {
             warn_interface::showTransientWarning(tr("耗材提示"),
                 tr("内清洗液S1不足警报限,请及时更换!"));
         }
@@ -1130,12 +1129,11 @@ void QualityControl::consumeReagent(const quint8 reag_kind, const quint8 index_)
                                               totalnum,updatedRatio,true);
     emit sendDirectives(buffer,"缓存消耗试剂");
 
-    quint8 limitRatio  = 0;
-    ConsumablesOper::updateReagentLimit(READ_OPERRAT, reag_kind,limitRatio );
-    const bool reagentSufficient = (remainingPercentage > limitRatio);
-
-    if(!reagentSufficient){
-        emit consumablesLackPauses(reag_kind);
+    quint8 limitRatio = 0;
+    ConsumablesOper::updateReagentLimit(READ_OPERRAT, reag_kind, limitRatio);
+    if (remainingPercentage < static_cast<double>(limitRatio)) {
+        QLOG_WARN() << "试剂扣量后低于报警限，下次吸试剂前再提示更换"
+                    << reag_kind << remainingPercentage << "limit" << limitRatio;
     }
     return;
 }
@@ -1218,6 +1216,7 @@ void  QualityControl::handleoutSideCleanDepleteOne(){
     const int cols = static_cast<int>(TableIndex::S2_);
     FilltheConsumablesTable(pwidget,rows,cols,QString::number(configBottle),false);
     emit sendDirectives(buffer,"缓存S2余量瓶");
+    emit consumableTotalsChanged();
 }
 
 
@@ -1349,6 +1348,7 @@ void QualityControl::updateTestTubeTrat(quint8 replaceIndexTray)
     updatetrayAllTube(*replactindex, false);
     FullyAutomatedPlatelets::pinstanceTesting()->replacEmptyTestTary(replaceIndexTray - 1);
     emit sendDirectives(buffer,"直接写入试管余盘");
+    emit consumableTotalsChanged();
     return;
 }
 
@@ -1424,6 +1424,7 @@ void QualityControl::updateotherSupplies(const quint8 indexSupplies){
     QByteArray buffer;
     QUIUtils::writeSuppliesBottleControlOrder(buffer,indexSupplies,indexSupplies,LastBottle,fullratio,true);
     emit sendDirectives(buffer,"更换直接写入试剂数");
+    emit consumableTotalsChanged();
     return;
 }
 
@@ -1554,6 +1555,7 @@ void QualityControl::tableitemNotify(QTableWidgetItem* changedItem) {
     m_tableWidgetReagentStatus->viewport()->update(
         m_tableWidgetReagentStatus->visualItemRect(targetItem)
     );
+    emit consumableTotalsChanged();
     return;
 }
 
@@ -1745,6 +1747,7 @@ void QualityControl::handleRechargeSuccessful(int types, quint8 setdata)
     }
     QLOG_DEBUG()<<"充值成功耗材:"<<GlobalData::mapReagentNames(types)<<"充值成功总量:"<< totalbottle;
     update();
+    emit consumableTotalsChanged();
     return;
 }
 

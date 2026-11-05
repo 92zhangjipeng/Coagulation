@@ -14,6 +14,7 @@
 #include "calibrate.h"
 #include "graphplot.h"
 #include "qcchartpage.h"
+#include "hitpage.h"
 #include "result.h"
 #include "testing.h"
 #include "aboutmachine.h"
@@ -94,6 +95,7 @@ enum class MainInterfaceSubscripted
     FunctionBlock_Inquire,
     FunctionBlock_Consumables,
     FunctionBlock_Qc,
+    FunctionBlock_Hit,
     FunctionBlock_Setup,
     FunctionBlock_About
 };
@@ -142,6 +144,7 @@ public:
     void machineReposition();//复位
     void dimmingprogress(bool isDimmingInProgress); //调光中
     int  getChannelTestVal(const quint8& indexChannel);
+    float hitAggregationPercent(float prpn, float prp0, float ppp);
     quint32 getChannelPositiveFilterSeq(const quint8& indexChannel);
     bool getStablePositiveChannelVal(const quint8& indexChannel, quint32 minSeq,
                                      int& value, quint32& currentSeq);
@@ -303,6 +306,7 @@ public slots:
     void slotconnectionStateChanged(bool connected);
 
     void DisplaySycnMainUiLosserSuppile(int IndexReagent, double Remainingratio);
+    void refreshConsumableStockHint();
 
     //开始初始清洗液不足,更换清洗液触发信号
     void recvNoinitialCleaning();
@@ -487,6 +491,7 @@ private:
 
     //写入耗材余量 退出关闭软件
     void writeConsumablesExit();
+    void promptQuitConfirm();
 
     //更换试剂确认
     bool reagentReplacementComplete(const int& indexReagent);
@@ -525,6 +530,7 @@ private:
     QPointer<Testing> mptesting; //测试界面
     QPointer<GraphPlot> m_graphplot; //测试曲线
     QPointer<QcChartPage> m_qcChartPage; //质控曲线
+    QPointer<HitPage> m_hitPage; //HIT 页
     QPointer<SuoweiSerialPort> mlocalSerial; //串口类线程对象
     QPointer<FunctionCustomWidget> preminder;//退出软件对话框
     bool m_forceQuit = false;

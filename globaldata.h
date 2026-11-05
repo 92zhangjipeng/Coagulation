@@ -312,6 +312,10 @@ public:
       * @return
       */
      static bool determineReagentontheleftIsSufficient(quint8 consumableIndex, quint8 reagentIndex);
+     // 下一次吸取前：剩余盖不住本次用量，或剩余已低于报警限，返回 false。报警限 0% 时只看用量。
+     static bool enoughForNextDraw(quint8 consumableIndex, double usedUl);
+     // depleteType：0 试剂针，1 样本针，2 双针。洗针发出去之前调用。
+     static bool cleaningFluidCoversNextUse(quint8 depleteType);
 
      static constexpr int kPppBaselineMin = 2000;
      static constexpr int kPppBaselineMax = 3000;

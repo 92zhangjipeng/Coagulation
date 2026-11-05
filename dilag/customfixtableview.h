@@ -144,6 +144,7 @@ public:
     void setCheckBoxState(const bool& isstate, const QString &sampleSex,
         const QList<QString> &TableSampleidList);
     void saveOriginalCurveData(int row);
+    void refreshReagentIfViewing(const QString &sampleId, quint8 reagent);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -240,7 +241,8 @@ private:
     enum class Status {
         Completed,
         NotTested,
-        Pending
+        Pending,
+        Abnormal
     };
 
     // 主要功能函数

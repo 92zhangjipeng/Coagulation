@@ -857,17 +857,18 @@ void displayChanneldata::handleTestCompletion(const QString& sampleNum,
     }
     StructInstance::getInstance()->setupOneReagentsIsComplete(sampleNum, reagentIndex, hasTestError);
 
-    if (channelIdx <= 0) {
-        QLOG_WARN() << "通道号小于等于 0 有越界风险";
+    if (channelIdx <= 0 || channelIdx > MACHINE_SETTING_CHANNEL) {
+        QLOG_ERROR() << "试剂完成通道号无效，不调度弃杯。样本" << sampleNum
+                     << "试剂" << reagentIndex << "通道" << channelIdx;
     } else {
-        mOpenChnTest[channelIdx - 1] = false;
+        const int chn0 = channelIdx - 1;
+        mOpenChnTest[chn0] = false;
+        QLOG_INFO() << "[TestChn] reag_done sample" << sampleNum
+                    << "reag" << reagentIndex << "chn" << channelIdx
+                    << "-> testComplete";
+        emit finishtestProgress(static_cast<quint8>(chn0), reagentIndex);
+        emit testComplete(sampleNum, static_cast<quint8>(chn0), reagentIndex);
     }
-
-    QLOG_INFO() << "[TestChn] reag_done sample" << sampleNum
-                << "reag" << reagentIndex << "chn" << channelIdx
-                << "-> testComplete";
-    emit finishtestProgress(channelIdx - 1, reagentIndex);
-    emit testComplete(sampleNum, channelIdx - 1, reagentIndex);
 
     // 耗材消耗统计
     FullyAutomatedPlatelets::pinstancesqlData()->testendAddStasReagent(sampleNum, reagentIndex);
@@ -1424,6 +1425,11 @@ double displayChanneldata::calculateTestAggregationRate(double prpn, double ppp,
     return result;
 }
 
+float displayChanneldata::aggregationPercent(float prpn, float prp0, float ppp)
+{
+    return calculateAggregationRate(getAbsorbanceAlgorithm(), prpn, prp0, ppp) * 100.f;
+}
+
 // 对外接口：根据算法模式分派到对数 / 线性算法
 float displayChanneldata::calculateAggregationRate(const bool isLogMode,
                                                    float PRPn,
@@ -1625,7 +1631,7 @@ void displayChanneldata::slotgetAnemiaValue()
     emit CompleteGetAnemiaValue(testChnindex);
 }
 
-// 读取富血初始值(PRP)：正常模式只要求非0，为0则自动重读几次；实验模式额外校验与PPP关系
+// 读取富血初始值(PRP)：须吸试剂并把杯子放到通道之后才连读。小于等于10判异常。为0先自动重读几次，不和PPP比较
 void displayChanneldata::slotreadbloodyInitValue(quint8 indexReagent, quint8 indexActive)
 {
     quint8 indexChn = 0;
@@ -1633,8 +1639,15 @@ void displayChanneldata::slotreadbloodyInitValue(quint8 indexReagent, quint8 ind
     if (sampleid <= 0) {
         m_prpZeroRetryCount = 0;
         QLOG_WARN() << "slotreadbloodyInitValue: 未定位到抓PRP焦点样本";
-        emit testingLogHint(tr("未定位到抓PRP焦点样本，无法读取PRP"));
-        emit signalPrpReadFailed();
+        emit testingLogHint(tr("未定位到抓PRP焦点样本，杯子不在通道，改为重新吸试剂并抓杯"));
+        emit signalPrpGripNotReady();
+        return;
+    }
+    if (!StructInstance::getInstance()->prpClipFinishedAwaitingRead(sampleid, indexReagent)) {
+        m_prpZeroRetryCount = 0;
+        QLOG_WARN() << "slotreadbloodyInitValue: 吸试剂抓杯未完成，不判断PRP 样本" << sampleid;
+        emit testingLogHint(tr("吸试剂抓杯还没放到通道，先不判断PRP"));
+        emit signalPrpGripNotReady();
         return;
     }
 
@@ -1703,17 +1716,12 @@ void displayChanneldata::slotreadbloodyInitValue(quint8 indexReagent, quint8 ind
 
     m_prpZeroRetryCount = 0;
 
-    if (INI_File().getexperimentalMode()) {
-        int pppValue = 0;
-        StructInstance::getInstance()->oper_AnemiaValue(READ_OPERRAT, indexChn, pppValue);
-        if (!GlobalData::isPppBaselineValid(pppValue) || pppValue <= bloodyValue) {
-            QLOG_WARN() << "slotreadbloodyInitValue: PRP与PPP关系异常,通道号:" << indexChn + 1
-                        << "PPP:" << pppValue << "PRP:" << bloodyValue;
-            emit testingLogHint(tr("实验模式：PRP=%1 与 PPP=%2 关系异常")
-                                .arg(bloodyValue).arg(pppValue));
-            emit signalPrpReadFailed();
-            return;
-        }
+    if (bloodyValue <= 10) {
+        QLOG_WARN() << "slotreadbloodyInitValue: PRP初值异常,通道号:" << indexChn + 1
+                    << "PRP:" << bloodyValue;
+        emit testingLogHint(tr("PRP=%1，小于等于10，初值异常").arg(bloodyValue));
+        emit signalPrpReadFailed();
+        return;
     }
 
     StructInstance::getInstance()->setRichBloodInitValue(indexReagent, indexChn, bloodyValue);
@@ -1738,6 +1746,8 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,
         const auto *psample = StructInstance::getInstance()->rfindIdSample(sampleId);
         if (!psample || psample->indexTestingChn < 0) {
             QLOG_WARN() << "[TestChn] open_test_reject sample" << sampleId << "无有效测试通道";
+            emit testingLogHint(tr("样本%1没有测试通道，洗针没有发出").arg(sampleId));
+            emit openTestChnRejected(sampleId);
             return;
         }
         openChn = static_cast<quint8>(psample->indexTestingChn);

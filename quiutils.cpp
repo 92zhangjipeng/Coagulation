@@ -2902,7 +2902,8 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
 
     auto &ini =  INI_File();
     int failedBloodpin =   ini.GetFailedCleanLinqueHigh();        //清洗液探测失败样本针
-    int failedreagentpin = ini.getFailedCleanLinqueReagNeedle();  //清洗液探测失败试剂针
+    // 洗液探不到时下针：用「洗液探不到时下针」输入框里的数
+    int failedreagentpin = ini.GetFailedReagentsLinqueHigh();
     int washbloodPinVol =  ini.GetAbsorbWashingfluidX2();         //洗样本针洗的清洗剂量
     int washReagPinVol =   ini.GetAbsorbWashingfluidX1();         //洗试剂针吸清洗液的量
     double suckSpitPPPRatio =  std::round(ini.GetPPPConversionScale()*100.0)/100.0;
@@ -3106,7 +3107,8 @@ void QUIUtils::CleanReagentsPinActionCommd(QVector<QByteArray> &CleanActionarry)
     SingletonAxis::GetInstance()->cleanZoneAxisPos(READ_OPERRAT,MOTOR_REAGNET_INDEX,CleanReagOffReagnetPin);
 
     auto *pActive = Testing::getTaskDll();
-    const int failedReagentPin = INI_File().getFailedCleanLinqueReagNeedle();   // 液面探测失败下降高度
+    // 洗液探不到时下针：用「洗液探不到时下针」输入框里的数
+    const int failedReagentPin = INI_File().GetFailedReagentsLinqueHigh();
     int washReagPinVol = INI_File().GetAbsorbWashingfluidX1();                  // 单次清洗量（μL）
 
     auto& manager = PumpPositionManager::instance(); //管理泵
@@ -4135,7 +4137,8 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
         return static_cast<quint8>(outputArry.count() % 255);
     };
 
-    const int falilinquehigh = INI_File().GetFailedReagentsLinqueHigh();
+    // 吸试剂探不到液面时下到的高度：用「吸试剂探液失败高度」输入框里的数
+    const int falilinquehigh = INI_File().getFailedCleanLinqueReagNeedle();
 
     outputArry.clear();
     if (indexReag < AA_REAGENT || indexReag > RIS_REAGENT

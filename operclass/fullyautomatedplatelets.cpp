@@ -101,6 +101,8 @@ FullyAutomatedPlatelets::FullyAutomatedPlatelets(int &argc, char **argv) : QAppl
     //测试界面
     QObject::connect(minstrumentConsumables.data(),&QualityControl::SycnMainUiLosserSuppile,
                      pmainWindow,&MainWindow::DisplaySycnMainUiLosserSuppile);
+    QObject::connect(minstrumentConsumables.data(),&QualityControl::consumableTotalsChanged,
+                     pmainWindow,&MainWindow::refreshConsumableStockHint);
 
     QObject::connect(minstrumentConsumables.data(),&QualityControl::NoinitialCleaning,
                       pmainWindow,&MainWindow::recvNoinitialCleaning);

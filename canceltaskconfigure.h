@@ -41,7 +41,7 @@ private slots:
     void onCloseRequested();
     void onOkClicked();
     void onCancelClicked();
-    void delenter(QTableWidgetItem *item);
+    void removeSampleRow(QWidget *holder);
 
 signals:
     void makesureCacelIdList(QList<int>);

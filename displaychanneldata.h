@@ -66,6 +66,7 @@ public:
     quint32 GetPositiveFilterSeq(quint8 Channel);        ///< 正点滤波代次（1 起始通道号）
     bool GetStablePositiveChannelValue(quint8 Channel, quint32 minSeq,
                                        int& value, quint32& currentSeq); ///< 新的正点滤波秒且值>0
+    float aggregationPercent(float prpn, float prp0, float ppp); ///< 现有聚集率公式，结果按百分数返回
     void setCalibrationParameters();                     ///< 从配置文件加载校准参数
 
 // =============================================================================
@@ -84,10 +85,12 @@ signals:
     void sendChannelQualitydata(int, int);                                              ///< 质控数据发送
     void signalShowPPPError(int value);                                                 ///< PPP 值异常（仅实验模式弹窗）
     void pppInitRead(quint8 channelIndex, int pppValue);                                ///< PPP 初值已读（0 基通道号）
-    void signalPrpReadFailed();                                                         ///< PRP 初值读取失败（实验模式暂停后重读）
+    void signalPrpReadFailed();                                                         ///< PRP 初值小于等于10，暂停后重读
+    void signalPrpGripNotReady();                                                       ///< 杯子还不在通道，不能读PRP，改回吸试剂抓杯
     void signalPppZeroGiveUp(int sampleId, quint8 channel);                             ///< 正常模式 PPP 连续为 0：丢杯并放弃样本
     void signalPrpZeroSkipReagent(int sampleId, quint8 reagent, quint8 focusActive);     ///< 正常模式 PRP 连续为 0：丢当前杯后换试剂/放弃
     void testingLogHint(const QString& text);                                           ///< 写到查看日志（测试流程）
+    void openTestChnRejected(int sampleId);                                             ///< 样本已无通道，洗针开测被拒绝
     void channelDataError(const QString& errorMsg);                                     ///< 通道数据错误
 
 // =============================================================================

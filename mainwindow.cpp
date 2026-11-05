@@ -35,7 +35,7 @@
 
 namespace {
 
-void omitTaskbarButton(QWidget *widget)
+void showTaskbarButton(QWidget *widget)
 {
     if (!widget)
         return;
@@ -43,8 +43,8 @@ void omitTaskbarButton(QWidget *widget)
     if (!hwnd)
         return;
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-    style &= ~WS_EX_APPWINDOW;
-    style |= WS_EX_TOOLWINDOW;
+    style &= ~WS_EX_TOOLWINDOW;
+    style |= WS_EX_APPWINDOW;
     SetWindowLongPtr(hwnd, GWL_EXSTYLE, style);
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
@@ -175,6 +175,28 @@ QLabel *ensureFocusTaskLabel(Ui::MainWindow *ui)
     return lab;
 }
 
+QLabel *ensureConsumableRechargeLabel(Ui::MainWindow *ui)
+{
+    QLabel *lab = ui->StatusBar->findChild<QLabel *>(QStringLiteral("label_consumableRecharge"));
+    if (!lab) {
+        lab = new QLabel(ui->StatusBar);
+        lab->setObjectName(QStringLiteral("label_consumableRecharge"));
+        lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        lab->setMinimumHeight(28);
+        lab->setMaximumWidth(360);
+        lab->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        lab->setAttribute(Qt::WA_StyledBackground, true);
+        lab->hide();
+    }
+    QHBoxLayout *lay = ui->horizontalLayout_status;
+    if (lay->indexOf(lab) >= 0)
+        return lab;
+    QLabel *focus = ui->StatusBar->findChild<QLabel *>(QStringLiteral("label_focusTask"));
+    const int focusIdx = focus ? lay->indexOf(focus) : -1;
+    lay->insertWidget(focusIdx >= 0 ? focusIdx + 1 : lay->count(), lab);
+    return lab;
+}
+
 QTimer *usbUnplugDebounceTimer(QObject *owner)
 {
     static QPointer<QTimer> timer;
@@ -203,9 +225,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
 {
     ui->setupUi(this);
 
-    // 无边框，且不在任务栏占按钮。软件图标只留在托盘。
+    // 无边框，任务栏保留程序按钮，托盘图标同时保留。
     setWindowFlags((windowFlags() & ~Qt::WindowType_Mask)
-                   | Qt::Tool
+                   | Qt::Window
                    | Qt::FramelessWindowHint);
 
     // 预加载图标资源
@@ -365,6 +387,8 @@ try{
     m_graphplot = nullptr;
     delete m_qcChartPage;
     m_qcChartPage = nullptr;
+    delete m_hitPage;
+    m_hitPage = nullptr;
 
     // 7. 退出框只由这里释放（不要 WA_DeleteOnClose / closeEvent deleteLater 再删一次）
     if (preminder) {
@@ -897,14 +921,18 @@ void MainWindow::initTestTaskThread()
 
     connect(m_pdoingTesting.data(), &TestProjectProcess::pauseTesting,
             this, [this]() {
-        if (!cglobal::g_PauseTesting.load() && cglobal::g_StartTesting.load()) {
-            cglobal::g_PauseTesting = true;
-            QToolButton *pPauseBtn = ui->toolButton_quality_sample;
-            if (pPauseBtn) {
-                pPauseBtn->setText(tr("继续"));
-                pPauseBtn->setIcon(m_continueIcon);
-                pPauseBtn->setStyleSheet(mPauseSateQss);
-            }
+        if (!cglobal::g_StartTesting.load()) {
+            return;
+        }
+        const bool alreadyPaused = cglobal::g_PauseTesting.load();
+        cglobal::g_PauseTesting = true;
+        QToolButton *pPauseBtn = ui->toolButton_quality_sample;
+        if (pPauseBtn) {
+            pPauseBtn->setText(tr("继续"));
+            pPauseBtn->setIcon(m_continueIcon);
+            pPauseBtn->setStyleSheet(mPauseSateQss);
+        }
+        if (!alreadyPaused) {
             emit ReminderTextOut(PROMPTLOG, tr("流程异常，测试已自动暂停"));
         }
     }, Qt::QueuedConnection);
@@ -1055,6 +1083,9 @@ void MainWindow::initTestTaskThread()
     connect(mshowModuledata.data(), &displayChanneldata::signalPrpReadFailed,
             m_pdoingTesting.data(), &TestProjectProcess::handlePrpBaselineInvalid,
             Qt::QueuedConnection);
+    connect(mshowModuledata.data(), &displayChanneldata::signalPrpGripNotReady,
+            m_pdoingTesting.data(), &TestProjectProcess::handlePrpGripNotReady,
+            Qt::QueuedConnection);
     connect(mshowModuledata.data(), &displayChanneldata::signalPppZeroGiveUp,
             this, [this](int sampleId, quint8 channel) {
         emit ReminderTextOut(TESTINGLOG,
@@ -1113,10 +1144,10 @@ void MainWindow::initTestTaskThread()
             }
         }
         emit ReminderTextOut(TESTINGLOG,
-            tr("PRP初值异常（须大于0且小于该通道PPP），测试已暂停，点「继续」后按当前焦点重读"));
+            tr("PRP初值异常（小于等于10），测试已暂停，点「继续」后按当前焦点重读"));
         if (INI_File().getexperimentalMode()) {
             CustomMessageBox::warning(this, tr("PRP异常警告"),
-                tr("未读到有效PRP初值（须大于0，且小于该通道PPP）。\n已暂停测试，请处理后再点「继续」重读。"));
+                tr("未读到有效PRP初值（须大于10）。\n已暂停测试，请处理后再点「继续」重读。"));
         }
     }, Qt::QueuedConnection);
 
@@ -1134,6 +1165,9 @@ void MainWindow::initTestTaskThread()
     //吐完试剂后测试
     connect(m_pdoingTesting.data(),&TestProjectProcess::openTestChnTest,
             mshowModuledata.data(),&displayChanneldata::slotopenTestChnTest,
+            Qt::QueuedConnection);
+    connect(mshowModuledata.data(), &displayChanneldata::openTestChnRejected,
+            m_pdoingTesting.data(), &TestProjectProcess::handleOpenTestChnRejected,
             Qt::QueuedConnection);
     connect(m_pdoingTesting.data(), &TestProjectProcess::stopChannelAcquisition,
             mshowModuledata.data(), &displayChanneldata::slotStopChannelAcquisition,
@@ -1780,6 +1814,7 @@ void MainWindow::Traverse_through_ModuleReadInfo()
 void MainWindow::applyStatusBarStyle()
 {
     ensureFocusTaskLabel(ui);
+    ensureConsumableRechargeLabel(ui);
     ui->StatusBar->setFixedHeight(64);
     ui->StatusBar->setStyleSheet(QStringLiteral(
         "QWidget#StatusBar{"
@@ -1860,6 +1895,54 @@ void MainWindow::applyStatusBarStyle()
     }
 
     updateConnectionUI(cglobal::gserialConnecStatus);
+}
+
+void MainWindow::refreshConsumableStockHint()
+{
+    if (!ui || !ui->StatusBar)
+        return;
+    QLabel *lab = ensureConsumableRechargeLabel(ui);
+    if (!lab)
+        return;
+    if (!cglobal::gserialConnecStatus.load()) {
+        lab->clear();
+        lab->hide();
+        return;
+    }
+
+    static const QList<quint8> indexConsumablesList = {
+        INDEX_AA_CONSUMABLE, INDEX_ADP_CONSUMABLE, INDEX_EPI_CONSUMABLE,
+        INDEX_COL_CONSUMABLE, INDEX_RIS_CONSUMABLE, INDEX_CLEANLINQUE_CONSUMABLE,
+        INDEX_TESTTUBE_CONSUMABLE, OUTSIDE_CLEANLINQUE_S2
+    };
+
+    QStringList lowNames;
+    if (ConsumablesOper *oper = ConsumablesOper::GetpInstance()) {
+        for (quint8 index : indexConsumablesList) {
+            bool alarm = false;
+            oper->TotalConsumablesAlarm(index, alarm);
+            if (alarm) {
+                const QString name = GlobalData::mapReagentNames(index);
+                if (!name.isEmpty())
+                    lowNames.append(name);
+            }
+        }
+    }
+
+    if (lowNames.isEmpty()) {
+        lab->clear();
+        lab->hide();
+        return;
+    }
+    const QString shown = tr("请及时充值 %1").arg(lowNames.join(QStringLiteral("、")));
+    lab->setToolTip(shown);
+    lab->setStyleSheet(QStringLiteral(
+        "QLabel#label_consumableRecharge{background:#FFF4D6;color:#9A6B00;"
+        "border:1px solid #E8D39A;border-radius:8px;padding:4px 10px;"
+        "font-family:'Microsoft YaHei';font-size:13px;font-weight:bold;}"));
+    QFontMetrics fm(lab->font());
+    lab->setText(fm.elidedText(shown, Qt::ElideRight, 340));
+    lab->show();
 }
 
 QString MainWindow::consumableChipCaption(int reagentIndex) const
@@ -1944,6 +2027,7 @@ void  MainWindow::slotconnectionStateChanged(bool connected)
         // 重连时串口线程可能已先把 gserialConnecStatus 置 true，不能只靠边沿
         emit instrumentCameOnline();
     }
+    refreshConsumableStockHint();
 }
 
 
@@ -2107,7 +2191,7 @@ void MainWindow::showMainFromTray()
     if (isMinimized())
         setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     show();
-    omitTaskbarButton(this);
+    showTaskbarButton(this);
     raise();
     activateWindow();
 }
@@ -2214,8 +2298,13 @@ void MainWindow::createTrayActions()
      addTrayAction(tr("退出系统"), [this] {
          if (m_forceQuit)
              return;
-         m_forceQuit = true;
-         writeConsumablesExit();
+         if (preminder && preminder->isVisible()) {
+             preminder->raise();
+             preminder->activateWindow();
+             return;
+         }
+         showMainFromTray();
+         promptQuitConfirm();
      });
 }
 
@@ -2240,7 +2329,7 @@ void MainWindow::initTrayFunction()
 {
     if (!checkTrayAvailability()) {
         showMaximized();
-        omitTaskbarButton(this);
+        showTaskbarButton(this);
         return;
     }
 
@@ -2266,7 +2355,7 @@ void MainWindow::initTrayFunction()
     m_systemTray->show();
 
     showMaximized();
-    omitTaskbarButton(this);
+    showTaskbarButton(this);
     return;
 }
 
@@ -2315,6 +2404,7 @@ void MainWindow::InitMainUiLayout()
     m_graphplot = new GraphPlot(this);
     m_graphplot.data()->innitKindequipment();
     m_qcChartPage = new QcChartPage(this);
+    m_hitPage = new HitPage(this);
 
 
     MachineSetting*pequipmentconfig = FullyAutomatedPlatelets::pinstanceequipmentconfig();
@@ -2554,6 +2644,18 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 
     event->ignore();
+    promptQuitConfirm();
+}
+
+void MainWindow::promptQuitConfirm()
+{
+    if (m_forceQuit)
+        return;
+    if (preminder && preminder->isVisible()) {
+        preminder->raise();
+        preminder->activateWindow();
+        return;
+    }
 
     QString warningText, titleText;
     if (cglobal::g_StartTesting) {
@@ -2680,7 +2782,8 @@ void MainWindow::setupTabWidget()
         {MainInterfaceSubscripted::FunctionBlock_PreviewCurve,   m_graphplot.data()},
         {MainInterfaceSubscripted::FunctionBlock_Inquire,        FullyAutomatedPlatelets::pinstanceInquiredata()},
         {MainInterfaceSubscripted::FunctionBlock_Consumables,    FullyAutomatedPlatelets::pinstanceinstrument()},
-        {MainInterfaceSubscripted::FunctionBlock_Qc,             m_qcChartPage.data()}
+        {MainInterfaceSubscripted::FunctionBlock_Qc,             m_qcChartPage.data()},
+        {MainInterfaceSubscripted::FunctionBlock_Hit,            m_hitPage.data()}
     };
 
     foreach (const auto& tab, tabs) {
@@ -2795,6 +2898,12 @@ void MainWindow::setupUtilityButtons()
         logTabSwitchEvent(static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc));
     });
 
+    ui->toolButton_quality_hit->setText(QStringLiteral("HIT"));
+    connect(ui->toolButton_quality_hit, &QToolButton::clicked, this, [this] {
+        switchMainTab(MainInterfaceSubscripted::FunctionBlock_Hit);
+        logTabSwitchEvent(static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Hit));
+    });
+
     QObject::connect(ui->toolButton_quality_stop ,&QToolButton::clicked,this,[this]{
 
         handleFunctionButtonClick(static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Testing));
@@ -2823,9 +2932,8 @@ void MainWindow::updateButtonSelectionState(int activeIndex)
     if (static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables) == activeIndex) {
         FullyAutomatedPlatelets::pinstanceinstrument()->displayConsumablesInteger();
         FullyAutomatedPlatelets::pinstanceinstrument()->ShowConsumablesLimitArm();
-        //只要打开耗材界面 当总耗材数小于等于报警限 就弹提示
-        FullyAutomatedPlatelets::pinstanceinstrument()->TotalConsumablesAlarm();
     }
+    refreshConsumableStockHint();
 }
 
 void MainWindow::logTabSwitchEvent(int index)
@@ -2836,7 +2944,8 @@ void MainWindow::logTabSwitchEvent(int index)
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_PreviewCurve),  tr("打开曲线界面")},
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Inquire),      tr("打开查询界面")},
         {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Consumables),  tr("进入耗材管理")},
-        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc),           tr("打开质控界面")}
+        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Qc),           tr("打开质控界面")},
+        {static_cast<int>(MainInterfaceSubscripted::FunctionBlock_Hit),          tr("打开HIT界面")}
     };
 
     if (tabLogMessages.contains(index)) {
@@ -3135,6 +3244,7 @@ void MainWindow::DisplaySycnMainUiLosserSuppile(int IndexReagent,double Remainin
         displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(preciseValue));
         applyConsumableChipStyle(displayLabel, Remainingratio, threshold);
     }
+    refreshConsumableStockHint();
     return;
 }
 
@@ -3225,6 +3335,7 @@ void MainWindow::DisplaysConsumablesRemaining()
            displayLabel->setToolTip(tr("%1 余量 %2%").arg(caption).arg(preciseValue));
            applyConsumableChipStyle(displayLabel, static_cast<double>(ratio), threshold);
     }
+    refreshConsumableStockHint();
     return;
 }
 
@@ -3370,6 +3481,10 @@ void MainWindow::begingTesting()
     testingchnEnough(benoughChn_);
     if(!benoughChn_){
         CustomMessageBox::warning(this,"开始失败","模组无可用通道!");
+        return;
+    }
+    if (cglobal::g_hitTesting.load()) {
+        CustomMessageBox::warning(this, tr("开始失败"), tr("HIT测试进行中，请结束后再开始!"));
         return;
     }
     mptesting.data()->TotalTaskProgress(); //总任务进度试管杯
@@ -3565,6 +3680,13 @@ int MainWindow::getChannelTestVal(const quint8& indexChannel){
        return  mshowModuledata.data()->GetChannelValue(indexChannel);
     }
     return 0;
+}
+
+float MainWindow::hitAggregationPercent(float prpn, float prp0, float ppp)
+{
+    if (!mshowModuledata)
+        return 0.f;
+    return mshowModuledata.data()->aggregationPercent(prpn, prp0, ppp);
 }
 
 quint32 MainWindow::getChannelPositiveFilterSeq(const quint8& indexChannel)

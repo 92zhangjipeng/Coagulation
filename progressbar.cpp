@@ -32,10 +32,13 @@ ProgressBar::~ProgressBar()
 }
 
 void  ProgressBar::toggleBlinkState(){
-    if (m_flash) {
-        m_blinkState = !m_blinkState;
-        update();
-    }
+}
+
+void ProgressBar::flashingReminder(const bool isvisible)
+{
+    m_flash = !isvisible;
+    m_blinkState = true;
+    update();
 }
 
 void ProgressBar::setStartAngle(double angle)
@@ -159,10 +162,6 @@ void ProgressBar::setwidth(int width)
 
 void ProgressBar::paintEvent(QPaintEvent* /*event*/)
 {
-    if(!m_blinkState){
-        return;
-    }
-
     // 外圈直径留出边，避免贴着控件底边被切成扁圆
     const double margin = 4.0;
     double outerDiameter = qMax(8.0, qMin(this->width(), this->height()) - margin * 2.0);
@@ -237,15 +236,20 @@ void ProgressBar::drawBase(QPainter &p, const QRectF &baseRect, const QRectF &in
 
             // 环形背景渐变
             QLinearGradient ringGradient(baseRect.topLeft(), baseRect.bottomRight());
-            ringGradient.setColorAt(0, QColor("#E5E7EB"));
-            ringGradient.setColorAt(1, QColor("#D1D5DB"));
+            QPen borderPen(QColor("#9CA3AF"), 1);
+            if (m_flash) {
+                ringGradient.setColorAt(0, QColor("#FECACA"));
+                ringGradient.setColorAt(1, QColor("#DC2626"));
+                borderPen = QPen(QColor("#B91C1C"), 3);
+            } else {
+                ringGradient.setColorAt(0, QColor("#E5E7EB"));
+                ringGradient.setColorAt(1, QColor("#D1D5DB"));
+            }
 
             p.setPen(Qt::NoPen);
             p.setBrush(ringGradient);
             p.drawPath(ringPath);
 
-            // 绘制内圈和外圈边框
-            QPen borderPen(QColor("#9CA3AF"), 1);
             p.setPen(borderPen);
             p.setBrush(Qt::NoBrush);
             p.drawEllipse(baseRect);
@@ -505,14 +509,4 @@ void ProgressBar::drawText(QPainter &p, const QRectF &rect, double value)
 void ProgressBar::SetShowLastReagent(bool showlast)
 {
     m_bReagentshow = showlast;
-}
-
-void ProgressBar::flashingReminder(const bool isvisible)
-{
-    if(!isvisible){
-        m_flash = true;
-    }else{
-        m_flash = false;
-        m_blinkState = true;
-    }
 }

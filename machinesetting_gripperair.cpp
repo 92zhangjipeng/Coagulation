@@ -1,3 +1,7 @@
+﻿#ifdef _MSC_VER
+#pragma warning(disable: 4819)
+#pragma execution_character_set("utf-8")
+#endif
 #include "machinesetting.h"
 #include "ui_machinesetting.h"
 #include "testing.h"
@@ -189,13 +193,13 @@ void MachineSetting::setupGripperVacuumSimpleUi()
         }
     }
 
-    ui->groupBox_Airs->setTitle(gtr(u8"\u6293\u624b\u653e\u676f\u5224\u5b9a"));
+    ui->groupBox_Airs->setTitle(gtr(u8"抓手放杯判定"));
     ui->label_2->setMaximumHeight(QWIDGETSIZE_MAX);
     ui->label_8->setMaximumHeight(QWIDGETSIZE_MAX);
     ui->labelsuckLateTimer->setMaximumHeight(QWIDGETSIZE_MAX);
-    ui->label_2->setText(gtr(u8"\u6293\u4f4f\u5224\u5b9a: \u8d1f\u538b <="));
-    ui->label_8->setText(gtr(u8"\u4e22\u6389\u5224\u5b9a: \u8d1f\u538b >="));
-    ui->labelsuckLateTimer->setText(gtr(u8"\u5438\u676f\u5224\u5b9a\u5ef6\u65f6(ms)"));
+    ui->label_2->setText(gtr(u8"抓住判定: 负压 <="));
+    ui->label_8->setText(gtr(u8"丢掉判定: 负压 >="));
+    ui->labelsuckLateTimer->setText(gtr(u8"吸杯判定延时(ms)"));
 
     const QString gripperSpinStyle = m_setspinBoxQss + QStringLiteral(
                 "\nQSpinBox#gripperThresholdSpin { padding-right: 8px; }"
@@ -226,11 +230,11 @@ void MachineSetting::setupGripperVacuumSimpleUi()
     ui->label_splitval->setStyleSheet(liveValStyle);
     ui->label_showsuckVal->setMinimumHeight(32);
     ui->label_splitval->setMinimumHeight(32);
-    ui->label_showsuckVal->setText(gtr(u8"\u5438\u4f4f -"));
-    ui->label_splitval->setText(gtr(u8"\u7a7a\u8f7d -"));
+    ui->label_showsuckVal->setText(gtr(u8"吸住 -"));
+    ui->label_splitval->setText(gtr(u8"空载 -"));
 
-    ui->pushButtonopenSuck->setText(gtr(u8"(1) \u4eea\u5668\u4e3b\u52a8\u5224\u5b9a"));
-    ui->pushButtonsplitAirs->setText(gtr(u8"\u53d6\u6d88\u5224\u5b9a"));
+    ui->pushButtonopenSuck->setText(gtr(u8"(1) 仪器主动判定"));
+    ui->pushButtonsplitAirs->setText(gtr(u8"取消判定"));
     ui->pushButtonopenSuck->setMinimumHeight(40);
     ui->pushButtonsplitAirs->setMinimumHeight(40);
     if (!m_settButtonQss.isEmpty()) {
@@ -258,7 +262,7 @@ void MachineSetting::setupGripperVacuumSimpleUi()
         gridReAdd(ui->spinBox_suckLatetimer, 4, 1, 1, 3);
         if (!m_gripperThrowDelayLabel) {
             m_gripperThrowDelayLabel = new QLabel(ui->groupBox_Airs);
-            m_gripperThrowDelayLabel->setText(gtr(u8"\u4e22\u676f\u5224\u5b9a\u5ef6\u65f6(ms)"));
+            m_gripperThrowDelayLabel->setText(gtr(u8"丢杯判定延时(ms)"));
         }
         if (!m_gripperThrowDelaySpin) {
             m_gripperThrowDelaySpin = new QSpinBox(ui->groupBox_Airs);
@@ -298,7 +302,7 @@ void MachineSetting::setupGripperVacuumSimpleUi()
     }
 
     if (!m_gripperAutoApplyBtn) {
-        m_gripperAutoApplyBtn = new QPushButton(gtr(u8"(4) \u81ea\u52a8\u8bbe\u5b9a"), ui->groupBox_Airs);
+        m_gripperAutoApplyBtn = new QPushButton(gtr(u8"(4) 自动设定"), ui->groupBox_Airs);
         connect(m_gripperAutoApplyBtn, &QPushButton::clicked, this, [this]() {
             askGripperAirApply();
         });
@@ -319,10 +323,10 @@ void MachineSetting::updateGripperAirStepHint(int step)
     if (!m_gripperAirStepLabel) {
         return;
     }
-    const QString step1 = gtr(u8"(1) \u70b9[\u4eea\u5668\u4e3b\u52a8\u5224\u5b9a], \u5728\u539f\u70b9\u5173\u6cf5\u8bfb\u7a33\u7a7a\u8f7d");
-    const QString step2 = gtr(u8"(2) \u901a\u90531\u5f00\u8d1f\u538b\u540e\u4e00\u76f4\u8bfb, \u8bb0\u4e0b\u5438\u4f4f\u8981\u591a\u4e45");
-    const QString step3 = gtr(u8"(3) \u5f03\u676f\u5b54\u5173\u8d1f\u538b\u540e\u5148\u4e0d\u62ac, \u8bb0\u4e0b\u6cc4\u538b\u8981\u591a\u4e45");
-    const QString step4 = gtr(u8"(4) \u70b9[\u81ea\u52a8\u8bbe\u5b9a], \u518d\u70b9\u672c\u9875[\u4fdd\u5b58\u6293\u624b\u53c2\u6570]");
+    const QString step1 = gtr(u8"(1) 点[仪器主动判定], 在原点关泵读稳空载");
+    const QString step2 = gtr(u8"(2) 通道1开负压后一直读, 记下吸住要多久");
+    const QString step3 = gtr(u8"(3) 弃杯孔关负压后先不抬, 记下泄压要多久");
+    const QString step4 = gtr(u8"(4) 点[自动设定], 再点本页[保存抓手参数]");
     QString s1 = step1;
     QString s2 = step2;
     QString s3 = step3;
@@ -330,21 +334,21 @@ void MachineSetting::updateGripperAirStepHint(int step)
     QString now;
     if (step == 1) {
         s1 = QStringLiteral("<b style=\"color:#C0392B;\">") + step1 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u539f\u70b9\u5173\u6cf5, \u8fde\u7eed\u7a33\u5b9a\u8bfb\u6570\u4f5c\u4e3a\u7a7a\u8f7d, \u4e0d\u7528\u65e7\u7684\u6293\u4f4f\u7ebf\u3002\u8bf7\u52ff\u653e\u8bd5\u676f\u3002");
+        now = gtr(u8"当前: 原点关泵, 连续稳定读数作为空载, 不用旧的抓住线。请勿放试杯。");
     } else if (step == 2) {
         s2 = QStringLiteral("<b style=\"color:#C0392B;\">") + step2 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u901a\u90531\u5df2\u5f00\u8d1f\u538b\u3002\u4ece\u843d\u4e0b\u5b8c\u6210\u5f00\u59cb\u8ba1\u65f6, \u8bfb\u6570\u5438\u4f4f\u540e\u518d\u53d6\u7a33\u5b9a\u503c\u3002");
+        now = gtr(u8"当前: 通道1已开负压。从落下完成开始计时, 读数吸住后再取稳定值。");
     } else if (step == 22) {
         s1 = QStringLiteral("<b style=\"color:#C0392B;\">") + step1 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u539f\u70b9\u7a7a\u8f7d\u5df2\u8bfb\u53d6, \u524d\u5f80\u901a\u90531\u5438\u676f...");
+        now = gtr(u8"当前: 原点空载已读取, 前往通道1吸杯...");
     } else if (step == 3) {
         s3 = QStringLiteral("<b style=\"color:#C0392B;\">") + step3 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u5f03\u676f\u4f4d\u5df2\u5173\u8d1f\u538b, \u5148\u4e0d\u62ac\u3002\u4ece\u5173\u6cf5\u5b8c\u6210\u5f00\u59cb\u8ba1\u65f6, \u8bfb\u6570\u56de\u5230\u7a7a\u8f7d\u9644\u8fd1\u624d\u62ac\u3002");
+        now = gtr(u8"当前: 弃杯位已关负压, 先不抬。从关泵完成开始计时, 读数回到空载附近才抬。");
     } else if (step == 4) {
         s4 = QStringLiteral("<b style=\"color:#C0392B;\">") + step4 + QStringLiteral("</b>");
-        now = gtr(u8"\u5f53\u524d: \u8d1f\u538b\u7ebf\u548c\u5438\u676f\u3001\u5f03\u676f\u5ef6\u65f6\u5df2\u586b\u5165\u3002\u786e\u8ba4\u540e\u70b9\u4fdd\u5b58\u6293\u624b\u53c2\u6570\u3002");
+        now = gtr(u8"当前: 负压线和吸杯、弃杯延时已填入。确认后点保存抓手参数。");
     } else if (step == 0) {
-        now = gtr(u8"\u53ef\u624b\u52a8\u4fee\u6539\u4e0a\u65b9\u9608\u503c, \u6216\u6309\u4e0a\u65b9\u6d41\u7a0b\u64cd\u4f5c\u3002");
+        now = gtr(u8"可手动修改上方阈值, 或按上方流程操作。");
     }
     m_gripperAirStepLabel->setText(
                 QStringLiteral("<p>%1<br/>%2<br/>%3<br/>%4</p><p>%5</p>")
@@ -365,7 +369,7 @@ void MachineSetting::sendGripperVacuumProbe(bool suckOn)
                 taskDll->DLL_ZMoveSpecifiedPosition(
                 MOTOR_HANDS_INDEX, downMm, 0, cmdIndex, false, downMm, false, gripperMode),
                 suckOn ? GRIPPERMOVE_ABNORMALLY : GRIPPERMOVE_NORMAL);
-    emit WriteArryCommand(cmd, suckOn ? gtr(u8"\u6253\u5f00\u8d1f\u538b") : gtr(u8"\u5173\u95ed\u8d1f\u538b"));
+    emit WriteArryCommand(cmd, suckOn ? gtr(u8"打开负压") : gtr(u8"关闭负压"));
 }
 
 void MachineSetting::startGripperAirPoll(bool hold)
@@ -374,13 +378,13 @@ void MachineSetting::startGripperAirPoll(bool hold)
         return;
     }
     if (cglobal::g_StartTesting.load()) {
-        QMessageBox::information(this, gtr(u8"\u8fd0\u884c\u6682\u505c"),
-                                 gtr(u8"\u6d4b\u8bd5\u4e2d\u4e0d\u80fd\u5f00\u542f\u6293\u624b\u8d1f\u538b\u3002"));
+        QMessageBox::information(this, gtr(u8"运行暂停"),
+                                 gtr(u8"测试中不能开启抓手负压。"));
         return;
     }
     if (!cglobal::gserialConnecStatus.load()) {
-        QMessageBox::information(this, gtr(u8"\u672a\u8fde\u63a5"),
-                                 gtr(u8"\u8bf7\u5148\u8fde\u63a5\u4eea\u5668\u3002"));
+        QMessageBox::information(this, gtr(u8"未连接"),
+                                 gtr(u8"请先连接仪器。"));
         return;
     }
 
@@ -528,14 +532,14 @@ void MachineSetting::askGripperAirApply()
                                                    : (m_liveReleaseAir >= 0 ? m_liveReleaseAir : emptyOrigin);
         if (holdFallback < 0 || releaseFallback < 0) {
             QMessageBox::information(
-                        this, gtr(u8"\u5c1a\u65e0\u8bfb\u6570"),
-                        gtr(u8"\u8bf7\u5148\u5b8c\u6210\u4eea\u5668\u4e3b\u52a8\u5224\u5b9a\u5168\u6d41\u7a0b, \u6216\u624b\u52a8\u5f00/\u5173\u8d1f\u538b\u7b49\u5f85\u7a33\u5b9a\u8bfb\u6570\u3002"));
+                        this, gtr(u8"尚无读数"),
+                        gtr(u8"请先完成仪器主动判定全流程, 或手动开/关负压等待稳定读数。"));
             return;
         }
         if (holdFallback >= releaseFallback) {
             QMessageBox::warning(
-                        this, gtr(u8"\u53c2\u6570\u5f02\u5e38"),
-                        gtr(u8"\u5438\u4f4f\u5b9e\u6d4b %1 \u5e94\u4f4e\u4e8e\u7a7a\u8f7d\u5b9e\u6d4b %2, \u8bf7\u91cd\u65b0\u5224\u5b9a\u3002")
+                        this, gtr(u8"参数异常"),
+                        gtr(u8"吸住实测 %1 应低于空载实测 %2, 请重新判定。")
                         .arg(holdFallback).arg(releaseFallback));
             return;
         }
@@ -570,12 +574,12 @@ void MachineSetting::askGripperAirApply()
             && static_cast<quint32>(emptyDump) >= releaseU;
     QString verifyNote;
     if (!holdWouldGrab || !originNotGrab || !dumpWouldRelease) {
-        verifyNote = gtr(u8"\n[\u81ea\u68c0] \u4e0e\u6d4b\u8bd5\u5224\u636e\u5bf9\u7167: \u5438\u4f4f=%1 \u539f\u70b9\u975e\u5438\u4f4f=%2 \u5f03\u676f\u7a7a\u8f7d=%3")
-                .arg(holdWouldGrab ? gtr(u8"\u901a\u8fc7") : gtr(u8"\u5f02\u5e38"))
-                .arg(originNotGrab ? gtr(u8"\u901a\u8fc7") : gtr(u8"\u5f02\u5e38"))
-                .arg(dumpWouldRelease ? gtr(u8"\u901a\u8fc7") : gtr(u8"\u5f02\u5e38"));
+        verifyNote = gtr(u8"\n[自检] 与测试判据对照: 吸住=%1 原点非吸住=%2 弃杯空载=%3")
+                .arg(holdWouldGrab ? gtr(u8"通过") : gtr(u8"异常"))
+                .arg(originNotGrab ? gtr(u8"通过") : gtr(u8"异常"))
+                .arg(dumpWouldRelease ? gtr(u8"通过") : gtr(u8"异常"));
     } else {
-        verifyNote = gtr(u8"\n[\u81ea\u68c0] \u4e09\u6bb5\u5b9e\u6d4b\u4e0e\u6d4b\u8bd5\u5224\u636e(<=\u6293\u4f4f / >=\u4e22\u6389)\u4e00\u81f4\u3002");
+        verifyNote = gtr(u8"\n[自检] 三段实测与测试判据(<=抓住 / >=丢掉)一致。");
     }
     Q_UNUSED(verifyNote);
 }
@@ -595,8 +599,8 @@ void MachineSetting::sendGripperOriginSequence()
     QPoint origin(0, 0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT, origin);
     if (origin.x() == 0 && origin.y() == 0) {
-        QMessageBox::warning(this, gtr(u8"\u4e0b\u53d1\u5931\u8d25"),
-                             gtr(u8"\u539f\u70b9\u5750\u6807\u65e0\u6548, \u8bf7\u5148\u6821\u51c6\u5750\u6807\u3002"));
+        QMessageBox::warning(this, gtr(u8"下发失败"),
+                             gtr(u8"原点坐标无效, 请先校准坐标。"));
         cancelGripperAirDetect();
         return;
     }
@@ -637,8 +641,8 @@ void MachineSetting::sendGripperChannelGrabSequence()
                                   MOTOR_HANDS_INDEX, chAxis);
     const int grabH = INI_File()._gethandsdownheiht(kGripperAirCalibChannel);
     if ((chAxis.x() == 0 && chAxis.y() == 0) || grabH <= 0) {
-        QMessageBox::warning(this, gtr(u8"\u4e0b\u53d1\u5931\u8d25"),
-                             gtr(u8"\u901a\u90531\u6293\u624b\u4e0b\u964d\u9ad8\u5ea6\u65e0\u6548\u3002"));
+        QMessageBox::warning(this, gtr(u8"下发失败"),
+                             gtr(u8"通道1抓手下降高度无效。"));
         cancelGripperAirDetect();
         return;
     }
@@ -673,8 +677,8 @@ void MachineSetting::sendGripperDumpSequence()
     SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT, throwAxis);
     const int throwH = INI_File()._gethandsdownthrowcpus();
     if (throwH <= 0 || (throwAxis.x() == 0 && throwAxis.y() == 0)) {
-        QMessageBox::warning(this, gtr(u8"\u4e0b\u53d1\u5931\u8d25"),
-                             gtr(u8"\u5f03\u676f\u533a\u5750\u6807\u6216\u9ad8\u5ea6\u65e0\u6548\u3002"));
+        QMessageBox::warning(this, gtr(u8"下发失败"),
+                             gtr(u8"弃杯区坐标或高度无效。"));
         cancelGripperAirDetect();
         return;
     }
@@ -748,8 +752,8 @@ void MachineSetting::sendGripperCancelHoming()
 void MachineSetting::sendGripperDumpRetry()
 {
     if (m_gripperAirDumpRetry >= kGripperAirDumpMaxRetry) {
-        QMessageBox::warning(this, gtr(u8"\u4e0b\u53d1\u5931\u8d25"),
-                             gtr(u8"\u5f03\u676f\u9636\u6bb5\u91cd\u8bd5\u6b21\u6570\u5df2\u8fbe\u4e0a\u9650\u3002"));
+        QMessageBox::warning(this, gtr(u8"下发失败"),
+                             gtr(u8"弃杯阶段重试次数已达上限。"));
         cancelGripperAirDetect();
         return;
     }
@@ -794,13 +798,13 @@ void MachineSetting::sendGripperReturnOriginAfterDetect()
 void MachineSetting::beginGripperAirDetect()
 {
     if (cglobal::g_StartTesting.load()) {
-        QMessageBox::information(this, gtr(u8"\u8fd0\u884c\u6682\u505c"),
-                                 gtr(u8"\u6d4b\u8bd5\u4e2d\u4e0d\u80fd\u5f00\u542f\u6293\u624b\u8d1f\u538b\u3002"));
+        QMessageBox::information(this, gtr(u8"运行暂停"),
+                                 gtr(u8"测试中不能开启抓手负压。"));
         return;
     }
     if (!cglobal::gserialConnecStatus.load()) {
-        QMessageBox::information(this, gtr(u8"\u672a\u8fde\u63a5"),
-                                 gtr(u8"\u8bf7\u5148\u8fde\u63a5\u4eea\u5668\u3002"));
+        QMessageBox::information(this, gtr(u8"未连接"),
+                                 gtr(u8"请先连接仪器。"));
         return;
     }
 
@@ -808,13 +812,13 @@ void MachineSetting::beginGripperAirDetect()
     SingletonAxis::chnZoneAxisPos(READ_OPERRAT, kGripperAirCalibChannel,
                                   MOTOR_HANDS_INDEX, ch1Axis);
     if (ch1Axis.x() == 0 && ch1Axis.y() == 0) {
-        QMessageBox::warning(this, gtr(u8"\u4e0b\u53d1\u5931\u8d25"),
-                             gtr(u8"\u6ca1\u6709\u901a\u90531\u5750\u6807, \u8bf7\u5148\u6821\u51c6\u5750\u6807\u3002"));
+        QMessageBox::warning(this, gtr(u8"下发失败"),
+                             gtr(u8"没有通道1坐标, 请先校准坐标。"));
         return;
     }
     if (INI_File()._gethandsdownheiht(kGripperAirCalibChannel) <= 0) {
-        QMessageBox::warning(this, gtr(u8"\u4e0b\u53d1\u5931\u8d25"),
-                             gtr(u8"\u901a\u90531\u6293\u624b\u4e0b\u964d\u9ad8\u5ea6\u4e3a0, \u8bf7\u5148\u8bbe\u7f6e\u3002"));
+        QMessageBox::warning(this, gtr(u8"下发失败"),
+                             gtr(u8"通道1抓手下降高度为0, 请先设置。"));
         return;
     }
 
@@ -842,7 +846,7 @@ void MachineSetting::completeGripperOriginEmptyStep(int emptyVal)
     }
     m_gripperAirEmptyBaseline = emptyVal;
     m_liveReleaseAir = emptyVal;
-    ui->label_splitval->setText(gtr(u8"\u539f\u70b9\u7a7a\u8f7d %1").arg(emptyVal));
+    ui->label_splitval->setText(gtr(u8"原点空载 %1").arg(emptyVal));
     m_gripperAirSamples.clear();
     stopGripperAirPoll();
     m_gripperAirDetectStep = 0;
@@ -906,7 +910,7 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
                     : static_cast<int>(m_gripperAirPhaseClock.elapsed()));
         m_gripperAirReleaseAfterDump = releaseVal;
         m_liveReleaseAir = releaseVal;
-        ui->label_splitval->setText(gtr(u8"\u5f03\u676f\u7a7a\u8f7d %1").arg(releaseVal));
+        ui->label_splitval->setText(gtr(u8"弃杯空载 %1").arg(releaseVal));
         stopGripperAirPoll();
         sendGripperDumpZRetreat();
     };
@@ -941,7 +945,7 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
                     ? m_gripperGrabSeenMs
                     : static_cast<int>(m_gripperAirPhaseClock.elapsed()));
         m_liveHoldAir = avg;
-        ui->label_showsuckVal->setText(gtr(u8"\u5438\u4f4f %1").arg(avg));
+        ui->label_showsuckVal->setText(gtr(u8"吸住 %1").arg(avg));
         m_gripperAirDetectStep = 3;
         m_gripperAirSamples.clear();
         m_gripperAirSettleMs = kGripperAirObserveMinMs;
@@ -998,21 +1002,21 @@ void MachineSetting::installParameterHints()
         }
     };
 
-    const QString scanTip = gtr(u8"\u52a0\u6837\u548c\u6d4b\u9ad8\u65f6\u8bfb\u8bd5\u7ba1\u4e0a\u7684\u6761\u7801\u3002\u5173\u6389\u5c31\u7528\u624b\u8f93\u6837\u672c\u53f7\u3002");
+    const QString scanTip = gtr(u8"加样和测高时读试管上的条码。关掉就用手输样本号。");
     tip(ui->UseBarCode, nullptr, scanTip);
 
-    const QString reserveTip = gtr(u8"\u540c\u4e00\u79cd\u8bd5\u5242\u53ef\u4ee5\u653e\u5de6\u8fb9\u548c\u53f3\u8fb9\u4e24\u4e2a\u4f4d\u7f6e\u3002\n\u6253\u5f00\u540e\uff1a\u5de6\u8fb9\u518d\u5438\u4e00\u9488\u4f1a\u4f4e\u4e8e\u8bd5\u5242\u62a5\u8b66\u9650\uff0c\u5e76\u4e14\u53f3\u8fb9\u540c\u79cd\u8bd5\u5242\u8fd8\u4e0d\u4f4e\u4e8e\u62a5\u8b66\u9650\uff0c\u8fd9\u4e00\u9488\u5c31\u6539\u5438\u53f3\u8fb9\uff0c\u4e2d\u95f4\u4e0d\u6682\u505c\u3002\u4e24\u8fb9\u90fd\u4e0d\u591f\u624d\u6682\u505c\u3002\n\u62a5\u8b66\u9650\u586b 0 \u65f6\uff0c\u5de6\u8fb9\u7a7a\u4e86\u4e5f\u4e0d\u4f1a\u5207\u6362\u3002\u5173\u6389\u5219\u53ea\u7528\u5de6\u8fb9\u3002");
+    const QString reserveTip = gtr(u8"同一种试剂可以放左边和右边两个位置。\n打开后：左边再吸一针会低于试剂报警限，并且右边同种试剂还不低于报警限，这一针就改吸右边，中间不暂停。两边都不够才暂停。\n报警限填 0 时，左边空了也不会切换。关掉则只用左边。");
     tip(ui->checkBox_UesSecondReagentHole, nullptr, reserveTip);
 
-    ui->checkBox_catchcups->setText(gtr(u8"\u5f00\u673a\u667a\u80fd\u5f03\u676f"));
-    const QString bootCupTip = gtr(u8"\u52fe\u9009\u540e\uff0c\u8c03\u5149\u53d1\u73b0\u901a\u9053\u91cc\u53ef\u80fd\u8fd8\u6709\u8bd5\u676f\u65f6\uff0c\u4f1a\u81ea\u52a8\u628a\u8fd9\u4e9b\u676f\u5b50\u4e22\u6389\uff0c\u6700\u591a\u4e24\u8f6e\u3002\u8bfb\u6570\u4e3a 0 \u4e0d\u4e22\uff0c\u90a3\u662f\u6a21\u7ec4\u6ca1\u6709\u5149\u3002\n\u4e0d\u52fe\u9009\u5219\u8c03\u5149\u65f6\u4e0d\u4e22\u676f\uff0c\u53ea\u5728\u8c03\u5149\u5931\u8d25\u7a97\u53e3\u91cc\u63d0\u793a\u3002");
+    ui->checkBox_catchcups->setText(gtr(u8"开机智能弃杯"));
+    const QString bootCupTip = gtr(u8"勾选后，调光发现通道里可能还有试杯时，会自动把这些杯子丢掉，最多两轮。读数为 0 不丢，那是模组没有光。\n不勾选则调光时不丢杯，只在调光失败窗口里提示。");
     tip(ui->checkBox_catchcups, nullptr, bootCupTip);
 
-    ui->checkBox_suck_offset->setText(gtr(u8"\u5438\u6837\u524d\u5148\u5438\u7a7a\u6c14"));
-    const QString airFirstTip = gtr(u8"\u52fe\u9009\u540e\uff0c\u5438\u8840\u6837\u524d\u5148\u5438\u4e00\u6bb5\u7a7a\u6c14\uff0c\u628a\u9488\u7ba1\u91cc\u4e0a\u6b21\u7559\u4e0b\u7684\u6db2\u4f53\u9694\u5f00\u3002\u4fdd\u5b58\u4eea\u5668\u914d\u7f6e\u65f6\u5199\u5230\u4e3b\u677f\u3002\n\u4ee5\u524d\u53eb\u300c\u6821\u51c6\u5438\u6837\u300d\uff0c\u5bb9\u6613\u770b\u6210\u6821\u51c6\u5750\u6807\u3002");
+    ui->checkBox_suck_offset->setText(gtr(u8"吸样前先吸空气"));
+    const QString airFirstTip = gtr(u8"勾选后，吸血样前先吸一段空气，把针管里上次留下的液体隔开。保存仪器配置时写到主板。\n以前叫「校准吸样」，容易看成校准坐标。");
     tip(ui->checkBox_suck_offset, nullptr, airFirstTip);
 
-    const QString channelTip = gtr(u8"\u52fe\u4e0a\u7684\u901a\u9053\u53ef\u4ee5\u6392\u6837\u3001\u6d4b\u8bd5\u548c\u8c03\u5149\u3002\u5173\u6389\u7684\u901a\u9053\u4e0d\u4f1a\u88ab\u5206\u914d\u6837\u672c\u3002");
+    const QString channelTip = gtr(u8"勾上的通道可以排样、测试和调光。关掉的通道不会被分配样本。");
     if (ui->usechannel) {
         const QList<QCheckBox *> channels = ui->usechannel->findChildren<QCheckBox *>();
         for (QCheckBox *box : channels) {
@@ -1021,127 +1025,127 @@ void MachineSetting::installParameterHints()
         ui->usechannel->setToolTip(channelTip);
     }
 
-    const QString temp1 = gtr(u8"\u6a21\u7ec4 1 \u7684\u76ee\u6807\u6e29\u5ea6\uff0c\u5355\u4f4d\u2103\uff0c\u7ba1\u901a\u9053 1 \u5230 4\u3002\u70b9\u4fdd\u5b58\u540e\u5199\u5165\u4e3b\u677f\uff0c\u6a21\u7ec4\u6309\u8fd9\u4e2a\u6e29\u5ea6\u91cd\u65b0\u9501\u6e29\u3002");
-    const QString temp2 = gtr(u8"\u6a21\u7ec4 2 \u7684\u76ee\u6807\u6e29\u5ea6\uff0c\u5355\u4f4d\u2103\uff0c\u7ba1\u901a\u9053 5 \u5230 8\u3002\u70b9\u4fdd\u5b58\u540e\u5199\u5165\u4e3b\u677f\uff0c\u6a21\u7ec4\u6309\u8fd9\u4e2a\u6e29\u5ea6\u91cd\u65b0\u9501\u6e29\u3002");
-    const QString temp3 = gtr(u8"\u6a21\u7ec4 3 \u7684\u76ee\u6807\u6e29\u5ea6\uff0c\u5355\u4f4d\u2103\uff0c\u7ba1\u901a\u9053 9 \u5230 12\u3002\u70b9\u4fdd\u5b58\u540e\u5199\u5165\u4e3b\u677f\uff0c\u6a21\u7ec4\u6309\u8fd9\u4e2a\u6e29\u5ea6\u91cd\u65b0\u9501\u6e29\u3002");
+    const QString temp1 = gtr(u8"模组 1 的目标温度，单位℃，管通道 1 到 4。点保存后写入主板，模组按这个温度重新锁温。");
+    const QString temp2 = gtr(u8"模组 2 的目标温度，单位℃，管通道 5 到 8。点保存后写入主板，模组按这个温度重新锁温。");
+    const QString temp3 = gtr(u8"模组 3 的目标温度，单位℃，管通道 9 到 12。点保存后写入主板，模组按这个温度重新锁温。");
     tip(ui->label_Moduletemperature_1, ui->doubleSpinBox_Moduletemperature_1, temp1);
     tip(ui->label_Moduletemperature_2, ui->doubleSpinBox_Moduletemperature_2, temp2);
     tip(ui->label_Moduletemperature_3, ui->doubleSpinBox_Moduletemperature_3, temp3);
-    tip(ui->Machine_conf_save, nullptr, gtr(u8"\u628a\u901a\u9053\u5f00\u5173\u3001\u4e0a\u9762\u51e0\u4e2a\u52fe\u9009\u548c\u4e09\u5757\u6a21\u7ec4\u6e29\u5ea6\u5199\u5230\u672c\u673a\uff0c\u5e76\u4e0b\u53d1\u4e3b\u677f\u3002"));
+    tip(ui->Machine_conf_save, nullptr, gtr(u8"把通道开关、上面几个勾选和三块模组温度写到本机，并下发主板。"));
 
-    ui->label_EmptyTubeHeigh->setText(gtr(u8"\u8bd5\u676f\u5410\u6837\u4e0b\u9488"));
-    tip(ui->label_EmptyTubeHeigh, ui->EmptyHeigh, gtr(u8"\u6837\u672c\u9488\u628a\u8840\u6837\u5410\u8fdb\u7a7a\u8bd5\u676f\u65f6\u7684\u56fa\u5b9a\u4e0b\u964d\u9ad8\u5ea6\uff0c\u5355\u4f4d\u6beb\u7c73\uff0c\u4e0d\u505a\u6db2\u9762\u63a2\u6d4b\u3002\n\u70b9\u51fb\u540e\u5230\u8bd5\u7ba1\u76d8\u56db\u89d2\u5404\u4e0b\u4e00\u6b21\u8fd9\u4e2a\u9ad8\u5ea6\uff0c\u770b\u4f1a\u4e0d\u4f1a\u624e\u5e95\u6216\u591f\u4e0d\u7740\u3002"));
+    ui->label_EmptyTubeHeigh->setText(gtr(u8"试杯吐样下针"));
+    tip(ui->label_EmptyTubeHeigh, ui->EmptyHeigh, gtr(u8"样本针把血样吐进空试杯时的固定下降高度，单位毫米，不做液面探测。\n点击后到试管盘四角各下一次这个高度，看会不会扎底或够不着。"));
 
-    ui->label_failedlinque_3->setText(gtr(u8"\u6d17\u6db2\u63a2\u4e0d\u5230\u65f6\u4e0b\u9488"));
-    tip(ui->label_failedlinque_3, ui->spinBox_CleanLinqueFailedHigh, gtr(u8"\u6d17\u6837\u672c\u9488\u3001\u5438\u5185\u90e8\u6e05\u6d17\u6db2\u65f6\u505a\u6db2\u9762\u63a2\u6d4b\u3002\u63a2\u5230\u6db2\u9762\u5c31\u505c\uff1b\u4e00\u76f4\u63a2\u4e0d\u5230\u624d\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u3002\n\u4e0d\u662f\u5e73\u65f6\u5410\u6837\u7684\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u6e05\u6d17\u4f4d\u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+    ui->label_failedlinque_3->setText(gtr(u8"洗液探不到时下针"));
+    tip(ui->label_failedlinque_3, ui->spinBox_CleanLinqueFailedHigh, gtr(u8"洗样本针、吸内部清洗液时做液面探测。探到液面就停；一直探不到才下到这个高度。\n不是平时吐样的深度。点击后到清洗位按这个高度试一次。"));
 
-    ui->label_3->setText(gtr(u8"\u8840\u6d46\u6a21\u5f0f\u56fa\u5b9a\u4e0b\u9488"));
-    tip(ui->label_3, ui->Testheighdownheigh, gtr(u8"\u8840\u6d46\u6a21\u5f0f\u4e0d\u63a2\u6db2\u9762\uff0c\u6837\u672c\u9488\u76f4\u63a5\u4e0b\u5230\u8fd9\u4e2a\u56fa\u5b9a\u9ad8\u5ea6\u3002\u6279\u91cf\u52a0\u6837\u65f6\u7684\u9ed8\u8ba4\u4e0b\u9488\u9ad8\u5ea6\u4e5f\u662f\u5b83\u3002\n\u70b9\u51fb\u540e\u5230\u8840\u6837\u5b54 2 \u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+    ui->label_3->setText(gtr(u8"血浆模式固定下针"));
+    tip(ui->label_3, ui->Testheighdownheigh, gtr(u8"血浆模式不探液面，样本针直接下到这个固定高度。批量加样时的默认下针高度也是它。\n点击后到血样孔 2 按这个高度试一次。"));
 
-    ui->label_failedlinque->setText(gtr(u8"\u5438\u8840\u63a2\u6db2\u5931\u8d25\u9ad8\u5ea6"));
-    tip(ui->label_failedlinque, ui->spinBox_faliedlinque, gtr(u8"\u5438\u8840\u6837\u65f6\u6837\u672c\u9488\u505a\u6db2\u9762\u63a2\u6d4b\uff0c\u63a2\u5230\u6db2\u9762\u5c31\u505c\u3002\u63a2\u4e0d\u5230\u5c31\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u4e3a\u6b62\uff0c\u907f\u514d\u624e\u7a7f\u8bd5\u7ba1\u3002\u8840\u6d46\u6a21\u5f0f\u4e0d\u7528\u8fd9\u9879\u3002\n\u4e3b\u677f\u4e0a\u8fd9\u4e00\u9879\u4e5f\u53eb\u8d2b\u8840\u63a2\u6d4b\u5931\u8d25\u9ad8\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8840\u6837\u5b54 1 \u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+    ui->label_failedlinque->setText(gtr(u8"吸血探液失败高度"));
+    tip(ui->label_failedlinque, ui->spinBox_faliedlinque, gtr(u8"吸血样时样本针做液面探测，探到液面就停。探不到就下到这个高度为止，避免扎穿试管。血浆模式不用这项。\n主板上这一项也叫贫血探测失败高度。点击后到血样孔 1 按这个高度试一次。"));
 
-    tip(ui->label_SecurityValue, ui->SecurityValue_box, gtr(u8"\u6837\u672c\u6cf5\u6362\u5411\u65f6\u7a7a\u8d70\u7684\u8865\u507f\uff0c\u754c\u9762\u4e0a\u4ecd\u53eb\u7a7a\u56de\u503c\u3002\u5410\u6837\u65f6\u6309 \u7a7a\u56de\u503c/0.347 \u6298\u6210\u6b65\u6570\u8865\u4e0a\u3002\u504f\u5c0f\u5bb9\u6613\u5410\u4e0d\u51c0\uff0c\u504f\u5927\u5c31\u591a\u5410\u7a7a\u6c14\u3002"));
-    tip(ui->Poor_blood_changliang, ui->poorBlood_changliang, gtr(u8"\u6bcf\u4e00\u4efd\u8840\u6837\u8981\u5438\u7684\u5fae\u5347\u6570\u3002\u771f\u6b63\u7684\u6cf5\u6b65\u6570\u8fd8\u8981\u518d\u4e58 PPP \u7cfb\u6570\u6216 PRP \u7cfb\u6570\u3002"));
-    tip(ui->label_ratio_ben, ui->doubleSpinBox_Ratio_ben, gtr(u8"\u628a PPP \u6837\u672c\u91cf\u6362\u7b97\u6210\u6837\u672c\u6cf5\u6b65\u6570\u3002\u6b65\u6570\u5927\u7ea6\u7b49\u4e8e \u6837\u672c\u91cf \u00d7 \u672c\u7cfb\u6570\u3002\u53ea\u6539\u6cf5\u8d70\u591a\u5c11\uff0c\u4e0d\u6539\u4e0a\u9762\u7684\u5fae\u5347\u6570\u3002\n\u53ea\u505a\u4e00\u4e2a\u9879\u76ee\u65f6\uff0c\u5438 PRP \u4e5f\u8d70\u8fd9\u4e2a\u7cfb\u6570\u3002"));
-    tip(ui->PRPratiolable, ui->doubleSpinBox_PRPratio, gtr(u8"\u4e00\u6b21\u62bd\u8840\u3001\u591a\u4e2a\u8bd5\u5242\u5438 PRP \u65f6\uff0c\u7528\u8fd9\u4e2a\u7cfb\u6570\u628a\u6837\u672c\u91cf\u6362\u7b97\u6210\u6cf5\u6b65\u6570\u3002\u53ea\u505a\u4e00\u4e2a\u9879\u76ee\u65f6\u4e0d\u8d70\u8fd9\u9879\uff0c\u8d70 PPP \u7cfb\u6570\u3002"));
-    tip(ui->labelPeRatio, ui->doubleSpinBoxAddRatio, gtr(u8"\u6027\u80fd\u8bc4\u4f30\u52a0\u6807\u51c6\u54c1\u65f6\uff0c\u5728\u6309 PPP \u7cfb\u6570\u7b97\u51fa\u7684\u5438\u91cf\u4e4b\u5916\uff0c\u518d\u591a\u5438\u8fd9\u4e2a\u767e\u5206\u6bd4\u3002\u586b 10 \u5c31\u662f\u591a\u5438 10%\u3002\u75c5\u4eba\u6b63\u5f0f\u6d4b\u8bd5\u4e0d\u8d70\u8fd9\u9879\u3002"));
-    tip(ui->label_fixedhigh, ui->FixedHighvalue, gtr(u8"\u5168\u8840\u6d4b\u9ad8\u7528\u7684\u57fa\u51c6\u9ad8\u5ea6\uff0c\u5c31\u662f\u9488\u5230\u57fa\u51c6\u7269\u7684\u8ddd\u79bb\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\u548c\u6d4b\u9ad8\u504f\u79fb\u3001\u6a21\u5757\u5e95\u90e8\u8ddd\u79bb\u4e00\u8d77\u7b97\u51fa\u8be5\u4e0b\u591a\u6df1\u3002"));
-    tip(ui->OffsetTestHeight, ui->OffsetTestHeightValue, gtr(u8"\u5168\u8840\u6d4b\u9ad8\u7684\u5b89\u5168\u4f59\u91cf\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\u7b97\u51fa\u6765\u7684\u4e0b\u9488\u6df1\u5ea6\u4f1a\u518d\u51cf\u6389\u5b83\uff0c\u907f\u514d\u9488\u624e\u8fdb\u7ea2\u7ec6\u80de\u5c42\u3002"));
-    tip(ui->labelRefToBottom, ui->doubleSpinBoxBottomHeigh, gtr(u8"\u6d4b\u9ad8\u6a21\u5757\u5230\u8bd5\u7ba1\u5e95\u7684\u53c2\u7167\u8ddd\u79bb\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\u548c\u5168\u8840\u6d4b\u9ad8\u9ad8\u5ea6\u3001\u504f\u79fb\u4e00\u8d77\u7b97\u9488\u8be5\u4e0b\u591a\u6df1\u3002\u4fdd\u5b58\u540e\u5199\u5230\u4e3b\u677f\u6269\u5c55\u53c2\u6570\u3002"));
-    tip(ui->label_AbsorbX2, ui->spinBoxAbsorbX2, gtr(u8"\u6bcf\u6d17\u4e00\u6b21\u6837\u672c\u9488\uff0c\u4ece\u5185\u90e8\u6e05\u6d17\u6db2\u74f6\u91cc\u5438\u8d70\u7684\u5fae\u5347\u3002\u754c\u9762\u4e0a\u7684\u6e05\u6d17\u6db2\u767e\u5206\u6bd4\u6309\u8fd9\u4e2a\u6570\u6263\uff0c\u4e0d\u6309\u6cf5\u6b65\u6570\u6263\u3002"));
-    tip(ui->labelwashesTime, ui->spinBox_WashesTime, gtr(u8"\u6837\u672c\u9488\u6216\u8bd5\u5242\u9488\u628a\u6e05\u6d17\u6db2\u5410\u56de\u6e05\u6d17\u6c60\u65f6\uff0c\u6cf5\u4fdd\u6301\u51b2\u6d17\u7684\u6beb\u79d2\u6570\u3002\u6d17\u53cc\u9488\u3001\u53ea\u6d17\u6837\u672c\u9488\u3001\u53ea\u6d17\u8bd5\u5242\u9488\u90fd\u7528\u8fd9\u4e00\u9879\u3002"));
-    tip(ui->label_suckairs, ui->spinBox_suckairs, gtr(u8"\u5438 PRP \u524d\u8981\u989d\u5916\u5438\u5165\u7684\u7a7a\u6c14\u91cf\uff0c\u70b9\u4fdd\u5b58\u4f1a\u5199\u56de\u4e3b\u677f\uff0c\u7528\u6765\u9694\u5f00\u9488\u7ba1\u91cc\u4e0a\u6b21\u7684\u6b8b\u6db2\u3002\n\u4e0a\u4f4d\u673a\u73b0\u5728\u7ec4\u5438 PRP \u52a8\u4f5c\u65f6\uff0c\u9694\u5f00\u6b8b\u6db2\u7528\u7684\u662f\u56fa\u5b9a\u56de\u5438\uff0c\u6539\u8fd9\u4e2a\u6570\u4e0d\u4f1a\u9a6c\u4e0a\u6539\u53d8\u90a3\u4e00\u6bb5\u6cf5\u6b65\u3002"));
-    tip(ui->label_PPPdelay, ui->spinBox_PPPdelay, gtr(u8"\u8840\u6837\u5410\u8fdb\u8bd5\u676f\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u53d1\u4e0b\u4e00\u6761\u62ac\u9488\u3002PPP \u548c PRP \u5410\u6837\u90fd\u7528\u5b83\uff0c\u907f\u514d\u6db2\u4f53\u8fd8\u6ca1\u843d\u4e0b\u5c31\u62ac\u9488\u3002\u4fdd\u5b58\u540e\u5199\u5230\u4e3b\u677f\u3002"));
-    tip(ui->label_PRPdelay, ui->spinBox_PRPdelay, gtr(u8"\u8840\u6837\u5438\u5b8c\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u53d1\u4e0b\u4e00\u6761\u62ac\u9488\u3002PPP \u548c PRP \u5438\u6837\u90fd\u7528\u5b83\u3002\u4fdd\u5b58\u540e\u5199\u5230\u4e3b\u677f\u3002"));
-    tip(ui->pushButtonBloodPinParasave, nullptr, gtr(u8"\u628a\u672c\u9875\u6837\u672c\u9488\u53c2\u6570\u4fdd\u5b58\uff0c\u5e76\u5199\u5165\u4e3b\u677f\u3002"));
+    tip(ui->label_SecurityValue, ui->SecurityValue_box, gtr(u8"样本泵换向时空走的补偿，界面上仍叫空回值。吐样时按 空回值/0.347 折成步数补上。偏小容易吐不净，偏大就多吐空气。"));
+    tip(ui->Poor_blood_changliang, ui->poorBlood_changliang, gtr(u8"每一份血样要吸的微升数。真正的泵步数还要再乘 PPP 系数或 PRP 系数。"));
+    tip(ui->label_ratio_ben, ui->doubleSpinBox_Ratio_ben, gtr(u8"把 PPP 样本量换算成样本泵步数。步数大约等于 样本量 × 本系数。只改泵走多少，不改上面的微升数。\n只做一个项目时，吸 PRP 也走这个系数。"));
+    tip(ui->PRPratiolable, ui->doubleSpinBox_PRPratio, gtr(u8"一次抽血、多个试剂吸 PRP 时，用这个系数把样本量换算成泵步数。只做一个项目时不走这项，走 PPP 系数。"));
+    tip(ui->labelPeRatio, ui->doubleSpinBoxAddRatio, gtr(u8"性能评估加标准品时，在按 PPP 系数算出的吸量之外，再多吸这个百分比。填 10 就是多吸 10%。病人正式测试不走这项。"));
+    tip(ui->label_fixedhigh, ui->FixedHighvalue, gtr(u8"全血测高用的基准高度，就是针到基准物的距离，单位毫米。和测高偏移、模块底部距离一起算出该下多深。"));
+    tip(ui->OffsetTestHeight, ui->OffsetTestHeightValue, gtr(u8"全血测高的安全余量，单位毫米。算出来的下针深度会再减掉它，避免针扎进红细胞层。"));
+    tip(ui->labelRefToBottom, ui->doubleSpinBoxBottomHeigh, gtr(u8"测高模块到试管底的参照距离，单位毫米。和全血测高高度、偏移一起算针该下多深。保存后写到主板扩展参数。"));
+    tip(ui->label_AbsorbX2, ui->spinBoxAbsorbX2, gtr(u8"每洗一次样本针，从内部清洗液瓶里吸走的微升。界面上的清洗液百分比按这个数扣，不按泵步数扣。"));
+    tip(ui->labelwashesTime, ui->spinBox_WashesTime, gtr(u8"样本针或试剂针把清洗液吐回清洗池时，泵保持冲洗的毫秒数。洗双针、只洗样本针、只洗试剂针都用这一项。"));
+    tip(ui->label_suckairs, ui->spinBox_suckairs, gtr(u8"吸 PRP 前要额外吸入的空气量，点保存会写回主板，用来隔开针管里上次的残液。\n上位机现在组吸 PRP 动作时，隔开残液用的是固定回吸，改这个数不会马上改变那一段泵步。"));
+    tip(ui->label_PPPdelay, ui->spinBox_PPPdelay, gtr(u8"血样吐进试杯之后，等这么多毫秒再发下一条抬针。PPP 和 PRP 吐样都用它，避免液体还没落下就抬针。保存后写到主板。"));
+    tip(ui->label_PRPdelay, ui->spinBox_PRPdelay, gtr(u8"血样吸完之后，等这么多毫秒再发下一条抬针。PPP 和 PRP 吸样都用它。保存后写到主板。"));
+    tip(ui->pushButtonBloodPinParasave, nullptr, gtr(u8"把本页样本针参数保存，并写入主板。"));
 
-    const QString coefTip = gtr(u8"\u53ea\u4fee\u6b63\u8bd5\u5242\u6cf5\u6b65\u6570\uff0c\u8ba9\u673a\u5668\u771f\u6b63\u5438\u5230\u4f60\u586b\u7684\u5fae\u5347\u30021.02 \u8868\u793a\u6cf5\u591a\u8d70 2% \u7684\u6b65\u3002\n\u4e0d\u53c2\u4e0e\u74f6\u5b50\u5269\u4f59\u767e\u5206\u6bd4\u3002\u767e\u5206\u6bd4\u53ea\u770b\u5438\u8bd5\u5242\u91cf\uff0c\u518d\u52a0\u4e0a\u57fa\u7840\u5438\u91cf\u6dfb\u52a0\u6bd4\u3002");
+    const QString coefTip = gtr(u8"只修正试剂泵步数，让机器真正吸到你填的微升。1.02 表示泵多走 2% 的步。\n不参与瓶子剩余百分比。百分比只看吸试剂量，再加上基础吸量添加比。");
     tips(QList<QWidget *>()
          << ui->label_11
          << ui->doubleSpinBox_AA_Ratio << ui->doubleSpinBox_ADP_Ratio
          << ui->doubleSpinBox_ADR_Ratio << ui->doubleSpinBox_COL_Ratio
          << ui->doubleSpinBox_RIS_Ratio, coefTip);
 
-    const QString addTip = gtr(u8"\u5728\u6807\u79f0\u5fae\u5347\u4e4b\u5916\u771f\u6b63\u591a\u5438\u7684\u6bd4\u4f8b\u30020.02 \u8868\u793a\u591a\u5438 2%\uff0c\u74f6\u5b50\u4f59\u91cf\u4f1a\u628a\u591a\u51fa\u6765\u7684\u6db2\u4f53\u6263\u6389\u3002\n\u548c\u5438\u8bd5\u5242\u7cfb\u6570\u4e0d\u662f\u4e00\u56de\u4e8b\uff1a\u7cfb\u6570\u53ea\u4fee\u6cf5\u6b65\uff0c\u8fd9\u4e00\u9879\u624d\u662f\u591a\u5438\u6db2\u4f53\u3002");
+    const QString addTip = gtr(u8"在标称微升之外真正多吸的比例。0.02 表示多吸 2%，瓶子余量会把多出来的液体扣掉。\n和吸试剂系数不是一回事：系数只修泵步，这一项才是多吸液体。");
     tips(QList<QWidget *>()
          << ui->label_12
          << ui->doubleSpinBox_Add_AA_Ratio << ui->doubleSpinBox_Add_ADP_Ratio
          << ui->doubleSpinBox_Add_ADR_Ratio << ui->doubleSpinBox_Add_COL_Ratio
          << ui->doubleSpinBox_Add_RIS_Ratio, addTip);
 
-    const QString volTip = gtr(u8"\u8fd9\u79cd\u8bd5\u5242\u6bcf\u6b21\u4ece\u74f6\u91cc\u5438\u8d70\u7684\u6807\u79f0\u5fae\u5347\u3002\u74f6\u5b50\u767e\u5206\u6bd4\u6309\u8fd9\u4e2a\u6570\u6263\uff1b\u82e5\u57fa\u7840\u5438\u91cf\u6dfb\u52a0\u6bd4\u5927\u4e8e 0\uff0c\u518d\u628a\u591a\u5438\u7684\u6db2\u4f53\u4e00\u5e76\u6263\u6389\u3002");
+    const QString volTip = gtr(u8"这种试剂每次从瓶里吸走的标称微升。瓶子百分比按这个数扣；若基础吸量添加比大于 0，再把多吸的液体一并扣掉。");
     tips(QList<QWidget *>()
          << ui->label_absorbVol
          << ui->spinBox_AA_Suck_Vol << ui->spinBox_ADP_Suck_Vol
          << ui->spinBox_ADR_Suck_Vol << ui->spinBox_COL_Suck_Vol
          << ui->spinBox_RIS_Suck_Vol, volTip);
 
-    const QString downTip = gtr(u8"\u8bd5\u5242\u9488\u628a\u8fd9\u79cd\u8bd5\u5242\u5410\u8fdb\u6d4b\u8bd5\u901a\u9053\u65f6\u7684\u56fa\u5b9a\u9ad8\u5ea6\uff0c\u5355\u4f4d\u6beb\u7c73\uff0c\u4e0d\u63a2\u6db2\u9762\u3002\n\u70b9\u5de6\u4fa7\u84dd\u8272\u8bd5\u5242\u540d\uff0c\u4f1a\u5230 1 \u53f7\u901a\u9053\u6309\u8fd9\u4e00\u884c\u7684\u9ad8\u5ea6\u8bd5\u4e0b\u9488\u3002");
+    const QString downTip = gtr(u8"试剂针把这种试剂吐进测试通道时的固定高度，单位毫米，不探液面。\n点左侧蓝色试剂名，会到 1 号通道按这一行的高度试下针。");
     tips(QList<QWidget *>()
          << ui->label_13
          << ui->spinBox_down_AA << ui->spinBox_down_ADP
          << ui->spinBox_down_ADR << ui->spinBox_down_COL
          << ui->spinBox_down_RIS, downTip);
 
-    const QString capTip = gtr(u8"\u4e00\u74f6\u80fd\u88c5\u591a\u5c11\u5fae\u5347\u3002\u540c\u4e00\u79cd\u8bd5\u5242\u5de6\u8fb9\u548c\u53f3\u8fb9\u5171\u7528\u8fd9\u4e2a\u5bb9\u91cf\u3002\u5269\u4f59\u767e\u5206\u6bd4 = \u5269\u4e0b\u7684\u5fae\u5347 / \u5bb9\u91cf\u3002\n\u6e05\u6d17\u6db2\u90a3\u4e00\u884c\u662f\u5185\u90e8\u6e05\u6d17\u6db2\uff0c\u4e0d\u662f\u8bd5\u5242\u3002");
+    const QString capTip = gtr(u8"一瓶能装多少微升。同一种试剂左边和右边共用这个容量。剩余百分比 = 剩下的微升 / 容量。\n清洗液那一行是内部清洗液，不是试剂。");
     tips(QList<QWidget *>()
          << ui->label_capacity
          << ui->spinBox_capacity_aa << ui->spinBox_capacity_adp
          << ui->spinBox_capacity_epi << ui->spinBox_capacity_col
          << ui->spinBox_capacity_ris << ui->spinBox_capacity_cleanlinque, capTip);
 
-    const QString limitTip = gtr(u8"\u5269\u4f59\u767e\u5206\u6bd4\u4f4e\u4e8e\u8fd9\u4e2a\u6570\u5c31\u62a5\u8b66\u3002\n\u5f00\u4e86\u9884\u7559\u8bd5\u5242\u4f4d\u65f6\uff1a\u5de6\u8fb9\u518d\u5438\u4e00\u9488\u4f1a\u4f4e\u4e8e\u8fd9\u4e2a\u6570\uff0c\u53f3\u8fb9\u8fd8\u591f\uff0c\u624d\u6539\u5438\u53f3\u8fb9\u3002\u586b 0 \u65f6\u5de6\u8fb9\u7a7a\u4e86\u4e5f\u4e0d\u4f1a\u5207\u6362\u3002\u6e05\u6d17\u6db2\u7528\u540c\u4e00\u5957\u767e\u5206\u6bd4\u62a5\u8b66\u3002");
+    const QString limitTip = gtr(u8"剩余百分比低于这个数就报警。\n开了预留试剂位时：左边再吸一针会低于这个数，右边还够，才改吸右边。填 0 时左边空了也不会切换。清洗液用同一套百分比报警。");
     tips(QList<QWidget *>()
          << ui->label_limit
          << ui->spinBox_limit_aa << ui->spinBox_limit_adp
          << ui->spinBox_limit_epi << ui->spinBox_limit_col
          << ui->spinBox_limit_ris << ui->spinBox_limit_cleanlinque, limitTip);
-    tip(ui->label_cleanlinque, nullptr, gtr(u8"\u8fd9\u4e00\u884c\u662f\u5185\u90e8\u6e05\u6d17\u6db2\u3002\u5bb9\u91cf\u662f\u6574\u74f6\u5fae\u5347\uff0c\u62a5\u8b66\u9650\u662f\u5269\u4f59\u767e\u5206\u6bd4\u3002\u6d17\u6837\u672c\u9488\u3001\u6d17\u8bd5\u5242\u9488\u90fd\u4ece\u8fd9\u91cc\u6263\u3002"));
+    tip(ui->label_cleanlinque, nullptr, gtr(u8"这一行是内部清洗液。容量是整瓶微升，报警限是剩余百分比。洗样本针、洗试剂针都从这里扣。"));
 
-    ui->label_failedlinque_2->setText(gtr(u8"\u6d17\u6db2\u63a2\u4e0d\u5230\u65f6\u4e0b\u9488"));
-    tip(ui->label_failedlinque_2, ui->spinBoxReagentNeedleFailehigh, gtr(u8"\u6d17\u8bd5\u5242\u9488\u3001\u5438\u5185\u90e8\u6e05\u6d17\u6db2\u65f6\u505a\u6db2\u9762\u63a2\u6d4b\u3002\u63a2\u5230\u6db2\u9762\u5c31\u505c\uff1b\u63a2\u4e0d\u5230\u624d\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u3002\n\u4ee5\u524d\u8fd9\u4e2a\u540d\u5b57\u5199\u6210\u4e86\u8bd5\u5242\u63a2\u6d4b\u5e95\u90e8\uff0c\u5b9e\u9645\u7ba1\u7684\u662f\u6e05\u6d17\u6db2\u3002\u70b9\u51fb\u540e\u5230\u6e05\u6d17\u4f4d\u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+    ui->label_failedhighreagentneedle->setText(gtr(u8"吸试剂探液失败高度"));
+    tip(ui->label_failedhighreagentneedle, ui->spinBoxReagentNeedleFailehigh, gtr(u8"吸试剂时试剂针做液面探测，探到液面就停。探不到就下到这个高度为止，避免扎到瓶底。\n点击后到试剂位按这个高度试一次。"));
 
-    ui->label_failedhighreagentneedle->setText(gtr(u8"\u5438\u8bd5\u5242\u63a2\u6db2\u5931\u8d25\u9ad8\u5ea6"));
-    tip(ui->label_failedhighreagentneedle, ui->spinBox_TestReagentFailedhigh, gtr(u8"\u5438\u8bd5\u5242\u65f6\u8bd5\u5242\u9488\u505a\u6db2\u9762\u63a2\u6d4b\uff0c\u63a2\u5230\u6db2\u9762\u5c31\u505c\u3002\u63a2\u4e0d\u5230\u5c31\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\u4e3a\u6b62\uff0c\u907f\u514d\u624e\u5230\u74f6\u5e95\u3002\n\u4ee5\u524d\u8fd9\u4e2a\u540d\u5b57\u5199\u6210\u4e86\u6e05\u6d17\u63a2\u6d4b\u9ad8\u5ea6\uff0c\u5b9e\u9645\u7ba1\u7684\u662f\u5438\u8bd5\u5242\u3002\u70b9\u51fb\u540e\u5230\u8bd5\u5242\u4f4d\u6309\u8fd9\u4e2a\u9ad8\u5ea6\u8bd5\u4e00\u6b21\u3002"));
+    ui->label_failedlinque_2->setText(gtr(u8"洗液探不到时下针"));
+    tip(ui->label_failedlinque_2, ui->spinBox_TestReagentFailedhigh, gtr(u8"洗试剂针、吸内部清洗液时做液面探测。探到液面就停；探不到才下到这个高度。\n点击后到清洗位按这个高度试一次。"));
 
-    ui->label_AbsorbX1->setText(gtr(u8"\u8bd5\u5242\u9488\u6e05\u6d17\u91cf"));
-    tip(ui->label_AbsorbX1, ui->spinBoxAbsorbX1, gtr(u8"\u6bcf\u6d17\u4e00\u6b21\u8bd5\u5242\u9488\uff0c\u4ece\u5185\u90e8\u6e05\u6d17\u6db2\u74f6\u5438\u8d70\u7684\u5fae\u5347\u3002\u6e05\u6d17\u6db2\u767e\u5206\u6bd4\u6309\u8fd9\u4e2a\u6570\u6263\u3002"));
+    ui->label_AbsorbX1->setText(gtr(u8"试剂针清洗量"));
+    tip(ui->label_AbsorbX1, ui->spinBoxAbsorbX1, gtr(u8"每洗一次试剂针，从内部清洗液瓶吸走的微升。清洗液百分比按这个数扣。"));
 
-    ui->label_delpms->setText(gtr(u8"\u8bfb\u521d\u503c\u524d\u7b49\u5f85"));
-    tip(ui->label_delpms, ui->spinBox_deptime, gtr(u8"\u676f\u5b50\u653e\u5230\u901a\u9053\u540e\u3001\u8bfb\u805a\u96c6\u521d\u503c\u4e4b\u524d\uff0c\u989d\u5916\u518d\u7b49\u7684\u6beb\u79d2\u3002\n\u8bfb PPP \u521d\u503c\u603b\u4f1a\u52a0\u4e0a\u5b83\u3002\u8bfb PRP \u521d\u503c\u65f6 AA \u4e0d\u52a0\uff0cADP\u3001EPI\u3001COL\u3001RIS \u52a0\u3002\u4e0d\u662f\u5410\u8bd5\u5242\u540e\u7684\u62ac\u9488\u65f6\u95f4\u3002"));
+    ui->label_delpms->setText(gtr(u8"读初值前等待"));
+    tip(ui->label_delpms, ui->spinBox_deptime, gtr(u8"杯子放到通道后，先等这段毫秒再判断PRP是否异常、再读PRP0。五种试剂都等。读到PRP0后，再等同样的毫秒，才把对应试剂吐进通道里的杯子。读PPP初值也会加上这段等待。不是吸完试剂后的抬针时间。"));
 
-    ui->label_reagentSuckLiftDelay->setText(gtr(u8"\u5438\u5b8c\u8bd5\u5242\u518d\u62ac\u9488"));
-    tip(ui->label_reagentSuckLiftDelay, ui->spinBox_reagentSuckLiftDelay, gtr(u8"\u8bd5\u5242\u9488\u5438\u5b8c\u8bd5\u5242\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u62ac\u9488\uff0c\u907f\u514d\u9488\u5c16\u8fd8\u6302\u7740\u8bd5\u5242\u3002\n\u6539\u5b8c\u79bb\u5f00\u8f93\u5165\u6846\u5c31\u4f1a\u8bb0\u4e0b\uff1b\u70b9\u4fdd\u5b58\u8bd5\u5242\u9488\u53c2\u6570\u65f6\u4e5f\u4f1a\u518d\u5199\u4e00\u6b21\u3002\u5b58\u5728\u672c\u673a\u914d\u7f6e\u91cc\uff0c\u6d4b\u8bd5\u76f4\u63a5\u7528\u3002"));
-    tip(ui->pushButton_saved, nullptr, gtr(u8"\u628a\u5438\u8bd5\u5242\u91cf\u3001\u7cfb\u6570\u3001\u6dfb\u52a0\u6bd4\u3001\u5410\u8bd5\u5242\u9ad8\u5ea6\u3001\u5bb9\u91cf\u3001\u62a5\u8b66\u9650\uff0c\u4ee5\u53ca\u5438\u5b8c\u518d\u62ac\u9488\u7684\u65f6\u95f4\u4fdd\u5b58\uff0c\u5e76\u628a\u8bd5\u5242\u53c2\u6570\u4e0b\u53d1\u4e3b\u677f\u3002"));
+    ui->label_reagentSuckLiftDelay->setText(gtr(u8"吸完试剂再抬针"));
+    tip(ui->label_reagentSuckLiftDelay, ui->spinBox_reagentSuckLiftDelay, gtr(u8"试剂针吸完试剂后，等这么多毫秒再抬针，避免针尖还挂着试剂。\n改完离开输入框就会记下；点保存试剂针参数时也会再写一次。存在本机配置里，测试直接用。"));
+    tip(ui->pushButton_saved, nullptr, gtr(u8"把吸试剂量、系数、添加比、吐试剂高度、容量、报警限，以及吸完再抬针的时间保存，并把试剂参数下发主板。"));
 
     if (ui->groupBox_gripperDown) {
-        ui->groupBox_gripperDown->setTitle(gtr(u8"\u6293\u624b\u4e0b\u964d\u9ad8\u5ea6"));
-        ui->groupBox_gripperDown->setToolTip(gtr(u8"\u6293\u624b\u5728\u8bd5\u7ba1\u76d8\u3001\u6d4b\u8bd5\u901a\u9053\u548c\u5f03\u676f\u5b54\u4e0b\u5230\u591a\u6df1\u3002\u84dd\u8272\u6807\u7b7e\u53ef\u4ee5\u70b9\uff0c\u6309\u65c1\u8fb9\u7684\u6beb\u7c73\u6570\u8bd5\u4e00\u6b21\u52a8\u4f5c\u3002"));
+        ui->groupBox_gripperDown->setTitle(gtr(u8"抓手下降高度"));
+        ui->groupBox_gripperDown->setToolTip(gtr(u8"抓手在试管盘、测试通道和弃杯孔下到多深。蓝色标签可以点，按旁边的毫米数试一次动作。"));
     }
-    tip(ui->label_handthrowcups, ui->spinBox_downthrowcups, gtr(u8"\u6293\u624b\u5728\u5f03\u676f\u5b54\u677e\u624b\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u5355\u4f4d\u6beb\u7c73\u3002\n\u70b9\u51fb\u540e\u53ea\u5230\u5f03\u676f\u5b54\u4e0b\u5230\u8fd9\u4e2a\u9ad8\u5ea6\uff0c\u518d\u62ac\u8d77\u6765\u3002"));
-    tip(ui->label_testtray_0, ui->spinBox_testtray_0, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 1 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
-    tip(ui->label_testtray_1, ui->spinBox_testtray_1, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 2 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
-    tip(ui->label_testtray_2, ui->spinBox_testtray_2, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 3 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
-    tip(ui->label_testtray_3, ui->spinBox_testtray_3, gtr(u8"\u6293\u624b\u4ece\u8bd5\u7ba1\u76d8 4 \u6293\u676f\u5b50\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\u3002\u70b9\u51fb\u540e\u5230\u8fd9\u53ea\u76d8\u7684\u56db\u89d2\u5404\u6293\u4e00\u6b21\uff0c\u518d\u5230\u5f03\u676f\u5b54\u6309\u5f03\u676f\u9ad8\u5ea6\u8bd5\u653e\uff0c\u6700\u540e\u56de\u539f\u70b9\u3002"));
-    tip(ui->label_handsdownchn_0, ui->spinBox_handsdownchn_0, gtr(u8"\u6293\u624b\u628a\u676f\u5b50\u653e\u8fdb\u6a21\u7ec4 1\uff08\u901a\u9053 1 \u5230 4\uff09\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u8fd9\u56db\u4e2a\u901a\u9053\u5171\u7528\u3002\n\u70b9\u51fb\u540e\u5230\u901a\u9053 1 \u4e0b\u5230\u8fd9\u4e2a\u6df1\u5ea6\uff0c\u518d\u5230\u5f03\u676f\u5b54\u8bd5\u653e\uff0c\u7136\u540e\u56de\u539f\u70b9\u3002"));
-    tip(ui->label_handsdownchn_1, ui->spinBox_handsdownchn_1, gtr(u8"\u6293\u624b\u628a\u676f\u5b50\u653e\u8fdb\u6a21\u7ec4 2\uff08\u901a\u9053 5 \u5230 8\uff09\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u8fd9\u56db\u4e2a\u901a\u9053\u5171\u7528\u3002\n\u70b9\u51fb\u540e\u5230\u901a\u9053 5 \u4e0b\u5230\u8fd9\u4e2a\u6df1\u5ea6\uff0c\u518d\u5230\u5f03\u676f\u5b54\u8bd5\u653e\uff0c\u7136\u540e\u56de\u539f\u70b9\u3002"));
-    tip(ui->label_handsdownchn_2, ui->spinBox_handsdownchn_2, gtr(u8"\u6293\u624b\u628a\u676f\u5b50\u653e\u8fdb\u6a21\u7ec4 3\uff08\u901a\u9053 9 \u5230 12\uff09\u65f6\u7684\u4e0b\u964d\u6df1\u5ea6\uff0c\u8fd9\u56db\u4e2a\u901a\u9053\u5171\u7528\u3002\n\u70b9\u51fb\u540e\u5230\u901a\u9053 9 \u4e0b\u5230\u8fd9\u4e2a\u6df1\u5ea6\uff0c\u518d\u5230\u5f03\u676f\u5b54\u8bd5\u653e\uff0c\u7136\u540e\u56de\u539f\u70b9\u3002"));
+    tip(ui->label_handthrowcups, ui->spinBox_downthrowcups, gtr(u8"抓手在弃杯孔松手时的下降深度，单位毫米。\n点击后只到弃杯孔下到这个高度，再抬起来。"));
+    tip(ui->label_testtray_0, ui->spinBox_testtray_0, gtr(u8"抓手从试管盘 1 抓杯子时的下降深度。点击后到这只盘的四角各抓一次，再到弃杯孔按弃杯高度试放，最后回原点。"));
+    tip(ui->label_testtray_1, ui->spinBox_testtray_1, gtr(u8"抓手从试管盘 2 抓杯子时的下降深度。点击后到这只盘的四角各抓一次，再到弃杯孔按弃杯高度试放，最后回原点。"));
+    tip(ui->label_testtray_2, ui->spinBox_testtray_2, gtr(u8"抓手从试管盘 3 抓杯子时的下降深度。点击后到这只盘的四角各抓一次，再到弃杯孔按弃杯高度试放，最后回原点。"));
+    tip(ui->label_testtray_3, ui->spinBox_testtray_3, gtr(u8"抓手从试管盘 4 抓杯子时的下降深度。点击后到这只盘的四角各抓一次，再到弃杯孔按弃杯高度试放，最后回原点。"));
+    tip(ui->label_handsdownchn_0, ui->spinBox_handsdownchn_0, gtr(u8"抓手把杯子放进模组 1（通道 1 到 4）时的下降深度，这四个通道共用。\n点击后到通道 1 下到这个深度，再到弃杯孔试放，然后回原点。"));
+    tip(ui->label_handsdownchn_1, ui->spinBox_handsdownchn_1, gtr(u8"抓手把杯子放进模组 2（通道 5 到 8）时的下降深度，这四个通道共用。\n点击后到通道 5 下到这个深度，再到弃杯孔试放，然后回原点。"));
+    tip(ui->label_handsdownchn_2, ui->spinBox_handsdownchn_2, gtr(u8"抓手把杯子放进模组 3（通道 9 到 12）时的下降深度，这四个通道共用。\n点击后到通道 9 下到这个深度，再到弃杯孔试放，然后回原点。"));
 
-    const QString grabTip = gtr(u8"\u6c14\u538b\u8bfb\u6570\u5c0f\u4e8e\u7b49\u4e8e\u8fd9\u4e2a\u503c\uff0c\u624d\u7b97\u676f\u5b50\u5438\u5728\u6293\u624b\u4e0a\u3002\u6570\u503c\u8d8a\u5c0f\uff0c\u8981\u6c42\u5438\u5f97\u8d8a\u72e0\u3002\n\u81ea\u52a8\u5224\u5b9a\u4f1a\u628a\u6d4b\u5230\u7684\u6570\u586b\u8fdb\u6765\u3002\u8981\u70b9\u4fdd\u5b58\u6293\u624b\u53c2\u6570\uff0c\u6b63\u5f0f\u6d4b\u8bd5\u624d\u4f1a\u7528\u65b0\u503c\u3002");
+    const QString grabTip = gtr(u8"气压读数小于等于这个值，才算杯子吸在抓手上。数值越小，要求吸得越狠。\n自动判定会把测到的数填进来。要点保存抓手参数，正式测试才会用新值。");
     tip(ui->label_2, ui->spinBoxSuckAirsMax, grabTip);
-    const QString dropTip = gtr(u8"\u6c14\u538b\u8bfb\u6570\u5927\u4e8e\u7b49\u4e8e\u8fd9\u4e2a\u503c\uff0c\u624d\u7b97\u676f\u5b50\u5df2\u7ecf\u677e\u5f00\u3002\u5fc5\u987b\u660e\u663e\u9ad8\u4e8e\u6293\u4f4f\u5224\u5b9a\uff0c\u5426\u5219\u6ca1\u4e22\u6389\u4e5f\u4f1a\u5f53\u6210\u5df2\u4e22\uff0c\u62ac\u6293\u624b\u65f6\u628a\u676f\u5b50\u5e26\u8d77\u6765\u3002\n\u81ea\u52a8\u5224\u5b9a\u4f1a\u586b\u8fd9\u4e2a\u6570\u3002\u4fdd\u5b58\u540e\u6b63\u5f0f\u6d4b\u8bd5\u624d\u4f7f\u7528\u3002");
+    const QString dropTip = gtr(u8"气压读数大于等于这个值，才算杯子已经松开。必须明显高于抓住判定，否则没丢掉也会当成已丢，抬抓手时把杯子带起来。\n自动判定会填这个数。保存后正式测试才使用。");
     tip(ui->label_8, ui->spinBoxSplitAirsMin, dropTip);
-    const QString grabDelayTip = gtr(u8"\u6293\u624b\u4e0b\u5230\u676f\u5b50\u4e0a\u3001\u8d1f\u538b\u6253\u5f00\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u8bfb\u6c14\u538b\u3002\u592a\u77ed\u4f1a\u5728\u8fd8\u6ca1\u5438\u7262\u65f6\u5c31\u5224\u5b9a\u5931\u8d25\uff0c\u7136\u540e\u52a0\u6df1\u91cd\u6293\u3002");
+    const QString grabDelayTip = gtr(u8"抓手下到杯子上、负压打开之后，等这么多毫秒再读气压。太短会在还没吸牢时就判定失败，然后加深重抓。");
     tip(ui->labelsuckLateTimer, ui->spinBox_suckLatetimer, grabDelayTip);
-    const QString throwDelayTip = gtr(u8"\u5173\u6389\u8d1f\u538b\u4e4b\u540e\uff0c\u7b49\u8fd9\u4e48\u591a\u6beb\u79d2\u518d\u786e\u8ba4\u676f\u5b50\u677e\u5f00\u3002\u592a\u77ed\u4f1a\u5728\u676f\u5b50\u8fd8\u7c98\u7740\u65f6\u5c31\u62ac\u6293\u624b\uff0c\u628a\u8bd5\u676f\u5e26\u8d77\u6765\u3002\n\u4fdd\u5b58\u6293\u624b\u53c2\u6570\u65f6\uff0c\u8fd9\u4e2a\u65f6\u95f4\u4f1a\u548c\u8bd5\u5242\u6269\u5c55\u53c2\u6570\u4e00\u8d77\u5199\u5230\u4e3b\u677f\u3002");
+    const QString throwDelayTip = gtr(u8"关掉负压之后，等这么多毫秒再确认杯子松开。太短会在杯子还粘着时就抬抓手，把试杯带起来。\n保存抓手参数时，这个时间会和试剂扩展参数一起写到主板。");
     tip(m_gripperThrowDelayLabel, m_gripperThrowDelaySpin, throwDelayTip);
-    tip(ui->checkBox_Recapture, nullptr, gtr(u8"\u5438\u676f\u5224\u5b9a\u6ca1\u8fc7\u65f6\uff0c\u518d\u52a0\u6df1\u91cd\u6293\u3002\u5173\u6389\u5219\u5931\u8d25\u540e\u8d70\u5f02\u5e38\u590d\u4f4d\uff0c\u4e0d\u518d\u8bd5\u7b2c\u4e8c\u6b21\u3002"));
-    tip(ui->pushButtonopenSuck, nullptr, gtr(u8"\u4eea\u5668\u81ea\u5df1\u8d70\u4e00\u904d\u7a7a\u8f7d\u3001\u5438\u4f4f\u3001\u4e22\u6389\uff0c\u628a\u6293\u4f4f\u5224\u5b9a\u3001\u4e22\u6389\u5224\u5b9a\u3001\u5438\u676f\u5ef6\u65f6\u548c\u4e22\u676f\u5ef6\u65f6\u586b\u8fdb\u6846\u91cc\u3002\u586b\u5b8c\u4ecd\u8981\u70b9\u4fdd\u5b58\u6293\u624b\u53c2\u6570\uff0c\u624d\u4f1a\u5199\u8fdb\u4e3b\u677f\u3002"));
-    tip(ui->pushButtonsplitAirs, nullptr, gtr(u8"\u505c\u4e0b\u6b63\u5728\u8fdb\u884c\u7684\u81ea\u52a8\u5224\u5b9a\u3002\u5224\u5b9a\u6ca1\u5728\u8dd1\u65f6\uff0c\u7528\u6765\u5173\u95ed\u8d1f\u538b\u5e76\u770b\u5f53\u524d\u7a7a\u8f7d\u6c14\u538b\u3002"));
-    tip(ui->label_showsuckVal, nullptr, gtr(u8"\u6700\u8fd1\u4e00\u6b21\u5438\u4f4f\u65f6\u8bfb\u5230\u7684\u6c14\u538b\u3002\u6570\u503c\u8d8a\u5c0f\uff0c\u5438\u529b\u8d8a\u5927\u3002"));
-    tip(ui->label_splitval, nullptr, gtr(u8"\u6700\u8fd1\u4e00\u6b21\u7a7a\u8f7d\u6216\u4e22\u6389\u65f6\u8bfb\u5230\u7684\u6c14\u538b\u3002\u5e94\u660e\u663e\u9ad8\u4e8e\u5438\u4f4f\u65f6\u7684\u6570\u3002"));
-    tip(ui->pushButtonHandsParaSave, nullptr, gtr(u8"\u628a\u4e0b\u964d\u9ad8\u5ea6\u3001\u8d1f\u538b\u5224\u5b9a\u3001\u5438\u676f\u5ef6\u65f6\u548c\u4e22\u676f\u5ef6\u65f6\u4fdd\u5b58\uff0c\u5e76\u5199\u5165\u4e3b\u677f\u3002"));
+    tip(ui->checkBox_Recapture, nullptr, gtr(u8"吸杯判定没过时，再加深重抓。关掉则失败后走异常复位，不再试第二次。"));
+    tip(ui->pushButtonopenSuck, nullptr, gtr(u8"仪器自己走一遍空载、吸住、丢掉，把抓住判定、丢掉判定、吸杯延时和丢杯延时填进框里。填完仍要点保存抓手参数，才会写进主板。"));
+    tip(ui->pushButtonsplitAirs, nullptr, gtr(u8"停下正在进行的自动判定。判定没在跑时，用来关闭负压并看当前空载气压。"));
+    tip(ui->label_showsuckVal, nullptr, gtr(u8"最近一次吸住时读到的气压。数值越小，吸力越大。"));
+    tip(ui->label_splitval, nullptr, gtr(u8"最近一次空载或丢掉时读到的气压。应明显高于吸住时的数。"));
+    tip(ui->pushButtonHandsParaSave, nullptr, gtr(u8"把下降高度、负压判定、吸杯延时和丢杯延时保存，并写入主板。"));
 
     relayoutEquipmentPages();
 }
@@ -1185,7 +1189,7 @@ protected:
         const QRectF word = on
                 ? QRectF(track.left() + 4.0, track.top(), 28.0, track.height())
                 : QRectF(track.right() - 32.0, track.top(), 28.0, track.height());
-        painter.drawText(word, Qt::AlignCenter, on ? gtr(u8"\u5f00") : gtr(u8"\u5173"));
+        painter.drawText(word, Qt::AlignCenter, on ? gtr(u8"开") : gtr(u8"关"));
     }
 
     void mouseReleaseEvent(QMouseEvent *event)
@@ -1276,11 +1280,11 @@ void MachineSetting::relayoutEquipmentPages()
             headLay->setContentsMargins(12, 8, 12, 8);
             headLay->setSpacing(8);
             QLabel *title = new QLabel(headBar);
-            title->setText(gtr(u8"\u6a21\u7ec4 %1").arg(m + 1));
+            title->setText(gtr(u8"模组 %1").arg(m + 1));
             title->setStyleSheet(titleQss);
             title->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
             QLabel *sub = new QLabel(headBar);
-            sub->setText(gtr(u8"\u901a\u9053 %1\u2013%2").arg(m * 4 + 1).arg(m * 4 + 4));
+            sub->setText(gtr(u8"通道 %1–%2").arg(m * 4 + 1).arg(m * 4 + 4));
             sub->setStyleSheet(subQss);
             sub->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
             sub->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -1334,7 +1338,7 @@ void MachineSetting::relayoutEquipmentPages()
             if (tempLab[m] && tempSp[m]) {
                 tempLab[m]->setParent(card);
                 tempSp[m]->setParent(card);
-                tempLab[m]->setText(gtr(u8"\u76ee\u6807\u6e29\u5ea6"));
+                tempLab[m]->setText(gtr(u8"目标温度"));
                 tempLab[m]->setStyleSheet(subQss);
                 tempLab[m]->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
                 tempLab[m]->setMaximumWidth(QWIDGETSIZE_MAX);
@@ -1373,7 +1377,7 @@ void MachineSetting::relayoutEquipmentPages()
         } else if (m_typedequipment == KS800) {
             model = QStringLiteral("KS800");
         }
-        ui->usechannel->setTitle(model + gtr(u8"  \u4f7f\u7528\u901a\u9053"));
+        ui->usechannel->setTitle(model + gtr(u8"  使用通道"));
     }
     if (ui->groupBox) {
         ui->groupBox->hide();
@@ -1445,7 +1449,7 @@ void MachineSetting::relayoutEquipmentPages()
 
     int row = 0;
     if (ui->label_handthrowcups && ui->spinBox_downthrowcups) {
-        ui->label_handthrowcups->setText(gtr(u8"\u5f03\u676f\u5b54"));
+        ui->label_handthrowcups->setText(gtr(u8"弃杯孔"));
         QFrame *bar = new QFrame(ui->groupBox_gripperDown);
         bar->setObjectName(QStringLiteral("heightTuneCard"));
         bar->setStyleSheet(heightQss);
@@ -1469,7 +1473,7 @@ void MachineSetting::relayoutEquipmentPages()
 
     if (trayCount > 0) {
         QLabel *sec = new QLabel(ui->groupBox_gripperDown);
-        sec->setText(gtr(u8"\u8bd5\u7ba1\u76d8"));
+        sec->setText(gtr(u8"试管盘"));
         sec->setStyleSheet(sectionQss);
         down->addWidget(sec, row, 0, 1, cols);
         ++row;
@@ -1478,7 +1482,7 @@ void MachineSetting::relayoutEquipmentPages()
             if (!trayLab[i] || !traySp[i]) {
                 continue;
             }
-            trayLab[i]->setText(gtr(u8"\u8bd5\u7ba1\u76d8 %1").arg(i + 1));
+            trayLab[i]->setText(gtr(u8"试管盘 %1").arg(i + 1));
             QFrame *card = new QFrame(ui->groupBox_gripperDown);
             card->setObjectName(QStringLiteral("heightTuneCard"));
             card->setStyleSheet(heightQss);
@@ -1505,7 +1509,7 @@ void MachineSetting::relayoutEquipmentPages()
 
     if (modCount > 0) {
         QLabel *sec = new QLabel(ui->groupBox_gripperDown);
-        sec->setText(gtr(u8"\u653e\u5230\u6d4b\u8bd5\u901a\u9053"));
+        sec->setText(gtr(u8"放到测试通道"));
         sec->setStyleSheet(sectionQss);
         down->addWidget(sec, row, 0, 1, cols);
         ++row;
@@ -1514,7 +1518,7 @@ void MachineSetting::relayoutEquipmentPages()
             if (!modLab[i] || !modSp[i]) {
                 continue;
             }
-            modLab[i]->setText(gtr(u8"\u6a21\u7ec4 %1").arg(i + 1));
+            modLab[i]->setText(gtr(u8"模组 %1").arg(i + 1));
             QFrame *card = new QFrame(ui->groupBox_gripperDown);
             card->setObjectName(QStringLiteral("heightTuneCard"));
             card->setStyleSheet(heightQss);
@@ -1642,14 +1646,14 @@ void MachineSetting::frameNeedleConfigPages()
         bodyLay->setContentsMargins(0, 0, 0, 0);
         bodyLay->setSpacing(12);
 
-        QGroupBox *upper = new QGroupBox(gtr(u8"\u4e0b\u9488\u9ad8\u5ea6"), body);
+        QGroupBox *upper = new QGroupBox(gtr(u8"下针高度"), body);
         upper->setObjectName(QStringLiteral("groupBox_bloodPinUpper"));
         QGridLayout *upperGrid = new QGridLayout(upper);
         upperGrid->setHorizontalSpacing(10);
         upperGrid->setVerticalSpacing(8);
         upperGrid->setContentsMargins(8, 8, 8, 8);
 
-        QGroupBox *lower = new QGroupBox(gtr(u8"\u5438\u6837\u548c\u7b49\u5f85"), body);
+        QGroupBox *lower = new QGroupBox(gtr(u8"吸样和等待"), body);
         lower->setObjectName(QStringLiteral("groupBox_bloodPinLower"));
         QGridLayout *lowerGrid = new QGridLayout(lower);
         lowerGrid->setHorizontalSpacing(10);
@@ -1833,7 +1837,7 @@ void MachineSetting::frameNeedleConfigPages()
             }
         }
 
-        QGroupBox *lower = new QGroupBox(gtr(u8"\u6e05\u6d17\u548c\u4e0b\u9488"), ui->tab_reagpin);
+        QGroupBox *lower = new QGroupBox(gtr(u8"清洗和下针"), ui->tab_reagpin);
         lower->setObjectName(QStringLiteral("groupBox_reagPinLower"));
         QGridLayout *lowerGrid = new QGridLayout(lower);
         lowerGrid->setHorizontalSpacing(10);
@@ -2062,7 +2066,7 @@ void MachineSetting::applyClinicalSettingsChrome()
     setProperty("clinicalChrome", true);
     setStyleSheet(styleSheet() + QStringLiteral(
         "\nQLabel { background-color: transparent; }"));
-    setWindowTitle(gtr(u8"\u4eea\u5668\u8bbe\u7f6e"));
+    setWindowTitle(gtr(u8"仪器设置"));
     if (m_titleBar) {
         m_titleBar->setTitle(windowTitle());
     }
@@ -2115,7 +2119,7 @@ void MachineSetting::applyClinicalSettingsChrome()
     title->setStyleSheet(QStringLiteral("color:#2C5F8A; font-size:20px; font-weight:700;"));
     QLabel *hint = new QLabel(head);
     hint->setStyleSheet(QStringLiteral("color:#4A7FA3; font-size:12px;"));
-    hint->setText(gtr(u8"\u6539\u5b8c\u8bf7\u4fdd\u5b58\u3002\u6d4b\u8bd5\u8fdb\u884c\u4e2d\u4e0d\u8981\u6539\u52a8\u4f5c\u53c2\u6570\u3002"));
+    hint->setText(gtr(u8"改完请保存。测试进行中不要改动作参数。"));
     headLay->addWidget(path);
     headLay->addWidget(title);
     headLay->addWidget(hint);

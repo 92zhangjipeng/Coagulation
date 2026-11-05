@@ -1,10 +1,33 @@
 ﻿#include "widgetdelegate.h"
+#include <QAbstractItemView>
 #include <QComboBox>
 #include <QDateTimeEdit>
 #include <QListWidget>
 #include <QStandardItemModel>
+#include <QStyledItemDelegate>
 #include <QStyle>
 #include <QTextOption>
+
+namespace {
+
+class ComboPopupItemDelegate : public QStyledItemDelegate
+{
+public:
+    explicit ComboPopupItemDelegate(QObject *parent = nullptr)
+        : QStyledItemDelegate(parent) {}
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        QStyleOptionViewItem opt(option);
+        opt.font.setFamily(QStringLiteral("Microsoft YaHei"));
+        opt.font.setPixelSize(20);
+        QSize size = QStyledItemDelegate::sizeHint(opt, index);
+        size.setHeight(qMax(48, size.height()));
+        return size;
+    }
+};
+
+}
 
 #pragma warning(disable:4100)
 
@@ -28,8 +51,8 @@ WidgetDelegate::WidgetDelegate(QStringList list, QItemDelegate *parent) :QItemDe
                   " border-top: 5px solid #1A6F99; }"
                   "QComboBox QAbstractItemView {"
                   " background: #FFFFFF; color: #16384A; border: 1px solid #8FBFD6;"
-                  " outline: 0; font-family: 'Microsoft YaHei'; font-size: 13px; }"
-                  "QComboBox QAbstractItemView::item { min-height: 28px; padding: 4px 10px; color: #16384A; }"
+                  " outline: 0; font-family: 'Microsoft YaHei'; font-size: 20px; }"
+                  "QComboBox QAbstractItemView::item { min-height: 48px; padding: 10px 12px; font-size: 20px; color: #16384A; }"
                   "QComboBox QAbstractItemView::item:hover { background: #E7F3FA; color: #16384A; }"
                   "QComboBox QAbstractItemView::item:selected { background: #D4EAF5; color: #16384A; }"
                   "QComboBox QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
@@ -51,12 +74,16 @@ QWidget *WidgetDelegate::createEditor(QWidget *parent, const QStyleOptionViewIte
     editor->setStyleSheet(this->m_Css);
     editor->setMaxVisibleItems(8);
     editor->setFont(QFont(QStringLiteral("Microsoft YaHei"), 9));
-    if (editor->view()) {
-        editor->view()->setMinimumWidth(qMax(option.rect.width(), 120));
-        editor->view()->setStyleSheet(QStringLiteral(
+    if (QAbstractItemView *view = editor->view()) {
+        QFont viewFont(QStringLiteral("Microsoft YaHei"));
+        viewFont.setPixelSize(20);
+        view->setFont(viewFont);
+        view->setItemDelegate(new ComboPopupItemDelegate(view));
+        view->setMinimumWidth(qMax(option.rect.width(), 160));
+        view->setStyleSheet(QStringLiteral(
             "QAbstractItemView { background: #FFFFFF; color: #16384A; border: none; outline: 0;"
-            " font-family: 'Microsoft YaHei'; font-size: 13px; }"
-            "QAbstractItemView::item { min-height: 28px; padding: 4px 10px; }"
+            " font-family: 'Microsoft YaHei'; font-size: 20px; }"
+            "QAbstractItemView::item { min-height: 48px; padding: 10px 12px; }"
             "QAbstractItemView::item:selected { background: #D4EAF5; color: #16384A; }"
             "QScrollBar:vertical { width: 8px; margin: 0px; background: #EEF3F7; border: none; }"
             "QScrollBar::handle:vertical { background: #8AA4BE; min-height: 18px; border-radius: 3px; }"

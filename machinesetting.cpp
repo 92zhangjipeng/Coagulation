@@ -1702,7 +1702,7 @@ void MachineSetting::on_toolButton_Delete_clicked()
             anyFailed = true;
     }
     if (anyFailed)
-        showWarningDialog(QString::fromUtf8("\xe5\x88\xa0\xe9\x99\xa4\xe5\xa4\xb1\xe8\xb4\xa5"));
+        showWarningDialog(QString::fromUtf8("删除失败"));
     refreshInfoLibraryDeleteButton();
     emit Synchronizeupdates();
 }
@@ -2751,7 +2751,7 @@ void MachineSetting::notifyReagentPinParaToBoard()
                 true);
 
     emit SetParatoInstrument({sendOrder, sendOtherOrder, extendedReagentOrder},
-                             QString::fromUtf8("\xe9\x85\x8d\xe7\xbd\xae\xe8\xaf\x95\xe5\x89\x82\xe9\x92\x88\xe5\x8f\x82\xe6\x95\xb0"));
+                             QString::fromUtf8("配置试剂针参数"));
 	return;
 }
 
@@ -2784,23 +2784,24 @@ namespace {
 bool queueImportedCoordinates(QString &why)
 {
     if (cglobal::g_StartTesting.load() || cglobal::g_quality_start.load()
+            || cglobal::g_hitTesting.load()
             || Performanceverification::instance()->returnPerformanceTestFlag()) {
-        why = QString::fromUtf8("\xe4\xbb\xaa\xe5\x99\xa8\xe6\xad\xa3\xe5\x9c\xa8\xe6\xb5\x8b\xe8\xaf\x95\xef\xbc\x8c\xe8\xaf\xb7\xe7\xbb\x93\xe6\x9d\x9f\xe5\x90\x8e\xe5\x86\x8d\xe5\xaf\xbc\xe5\x85\xa5\xe3\x80\x82");
+        why = QString::fromUtf8("仪器正在测试，请结束后再导入。");
         return false;
     }
     if (!cglobal::gserialConnecStatus.load()) {
-        why = QString::fromUtf8("\xe4\xb8\xb2\xe5\x8f\xa3\xe6\x9c\xaa\xe8\xbf\x9e\xe6\x8e\xa5\xe3\x80\x82");
+        why = QString::fromUtf8("串口未连接。");
         return false;
     }
     MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
     if (!mw) {
-        why = QString::fromUtf8("\xe4\xb8\xbb\xe7\x95\x8c\xe9\x9d\xa2\xe6\x9c\xaa\xe5\xb0\xb1\xe7\xbb\xaa\xe3\x80\x82");
+        why = QString::fromUtf8("主界面未就绪。");
         return false;
     }
     EquipmentAXIS_ *eq = SingletonAxis::GetInstance()->GetpStruct();
     if (!eq || eq->pchnAxisPoint.isEmpty() || eq->bloodSampleAxisPos.isEmpty()
             || eq->testTubeZoneAxisPos.isEmpty()) {
-        why = QString::fromUtf8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6\xe4\xb8\x8d\xe5\xae\x8c\xe6\x95\xb4\xef\xbc\x8c\xe6\x9c\xaa\xe6\x8a\x8a\xe7\xa9\xba\xe5\x9d\x90\xe6\xa0\x87\xe5\x86\x99\xe5\x85\xa5\xe4\xbb\xaa\xe5\x99\xa8\xe3\x80\x82");
+        why = QString::fromUtf8("坐标文件不完整，未把空坐标写入仪器。");
         return false;
     }
 
@@ -2809,16 +2810,16 @@ bool queueImportedCoordinates(QString &why)
     QByteArrayList payload;
     for (auto it = frames.constBegin(); it != frames.constEnd(); ++it) {
         if (it.value().size() != PROTOCOL_LENGTH) {
-            why = QString::fromUtf8("\xe5\x9d\x90\xe6\xa0\x87\xe5\x91\xbd\xe4\xbb\xa4\xe9\x95\xbf\xe5\xba\xa6\xe4\xb8\x8d\xe5\xaf\xb9\xef\xbc\x8c\xe5\xb7\xb2\xe5\x81\x9c\xe6\xad\xa2\xe5\x86\x99\xe5\x85\xa5\xe3\x80\x82");
+            why = QString::fromUtf8("坐标命令长度不对，已停止写入。");
             return false;
         }
         payload.append(it.value());
     }
     if (payload.size() != frames.size() || payload.isEmpty()) {
-        why = QString::fromUtf8("\xe6\xb2\xa1\xe6\x9c\x89\xe5\x8f\xaf\xe5\x86\x99\xe5\x85\xa5\xe7\x9a\x84\xe5\x9d\x90\xe6\xa0\x87\xe5\x91\xbd\xe4\xbb\xa4\xe3\x80\x82");
+        why = QString::fromUtf8("没有可写入的坐标命令。");
         return false;
     }
-    mw->sendcodeList(payload, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe5\x86\x99\xe5\x85\xa5\xe4\xbb\xaa\xe5\x99\xa8"));
+    mw->sendcodeList(payload, QString::fromUtf8("导入坐标写入仪器"));
     QLOG_INFO() << "import coordinates to instrument, frames" << payload.size();
     return true;
 }
@@ -2844,9 +2845,10 @@ void MachineSetting::on_toolButton_Import_clicked()
         return;
 
     if (cglobal::g_StartTesting.load() || cglobal::g_quality_start.load()
+            || cglobal::g_hitTesting.load()
             || Performanceverification::instance()->returnPerformanceTestFlag()) {
-        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
-                           QString::fromUtf8("\xe4\xbb\xaa\xe5\x99\xa8\xe6\xad\xa3\xe5\x9c\xa8\xe6\xb5\x8b\xe8\xaf\x95\xef\xbc\x8c\xe6\x9c\xaa\xe5\xaf\xbc\xe5\x85\xa5\xe3\x80\x82"));
+        QMessageBox::about(this, QString::fromUtf8("导入坐标文件"),
+                           QString::fromUtf8("仪器正在测试，未导入。"));
         return;
     }
 
@@ -2854,24 +2856,24 @@ void MachineSetting::on_toolButton_Import_clicked()
     try {
         imported = SingletonAxis::GetInstance()->importFromCoordinateText(filePath);
     } catch (const std::exception &e) {
-        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
-                           QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\xa4\xb1\xe8\xb4\xa5: ") + QString::fromUtf8(e.what()));
+        QMessageBox::about(this, QString::fromUtf8("导入坐标文件"),
+                           QString::fromUtf8("导入失败: ") + QString::fromUtf8(e.what()));
         return;
     }
     if (!imported) {
-        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
-                           QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6\xe5\xa4\xb1\xe8\xb4\xa5!"));
+        QMessageBox::about(this, QString::fromUtf8("导入坐标文件"),
+                           QString::fromUtf8("导入坐标文件失败!"));
         return;
     }
 
     QString why;
     if (queueImportedCoordinates(why)) {
-        QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
-                           QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe6\x88\x90\xe5\x8a\x9f\xef\xbc\x8c\xe5\x9d\x90\xe6\xa0\x87\xe5\xb7\xb2\xe5\x86\x99\xe5\x85\xa5\xe4\xbb\xaa\xe5\x99\xa8\xe3\x80\x82"));
+        QMessageBox::about(this, QString::fromUtf8("导入坐标文件"),
+                           QString::fromUtf8("导入成功，坐标已写入仪器。"));
         return;
     }
-    QMessageBox::about(this, QString::fromUtf8("\xe5\xaf\xbc\xe5\x85\xa5\xe5\x9d\x90\xe6\xa0\x87\xe6\x96\x87\xe4\xbb\xb6"),
-                       QString::fromUtf8("\xe5\x9d\x90\xe6\xa0\x87\xe5\xb7\xb2\xe5\xaf\xbc\xe5\x85\xa5\xe5\x88\xb0\xe7\xa8\x8b\xe5\xba\x8f\xef\xbc\x8c\xe4\xbb\xaa\xe5\x99\xa8\xe6\x9c\xaa\xe5\x86\x99\xe5\x85\xa5\xe3\x80\x82") + why);
+    QMessageBox::about(this, QString::fromUtf8("导入坐标文件"),
+                       QString::fromUtf8("坐标已导入到程序，仪器未写入。") + why);
 }
 
 
@@ -3311,12 +3313,12 @@ void MachineSetting::_initReagPinpara()
     //液面探测失败高度 试剂针(清洗液)
     quint8  reagneedlefailedhigh = INI_File().getFailedCleanLinqueReagNeedle();
     ui->spinBoxReagentNeedleFailehigh->setValue(reagneedlefailedhigh);
-    _creatstupoint(ui->label_failedlinque_2,ui->spinBoxReagentNeedleFailehigh,REAGPIN_CLEANLINQUE_DOWN,m_preagpinLableList);
+    _creatstupoint(ui->label_failedhighreagentneedle,ui->spinBoxReagentNeedleFailehigh,REAGPIN_REAGLINQUE_FAILEDDOWN,m_preagpinLableList);
 
-    //液面探测失败高度 吸(试剂)
+    //洗液探不到时下针
     quint8 ReagentLinqueDetectionFailed = INI_File().GetFailedReagentsLinqueHigh();
     ui->spinBox_TestReagentFailedhigh->setValue(ReagentLinqueDetectionFailed);
-    _creatstupoint(ui->label_failedhighreagentneedle,ui->spinBox_TestReagentFailedhigh,REAGPIN_REAGLINQUE_FAILEDDOWN,m_preagpinLableList);
+    _creatstupoint(ui->label_failedlinque_2,ui->spinBox_TestReagentFailedhigh,REAGPIN_CLEANLINQUE_DOWN,m_preagpinLableList);
 
     //吐试剂到通道延时
     ui->spinBox_deptime->setValue(INI_File()._getdelayedtime());

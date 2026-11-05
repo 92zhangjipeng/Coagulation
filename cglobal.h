@@ -487,6 +487,7 @@ public:
 
         static bool g_QualityControlhighValue; //质控高低值
         static std::atomic<bool> g_quality_start;
+        static std::atomic<bool> g_hitTesting;               //HIT 测试（跨线程，不占用 g_StartTesting）
         static std::atomic<bool> g_StartTesting;             //开始测试（跨线程）
         static std::atomic<bool> g_PauseTesting;             //暂停（跨线程）
         static std::atomic<bool> g_controldimmingfinished;   //调光完成（跨线程）

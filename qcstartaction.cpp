@@ -710,7 +710,7 @@ bool QcStartAction::start(const QList<int> &levels, const QList<int> &channels,
             *reason = u8("\xe8\xb4\xa8\xe6\x8e\xa7\xe8\xbf\x9b\xe8\xa1\x8c\xe4\xb8\xad");
         return false;
     }
-    if (cglobal::g_StartTesting.load()) {
+    if (cglobal::g_StartTesting.load() || cglobal::g_hitTesting.load()) {
         if (reason)
             *reason = u8("\xe4\xbb\xaa\xe5\x99\xa8\xe6\xad\xa3\xe5\x9c\xa8\xe6\xb5\x8b\xe8\xaf\x95");
         return false;

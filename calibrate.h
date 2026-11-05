@@ -87,6 +87,7 @@ public slots:
     void updatecommboxInfo();//同步患者下拉信息
     void showContextpup(const QPoint &pos);
     void recvSampleTestingErr(const QString &ErrSampleid, const quint8 &channelIdx); //样本测试异常
+    void refreshOpenResultIfViewing(const QString &sampleId, quint8 reagent);
     //查询界面删除相同ID 记录
     void onsycnDelOthertableWidgetRow(const QString delSameId);
 

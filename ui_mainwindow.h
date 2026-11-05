@@ -40,6 +40,7 @@ public:
     QToolButton *toolButton_quality_reset;
     QToolButton *toolButton_quality_cleaning;
     QToolButton *toolButton_quality_qc;
+    QToolButton *toolButton_quality_hit;
     QToolButton *toolButton_quality_stop;
     QToolButton *toolButton_EquipmentSetting;
     QToolButton *toolButton_Exit;
@@ -222,6 +223,20 @@ public:
         toolButton_quality_qc->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
         horizontalLayout_3->addWidget(toolButton_quality_qc);
+
+        toolButton_quality_hit = new QToolButton(widget_top);
+        toolButton_quality_hit->setObjectName(QStringLiteral("toolButton_quality_hit"));
+        toolButton_quality_hit->setMinimumSize(QSize(140, 150));
+        toolButton_quality_hit->setMaximumSize(QSize(140, 150));
+        toolButton_quality_hit->setFont(font);
+        toolButton_quality_hit->setStyleSheet(QStringLiteral(""));
+        QIcon iconHit;
+        iconHit.addFile(QStringLiteral(":/Picture/Graphplot.png"), QSize(), QIcon::Normal, QIcon::Off);
+        toolButton_quality_hit->setIcon(iconHit);
+        toolButton_quality_hit->setIconSize(QSize(150, 120));
+        toolButton_quality_hit->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+
+        horizontalLayout_3->addWidget(toolButton_quality_hit);
 
         toolButton_quality_stop = new QToolButton(widget_top);
         toolButton_quality_stop->setObjectName(QStringLiteral("toolButton_quality_stop"));
@@ -919,6 +934,7 @@ public:
         toolButton_quality_reset->setText(QApplication::translate("MainWindow", "\345\244\215\344\275\215", nullptr));
         toolButton_quality_cleaning->setText(QApplication::translate("MainWindow", "\346\270\205\346\264\227", nullptr));
         toolButton_quality_qc->setText(QApplication::translate("MainWindow", "\346\214\207\346\216\247", nullptr));
+        toolButton_quality_hit->setText(QApplication::translate("MainWindow", "HIT", nullptr));
         toolButton_quality_stop->setText(QApplication::translate("MainWindow", "\344\273\273\345\212\241", nullptr));
         toolButton_EquipmentSetting->setText(QApplication::translate("MainWindow", "\344\273\252\345\231\250\350\256\276\347\275\256", nullptr));
         toolButton_Exit->setText(QApplication::translate("MainWindow", "\351\200\200\345\207\272", nullptr));

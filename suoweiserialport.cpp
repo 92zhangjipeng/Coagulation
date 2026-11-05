@@ -171,6 +171,7 @@ void SuoweiSerialPort::handleSerialError(QSerialPort::SerialPortError error)
 
 void SuoweiSerialPort::prepareReconnect()
 {
+    abortPendingWrites();
     recvdisConnectCloseSerial();
 
     QEventLoop loop;
@@ -835,10 +836,9 @@ int SuoweiSerialPort::ParseSportLocation(const QStringList recv_data, const int 
 
 void SuoweiSerialPort::prepareReconnectTesting()
 {
-    QByteArrayList zbackorig;
-    QUIUtils::allZAxisBackOrigin(zbackorig, 100);
-    slotwrite_instructions_group(zbackorig, "重连先复位所有Z轴");
-    QLOG_ERROR() << "测试中断重连,复位所有Z轴!" << endl;
+    // 测试中的复位只交给 TestProjectProcess 跟踪。这里再发一组 Z 复位没有应答名单，
+    // 会和后面的全轴复位抢指令，名单对不齐时任务就停在重连里。
+    QLOG_ERROR() << "测试中断重连，交给测试流程全轴复位后续跑";
     emit connectEquipmentagin();
 }
 
@@ -986,11 +986,14 @@ bool SuoweiSerialPort::processMachineData(int deviceAddress, int functionCode,
     }
 
     const bool isTesting = cglobal::g_StartTesting;
+    const bool isHitRun = cglobal::g_hitTesting.load();
     const bool isPerfTest = Performanceverification::instance()->returnPerformanceTestFlag();
     const bool isQcRun = cglobal::g_quality_start.load();
 
     if (isTesting) {
         emit sendTestingRecvData(receivedData);
+    } else if (isHitRun) {
+        emit serialHitData(receivedData);
     } else if (isPerfTest) {
         emit serialPEdata(receivedData);
     } else if (isQcRun) {

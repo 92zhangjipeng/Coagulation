@@ -20,6 +20,7 @@
 #include <testing.h>
 #include "loadequipmentpos.h"
 #include "cglobal.h"
+#include "calibrate.h"
 
 //#define POLLING_TIMER  800
 
@@ -203,7 +204,7 @@ void TestProjectProcess::handleAckTimeout()
         const QString tips = tr("读取PPP初值超时，已暂停，请处理后点「继续」重读");
         promptsareDisplayed(TESTINGLOG, tips, false);
         publishWorkflowStatus(tips);
-        emit pauseTesting();
+        pauseForOperator();
         return;
     }
     if (m_waitingPrpRead) {
@@ -212,7 +213,7 @@ void TestProjectProcess::handleAckTimeout()
         const QString tips = tr("读取PRP初值超时，已暂停，请处理后点「继续」重读");
         promptsareDisplayed(TESTINGLOG, tips, false);
         publishWorkflowStatus(tips);
-        emit pauseTesting();
+        pauseForOperator();
         return;
     }
 
@@ -221,7 +222,7 @@ void TestProjectProcess::handleAckTimeout()
     logTestFsm(QStringLiteral("ack_timeout"),
                tr("待应答=%1 恢复队列=%2").arg(acksBeforeTimeout).arg(m_pauseCommandQueue.size()));
     publishWorkflowStatus(tips);
-    emit pauseTesting();
+    pauseForOperator();
     promptsareDisplayed(TESTINGLOG, tips, true);
 }
 
@@ -299,6 +300,10 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_waitingPrpRead = false;
     m_pendingPppReread = false;
     m_pendingPrpReread = false;
+    m_prp0SpitDelayPending = false;
+    ++m_prp0SpitToken;
+    m_spitWashPending = false;
+    ++m_spitOpenToken;
     m_offlineWaitingReconnect = false;
     m_offlineVoided = false;
     m_prepatchAckPaced = false;
@@ -407,20 +412,45 @@ void TestProjectProcess::stallWithPause(const QString &event,
     logTestFsm(event, userTips);
     publishWorkflowStatus(userTips);
     promptsareDisplayed(TESTINGLOG, userTips, modalPrompt);
-    if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-        emit pauseTesting();
-    }
+    pauseForOperator();
 }
 
 bool TestProjectProcess::shouldDeferSendForPause() const
 {
-    // 抓杯失败后的抬抓手/双针复位必须继续下发，不能被暂停缓存吞掉
-    if (m_gripperErrStartMs > 0) {
+    // 抓杯失败后的抬抓手/双针复位、全轴复位必须继续下发，不能被暂停缓存吞掉
+    if (m_gripperErrStartMs > 0 || m_Errorresetsfirst) {
         return false;
     }
-    return cglobal::g_PauseTesting.load()
-            && !m_Errorresetsfirst
-            && StructInstance::getInstance()->sampleHadFocus();
+    return cglobal::g_PauseTesting.load();
+}
+
+void TestProjectProcess::pauseForOperator()
+{
+    if (!cglobal::g_StartTesting.load()) {
+        return;
+    }
+    cglobal::g_PauseTesting.store(true);
+    emit requestPauseUiSync(true);
+    emit pauseTesting();
+}
+
+void TestProjectProcess::flushPauseQueue(const QString &tips)
+{
+    if (m_pauseCommandQueue.isEmpty()) {
+        return;
+    }
+    if (m_pauseCommandQueue.size() == 1) {
+        const QByteArray cmd = m_pauseCommandQueue.takeFirst();
+        m_lastOutboundCommands = {cmd};
+        emit WriteaSingleCommand(cmd, tips);
+        noteCommandsSent(1);
+        return;
+    }
+    const QByteArrayList cmds = m_pauseCommandQueue;
+    m_pauseCommandQueue.clear();
+    m_lastOutboundCommands = cmds;
+    emit write_instructions_group(cmds, tips);
+    noteCommandsSent(cmds.size());
 }
 
 void TestProjectProcess::appendPauseQueueFromFocusRecovery()
@@ -522,9 +552,7 @@ void TestProjectProcess::writeCommandHeader(const QByteArray data,const QString 
         QString outerr = QString::fromUtf8("指令%1为空,停止推进避免焦点悬挂").arg(commandText);
         QLOG_ERROR()<<outerr<<endl;
         publishWorkflowStatus(outerr);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         promptsareDisplayed(TESTINGLOG,outerr,true);
         return;
     }
@@ -551,9 +579,7 @@ void TestProjectProcess::writeCommandHeader(const QByteArray data,const QString 
         }
         if (!cglobal::gserialConnecStatus.load()) {
             guard->logTestFsm(QStringLiteral("offline_drop_send"), commandText);
-            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-                emit guard->pauseTesting();
-            }
+            guard->pauseForOperator();
             guard->publishWorkflowStatus(tr("仪器离线，已暂停发送"));
             return;
         }
@@ -616,9 +642,7 @@ void TestProjectProcess::sendInstructionsWithDelay(const QByteArrayList data_,in
         }
         if (!cglobal::gserialConnecStatus.load()) {
             guard->logTestFsm(QStringLiteral("offline_drop_batch"), instructioninfo);
-            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-                emit guard->pauseTesting();
-            }
+            guard->pauseForOperator();
             guard->publishWorkflowStatus(tr("仪器离线，已暂停发送"));
             return;
         }
@@ -648,9 +672,37 @@ void TestProjectProcess::loadPedningtimeTask(){
          if(!hadFocus && m_finishTestData.isEmpty()){
              m_pendingtimeSample.removeOne(sampleId);
              structInstance.setSamplePendingtimeStatus(sampleId,false);
-             structInstance.config_focusSample(sampleId ,true);
-             m_focus_sample_id = sampleId;
-             testSampleTryAgain(activeIndex,true);
+             bool testingFocus = false;
+             for (auto flow = s_reagentWorkflow.cbegin(); flow != s_reagentWorkflow.cend(); ++flow) {
+                 if (flow.value().testingFocus == activeIndex) {
+                     testingFocus = true;
+                     break;
+                 }
+             }
+             const bool canRetry = testingFocus || StructInstance::isGripperCupFailFocus(activeIndex);
+             if (canRetry) {
+                 structInstance.config_focusSample(sampleId, true);
+                 m_focus_sample_id = sampleId;
+                 testSampleTryAgain(activeIndex, true);
+                 return;
+             }
+             const QByteArray resumeCmd = structInstance.outputstheFirstIncompleteInstruction(sampleId, activeIndex);
+             const QByteArrayList resumeList = structInstance.outputsIncompleteInstructionList(sampleId, activeIndex);
+             if (!resumeCmd.isEmpty() || !resumeList.isEmpty()) {
+                 structInstance.config_focusSample(sampleId, true);
+                 m_focus_sample_id = sampleId;
+                 setSampleFocus(sampleId, activeIndex, tr("挂起恢复"));
+                 if (!resumeCmd.isEmpty()) {
+                     writeCommandHeader(resumeCmd, tr("挂起恢复，继续当前步骤"), DELAY_TIMENUM);
+                 } else {
+                     sendInstructionsWithDelay(resumeList, DELAY_TIMENUM, tr("挂起恢复，继续当前步骤"));
+                 }
+                 return;
+             }
+             const QString msg = tr("样本%1挂起步骤无法续跑，已暂停").arg(sampleId);
+             QLOG_ERROR() << msg << "焦点步骤" << activeIndex;
+             promptsareDisplayed(TESTINGLOG, msg, true);
+             pauseForOperator();
              return;
          }
     }
@@ -699,7 +751,7 @@ void TestProjectProcess::executeSampleAddition(int sampleId, StructInstance& ins
             promptsareDisplayed(TESTINGLOG, msg, false);
             publishWorkflowStatus(msg);
             emit sampleSuckPosInvalid(msg);
-            emit pauseTesting();
+            pauseForOperator();
             return;
         }
     }
@@ -830,23 +882,12 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
 
      auto* instance = StructInstance::getInstance();
 
+     dropFinishTasksForSample(sampleid);
      const auto *itsample = instance->rfindIdSample(sampleid);
 
      if(itsample == nullptr) {
          QLOG_ERROR()<<"放弃样本"<<sampleid<<"失败";
          return ;
-     }
-    int idgiveupSample = itsample->indexTestingChn;
-
-     //先把入队的任务踢出
-     auto it = m_finishTestData.begin();
-     while (it != m_finishTestData.end()) {
-         if (it->index_Chn == idgiveupSample && it->CompleteSampleid == sampleid) {
-             it = m_finishTestData.erase(it);
-         }
-         else {
-             ++it;
-         }
      }
 
      releaseSampleChannel(sampleid, true);
@@ -1174,12 +1215,16 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
             }
             if (m_pauseAwaitConsumable) {
                 cglobal::g_PauseTesting.store(true);
-                emit pauseTesting();
                 emit requestPauseUiSync(true);
+                emit pauseTesting();
                 publishWorkflowStatus(tr("试剂不足，全轴已复位，请更换后点「继续」"));
                 promptsareDisplayed(TESTINGLOG,
                                     tr("试剂不足，全轴已复位，请更换试剂后点「继续」"),
                                     false);
+                return;
+            }
+            if (cglobal::g_PauseTesting.load()) {
+                publishWorkflowStatus(tr("复位已完成，点「继续」后接着测试"));
                 return;
             }
             exceptionRetest(QString::fromUtf8("全轴复位完成继续测试"));
@@ -1223,9 +1268,7 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
         clearPppPreProbeRecoveryState();
         disarmAckWatchdog();
         emit abortPendingEquipmentIo();
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         promptsareDisplayed(TESTINGLOG, tips, true);
         return;
     }
@@ -1335,8 +1378,17 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
             recv_throwCup(indexActive,commandIndex,slaveAddr,Action_motor,recvData);
             break;
         }
-            default:
-                break;
+            default: {
+            const QString tips = tr("应答对不上当前焦点(步骤%1，样本%2，命令%3)，已暂停")
+                    .arg(indexActive)
+                    .arg(m_focus_sample_id)
+                    .arg(commandIndex);
+            QLOG_ERROR() << tips;
+            publishWorkflowStatus(tips);
+            promptsareDisplayed(TESTINGLOG, tips, true);
+            pauseForOperator();
+            break;
+        }
         }
 
 
@@ -1354,6 +1406,7 @@ void TestProjectProcess::getFreeTimeTestChn()
 
     if (hasFreeChannel) {
         instance->setTestingChn(m_focus_sample_id, freeChannel);
+        restoreChannelAfterAbnormal(freeChannel);
         emit openChnMotor(freeChannel, true);
         logTestFsmInfo(QStringLiteral("ppp_to_chn"),
                        tr("通道%1").arg(freeChannel + 1));
@@ -1391,9 +1444,7 @@ void TestProjectProcess::throwAnemiaCup(quint8 testChn)
         const QString tips = tr("实验模式 PPP 初值异常，已暂停，请处理后点「继续」重读");
         publishWorkflowStatus(tips);
         promptsareDisplayed(TESTINGLOG, tips, false);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         return;
     }
     m_waitingPppRead = false;
@@ -1865,12 +1916,41 @@ void TestProjectProcess::slotSpitReagentTesting()
     const quint8 newFocus = it.value().first;
     const quint8 reagentType = it.value().second;
 
-    setSampleFocus(m_focus_sample_id, newFocus, tr("PRP初值OK吐试剂"));
+    setSampleFocus(m_focus_sample_id, newFocus, tr("PRP初值OK，延时后吐试剂"));
 
-    const QByteArray firstComm = instance->addReagentIntoChannel(m_focus_sample_id, reagentType);
-    logTestFsmInfo(QStringLiteral("spit_reagent_start"),
-                   GlobalData::mapIndexReagentnames(reagentType));
-    writeCommandHeader(firstComm,"吐试剂到测试通道",DELAY_TIMENUM);
+    const int spitDelayMs = qMax(0, INI_File()._getdelayedtime());
+    const int token = ++m_prp0SpitToken;
+    m_prp0SpitDelayPending = true;
+    promptsareDisplayed(TESTINGLOG,
+                        tr("PRP0已记录，%1毫秒后吐%2")
+                            .arg(spitDelayMs)
+                            .arg(GlobalData::mapIndexReagentnames(reagentType)),
+                        false);
+    QPointer<TestProjectProcess> guard(this);
+    const int sampleId = m_focus_sample_id;
+    QTimer::singleShot(spitDelayMs, this, [guard, sampleId, reagentType, token]() {
+        if (!guard || token != guard->m_prp0SpitToken || !guard->m_prp0SpitDelayPending)
+            return;
+        if (guard->m_focus_sample_id != sampleId)
+            return;
+        guard->m_prp0SpitDelayPending = false;
+        const QByteArray firstComm = StructInstance::getInstance()->addReagentIntoChannel(
+                    sampleId, reagentType);
+        guard->logTestFsmInfo(QStringLiteral("spit_reagent_start"),
+                              GlobalData::mapIndexReagentnames(reagentType));
+        guard->writeCommandHeader(firstComm, QString::fromUtf8("吐试剂到测试通道"), DELAY_TIMENUM);
+    });
+}
+
+void TestProjectProcess::handleOpenTestChnRejected(int sampleId)
+{
+    m_spitWashPending = false;
+    m_spitOpenToken = 0;
+    const QString msg = tr("样本%1没有测试通道，洗针没有发出，已暂停").arg(sampleId);
+    QLOG_ERROR() << msg;
+    publishWorkflowStatus(msg);
+    promptsareDisplayed(TESTINGLOG, msg, true);
+    pauseForOperator();
 }
 
 void TestProjectProcess::recvSpitReagent(quint8 indexActive, const int indexNum, quint8 reagentIndex)
@@ -1889,9 +1969,7 @@ void TestProjectProcess::recvSpitReagent(quint8 indexActive, const int indexNum,
         } else {
             QLOG_ERROR() << "样本ID" << m_focus_sample_id << "试剂" << reagentIndex
                          << "未完成但无下一个指令，停止推进避免悬挂";
-            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-                emit pauseTesting();
-            }
+            pauseForOperator();
             promptsareDisplayed(TESTINGLOG, tr("吐试剂指令缺失，已暂停"), true);
         }
     } else {
@@ -1900,9 +1978,12 @@ void TestProjectProcess::recvSpitReagent(quint8 indexActive, const int indexNum,
         const int delayMs = std::max(DELAY_TIMENUM, nextDelayMs);
         QPointer<TestProjectProcess> guard(this);
         const int sampleId = m_focus_sample_id;
-        QTimer::singleShot(delayMs, this, [guard, sampleId, indexActive, indexReagentForAbsorbent]() {
-            if (!guard)
+        const int token = ++m_spitOpenToken;
+        m_spitWashPending = true;
+        QTimer::singleShot(delayMs, this, [guard, sampleId, indexActive, indexReagentForAbsorbent, token]() {
+            if (!guard || token != guard->m_spitOpenToken || !guard->m_spitWashPending)
                 return;
+            guard->m_spitWashPending = false;
             guard->logTestFsmInfo(QStringLiteral("open_chn_test_emit"),
                                   tr("样本%1 试剂索引%2").arg(sampleId).arg(indexReagentForAbsorbent));
             emit guard->openTestChnTest(sampleId, indexActive, indexReagentForAbsorbent);
@@ -1926,6 +2007,8 @@ void TestProjectProcess::recvSpitReagent(quint8 indexActive, const int indexNum,
 
 void TestProjectProcess::slotaddSampmeTestCleanPin(const int cleanPin ,const quint8 index_reagent)
 {
+    m_spitWashPending = false;
+    m_spitOpenToken = 0;
     quint8 focus_index_set = 0;
     QString outtext;
     if(cleanPin == WASH_DOUBLE_NEDDLES)
@@ -1961,15 +2044,46 @@ void TestProjectProcess::startCleanNeedleAckMode(const QString &tips)
         QLOG_ERROR() << QString::fromUtf8("清洗针类型无效，无法启动应答发送");
         return;
     }
+    const quint8 cleanFocus = StructInstance::getInstance()->read_focusSampleActive(m_focus_sample_id);
+    int cleanDeplete = -1;
+    switch (cleanFocus) {
+    case FOCUS_CLEAN_BLOODPIN: cleanDeplete = 1; break;
+    case FOCUS_CLEAN_DOUBLEPIN: cleanDeplete = 2; break;
+    case FOCUS_CLEAN_EREAGENTPIN_AA:
+    case FOCUS_CLEAN_EREAGENTPIN_ADP:
+    case FOCUS_CLEAN_EREAGENTPIN_EPI:
+    case FOCUS_CLEAN_EREAGENTPIN_COL:
+    case FOCUS_CLEAN_EREAGENTPIN_RIS:
+        cleanDeplete = 0;
+        break;
+    default:
+        break;
+    }
+    if (cleanDeplete >= 0
+            && !GlobalData::cleaningFluidCoversNextUse(static_cast<quint8>(cleanDeplete))) {
+        m_hasPendingCleanDeduct = false;
+        const QString lack = tr("清洗液S1不够完成本次清洗，请更换后再点「继续」");
+        publishWorkflowStatus(lack);
+        promptsareDisplayed(TESTINGLOG, lack, false);
+        emit pauseSycnMainuiUpdate(INDEX_CLEANLINQUE_CONSUMABLE);
+        missingReagentResetPause();
+        return;
+    }
     promptsareDisplayed(TESTINGLOG, tips, false);
     const quint8 focus = StructInstance::getInstance()->read_focusSampleActive(m_focus_sample_id);
     const QByteArray firstCmd = StructInstance::getInstance()->outputstheFirstIncompleteInstruction(
                 m_focus_sample_id, focus);
     if (firstCmd.isEmpty()) {
-        QLOG_ERROR() << tips << QString::fromUtf8("无未完成清洗指令 样本") << m_focus_sample_id;
-        promptsareDisplayed(TESTINGLOG,
-                            tr("清洗序列无有效指令（常见原因：清洗位未标定为(0,0)或与原点相同），请检查维护参数/坐标"),
-                            true);
+        m_hasPendingCleanDeduct = false;
+        const QString msg = tr("清洗序列无有效指令（常见原因：清洗位未标定为(0,0)或与原点相同），已暂停并放开焦点");
+        QLOG_ERROR() << tips << msg << "样本" << m_focus_sample_id;
+        promptsareDisplayed(TESTINGLOG, msg, true);
+        const int stuckId = m_focus_sample_id;
+        dismissFocusSample(stuckId);
+        if (m_focus_sample_id == stuckId) {
+            m_focus_sample_id = 0;
+        }
+        pauseForOperator();
         return;
     }
     writeCommandHeader(firstCmd, tips, DELAY_TIMENUM);
@@ -1985,6 +2099,16 @@ void TestProjectProcess::continueCleanNeedleAckMode(bool finished, const QByteAr
         return;
     }
     if (nextCmd.isEmpty()) {
+        m_hasPendingCleanDeduct = false;
+        const QString msg = tr("清洗下一步指令为空，已暂停并放开焦点，点继续后调度其它任务");
+        QLOG_ERROR() << msg << "样本" << m_focus_sample_id;
+        promptsareDisplayed(TESTINGLOG, msg, true);
+        const int stuckId = m_focus_sample_id;
+        dismissFocusSample(stuckId);
+        if (m_focus_sample_id == stuckId) {
+            m_focus_sample_id = 0;
+        }
+        pauseForOperator();
         return;
     }
     writeCommandHeader(nextCmd, tips, DELAY_TIMENUM);
@@ -1996,8 +2120,13 @@ void TestProjectProcess::sendFirstPrepatchCommand(const QString &tips)
     const QByteArray firstCmd = StructInstance::getInstance()->nextIncompletePrepatch(m_focus_sample_id);
     if (firstCmd.isEmpty()) {
         m_prepatchAckPaced = false;
+        const QString msg = tr("抓手善后指令为空，已暂停。请放弃样本或检查复位参数");
         QLOG_ERROR() << "[抓手异常] 样本" << m_focus_sample_id
                      << "| 善后队列是空的，无法开始 | " << tips;
+        promptsareDisplayed(TESTINGLOG, msg, true);
+        pauseForOperator();
+        const quint8 focus = StructInstance::getInstance()->read_focusSampleActive(m_focus_sample_id);
+        emit theGripperFailed(m_focus_sample_id, msg, focus);
         return;
     }
     QLOG_INFO() << "[抓手异常] 样本" << m_focus_sample_id
@@ -2044,45 +2173,39 @@ void TestProjectProcess::recv_cleanBloodPin(const int index_num, const int slave
 // 处理完成通道任务
 void TestProjectProcess::processFinishedChannelTask()
 {
-    const Finish_Data_ task = m_finishTestData.dequeue();
-
-    // 调试日志输出
-    QLOG_DEBUG() << "出队任务通道 " << task.index_Chn
-                          << " | " << QUIUtils::index_reagent_mapping_reagentName(task.index_reagent, "试剂");
-
     auto *instance = StructInstance::getInstance();
-    QString sampleName;
-    int sampleId = 0;
-    if (task.CompleteSampleid > 0) {
-        const DATASAMPLESTRUCT *ps = instance->rfindIdSample(task.CompleteSampleid);
-        if (ps && ps->indexTestingChn == static_cast<int>(task.index_Chn)) {
-            sampleId = task.CompleteSampleid;
-            sampleName = ps->samplestr;
-        } else {
-            QLOG_WARN() << "完成入队任务与通道占用不一致，延后 任务样本"
-                        << task.CompleteSampleid << "任务通道" << (task.index_Chn + 1);
-            m_finishTestData.enqueue(task);
-            if (startPendingContinueReagent()) {
-                return;
+    while (!m_finishTestData.isEmpty()) {
+        const Finish_Data_ task = m_finishTestData.dequeue();
+        QLOG_DEBUG() << "出队任务通道 " << task.index_Chn
+                     << " | " << QUIUtils::index_reagent_mapping_reagentName(task.index_reagent, "试剂");
+
+        QString sampleName;
+        int sampleId = 0;
+        if (task.CompleteSampleid > 0) {
+            const DATASAMPLESTRUCT *ps = instance->rfindIdSample(task.CompleteSampleid);
+            if (ps && ps->indexTestingChn == static_cast<int>(task.index_Chn)) {
+                sampleId = task.CompleteSampleid;
+                sampleName = ps->samplestr;
+            } else {
+                QLOG_ERROR() << "完成记录与样本通道不一致，丢弃该弃杯任务，样本"
+                             << task.CompleteSampleid << "通道" << (task.index_Chn + 1);
+                continue;
             }
-            TraverseChnHadFinishTesting(THROW_CUPS_END);
-            return;
         }
-    }
-    if (sampleId <= 0) {
-        instance->rootTestChnGetSampleInfo(task.index_Chn, sampleName, sampleId);
-    }
-    if (sampleId <= 0) {
-        QLOG_ERROR() << "完成队列通道" << (task.index_Chn + 1) << "未找到样本，跳过弃杯";
-        TraverseChnHadFinishTesting(THROW_CUPS_END);
+        if (sampleId <= 0) {
+            instance->rootTestChnGetSampleInfo(task.index_Chn, sampleName, sampleId);
+        }
+        if (sampleId <= 0 || task.index_Chn >= MACHINE_SETTING_CHANNEL) {
+            QLOG_ERROR() << "完成队列通道" << (task.index_Chn + 1) << "未找到样本，跳过弃杯";
+            continue;
+        }
+
+        setupFocusSample(sampleId, task.index_reagent);
+        sendControlCommands(task.index_Chn, sampleId, task.index_reagent);
         return;
     }
 
-    // 设置焦点样本
-    setupFocusSample(sampleId, task.index_reagent);
-
-    // 发送控制命令
-    sendControlCommands(task.index_Chn, sampleId, task.index_reagent);
+    handleIdleChannelTasks();
 }
 
 // 设置焦点样本
@@ -2136,6 +2259,7 @@ void TestProjectProcess::handleIdleChannelTasks()
     StructInstance::getInstance()->config_focusSample(waitSampleId, true);
     setSampleFocus(waitSampleId, FOCUS_CLIP_ANEMIA_TO_CHN, tr("空闲通道夹PPP"));
     StructInstance::getInstance()->setTestingChn(waitSampleId, freeChn);
+    restoreChannelAfterAbnormal(freeChn);
 
     emit openChnMotor(freeChn, true);
 
@@ -2269,6 +2393,9 @@ void TestProjectProcess::throwCupFinish()
      if(bhand_waittest_reag)
      {
         if (skipFailedPrp) {
+            const auto *continuing = instance->rfindIdSample(m_focus_sample_id);
+            if (continuing && continuing->indexTestingChn >= 0)
+                restoreChannelAfterAbnormal(static_cast<quint8>(continuing->indexTestingChn));
             promptsareDisplayed(TESTINGLOG,
                                 tr("样本%1 当前PRP已丢弃，继续测试试剂%2")
                                     .arg(m_focus_sample_id)
@@ -2389,21 +2516,39 @@ void TestProjectProcess::slot_connectEquipmentagin()
         return;
     }
 
-    // P2：保存焦点快照；未完成动作的待扣耗材作废，避免重连续跑误扣
+    // 保存焦点快照；未完成动作的待扣耗材作废，避免重连续跑误扣
     captureReconnectSnapshot();
     clearPendingConsumableDeducts();
+    m_pauseCommandQueue.clear();
+    m_outstandingAcks = 0;
+    disarmAckWatchdog();
+    m_offlineWaitingReconnect = false;
     if (m_offlineVoided) {
         publishWorkflowStatus(tr("断线重连：全轴复位后处理作废试剂"));
     } else {
         publishWorkflowStatus(tr("断线重连：全轴复位后按快照续跑"));
     }
 
-    //先所有轴复位
+    // 先所有轴复位。掉线前的应答不会再来，名单和待应答数先清掉。
     m_Errorresetsfirst = true;
     mbackOriginnumList.clear();
     QByteArrayList allAxisBackOrigin = GlobalData::letallAxisBackOrigin(mbackOriginnumList);
     sendInstructionsWithDelay(allAxisBackOrigin,DELAY_TIMENUM, "重连继续遍历测试指令");
 
+    QPointer<TestProjectProcess> guard(this);
+    QTimer::singleShot(RESET_FALLBACK_MS, this, [guard]() {
+        if (!guard || !guard->m_Errorresetsfirst) {
+            return;
+        }
+        QLOG_WARN() << QString::fromUtf8("重连全轴复位应答未齐，强制继续调度");
+        guard->m_Errorresetsfirst = false;
+        guard->mbackOriginnumList.clear();
+        guard->m_outstandingAcks = 0;
+        guard->disarmAckWatchdog();
+        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
+            guard->exceptionRetest(QString::fromUtf8("重连复位应答未齐强制续跑"));
+        }
+    });
 }
 
 
@@ -2445,8 +2590,9 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
 
     dismissFocusSample(m_focus_sample_id);
 
-    //结构体删除样本
+    //结构体删除样本前清掉它的弃杯记录，避免样本已删仍反复调度
     const int finishedSampleId = m_focus_sample_id;
+    dropFinishTasksForSample(finishedSampleId);
     instance->onetestend_del(finishedSampleId);
     removeSampleFromSchedulerQueues(finishedSampleId);
     m_focus_sample_id = 0;
@@ -2522,16 +2668,10 @@ void TestProjectProcess::handleResumeaTestTask()
         return;
     }
 
-    if (!hasFocus && !m_pauseCommandQueue.isEmpty()) {
-        logTestFsm(QStringLiteral("resume_no_focus_stash"),
-                   tr("暂停队列=%1，改由调度续跑").arg(m_pauseCommandQueue.size()));
-        exceptionRetest(tr("无焦点恢复"));
-        return;
-    }
-
     if (hasFocus) {
         if (DATASAMPLESTRUCT *ps = instance->wfindIdSample(m_focus_sample_id)) {
             if (ps->pppAwaitManualWipe && !ps->pppAddSamplePendingTail.isEmpty()) {
+                m_pauseCommandQueue.clear();
                 ps->pppAwaitManualWipe = false;
                 ps->pppPreProbeCompleted = false;
                 ps->pppManualPreProbeRetry = true;
@@ -2547,19 +2687,17 @@ void TestProjectProcess::handleResumeaTestTask()
         }
     }
 
-    if (hasFocus && !m_pauseCommandQueue.isEmpty()) {
-        if (m_pauseCommandQueue.size() == 1) {
-            const QByteArray cmd = m_pauseCommandQueue.takeFirst();
-            m_lastOutboundCommands = {cmd};
-            emit WriteaSingleCommand(cmd, tr("继续发送指令"));
-            noteCommandsSent(1);
-        } else {
-            const QByteArrayList cmds = m_pauseCommandQueue;
-            m_pauseCommandQueue.clear();
-            m_lastOutboundCommands = cmds;
-            emit write_instructions_group(cmds, tr("继续任务指令群"));
-            noteCommandsSent(cmds.size());
-        }
+    if (m_outstandingAcks > 0 && !m_Errorresetsfirst) {
+        logTestFsmInfo(QStringLiteral("resume_wait_ack"),
+                       tr("待应答=%1，当前指令回来后再走下一步").arg(m_outstandingAcks));
+        armAckWatchdog();
+        return;
+    }
+
+    if (!m_pauseCommandQueue.isEmpty()) {
+        logTestFsmInfo(QStringLiteral("resume_flush_queue"),
+                       tr("暂停队列=%1").arg(m_pauseCommandQueue.size()));
+        flushPauseQueue(tr("继续发送暂停期间拦住的指令"));
         return;
     }
 
@@ -2765,9 +2903,7 @@ void TestProjectProcess::finishPppPreProbeDecision(const QStringList &recvdata)
     ps->pppAwaitManualWipe = true;
     clearPppPreProbeRecoveryState();
     publishWorkflowStatus(tr("PPP预探测挂液：请擦净样本针后继续"));
-    if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-        emit pauseTesting();
-    }
+    pauseForOperator();
     promptsareDisplayed(TESTINGLOG,
                         tr("洗针后仍探测到挂液，请擦净样本针尖。"
                            "确定：按失败高度液面探测吸PPP；取消：暂停后点「继续」重做预探测。"),
@@ -3219,9 +3355,7 @@ void TestProjectProcess::commandNotCompleteOrErr(const bool isGripperError,const
                     << "| 开始逐步执行：先抓手复位，再双针，最后XY";
         const QString statusTips = tips + tr("：正在抬抓手，然后复位双针、XY回原点，请稍候");
         publishWorkflowStatus(statusTips);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         sendFirstPrepatchCommand(statusTips);
         QPointer<TestProjectProcess> gripGuard(this);
         QTimer::singleShot(GRIPPER_ERR_TIMEOUT_MS, this, [gripGuard]() {
@@ -3286,6 +3420,100 @@ void TestProjectProcess::handlePrpBaselineInvalid()
     publishWorkflowStatus(tr("PRP初值异常，等待处理后继续重读"));
 }
 
+void TestProjectProcess::handlePrpGripNotReady()
+{
+    if (m_resumingPrpGrip) {
+        return;
+    }
+    m_resumingPrpGrip = true;
+    m_waitingPrpRead = false;
+    m_pendingPrpReread = false;
+    m_prpPlacedForRead = false;
+    ++m_prpMotionEpoch;
+    disarmAckWatchdog();
+
+    auto *instance = StructInstance::getInstance();
+    quint8 reagent = m_pendingPrpReagent;
+    if (reagent == 0 && m_focus_sample_id > 0 && instance) {
+        reagent = reagentFromFocus(instance->read_focusSampleActive(m_focus_sample_id));
+    }
+
+    if (m_focus_sample_id <= 0 || reagent == 0) {
+        m_rebuildPrpClip = true;
+        const bool started = startPendingContinueReagent();
+        m_rebuildPrpClip = false;
+        if (!started) {
+            const QString outerr = tr("无法继续抓PRP：没有焦点样本");
+            publishWorkflowStatus(outerr);
+            pauseForOperator();
+            promptsareDisplayed(TESTINGLOG, outerr, true);
+        }
+        m_resumingPrpGrip = false;
+        return;
+    }
+
+    const ReagentWorkflow workflow = s_reagentWorkflow.value(reagent);
+    if (workflow.testingFocus != 0 && instance) {
+        instance->config_focusSample(m_focus_sample_id, true);
+        setSampleFocus(m_focus_sample_id, workflow.testingFocus, tr("重新吸试剂抓PRP"));
+        m_pendingPrpReagent = reagent;
+        m_pendingPrpFocus = workflow.testingFocus;
+    }
+
+    const QString tips = tr("杯子不在通道，重新从试剂位吸%1并抓杯")
+            .arg(GlobalData::mapIndexReagentnames(reagent));
+    if (!startPrpClipFromReagent(reagent, tips)) {
+        enqueueContinueReagent(m_focus_sample_id);
+    }
+    m_resumingPrpGrip = false;
+}
+
+bool TestProjectProcess::prpSampleLocated(quint8 focusActive)
+{
+    if (focusActive == 0 || m_focus_sample_id <= 0) {
+        return false;
+    }
+    quint8 channel = 0;
+    const int sampleId = StructInstance::getInstance()->ClipEndGetAnemiaValeChn(
+                channel, focusActive, QString::fromUtf8("PRP定位"));
+    return sampleId == m_focus_sample_id;
+}
+
+void TestProjectProcess::schedulePrpBaselineRead(quint8 reagentIndex, quint8 focusActive, int delayMs)
+{
+    const quint64 epoch = m_prpMotionEpoch;
+    QPointer<TestProjectProcess> guard(this);
+    QTimer::singleShot(delayMs, this, [guard, reagentIndex, focusActive, epoch]() {
+        if (!guard || guard->m_prpMotionEpoch != epoch) {
+            return;
+        }
+        guard->requestPrpBaselineRead(reagentIndex, focusActive);
+    });
+}
+
+void TestProjectProcess::restoreChannelAfterAbnormal(quint8 channel)
+{
+    emit giveupChannelFlash(true, channel);
+}
+
+void TestProjectProcess::writeAbnormalReagentResult(int sampleId, quint8 reagent)
+{
+    if (sampleId <= 0 || reagent < AA_REAGENT || reagent > RIS_REAGENT)
+        return;
+    CustomCreatSql *db = FullyAutomatedPlatelets::pinstancesqlData();
+    if (!db)
+        return;
+    QString sampleKey = GlobalData::groupDateAndID(GlobalData::ObatinCreatSampleTime(), sampleId);
+    Calibrate *patient = FullyAutomatedPlatelets::pinstancepatientdata();
+    if (patient && patient->hasfollowUpSample(sampleKey))
+        sampleKey.append(QLatin1Char('F'));
+    const QString column = QUIUtils::IndexPorgectMapString(reagent, true);
+    db->updateTestResultTable(sampleKey, column, tr("异常"));
+    QLOG_WARN() << "PRP异常结果" << sampleKey << column;
+    if (patient)
+        patient->refreshOpenResultIfViewing(sampleKey, reagent);
+}
+
 void TestProjectProcess::markReagentSkipped(int sampleId, quint8 reagent)
 {
     StructInstance::DataGuard guard;
@@ -3336,6 +3564,7 @@ void TestProjectProcess::handlePrpZeroSkipReagent(int sampleId, quint8 reagent, 
     }
 
     markReagentSkipped(sampleId, reagent);
+    writeAbnormalReagentResult(sampleId, reagent);
 
     const QString tips = tr("样本%1 %2 PRP读初值异常，丢弃当前试剂杯")
                              .arg(sampleId)
@@ -3377,6 +3606,27 @@ void TestProjectProcess::requestPrpBaselineRead(quint8 reagentIndex, quint8 focu
         logTestFsmInfo(QStringLiteral("prp_read_deferred"), tr("已暂停"));
         return;
     }
+    auto *instance = StructInstance::getInstance();
+    const bool clipDone = instance->prpClipFinishedAwaitingRead(m_focus_sample_id, reagentIndex);
+    if (!clipDone || !m_prpPlacedForRead || !prpSampleLocated(focusActive)) {
+        m_pendingPrpReread = false;
+        m_waitingPrpRead = false;
+        QLOG_WARN() << "吸试剂抓杯还没放到通道，先不判断PRP 样本" << m_focus_sample_id
+                    << "段完成" << clipDone << "已放杯" << m_prpPlacedForRead;
+        if (!clipDone) {
+            QByteArray next = instance->outputstheFirstIncompleteInstruction(
+                        m_focus_sample_id, focusActive);
+            if (!next.isEmpty()) {
+                promptsareDisplayed(TESTINGLOG,
+                                    tr("吸试剂抓杯未完成，继续执行，放到通道后再判断PRP"),
+                                    false);
+                writeCommandHeader(next, tr("继续吸试剂抓杯"), DELAY_TIMENUM);
+                return;
+            }
+        }
+        handlePrpGripNotReady();
+        return;
+    }
     m_pendingPrpReread = false;
     m_waitingPrpRead = true;
     logTestFsmInfo(QStringLiteral("prp_read_start"),
@@ -3398,6 +3648,21 @@ void TestProjectProcess::enqueueContinueReagent(int sampleId)
 void TestProjectProcess::removeSampleFromSchedulerQueues(int sampleId)
 {
     m_pendingContinueReagent.removeAll(sampleId);
+}
+
+void TestProjectProcess::dropFinishTasksForSample(int sampleId)
+{
+    if (sampleId <= 0) {
+        return;
+    }
+    auto it = m_finishTestData.begin();
+    while (it != m_finishTestData.end()) {
+        if (it->CompleteSampleid == sampleId) {
+            it = m_finishTestData.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void TestProjectProcess::dismissFocusSample(int sampleId)
@@ -3473,19 +3738,27 @@ bool TestProjectProcess::beginNextReagentForSample(int sampleId)
 
     const QString continueLog = QString::fromUtf8("样本%1继续吸试剂:%2")
             .arg(sampleId).arg(outLog);
+    m_pendingPrpReagent = waittest_reag;
+    m_pendingPrpFocus = workflow.testingFocus;
+    m_prpPlacedForRead = false;
+    const bool rebuildClip = m_rebuildPrpClip
+            || instance->prpClipFinishedAwaitingRead(sampleId, waittest_reag);
+    if (rebuildClip) {
+        m_pendingPrpReread = false;
+        m_waitingPrpRead = false;
+        if (!startPrpClipFromReagent(waittest_reag, continueLog)) {
+            enqueueContinueReagent(sampleId);
+        }
+        return true;
+    }
+
     QByteArray suckCmd = instance->sendsuckReagentCatchCuptoTestChannelHead(sampleId, waittest_reag);
     if (suckCmd.isEmpty()) {
-        suckCmd = instance->restartPrpClipFromFirst(sampleId, waittest_reag);
-    }
-    if (suckCmd.isEmpty()) {
-        const QString outerr = QString::fromUtf8("样本%1吸试剂指令为空，已暂停").arg(sampleId);
-        QLOG_ERROR() << outerr;
-        publishWorkflowStatus(outerr);
-        promptsareDisplayed(TESTINGLOG, outerr, false);
-        m_pauseAwaitConsumable = true;
-        cglobal::g_PauseTesting.store(true);
-        enqueueContinueReagent(sampleId);
-        emit requestPauseUiSync(true);
+        m_pendingPrpReread = false;
+        m_waitingPrpRead = false;
+        if (!startPrpClipFromReagent(waittest_reag, continueLog)) {
+            enqueueContinueReagent(sampleId);
+        }
         return true;
     }
     promptsareDisplayed(TESTINGLOG, continueLog, false);
@@ -3508,7 +3781,27 @@ void TestProjectProcess::resumeTestingAfterReagentPause(bool hasFocus)
                    tr("样本焦点=%1").arg(hasFocus ? m_focus_sample_id : 0));
 
     m_holdReagentPause = true;
+    if (hasFocus) {
+        const quint8 focusNow = StructInstance::getInstance()->read_focusSampleActive(m_focus_sample_id);
+        const bool cleanFocus = focusNow == FOCUS_CLEAN_BLOODPIN
+                || focusNow == FOCUS_CLEAN_DOUBLEPIN
+                || focusNow == FOCUS_CLEAN_EREAGENTPIN_AA
+                || focusNow == FOCUS_CLEAN_EREAGENTPIN_ADP
+                || focusNow == FOCUS_CLEAN_EREAGENTPIN_EPI
+                || focusNow == FOCUS_CLEAN_EREAGENTPIN_COL
+                || focusNow == FOCUS_CLEAN_EREAGENTPIN_RIS;
+        if (cleanFocus) {
+            startCleanNeedleAckMode(focusActionText(focusNow));
+            m_holdReagentPause = false;
+            return;
+        }
+    }
+    m_pendingPrpReread = false;
+    m_waitingPrpRead = false;
+    ++m_prpMotionEpoch;
+    m_rebuildPrpClip = true;
     const bool started = startPendingContinueReagent();
+    m_rebuildPrpClip = false;
     if (!started && hasFocus) {
         exceptionRetest(tr("更换试剂后继续"));
     } else if (!started) {
@@ -3703,17 +3996,20 @@ void TestProjectProcess::recvNextTestReagent(quint8 reagentIndex, quint8 focusAc
                 kGripperFailed, klaterTimer, bnextBackReagentNeedle);
 
     if (actionCompleted) {
+        if (!prpSampleLocated(focusActive)) {
+            m_prpPlacedForRead = false;
+            QLOG_WARN() << "抓PRP被判完成，但通道里没有焦点样本，改为重新吸试剂抓杯"
+                        << m_focus_sample_id << reagentName;
+            handlePrpGripNotReady();
+            return;
+        }
+        m_prpPlacedForRead = true;
         deductPendingReagentConsumable();
         QLOG_DEBUG() << "样本" << m_focus_sample_id << reagentName
                      << "开始延时准备读取PRP初值";
         publishWorkflowStatus(tr("读取%1初值").arg(reagentName));
-        const int delayMs = DELAY_READ_TUBE_INITVALUE
-                + ((reagentIndex == AA_REAGENT) ? 0 : latencyTime);
-        QPointer<TestProjectProcess> guard(this);
-        QTimer::singleShot(delayMs, this, [guard, reagentIndex, focusActive]() {
-            if (guard)
-                guard->requestPrpBaselineRead(reagentIndex, focusActive);
-        });
+        const int delayMs = DELAY_READ_TUBE_INITVALUE + qMax(0, latencyTime);
+        schedulePrpBaselineRead(reagentIndex, focusActive, delayMs);
         return;
     }
 
@@ -3810,9 +4106,7 @@ bool TestProjectProcess::restartClipPppAfterHome(const QString& tips)
         const QString outerr = tr("复位后无法重建夹PPP指令，停止推进");
         QLOG_ERROR() << outerr << "样本" << m_focus_sample_id;
         publishWorkflowStatus(outerr);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         promptsareDisplayed(TESTINGLOG, outerr, true);
         return false;
     }
@@ -3832,9 +4126,7 @@ bool TestProjectProcess::restartThrowPppAfterHome(const QString& tips)
         const QString outerr = tr("复位后无法重建丢PPP指令，停止推进");
         QLOG_ERROR() << outerr << "样本" << m_focus_sample_id;
         publishWorkflowStatus(outerr);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         promptsareDisplayed(TESTINGLOG, outerr, true);
         return false;
     }
@@ -3854,9 +4146,51 @@ bool TestProjectProcess::restartThrowReagentAfterHome(quint8 reagent, const QStr
         const QString outerr = tr("复位后无法重建丢试剂杯指令，停止推进");
         QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
         publishWorkflowStatus(outerr);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
+        promptsareDisplayed(TESTINGLOG, outerr, true);
+        return false;
+    }
+    promptsareDisplayed(TESTINGLOG, tips, false);
+    writeCommandHeader(firstCmd, tips, DELAY_TIMENUM);
+    return true;
+}
+
+bool TestProjectProcess::startPrpClipFromReagent(quint8 reagent, const QString& tips)
+{
+    auto *inst = StructInstance::getInstance();
+    if (!inst || reagent == 0 || m_focus_sample_id <= 0) {
+        return false;
+    }
+    ++m_prpMotionEpoch;
+    m_pendingPrpReread = false;
+    m_waitingPrpRead = false;
+    m_prpPlacedForRead = false;
+    m_restartReagent = reagent;
+    m_gripperRestartAwait = GripperRestartPrpReagent;
+
+    QByteArray firstCmd = inst->restartPrpClipFromFirst(m_focus_sample_id, reagent);
+    if (firstCmd.isEmpty()) {
+        m_gripperRestartAwait = GripperRestartNone;
+        const QString outerr = tr("无法从试剂位重建抓PRP，已暂停");
+        QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
+        publishWorkflowStatus(outerr);
+        pauseForOperator();
+        promptsareDisplayed(TESTINGLOG, outerr, true);
+        return false;
+    }
+    const ReagentWorkflow workflow = s_reagentWorkflow.value(reagent);
+    if (workflow.consumableIndex == 255
+            || !controlsuckReagentLoc(workflow.consumableIndex, reagent)) {
+        m_gripperRestartAwait = GripperRestartNone;
+        return false;
+    }
+    firstCmd = inst->sendsuckReagentCatchCuptoTestChannelHead(m_focus_sample_id, reagent);
+    if (firstCmd.isEmpty()) {
+        m_gripperRestartAwait = GripperRestartNone;
+        const QString outerr = tr("无法从试剂位重建抓PRP，已暂停");
+        QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
+        publishWorkflowStatus(outerr);
+        pauseForOperator();
         promptsareDisplayed(TESTINGLOG, outerr, true);
         return false;
     }
@@ -3878,9 +4212,7 @@ bool TestProjectProcess::restartPrpAfterHome(quint8 reagent, const QString& tips
         const QString outerr = tr("复位后无法重建抓PRP指令，停止推进");
         QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
         publishWorkflowStatus(outerr);
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            emit pauseTesting();
-        }
+        pauseForOperator();
         promptsareDisplayed(TESTINGLOG, outerr, true);
         return false;
     }
@@ -3891,9 +4223,7 @@ bool TestProjectProcess::restartPrpAfterHome(quint8 reagent, const QString& tips
             const QString outerr = tr("复位后无法重建抓PRP指令，停止推进");
             QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
             publishWorkflowStatus(outerr);
-            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-                emit pauseTesting();
-            }
+            pauseForOperator();
             promptsareDisplayed(TESTINGLOG, outerr, true);
             return false;
         }
@@ -3907,9 +4237,7 @@ bool TestProjectProcess::restartPrpAfterHome(quint8 reagent, const QString& tips
             const QString outerr = tr("复位后无法重建抓PRP指令，停止推进");
             QLOG_ERROR() << outerr << "样本" << m_focus_sample_id << "试剂" << reagent;
             publishWorkflowStatus(outerr);
-            if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-                emit pauseTesting();
-            }
+            pauseForOperator();
             promptsareDisplayed(TESTINGLOG, outerr, true);
             return false;
         }
@@ -4009,6 +4337,10 @@ void TestProjectProcess::exceptionRetest(QString tips){
     const bool hadTestingFocus = instance->sampleHadFocus();
     if(hadTestingFocus){
         quint8  indexActive = instance->read_focusSampleActive(m_focus_sample_id);
+        if (m_prp0SpitDelayPending) {
+            promptsareDisplayed(TESTINGLOG, tr("PRP0已记录，延时结束后再吐试剂"), false);
+            return;
+        }
         if (restartGripperFocusAfterHome(indexActive, tr("复位后从XY重跑当前抓手动作"))) {
             return;
         }
@@ -4037,20 +4369,53 @@ void TestProjectProcess::exceptionRetest(QString tips){
                         break;
                     }
                 }
+                if (!m_prpPlacedForRead || !prpSampleLocated(indexActive)
+                        || !StructInstance::getInstance()->prpClipFinishedAwaitingRead(
+                            m_focus_sample_id, reagent)) {
+                    handlePrpGripNotReady();
+                    return;
+                }
                 promptsareDisplayed(TESTINGLOG, tr("抓PRP已完成，延时后重新读取PRP初值"), false);
-                QPointer<TestProjectProcess> prpGuard(this);
-                QTimer::singleShot(DELAY_READ_TUBE_INITVALUE, this, [prpGuard, reagent, indexActive]() {
-                    if (prpGuard) {
-                        prpGuard->requestPrpBaselineRead(reagent, indexActive);
+                schedulePrpBaselineRead(reagent, indexActive,
+                                        DELAY_READ_TUBE_INITVALUE + qMax(0, INI_File()._getdelayedtime()));
+            } else if (indexActive == FOCUS_SPIT_AA_TESTING || indexActive == FOCUS_SPIT_ADP_TESTING
+                       || indexActive == FOCUS_SPIT_EPI_TESTING || indexActive == FOCUS_SPIT_COL_TESTING
+                       || indexActive == FOCUS_SPIT_RIS_TESTING) {
+                quint8 reagent = 0;
+                for (auto flow = s_reagentWorkflow.cbegin(); flow != s_reagentWorkflow.cend(); ++flow) {
+                    if (flow.value().spitFocus == indexActive) {
+                        reagent = flow.key();
+                        break;
                     }
-                });
+                }
+                if (m_spitWashPending) {
+                    m_spitWashPending = false;
+                    ++m_spitOpenToken;
+                    promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，继续清洗针"), false);
+                    emit openTestChnTest(m_focus_sample_id, indexActive, reagent);
+                } else if (m_spitOpenToken != 0) {
+                    promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，清洗针即将开始"), false);
+                } else {
+                    ++m_spitOpenToken;
+                    promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，继续清洗针"), false);
+                    emit openTestChnTest(m_focus_sample_id, indexActive, reagent);
+                }
             } else if (startPendingContinueReagent()) {
                 return;
             } else {
-                QLOG_DEBUG()<<tips<<"无未发送指令"<<endl;
-                promptsareDisplayed(TESTINGLOG,QString("%1无未发送指令").arg(tips),false);
-                if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-                    emit pauseTesting();
+                QLOG_WARN() << tips << "无未发送指令，放开焦点继续调度";
+                promptsareDisplayed(TESTINGLOG,
+                                    QString("%1无未发送指令，继续调度其它任务").arg(tips),
+                                    false);
+                const int stuckId = m_focus_sample_id;
+                dismissFocusSample(stuckId);
+                if (m_focus_sample_id == stuckId) {
+                    m_focus_sample_id = 0;
+                }
+                if (!m_finishTestData.isEmpty()) {
+                    TraverseChnHadFinishTesting(THROW_CUPS_END);
+                } else if (!startPendingContinueReagent()) {
+                    StartSampleAdditionWorkflow();
                 }
             }
         }
@@ -4072,11 +4437,13 @@ void TestProjectProcess::exceptionRetest(QString tips){
                     sampleId = complete_.CompleteSampleid;
                     samplename = ps->samplestr;
                 } else {
-                    m_finishTestData.enqueue(complete_);
-                    if (startPendingContinueReagent()) {
-                        return;
+                    QLOG_ERROR() << "完成记录与样本通道不一致，丢弃该弃杯任务，样本"
+                                 << complete_.CompleteSampleid << "通道" << (test_finish_chn + 1);
+                    if (!m_finishTestData.isEmpty()) {
+                        processFinishedChannelTask();
+                    } else if (!startPendingContinueReagent()) {
+                        StartSampleAdditionWorkflow();
                     }
-                    StartSampleAdditionWorkflow();
                     return;
                 }
             }

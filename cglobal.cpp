@@ -13,6 +13,7 @@ std::atomic<bool> cglobal::g_StartTesting{false};
 std::atomic<bool> cglobal::g_PauseTesting{false};
 bool cglobal::g_QualityControlhighValue = false;
 std::atomic<bool> cglobal::g_quality_start{false};
+std::atomic<bool> cglobal::g_hitTesting{false};
 std::atomic<bool> cglobal::gserialConnecStatus{false};
 std::atomic<bool> cglobal::g_controldimmingfinished{false};
 QString cglobal::g_UserName_str ="";

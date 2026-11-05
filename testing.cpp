@@ -228,30 +228,17 @@ void Testing::updateBlinkWidgets()
         if (ui->widget_Reagents) ui->widget_Reagents->update();
         if (ui->DroptheCup) ui->DroptheCup->update();
     }
+}
 
-    QList<quint8> flashing;
-    {
-        QMutexLocker locker(&m_flashMutex);
-        flashing = mflashingTubeList;
-    }
-    if (flashing.isEmpty()) {
-        return;
-    }
-    bool trayNeed[4] = {false, false, false, false};
-    for (quint8 hole : flashing) {
-        const int tray = hole / TUBES_PER_TRAY;
-        if (tray >= 0 && tray < 4) {
-            trayNeed[tray] = true;
-        }
-    }
+void Testing::refreshAbnormalTrays()
+{
     QWidget *trays[4] = {
         ui->widget_TestCup_0, ui->widget_TestCup_1,
         ui->widget_TestCup_2, ui->widget_TestCup_3
     };
     for (int i = 0; i < 4; ++i) {
-        if (trayNeed[i] && trays[i]) {
+        if (trays[i])
             trays[i]->update();
-        }
     }
 }
 
@@ -965,6 +952,7 @@ void Testing::doAllSampleTestedUIUpdate()
             QMutexLocker locker(&m_flashMutex);
             mflashingTubeList.clear();
         }
+        refreshAbnormalTrays();
         if (mtimer && mtimer->isActive()) {
             mtimer->stop();
         }
@@ -1019,6 +1007,12 @@ void Testing::sycnChangeuiTubeStatus(const QString& sample_name, quint8 anemiaho
             emit testingaddsample();
         }
     }
+    update();
+}
+
+void Testing::releaseMarkedTube(quint8 tubeIndex)
+{
+    VectorReplaceClear(tubeIndex);
     update();
 }
 
@@ -1694,18 +1688,17 @@ void Testing::drawTrayTube(QPainter& painter, const QPointF& center, quint8 hole
         bgColor = kHoleEmpty;
     }
 
+    bool abnormalHole = false;
     if (mflashingTubeList.contains(holeNum)) {
-        if (m_blinkState)
-            bgColor = QColor(255, 255, 255);
-        else
-            bgColor = QColor(255, 0, 0);
+        bgColor = QColor(0xC6, 0x28, 0x28);
+        abnormalHole = true;
     }
 
     drawStereoRing(painter, center, bigRadius, smallRadius, bgColor);
 
     QString sampleText = mEmptyText.value(holeNum);
     if (!sampleText.isEmpty()) {
-        painter.setPen(cglobal::g_TextColorWhite);
+        painter.setPen(abnormalHole ? QColor(Qt::white) : cglobal::g_TextColorWhite);
         QFontMetrics fm(painter.font());
         QRect textRect = fm.boundingRect(sampleText);
         QPoint textPos(center.x() - textRect.width() / 2, center.y() + textRect.height() / 2 - 2);
@@ -1772,6 +1765,7 @@ void Testing::giveupSampleShowHole(const QList<quint8>& holeList)
                 mflashingTubeList.append(hole);
         }
     }
+    refreshAbnormalTrays();
 }
 
 void Testing::giveupSampleChannelFlash(bool isChannelNormal, quint8 indexChannel)

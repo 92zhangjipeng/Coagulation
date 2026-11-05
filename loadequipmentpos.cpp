@@ -112,7 +112,6 @@ void SingletonAxis::throwTubeHolePos(bool bWrite, QPoint &pos)
     }
 }
 
-
 void SingletonAxis::cleanZoneAxisPos(bool bWrite,int indexNedl,QPoint &pos)
 {
     EquipmentAXIS_* axisData = GetpStruct();

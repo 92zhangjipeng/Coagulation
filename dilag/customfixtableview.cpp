@@ -1371,21 +1371,32 @@ void CustomFixTableView::updatetabletestedResult(const quint8& indexReag)
     bool testfinish = (resultList.size() == 4);
 
     const int reagentStateCol = static_cast<int>(TableItemnum::ReagentState);
+    const QString shownResult = testResultVal.trimmed();
 
-    if (testfinish) {
+    if (shownResult == QStringLiteral("异常") || shownResult == tr("异常")) {
+        setReagentStatus(row, reagentStateCol, Status::Abnormal);
+    }
+    else if (testfinish) {
         insertColumnText(m_tableWidget, row, static_cast<int>(TableItemnum::Aggregation60s), resultList.at(0));
         insertColumnText(m_tableWidget, row, static_cast<int>(TableItemnum::Aggregation180s), resultList.at(1));
         insertColumnText(m_tableWidget, row, static_cast<int>(TableItemnum::Aggregation300s), resultList.at(2));
         insertColumnText(m_tableWidget, row, static_cast<int>(TableItemnum::AggregationMax),  resultList.at(3));
         setReagentStatus(row, reagentStateCol, Status::Completed);
     }
-    else if (testResultVal.isEmpty()) {
+    else if (shownResult.isEmpty()) {
         setReagentStatus(row, reagentStateCol, Status::NotTested);
     }
-    else if (testResultVal == "null") {
+    else if (shownResult == QStringLiteral("null")) {
         setReagentStatus(row, reagentStateCol, Status::Pending);
     }
     m_tableWidget->viewport()->update();
+}
+
+void CustomFixTableView::refreshReagentIfViewing(const QString &sampleId, quint8 reagent)
+{
+    if (!m_tableWidget || sampleId.isEmpty() || m_viewIDstr != sampleId)
+        return;
+    updatetabletestedResult(reagent);
 }
 
 void CustomFixTableView::setReagentStatus(int row, int col, Status status)
@@ -1403,6 +1414,10 @@ void CustomFixTableView::setReagentStatus(int row, int col, Status status)
     case Status::Pending:
         iconPath = ":/Picture/SetPng/status_Action.png";
         statusText = tr("等待测试");
+        break;
+    case Status::Abnormal:
+        iconPath = ":/Picture/SetPng/status_Error.png";
+        statusText = tr("异常");
         break;
     }
     updateParaState(m_tableWidget, row, col, QColor(250, 250, 250), iconPath, statusText);

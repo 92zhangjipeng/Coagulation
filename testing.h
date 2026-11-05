@@ -111,6 +111,7 @@ public:
     void EmptyTubeAssigned(quint8 IndexTube);
     void replacEmptyTestTary(int index_tary);
     void tubeMarked(const QString& outtext, const quint8& tubeIndex);
+    void releaseMarkedTube(quint8 tubeIndex);
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -198,6 +199,7 @@ private:
     void drawTray(int trayIndex, QWidget* trayWidget);
     Height_Data *toggleAddSampleWindow();
     void updateBlinkWidgets();
+    void refreshAbnormalTrays();
 
     Ui::Testing* ui;
     mutable QReadWriteLock m_bloodMutex;

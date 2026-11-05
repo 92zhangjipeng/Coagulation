@@ -496,6 +496,13 @@ void StructInstance::config_focusSample(int indexSample,const bool bfcusin)
 
     // 防御性编程：二次验证指针有效性
     if(psampledatainfo != nullptr) {
+        if (bfcusin) {
+            for (DATASAMPLESTRUCT *other : m_BloodsampleInfo) {
+                if (other != nullptr && other != psampledatainfo) {
+                    other->fcus_in = false;
+                }
+            }
+        }
         psampledatainfo->fcus_in = bfcusin;
         QLOG_DEBUG() << "[焦点设置] 样本：" << indexSample
                     << " 焦点状态：" << bfcusin;
@@ -1123,9 +1130,8 @@ quint8 StructInstance::read_focusSampleActive(int sample_focu)
     }
 
     DATASAMPLESTRUCT *ptmp = (*it);
-    if(ptmp->fcus_in == true){
-        index_active = ptmp->index_fcus_Active;
-    }
+    // 取消焦点只清 fcus_in，步骤号还在。应答和继续都按这个步骤走，不能读成 0。
+    index_active = ptmp->index_fcus_Active;
     return index_active;
 }
 
@@ -1141,15 +1147,13 @@ int StructInstance::ClipEndGetAnemiaValeChn(quint8 &TestingChn, quint8 indexActi
     while(iter != m_BloodsampleInfo.end())
     {
         DATASAMPLESTRUCT *pcommand = *iter;
-        if(pcommand->fcus_in == true)
+        if(pcommand && pcommand->fcus_in == true
+                && pcommand->index_fcus_Active == indexActive
+                && pcommand->indexTestingChn >= 0)
         {
-            if(pcommand->index_fcus_Active == indexActive
-                    && pcommand->indexTestingChn >= 0)
-            {
-                TestingChn = static_cast<quint8>(pcommand->indexTestingChn);
-                sampleid = pcommand->sample_num;
-                QLOG_DEBUG()<<"通道:"<<TestingChn+1<<outText<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<endl;
-            }
+            TestingChn = static_cast<quint8>(pcommand->indexTestingChn);
+            sampleid = pcommand->sample_num;
+            QLOG_DEBUG()<<"通道:"<<TestingChn+1<<outText<<"["<<__FILE__<<"]"<<__LINE__<<__FUNCTION__<<endl;
             break;
         }
         iter++;
@@ -1519,13 +1523,13 @@ QByteArray StructInstance::sendsuckReagentCatchCuptoTestChannelHead(const int sa
         return{};
     }
 
-    const auto* pCommand = (*itreagent)->pTestingReagentActive.constFirst();
-    if(!pCommand || pCommand->arrcode.isEmpty()) {
+    QByteArray firstCmd;
+    if (!firstIncompleteCommand((*itreagent)->pTestingReagentActive, firstCmd) || firstCmd.isEmpty()) {
         QLOG_WARN() << "[吸试剂抓测试杯到通道] 样本ID" << sampleid
-                      << "的首条指令无效或arrcode为空"<<endl;
+                    << "指令已全部标记完成，需要从试剂位重建";
         return {};
     }
-    return pCommand->arrcode;
+    return firstCmd;
 
 }
 

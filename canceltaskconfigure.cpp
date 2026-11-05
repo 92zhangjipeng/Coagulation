@@ -93,14 +93,14 @@ void CancelTaskConfigure::initUI()
     buttonLayout->setContentsMargins(10, 5, 10, 5);
     buttonLayout->setSpacing(20);
 
-    m_cancelBtn = new QPushButton(tr("取消&&退出"), buttonWidget);
+    m_cancelBtn = new QPushButton(tr("取消"), buttonWidget);
     m_cancelBtn->setObjectName("cancelBtn");
-    m_cancelBtn->setFixedSize(120, 34);
+    m_cancelBtn->setFixedSize(120, 36);
     m_cancelBtn->setCursor(Qt::PointingHandCursor);
 
-    m_okBtn = new QPushButton(tr("确定&&退出"), buttonWidget);
+    m_okBtn = new QPushButton(tr("确定"), buttonWidget);
     m_okBtn->setObjectName("okBtn");
-    m_okBtn->setFixedSize(120, 34);
+    m_okBtn->setFixedSize(120, 36);
     m_okBtn->setCursor(Qt::PointingHandCursor);
 
     buttonLayout->addStretch();
@@ -123,7 +123,6 @@ void CancelTaskConfigure::initUI()
 
     connect(m_cancelBtn, &QPushButton::clicked, this, &CancelTaskConfigure::onCancelClicked);
     connect(m_okBtn, &QPushButton::clicked, this, &CancelTaskConfigure::onOkClicked);
-    connect(m_tableWidget, &QTableWidget::itemClicked, this, &CancelTaskConfigure::delenter);
 }
 
 void CancelTaskConfigure::initStyle()
@@ -179,21 +178,33 @@ void CancelTaskConfigure::initStyle()
             font-family: 'Segoe UI', 'Microsoft YaHei';
         }
 
-        QPushButton#cancelBtn, QPushButton#okBtn {
+        QPushButton#cancelBtn {
+            background-color: %2;
+            color: %6;
+            border: 1px solid %3;
+            border-radius: 18px;
+            font-size: 14px;
+            font-family: 'Microsoft YaHei';
+        }
+
+        QPushButton#cancelBtn:hover {
+            background-color: %4;
+        }
+
+        QPushButton#okBtn {
             background-color: %8;
             color: white;
             border: none;
-            border-radius: 17px;
-            font-size: 13px;
-            font-weight: 500;
-            font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC';
+            border-radius: 18px;
+            font-size: 14px;
+            font-family: 'Microsoft YaHei';
         }
 
-        QPushButton#cancelBtn:hover, QPushButton#okBtn:hover {
+        QPushButton#okBtn:hover {
             background-color: %9;
         }
 
-        QPushButton#cancelBtn:pressed, QPushButton#okBtn:pressed {
+        QPushButton#okBtn:pressed {
             background-color: %10;
         }
 
@@ -258,17 +269,19 @@ void CancelTaskConfigure::initTable()
     m_tableWidget->setHorizontalHeaderLabels(header);
 
     // 表格基本设置
-    m_tableWidget->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableWidget->setSelectionMode(QAbstractItemView::NoSelection);
     m_tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_tableWidget->setFocusPolicy(Qt::NoFocus);
+    m_tableWidget->setShowGrid(false);
     m_tableWidget->verticalHeader()->setVisible(false);
     m_tableWidget->horizontalHeader()->setStretchLastSection(true);
-    m_tableWidget->horizontalHeader()->setFixedHeight(40);
-    m_tableWidget->verticalHeader()->setDefaultSectionSize(40);
+    m_tableWidget->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter);
+    m_tableWidget->horizontalHeader()->setFixedHeight(42);
+    m_tableWidget->verticalHeader()->setDefaultSectionSize(46);
 
-    // 设置列宽
-    m_tableWidget->setColumnWidth(0, 150);
-    m_tableWidget->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    m_tableWidget->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_tableWidget->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    m_tableWidget->setColumnWidth(1, 88);
 
     // 加载删除图标
     QPixmap litterPix(":/Picture/SetPng/Litter.png");
@@ -293,10 +306,9 @@ void CancelTaskConfigure::initTable()
         item->setTextAlignment(Qt::AlignCenter);
         m_tableWidget->setItem(iRow, 0, item);
 
-        // 删除列 - 使用按钮而不是图标
         QPushButton *deleteBtn = new QPushButton();
         deleteBtn->setIcon(deleteIcon);
-        deleteBtn->setIconSize(QSize(24, 24));
+        deleteBtn->setIconSize(QSize(22, 22));
         deleteBtn->setFixedSize(32, 32);
         deleteBtn->setCursor(Qt::PointingHandCursor);
         deleteBtn->setProperty("sampleId", sampleId);
@@ -307,22 +319,54 @@ void CancelTaskConfigure::initTable()
             "   border-radius: 16px;"
             "}"
             "QPushButton:hover {"
-            "   background-color: #FFCDD2;"
+            "   background-color: #FDE8EA;"
             "}"
             "QPushButton:pressed {"
-            "   background-color: #EF9A9A;"
+            "   background-color: #F8D0D4;"
             "}"
         );
 
-        // 连接删除按钮信号
-        connect(deleteBtn, &QPushButton::clicked, this, [this, deleteBtn, iRow]() {
-            int sampleId = deleteBtn->property("sampleId").toInt();
-            deleteitem.append(sampleId);
-            m_tableWidget->removeRow(iRow);
+        QWidget *holder = new QWidget();
+        holder->setStyleSheet("background: transparent;");
+        QHBoxLayout *holderLayout = new QHBoxLayout(holder);
+        holderLayout->setContentsMargins(0, 0, 0, 0);
+        holderLayout->addStretch();
+        holderLayout->addWidget(deleteBtn);
+        holderLayout->addStretch();
+
+        connect(deleteBtn, &QPushButton::clicked, this, [this, holder]() {
+            removeSampleRow(holder);
         });
 
-        m_tableWidget->setCellWidget(iRow, 1, deleteBtn);
+        m_tableWidget->setCellWidget(iRow, 1, holder);
     }
+}
+
+void CancelTaskConfigure::removeSampleRow(QWidget *holder)
+{
+    if (!m_tableWidget || !holder)
+        return;
+
+    int row = -1;
+    for (int r = 0; r < m_tableWidget->rowCount(); ++r) {
+        if (m_tableWidget->cellWidget(r, 1) == holder) {
+            row = r;
+            break;
+        }
+    }
+    if (row < 0)
+        return;
+
+    QTableWidgetItem *idItem = m_tableWidget->item(row, 0);
+    if (!idItem)
+        return;
+    bool ok = false;
+    const int sampleId = idItem->text().toInt(&ok);
+    if (!ok)
+        return;
+    if (!deleteitem.contains(sampleId))
+        deleteitem.append(sampleId);
+    m_tableWidget->removeRow(row);
 }
 
 void CancelTaskConfigure::SetColumnText(QTableWidget *tablewiget, int row, int col, QString text)
@@ -330,17 +374,6 @@ void CancelTaskConfigure::SetColumnText(QTableWidget *tablewiget, int row, int c
     QTableWidgetItem *item = new QTableWidgetItem(text);
     item->setTextAlignment(Qt::AlignCenter);
     tablewiget->setItem(row, col, item);
-}
-
-void CancelTaskConfigure::delenter(QTableWidgetItem *item)
-{
-    if (item && item->column() == 0) {
-        QString delstr = item->text();
-        if (!delstr.isEmpty()) {
-            deleteitem.append(delstr.toInt());
-            m_tableWidget->removeRow(item->row());
-        }
-    }
 }
 
 void CancelTaskConfigure::onOkClicked()

@@ -96,6 +96,7 @@ public slots:
     void handleStartTheTestTask();
     void handlePppBaselineInvalid();
     void handlePrpBaselineInvalid();
+    void handlePrpGripNotReady();
     void handlePppZeroGiveUp(int sampleId, quint8 channel);
     void handlePrpZeroSkipReagent(int sampleId, quint8 reagent, quint8 focusActive);
 
@@ -111,7 +112,8 @@ public slots:
 
     void throwAnemiaCup(quint8 testChn);   //收到通道获取贫血值完成
 
-    void slotSpitReagentTesting();      //获取富血值后吐试剂到测试通道
+    void slotSpitReagentTesting();      //获取富血值后延时再吐试剂到测试通道
+    void handleOpenTestChnRejected(int sampleId); //吐完试剂时样本已无通道，暂停
 
     void slotaddSampmeTestCleanPin(const int cleanPin, const quint8 index_reagent); //清洗针
 
@@ -160,6 +162,8 @@ private:
     void setSampleFocus(int sampleId, quint8 newFocus, const QString &reason);
     void stallWithPause(const QString &event, const QString &userTips, bool modalPrompt = true);
     bool shouldDeferSendForPause() const;
+    void pauseForOperator();
+    void flushPauseQueue(const QString &tips);
 
     void handleNoPendingSamples();
 
@@ -294,6 +298,9 @@ private:
     bool restartThrowPppAfterHome(const QString& tips);
     bool restartThrowReagentAfterHome(quint8 reagent, const QString& tips);
     bool restartPrpAfterHome(quint8 reagent, const QString& tips);
+    bool startPrpClipFromReagent(quint8 reagent, const QString& tips);
+    bool prpSampleLocated(quint8 focusActive);
+    void schedulePrpBaselineRead(quint8 reagentIndex, quint8 focusActive, int delayMs);
     bool restartGripperFocusAfterHome(quint8 indexActive, const QString& tips);
     bool ignoreRestartLeftoverAck(int Action_motor, const QStringList &recvdata);
 
@@ -301,6 +308,7 @@ private:
     bool startPendingContinueReagent();
     bool beginNextReagentForSample(int sampleId);
     void removeSampleFromSchedulerQueues(int sampleId);
+    void dropFinishTasksForSample(int sampleId);
     void dismissFocusSample(int sampleId);
     void releaseSampleChannel(int sampleId, bool flashAsError);
     void noteCommandsSent(int count);
@@ -311,6 +319,8 @@ private:
     void requestPrpBaselineRead();
     void requestPrpBaselineRead(quint8 reagentIndex, quint8 focusActive);
     void markReagentSkipped(int sampleId, quint8 reagent);
+    void restoreChannelAfterAbnormal(quint8 channel);
+    void writeAbnormalReagentResult(int sampleId, quint8 reagent);
 
 public:
     typedef QPair<quint8, quint8> FocusReagentPair;
@@ -494,10 +504,18 @@ private:
     bool m_pendingPppReread = false;
     bool m_waitingPrpRead = false;
     bool m_pendingPrpReread = false;
+    bool m_prpPlacedForRead = false; //吸试剂并把杯子放到通道之后才允许判PRP
+    int m_spitOpenToken = 0; //吐试剂完成后的洗针定时器代次，继续时作废旧定时器
+    bool m_spitWashPending = false; //吐完试剂、洗针还没真正发出
+    int m_prp0SpitToken = 0; //PRP0记下后、吐试剂前的延时代次
+    bool m_prp0SpitDelayPending = false; //已记下PRP0，正在等延时再吐试剂
     bool m_abandonAfterThrowPpp = false;
     bool m_prpZeroSkipAfterThrow = false;
     quint8 m_pendingPrpReagent = 0;
     quint8 m_pendingPrpFocus = 0;
+    quint64 m_prpMotionEpoch = 0;
+    bool m_rebuildPrpClip = false;
+    bool m_resumingPrpGrip = false;
 
     quint8 m_totalChannel; //通道总数
     QList<quint8> mbackOriginnumList;

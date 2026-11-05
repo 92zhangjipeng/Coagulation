@@ -1291,38 +1291,74 @@ void GlobalData::outputtheAbsorbentIndex(const quint8 focuinActive,
     }
 }
 
-bool GlobalData::determineReagentontheleftIsSufficient(quint8 consumableIndex,quint8 reagentIndex)
+bool GlobalData::enoughForNextDraw(quint8 consumableIndex, double usedUl)
 {
     quint16 bottleRatio = 0;
     ConsumablesOper::updateReplaceLocRatio(READ_OPERRAT, consumableIndex, bottleRatio);
-    // 界面更换写满 512 后，点继续只认这一格。再按「扣完这一针还剩百分之几」去比报警限，
-    // 满瓶会被判成不够，于是再回一次原点，人看起来就是仪器不动。
+    // 界面刚更换写满 512，这一瓶按满瓶放行。
     if (bottleRatio >= MAX_RATIO_SWITCT) {
         return true;
     }
-
-    // 获取试剂消耗量。吸量为 0 时没有可扣的量，不能当成试剂不够把任务停死。
-    const double usedVolume = QUIUtils::reagentSuckVolumeUl(reagentIndex);
-    if (usedVolume <= 0) {
-        QLOG_WARN() << "试剂消耗量为0，不拦截吸试剂，类型:" << reagentIndex;
+    if (usedUl <= 0) {
+        QLOG_WARN() << "本次用量为0，不拦截，耗材" << consumableIndex;
         return true;
     }
 
-    double remainingRatio  = 0.0; //输出剩余比
-    quint16 updatedRatio  = 0;   //剩余比例
-    QUIUtils::CalculateTheConsumptionOfReagent(consumableIndex,
-                                               usedVolume,
-                                               remainingRatio,
-                                               updatedRatio,
-                                               false);
+    double fraction = 0.0;
+    quint16 ratioNow = 0;
+    if (!ConsumablesOper::applyMicroliterUse(consumableIndex, 0, false, fraction, ratioNow)) {
+        QLOG_ERROR() << "读取余量失败，耗材" << consumableIndex;
+        return false;
+    }
 
-    quint8 limitArlm;
+    quint16 capacity = 0;
+    ConsumablesOper::updateReagentTotal(READ_OPERRAT, consumableIndex, capacity);
+    if (capacity == 0) {
+        capacity = (consumableIndex == INDEX_CLEANLINQUE_CONSUMABLE) ? 60000 : 1000;
+    }
+    const double remainUl = fraction * static_cast<double>(capacity);
+    const double remainPercent = fraction * 100.0;
+    const double drawUl = qRound(usedUl * 10.0) / 10.0;
+
+    quint8 limitArlm = 0;
     ConsumablesOper::GetpInstance()->updateReagentLimit(READ_OPERRAT,
                                                         consumableIndex,
                                                         limitArlm);
-    const double remainingPercentage = static_cast<double>(remainingRatio * 100);
 
-    return (remainingPercentage >= limitArlm);
+    // 报警限是 0% 时，剩余百分比不可能小于 0，这里不会拦住，只看下面这一次用量。
+    if (remainUl < drawUl) {
+        QLOG_WARN() << "余量盖不住这一次用量，耗材" << consumableIndex
+                    << "剩余" << remainPercent << "% 本次" << (drawUl / capacity * 100.0) << "%";
+        return false;
+    }
+    if (remainPercent < static_cast<double>(limitArlm)) {
+        QLOG_WARN() << "余量已低于报警限，耗材" << consumableIndex
+                    << "剩余" << remainPercent << "% 报警限" << limitArlm << "%";
+        return false;
+    }
+    return true;
+}
+
+bool GlobalData::determineReagentontheleftIsSufficient(quint8 consumableIndex,quint8 reagentIndex)
+{
+    return enoughForNextDraw(consumableIndex, QUIUtils::reagentSuckVolumeUl(reagentIndex));
+}
+
+bool GlobalData::cleaningFluidCoversNextUse(quint8 depleteType)
+{
+    INI_File ini;
+    const double bloodUl = ini.GetAbsorbWashingfluidX2();
+    const double reagentUl = ini.GetAbsorbWashingfluidX1();
+    double usedUl = bloodUl + reagentUl;
+    if (depleteType == 0) {
+        usedUl = reagentUl;
+    } else if (depleteType == 1) {
+        usedUl = bloodUl;
+    }
+    if (usedUl < 0) {
+        usedUl = 0;
+    }
+    return enoughForNextDraw(INDEX_CLEANLINQUE_CONSUMABLE, usedUl);
 }
 
 QByteArray GlobalData::replactSuckReagentLoc(quint8 num,quint8 indexReagnet){

@@ -191,6 +191,8 @@ SOURCES += \
     calibrate.cpp \
     graphplot.cpp \
     qcchartpage.cpp \
+    hitpage.cpp \
+    hittestrunner.cpp \
     qcstartaction.cpp \
     result.cpp \
     testing.cpp \
@@ -348,6 +350,8 @@ HEADERS += \
     pairframetablewidget.h \
     graphplot.h \
     qcchartpage.h \
+    hitpage.h \
+    hittestrunner.h \
     qcstartaction.h \
     result.h \
     testing.h \

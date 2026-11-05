@@ -663,6 +663,13 @@ void Calibrate::onsycnDelOthertableWidgetRow(const QString delSameId) {
 	cancelSampleResultItem(delSameId);
 }
 
+void Calibrate::refreshOpenResultIfViewing(const QString &sampleId, quint8 reagent)
+{
+	if (mpdatawidget.isNull())
+		return;
+	mpdatawidget->refreshReagentIfViewing(sampleId, reagent);
+}
+
 void Calibrate::recvSampleTestingErr(const QString& ErrSampleid, const quint8 &channelIdx)
 {
 	QTableWidget *pSampleInfoTable = ui->saveTaskWidgetList;

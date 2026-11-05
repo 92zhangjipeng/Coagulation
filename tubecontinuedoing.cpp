@@ -109,7 +109,7 @@ QByteArrayList TubeContinueDoing::creatAbsorbReagentCommand()
     quint8 conde_num = mStarArry.size() % 255;
     int milliliter = ui->spinBox_ReagentVol->value();   //(int)INI_File().GetLearnReagentvolume();  //吸试剂的量 ul
     double AbsorbRatio = 0;
-    int falilinquehigh = INI_File().GetFailedReagentsLinqueHigh();
+    int falilinquehigh = INI_File().getFailedCleanLinqueReagNeedle();
     QVector<double> MaxRatio;
     for(int i = 0 ; i < 5; i++)
     {

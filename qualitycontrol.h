@@ -83,6 +83,7 @@ signals:
 
     void    NoinitialCleaning();//开机清洗液不足未初始清洗
     void    consumablesLackPauses(const quint8 );
+    void    consumableTotalsChanged();
 
 public slots:
     void  tableItemRressed(QTableWidgetItem *ptablepressed);//显示试剂批号
