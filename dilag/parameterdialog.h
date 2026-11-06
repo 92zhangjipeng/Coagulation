@@ -26,6 +26,8 @@ public:
     // 延时参数（仅COL有效）
     int colDelayTime() const;
     void setColDelayTime(int val);
+    void setStoredColDelay(int seconds);
+    int storedColDelay() const;
 
     // 判定参数
     quint8 getTriggerInvalid() const;

@@ -136,7 +136,13 @@ QByteArrayList TubeContinueDoing::creatAbsorbReagentCommand()
     OnceCommand = Testing::getTaskDll()->SmallBenActive(true,SuckAirVol,DIS_WASHES_PUMPS,conde_num,0); //吸一段空气
     mStarArry.push_back(OnceCommand);
 
-    QUIUtils::appendHangLiquidBlindThenDetect(mStarArry, ZMotorReagent, falilinquehigh);
+    if (falilinquehigh > 0) {
+        conde_num = static_cast<quint8>(mStarArry.size() % 255);
+        OnceCommand = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(
+                    ZMotorReagent, falilinquehigh, 0,
+                    conde_num, false, falilinquehigh, false, GRIPPERNORMAL);
+        mStarArry.push_back(OnceCommand);
+    }
     conde_num = static_cast<quint8>(mStarArry.size() % 255);
     //SMALL_BEN_INHALE_ARI
 

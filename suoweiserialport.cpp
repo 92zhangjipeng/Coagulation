@@ -717,6 +717,17 @@ void SuoweiSerialPort::abortPendingWrites()
     clearWriteQueue();
 }
 
+void SuoweiSerialPort::prepareForManualMotion()
+{
+    if (QThread::currentThread() != &m_thread) {
+        QMetaObject::invokeMethod(this, "prepareForManualMotion", Qt::QueuedConnection);
+        return;
+    }
+    clearWriteQueue();
+    clearReceiveBuffer();
+    QLOG_INFO() << QString::fromUtf8("手动动作前清空未发出的轮询");
+}
+
 void SuoweiSerialPort::clearWriteQueue()
 {
     QMutexLocker locker(&m_writeMutex);

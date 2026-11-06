@@ -1917,6 +1917,14 @@ void Height_Data::savewaitTestSample()
         return;
     }
 
+    if (cglobal::g_StartTesting.load()) {
+        if (CustomMessageBox::question(this, tr("添加样本"),
+                tr("测试进行中。请确认新加的样本、试剂、试管都已准备好。\n确定添加吗？"),
+                QMessageBox::Ok | QMessageBox::Cancel) != QMessageBox::Ok) {
+            return;
+        }
+    }
+
     processSelectedSamples(selectedRows);
 
     QTableWidget *table = ui->Sample_Data_tablewidget;

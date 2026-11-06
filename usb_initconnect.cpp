@@ -2,8 +2,10 @@
 
 #include <QCoreApplication>
 #include <QThread>
+#include <QTimer>
 #include <QDateTime>
 #include <quiutils.h>
+#include <ini_file.h>
 #include "testing.h"
 #include "sampledataprocess.h"
 #include <operclass/fullyautomatedplatelets.h>
@@ -51,6 +53,11 @@ void USB_InitConnect::pthreadStart()
         m_pActionVec = new ActionVec_;
         m_pActionVec->clear();
     }
+    if (!m_ackTimer) {
+        m_ackTimer = new QTimer(this);
+        m_ackTimer->setSingleShot(true);
+        connect(m_ackTimer, &QTimer::timeout, this, &USB_InitConnect::onAckTimeout);
+    }
 }
 
 // ============================================================================
@@ -75,6 +82,7 @@ void USB_InitConnect::abortPendingActions()
     m_waitingForResponse = false;
     m_taskFailed = false;
     m_runingAction = EQUIPMENT_FREETIME;
+    disarmAckWatch();
 }
 
 void USB_InitConnect::onCeratActionData(const int ACtionType, const QByteArrayList groupActions)
@@ -199,6 +207,7 @@ void USB_InitConnect::recvSerialdata(const QStringList commandData)
         logCommandFailure(commandData, errorLog);
         m_taskFailed = true;
         m_waitingForResponse = false;
+        disarmAckWatch();
         // 发出错误信号，供上层提示
         emit taskErrorOccurred(QString("命令[%1]执行失败: %2").arg(commandIndex).arg(errorLog));
 
@@ -249,6 +258,7 @@ void USB_InitConnect::slotDisconnectandreconnect()
         Q_EMIT writeCommand(sendData, reminderStr);
 
         m_waitingForResponse = true;
+        armAckWatch();
     } else {
         QLOG_DEBUG() << "未找到可重发的任务";
     }
@@ -280,6 +290,7 @@ void USB_InitConnect::deleteFinishCommand(quint8 indexcode)
 
     // 清除等待标志，准备发送下一个任务
     m_waitingForResponse = false;
+    disarmAckWatch();
 
     // 继续处理队列（发送下一个未完成的任务）
     ProcessEquipmentActions(*m_pActionVec);
@@ -397,6 +408,7 @@ void USB_InitConnect::sendTaskHeader()
     QLOG_DEBUG() << "发送任务: 命令" << index << "，发送次数:" << cmd->sendCount;
 
     m_waitingForResponse = true;
+    armAckWatch();
 
     QString reminderStr;
     ActionsPerformed(m_runingAction, reminderStr);
@@ -460,6 +472,38 @@ void USB_InitConnect::CompletedActions(const int indexActive)
 // ============================================================================
 // 辅助函数
 // ============================================================================
+
+void USB_InitConnect::armAckWatch()
+{
+    if (!m_ackTimer) {
+        return;
+    }
+    // 单步含洗针等待。配置里洗针时间是毫秒，再留出行程。
+    int limitMs = 45000;
+    const int washMs = static_cast<int>(INI_File().getWashesTime());
+    if (washMs + 20000 > limitMs) {
+        limitMs = washMs + 20000;
+    }
+    m_ackTimer->start(limitMs);
+}
+
+void USB_InitConnect::disarmAckWatch()
+{
+    if (m_ackTimer && m_ackTimer->isActive()) {
+        m_ackTimer->stop();
+    }
+}
+
+void USB_InitConnect::onAckTimeout()
+{
+    if (!m_waitingForResponse || m_taskFailed) {
+        return;
+    }
+    QLOG_ERROR() << QString::fromUtf8("动作久无应答，停止后续命令") << m_runingAction;
+    m_taskFailed = true;
+    m_waitingForResponse = false;
+    emit taskErrorOccurred(QString::fromUtf8("仪器没有回应，动作已停止。请确认仪器空闲后再试。"));
+}
 
 void USB_InitConnect::logCommandFailure(const QStringList& commandData, const QString& errorLog)
 {

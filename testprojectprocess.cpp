@@ -199,8 +199,16 @@ void TestProjectProcess::handleAckTimeout()
 
     m_outstandingAcks = 0;
     if (m_waitingPppRead) {
-        m_pendingPppReread = true;
         m_waitingPppRead = false;
+        disarmAckWatchdog();
+        if (!INI_File().getexperimentalMode()) {
+            const QString tips = tr("读取PPP超过等待时间，通道不是0则直接继续，不暂停");
+            promptsareDisplayed(TESTINGLOG, tips, false);
+            publishWorkflowStatus(tips);
+            emit useCurrentPppAndContinue();
+            return;
+        }
+        m_pendingPppReread = true;
         const QString tips = tr("读取PPP初值超时，已暂停，请处理后点「继续」重读");
         promptsareDisplayed(TESTINGLOG, tips, false);
         publishWorkflowStatus(tips);
@@ -329,7 +337,7 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_leaveCupChannel = -1;
     m_waitCupRemovedContinue = false;
     m_waitCupRemovedSample = 0;
-    m_deferClipSampleId = 0;
+    m_deferClipSampleIds.clear();
     m_hasPendingReagentDeduct = false;
     m_hasPendingCleanDeduct = false;
     mdataAArry.clear();
@@ -524,8 +532,12 @@ void TestProjectProcess::slottestingaddsample()
            TraverseChnHadFinishTesting(THROW_CUPS_END);
            return;
        }
-       StartSampleAdditionWorkflow();
-       publishWorkflowStatus(tr("新样本加入，开始加样"));
+       if (!m_deferClipSampleIds.isEmpty()) {
+           publishWorkflowStatus(tr("新样本已加入，先安排已加样、还在等通道的样本"));
+       } else {
+           publishWorkflowStatus(tr("新样本加入，开始加样"));
+       }
+       handleIdleChannelTasks();
     }
     else
     {
@@ -1547,11 +1559,16 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
 void TestProjectProcess::getFreeTimeTestChn()
 {
     if (!m_finishTestData.isEmpty()) {
-        if (m_deferClipSampleId <= 0) {
-            m_deferClipSampleId = m_focus_sample_id;
+        rememberDeferredClip(m_focus_sample_id);
+        QString waitingIds;
+        for (int id : m_deferClipSampleIds) {
+            if (!waitingIds.isEmpty()) {
+                waitingIds += QLatin1Char(',');
+            }
+            waitingIds += QString::number(id);
         }
         QLOG_INFO() << "加样完成，通道里还有测完的杯子，先丢杯。待夹样本"
-                    << m_deferClipSampleId << "队列" << m_finishTestData.size();
+                    << waitingIds << "队列" << m_finishTestData.size();
         processFinishedChannelTask();
         return;
     }
@@ -1562,8 +1579,21 @@ void TestProjectProcess::getFreeTimeTestChn()
     const bool hasFreeChannel = instance->getNextFreeChnAfterTesting(freeChannel);
 
     if (hasFreeChannel) {
-        if (m_deferClipSampleId == m_focus_sample_id) {
-            m_deferClipSampleId = 0;
+        const int justAddedId = m_focus_sample_id;
+        rememberDeferredClip(justAddedId);
+        if (m_deferClipSampleIds.isEmpty()) {
+            QLOG_ERROR() << "有空闲通道，但没有可夹的已加样样本";
+            StartSampleAdditionWorkflow();
+            return;
+        }
+        const int clipId = m_deferClipSampleIds.first();
+        m_deferClipSampleIds.removeAll(clipId);
+        m_focus_sample_id = clipId;
+        instance->config_focusSample(clipId, true);
+        if (clipId != justAddedId) {
+            QLOG_INFO() << "有空闲通道，先夹已加样样本" << clipId
+                        << "刚加完的样本" << justAddedId << "继续排队"
+                        << "后面还等着" << m_deferClipSampleIds.size();
         }
         instance->setTestingChn(m_focus_sample_id, freeChannel);
         restoreChannelAfterAbnormal(freeChannel);
@@ -1594,9 +1624,7 @@ void TestProjectProcess::getFreeTimeTestChn()
         const DATASAMPLESTRUCT *waiting = instance->rfindIdSample(m_focus_sample_id);
         if (waiting && waiting->bcleanbloody_state && waiting->bcleanDoublePin_state) {
             const int waitingId = m_focus_sample_id;
-            if (m_deferClipSampleId <= 0) {
-                m_deferClipSampleId = waitingId;
-            }
+            rememberDeferredClip(waitingId);
             QLOG_INFO() << "样本" << waitingId << "针已洗净，没有空闲通道，先调度其它任务";
             dismissFocusSample(waitingId);
             if (m_focus_sample_id == waitingId) {
@@ -1605,9 +1633,7 @@ void TestProjectProcess::getFreeTimeTestChn()
             handleIdleChannelTasks();
             return;
         }
-        if (m_deferClipSampleId <= 0) {
-            m_deferClipSampleId = m_focus_sample_id;
-        }
+        rememberDeferredClip(m_focus_sample_id);
         logTestFsmInfo(QStringLiteral("no_free_chn_wash_blood"),
                        tr("等待通道，先洗样本针"));
         setSampleFocus(m_focus_sample_id, FOCUS_CLEAN_BLOODPIN, tr("无空闲通道"));
@@ -2456,9 +2482,17 @@ void TestProjectProcess::sendControlCommands(quint8 chn, int sampleId, quint8 re
 }
 
 // 处理空闲通道
+void TestProjectProcess::rememberDeferredClip(int sampleId)
+{
+    if (sampleId <= 0 || m_deferClipSampleIds.contains(sampleId)) {
+        return;
+    }
+    m_deferClipSampleIds.append(sampleId);
+}
+
 bool TestProjectProcess::resumeDeferredClipIfNeeded()
 {
-    if (m_deferClipSampleId <= 0) {
+    if (m_deferClipSampleIds.isEmpty()) {
         return false;
     }
     if (!m_finishTestData.isEmpty()) {
@@ -2466,23 +2500,27 @@ bool TestProjectProcess::resumeDeferredClipIfNeeded()
         return true;
     }
     auto *instance = StructInstance::getInstance();
-    const int clipId = m_deferClipSampleId;
-    const DATASAMPLESTRUCT *ps = instance->rfindIdSample(clipId);
-    if (!ps) {
-        m_deferClipSampleId = 0;
-        return false;
+    while (!m_deferClipSampleIds.isEmpty()) {
+        const int clipId = m_deferClipSampleIds.first();
+        const DATASAMPLESTRUCT *ps = instance->rfindIdSample(clipId);
+        if (!ps || ps->indexTestingChn >= 0) {
+            m_deferClipSampleIds.removeFirst();
+            continue;
+        }
+        quint8 freeChn = 0;
+        const bool hasFree = instance->getNextFreeChnAfterTesting(freeChn);
+        const bool cleaned = ps->bcleanbloody_state && ps->bcleanDoublePin_state;
+        if (!hasFree && cleaned) {
+            return false;
+        }
+        m_focus_sample_id = clipId;
+        instance->config_focusSample(clipId, true);
+        QLOG_INFO() << "丢杯结束，继续把已加样样本" << clipId << "夹到通道"
+                    << "后面还等着" << (m_deferClipSampleIds.size() - 1);
+        getFreeTimeTestChn();
+        return true;
     }
-    quint8 freeChn = 0;
-    const bool hasFree = instance->getNextFreeChnAfterTesting(freeChn);
-    const bool cleaned = ps->bcleanbloody_state && ps->bcleanDoublePin_state;
-    if (!hasFree && cleaned) {
-        return false;
-    }
-    m_focus_sample_id = clipId;
-    instance->config_focusSample(clipId, true);
-    QLOG_INFO() << "丢杯结束，继续把已加样样本" << clipId << "夹到通道";
-    getFreeTimeTestChn();
-    return true;
+    return false;
 }
 
 void TestProjectProcess::handleIdleChannelTasks()
@@ -3975,9 +4013,7 @@ void TestProjectProcess::enqueueContinueReagent(int sampleId)
 void TestProjectProcess::removeSampleFromSchedulerQueues(int sampleId)
 {
     m_pendingContinueReagent.removeAll(sampleId);
-    if (m_deferClipSampleId == sampleId) {
-        m_deferClipSampleId = 0;
-    }
+    m_deferClipSampleIds.removeAll(sampleId);
 }
 
 void TestProjectProcess::dropFinishTasksForSample(int sampleId)
@@ -4148,7 +4184,7 @@ void TestProjectProcess::resumeTestingAfterReagentPause(bool hasFocus)
         if (!m_finishTestData.isEmpty()) {
             TraverseChnHadFinishTesting(THROW_CUPS_END);
         } else {
-            StartSampleAdditionWorkflow();
+            handleIdleChannelTasks();
         }
     }
     m_holdReagentPause = false;

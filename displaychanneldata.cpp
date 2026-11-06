@@ -332,6 +332,9 @@ void displayChanneldata::processChannelData(int moduleIndex,
         }
         m_channelHasFrame[channelNumber] = true;
         const int value = data[i];
+        if (channelNumber >= 0 && channelNumber < MACHINE_SETTING_CHANNEL) {
+            m_lastRawValue[channelNumber] = value;
+        }
         if (value <= 0) {
             QLOG_DEBUG() << "模块" << moduleIndex << "通道" << channelNumber + 1
                          << "脏0丢弃不入桶：" << value
@@ -497,6 +500,7 @@ void displayChanneldata::handleCleanModuleBuffData()
     m_prpZeroRetryCount = 0;
     std::fill_n(m_lastFilterSecondValid, MACHINE_SETTING_CHANNEL, false);
     std::fill_n(m_emptyFilterSeconds, MACHINE_SETTING_CHANNEL, 0);
+    std::fill_n(m_lastRawValue, MACHINE_SETTING_CHANNEL, 0);
     {
         QMutexLocker locker(&queueMutex);
         for (int i = 0; i < MACHINE_SETTING_CHANNEL; ++i) {
@@ -1564,8 +1568,20 @@ void displayChanneldata::slotgetAnemiaValue()
         anemiaValue = 0;
     }
 
-    const bool lastSecondValid = (testChnindex < MACHINE_SETTING_CHANNEL)
+    const bool experimental = INI_File().getexperimentalMode();
+    bool lastSecondValid = (testChnindex < MACHINE_SETTING_CHANNEL)
             && m_lastFilterSecondValid[testChnindex];
+    if (!lastSecondValid && !experimental) {
+        if (anemiaValue <= 0 && testChnindex < MACHINE_SETTING_CHANNEL
+                && m_lastRawValue[testChnindex] > 0) {
+            anemiaValue = m_lastRawValue[testChnindex];
+        }
+        if (anemiaValue > 0) {
+            QLOG_INFO() << "[TestChn] ppp_use_current_nonzero sample" << sampleid
+                        << "chn" << testingChannel << "value" << anemiaValue;
+            lastSecondValid = true;
+        }
+    }
     if (!lastSecondValid) {
         emit testingLogHint(tr("样本%1 通道%2 本秒无有效正点，PPP重读（不计入失败）")
                             .arg(sampleid).arg(testingChannel));
@@ -1578,7 +1594,6 @@ void displayChanneldata::slotgetAnemiaValue()
         return;
     }
 
-    const bool experimental = INI_File().getexperimentalMode();
     if (!experimental && anemiaValue <= 0) {
         if (m_pppZeroRetryCount < kPrpZeroRetryMax) {
             ++m_pppZeroRetryCount;
@@ -1629,6 +1644,55 @@ void displayChanneldata::slotgetAnemiaValue()
 
     QLOG_INFO() << "[TestChn] ppp_read_complete -> throwAnemiaCup chn" << (testChnindex + 1);
     emit CompleteGetAnemiaValue(testChnindex);
+}
+
+void displayChanneldata::slotUseCurrentPppAndContinue()
+{
+    if (INI_File().getexperimentalMode()) {
+        slotgetAnemiaValue();
+        return;
+    }
+
+    int sampleid = 0;
+    quint8 testChnindex = 0;
+    sampleid = StructInstance::getInstance()->ClipEndGetAnemiaValeChn(
+                testChnindex, FOCUS_CLIP_ANEMIA_TO_CHN, "等待超时后采用当前PPP");
+    if (sampleid <= 0) {
+        emit testingLogHint(tr("未定位到夹PPP焦点样本，无法读取PPP"));
+        return;
+    }
+
+    const int testingChannel = testChnindex + 1;
+    int anemiaValue = 0;
+    {
+        QMutexLocker locker(&m_realtimeDataMutex);
+        const auto it = m_ChnRealtimeData.find(testingChannel);
+        if (it != m_ChnRealtimeData.constEnd()) {
+            anemiaValue = it.value();
+        }
+    }
+    if (anemiaValue <= 0 && testChnindex < MACHINE_SETTING_CHANNEL) {
+        anemiaValue = m_lastRawValue[testChnindex];
+    }
+    if (anemiaValue > 0) {
+        m_pppZeroRetryCount = 0;
+        StructInstance::getInstance()->oper_AnemiaValue(WRITE_OPERAT, testChnindex, anemiaValue);
+        QLOG_INFO() << "[TestChn] ppp_timeout_use_nonzero sample" << sampleid
+                    << "chn" << testingChannel << "value" << anemiaValue;
+        emit testingLogHint(tr("样本%1 通道%2 PPP=%3，不是0，继续测试")
+                            .arg(sampleid).arg(testingChannel).arg(anemiaValue));
+        emit pppInitRead(testChnindex, anemiaValue);
+        if (auto *sql = FullyAutomatedPlatelets::pinstancesqlData()) {
+            sql->saveSamplePppInit(sampleid, testingChannel, anemiaValue);
+        }
+        emit CompleteGetAnemiaValue(testChnindex);
+        return;
+    }
+
+    m_pppZeroRetryCount = 0;
+    emit testingLogHint(tr("样本%1 PPP读初值异常（等待结束仍为0），丢弃通道PPP并放弃该样本")
+                        .arg(sampleid));
+    emit signalPppZeroGiveUp(sampleid, testChnindex);
 }
 
 // 读取富血初始值(PRP)：须吸试剂并把杯子放到通道之后才连读。小于等于10判异常。为0先自动重读几次，不和PPP比较

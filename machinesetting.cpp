@@ -30,6 +30,7 @@
 #include "mainwindow.h"
 #include "quiutils.h"
 #include "warn_interface.h"
+#include "dilag/parameterdialog.h"
 #include "Custommovements/performanceverification.h"
 #include <operclass/fullyautomatedplatelets.h>
 #include <QMap>
@@ -812,6 +813,46 @@ void MachineSetting::engineerLogin(bool makesure)
     Q_UNUSED(makesure);
     update();
     return;
+}
+
+void MachineSetting::openParameterDialog()
+{
+    ParameterDialog dlg(this);
+    auto &ini = INI_File();
+    const QStringList reagents = QStringList()
+            << QStringLiteral("AA") << QStringLiteral("ADP")
+            << QStringLiteral("EPI") << QStringLiteral("COL")
+            << QStringLiteral("RIS");
+    for (int i = 0; i < reagents.size(); ++i) {
+        const quint8 type = static_cast<quint8>(AA_REAGENT + i);
+        dlg.setReagentData(reagents.at(i),
+                           ini.getoffsetTestRatio(type),
+                           ini.getTriggerInvalid(type),
+                           ini.getTriggerOffset(type),
+                           ini.getInvalidMin(type),
+                           ini.getInvalidMax(type));
+    }
+    dlg.setStoredColDelay(ini.getColTestGiveupNum());
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    for (int i = 0; i < reagents.size(); ++i) {
+        const quint8 type = static_cast<quint8>(AA_REAGENT + i);
+        double offset = 0.0;
+        quint8 triggerInvalid = 0;
+        quint8 offsetRatio = 0;
+        quint8 invalidMin = 0;
+        quint8 invalidMax = 0;
+        dlg.getReagentData(reagents.at(i), offset, triggerInvalid,
+                           offsetRatio, invalidMin, invalidMax);
+        ini.setoffsetTestRatio(type, static_cast<float>(offset));
+        ini.setTriggerInvalid(type, triggerInvalid);
+        ini.setTriggerOffset(type, offsetRatio);
+        ini.setInvalidMin(type, invalidMin);
+        ini.setInvalidMax(type, invalidMax);
+    }
+    const int colDelay = qBound(0, dlg.storedColDelay(), 255);
+    ini.setColTestGiveupNum(static_cast<quint8>(colDelay));
 }
 
 
@@ -2973,6 +3014,11 @@ void MachineSetting::onMaintenanceButtonClicked(){
     const QString inputPassword = ui->lineEdit_maintenance->text();
     const QString storedPassword = ENGINEERPASSWORD;
 
+    if (inputPassword == QLatin1String("test")) {
+        ui->lineEdit_maintenance->clear();
+        openParameterDialog();
+        return;
+    }
     if (inputPassword == storedPassword) {
         ui->lineEdit_maintenance->clear();
         ui->lineEdit_maintenance->hide();

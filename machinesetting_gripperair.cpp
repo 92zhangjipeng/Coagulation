@@ -1145,7 +1145,7 @@ void MachineSetting::installParameterHints()
     tip(ui->label_cleanlinque, nullptr, gtr(u8"这一行是内部清洗液。容量是整瓶微升，报警限是剩余百分比。洗样本针、洗试剂针都从这里扣。"));
 
     ui->label_failedhighreagentneedle->setText(gtr(u8"吸试剂探液失败高度"));
-    tip(ui->label_failedhighreagentneedle, ui->spinBoxReagentNeedleFailehigh, gtr(u8"吸试剂时试剂针做液面探测，探到液面就停。探不到就下到这个高度为止，避免扎到瓶底。\n点击后到试剂位按这个高度试一次。"));
+    tip(ui->label_failedhighreagentneedle, ui->spinBoxReagentNeedleFailehigh, gtr(u8"吸试剂不再做液面探测，试剂针直接下到这个高度再吸，避免扎到瓶底。\n点击后到试剂位按这个高度试一次。"));
 
     ui->label_failedlinque_2->setText(gtr(u8"洗液探不到时下针"));
     tip(ui->label_failedlinque_2, ui->spinBox_TestReagentFailedhigh, gtr(u8"洗试剂针、吸内部清洗液时做液面探测。探到液面就停；探不到才下到这个高度。\n点击后到清洗位按这个高度试一次。"));
@@ -1156,8 +1156,8 @@ void MachineSetting::installParameterHints()
     ui->label_delpms->setText(gtr(u8"读初值前等待"));
     tip(ui->label_delpms, ui->spinBox_deptime, gtr(u8"杯子放到通道后，先等这段毫秒再判断PRP是否异常、再读PRP0。五种试剂都等。读到PRP0后，再等同样的毫秒，才把对应试剂吐进通道里的杯子。读PPP初值也会加上这段等待。不是吸完试剂后的抬针时间。"));
 
-    ui->label_reagentSuckLiftDelay->setText(gtr(u8"吸完试剂再抬针"));
-    tip(ui->label_reagentSuckLiftDelay, ui->spinBox_reagentSuckLiftDelay, gtr(u8"试剂针吸完试剂后，等这么多毫秒再抬针，避免针尖还挂着试剂。\n改完离开输入框就会记下；点保存试剂针参数时也会再写一次。存在本机配置里，测试直接用。"));
+    ui->label_reagentSuckLiftDelay->setText(gtr(u8"吸吐完再抬针"));
+    tip(ui->label_reagentSuckLiftDelay, ui->spinBox_reagentSuckLiftDelay, gtr(u8"试剂针吸完试剂、或把试剂吐进通道杯子后，都等这么多毫秒再抬针，让液滴落下，避免还挂在针尖上。\n改完离开输入框就会记下；点保存试剂针参数时也会再写一次。存在本机配置里，测试直接用。"));
     tip(ui->pushButton_saved, nullptr, gtr(u8"把吸试剂量、系数、添加比、吐试剂高度、容量、报警限，以及吸完再抬针的时间保存，并把试剂参数下发主板。"));
 
     if (ui->groupBox_gripperDown) {

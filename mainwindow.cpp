@@ -1041,6 +1041,11 @@ void MainWindow::initTestTaskThread()
             mshowModuledata.data(),
             &displayChanneldata::slotgetAnemiaValue,
             Qt::QueuedConnection);
+    connect(m_pdoingTesting.data(),
+            &TestProjectProcess::useCurrentPppAndContinue,
+            mshowModuledata.data(),
+            &displayChanneldata::slotUseCurrentPppAndContinue,
+            Qt::QueuedConnection);
 
     //获取样本PPP初值成功丢PPP
     connect(mshowModuledata.data(),
@@ -1300,6 +1305,15 @@ void MainWindow::initTestTaskThread()
 
 }
 
+
+void MainWindow::releaseManualMotionBus()
+{
+    if (!m_manualMotionOwnsBus) {
+        return;
+    }
+    m_manualMotionOwnsBus = false;
+    pauseObtainmodulecommand(tr("手动动作结束"), false);
+}
 
 void MainWindow::pauseObtainmodulecommand(const QString& info, bool pauseRequested)
 {
@@ -1778,6 +1792,9 @@ void MainWindow::creatbeginreadmodule()
 
 void MainWindow::sendOneModuleData(int moduleIndex)
 {
+    if (m_manualMotionOwnsBus) {
+        return;
+    }
     if (!cglobal::gserialConnecStatus){
         return;
     }
@@ -2145,6 +2162,7 @@ void MainWindow::CreatActionExecution()
     connect(mpSingleactive, &USB_InitConnect::btn_resetComplete, this,
             [this]() {
                 ui->toolButton_quality_reset->setEnabled(true);
+                releaseManualMotionBus();
                 QLOG_DEBUG() << "按钮复位完成!";
             },
             Qt::QueuedConnection);
@@ -2162,14 +2180,16 @@ void MainWindow::CreatActionExecution()
 
     // 按钮清洗完成（扣除试剂）
     connect(mpSingleactive, &USB_InitConnect::btn_CleanComplete, this,
-            [instrument]() {
+            [this, instrument]() {
                 instrument->LosserOneReagentul(INDEX_CLEANLINQUE_CONSUMABLE, 2);
+                releaseManualMotionBus();
             },
             Qt::QueuedConnection);
 
     // 任务执行失败提示
     connect(mpSingleactive, &USB_InitConnect::taskErrorOccurred, this,
             [this](const QString& errorMsg) {
+                releaseManualMotionBus();
                 CustomMessageBox::warning(this, "动作执行失败", errorMsg);
             },
             Qt::QueuedConnection);
@@ -3174,17 +3194,48 @@ void MainWindow::on_sStatusInfo_clicked()
 //按钮==清洗
 void MainWindow::on_toolButton_quality_cleaning_clicked()
 {
-    if(!cglobal::gserialConnecStatus) return;
-    if (cglobal::g_StartTesting) {
+    if (!cglobal::gserialConnecStatus.load()) {
+        CustomMessageBox::warning(this, tr("无法清洗"), tr("仪器未连接。"));
+        return;
+    }
+    if (cglobal::g_StartTesting.load()) {
         CustomMessageBox::warning(this, tr("操作禁止"),
                                   tr("仪器正在测试中，不能清洗。"));
         return;
     }
+    if (cglobal::g_hitTesting.load() || cglobal::g_quality_start.load()) {
+        CustomMessageBox::warning(this, tr("操作禁止"),
+                                  tr("其它测试还在进行，不能清洗。"));
+        return;
+    }
 
-    QByteArrayList CleanBtnarry; CleanBtnarry.clear();
-    QUIUtils::cleaningDoubleNeedleAction(CleanBtnarry,1);  //清洗(吸清洗剂吐出)
-    emit  CeratActionDate(EQUIPMENT_BTN_CLEAN,CleanBtnarry);// 按钮清洗
-    return;
+    m_manualMotionOwnsBus = true;
+    pauseObtainmodulecommand(tr("手动清洗"), true);
+    if (mlocalSerial && mlocalSerial->thread()->isRunning()) {
+        QMetaObject::invokeMethod(mlocalSerial, "prepareForManualMotion",
+                                  Qt::BlockingQueuedConnection);
+    }
+    if (USB_InitConnect *act = FullyAutomatedPlatelets::pinstanceSingleactive()) {
+        if (act->thread()->isRunning()) {
+            QMetaObject::invokeMethod(act, "abortPendingActions", Qt::BlockingQueuedConnection);
+        }
+    }
+
+    QByteArrayList CleanBtnarry;
+    QUIUtils::cleaningDoubleNeedleAction(CleanBtnarry, 1);
+    for (int i = CleanBtnarry.size() - 1; i >= 0; --i) {
+        if (CleanBtnarry.at(i).isEmpty()) {
+            CleanBtnarry.removeAt(i);
+        }
+    }
+    if (CleanBtnarry.isEmpty()) {
+        releaseManualMotionBus();
+        CustomMessageBox::warning(this, tr("无法清洗"),
+                                  tr("没有生成清洗动作。请检查清洗位坐标是否已标定。"));
+        return;
+    }
+    emit CeratActionDate(EQUIPMENT_BTN_CLEAN, CleanBtnarry);
+    emit ReminderTextOut(PROMPTLOG, tr("开始清洗双针"));
 }
 
 //复位
@@ -3197,6 +3248,18 @@ void MainWindow::on_toolButton_quality_reset_clicked()
         return;
     }
 
+    m_manualMotionOwnsBus = true;
+    pauseObtainmodulecommand(tr("手动复位"), true);
+    if (mlocalSerial && mlocalSerial->thread()->isRunning()) {
+        QMetaObject::invokeMethod(mlocalSerial, "prepareForManualMotion",
+                                  Qt::BlockingQueuedConnection);
+    }
+    if (USB_InitConnect *act = FullyAutomatedPlatelets::pinstanceSingleactive()) {
+        if (act->thread()->isRunning()) {
+            QMetaObject::invokeMethod(act, "abortPendingActions", Qt::BlockingQueuedConnection);
+        }
+    }
+
     QPoint locAxis(0,0);
     auto *pconfAxis = SingletonAxis::GetInstance();
     if(!pconfAxis)
@@ -3205,7 +3268,12 @@ void MainWindow::on_toolButton_quality_reset_clicked()
     }
     pconfAxis->originPos(READ_OPERRAT,locAxis);
 
-    Q_EMIT CeratActionDate(EQUIPMENT_BTN_REAET,QUIUtils::backZAxisandmoveOrigin(locAxis));
+    const QByteArrayList resetCmds = QUIUtils::backZAxisandmoveOrigin(locAxis);
+    if (resetCmds.isEmpty()) {
+        releaseManualMotionBus();
+        return;
+    }
+    Q_EMIT CeratActionDate(EQUIPMENT_BTN_REAET, resetCmds);
 
     return;
 }
@@ -3507,6 +3575,11 @@ void MainWindow::begingTesting()
     }
     if (cglobal::g_hitTesting.load()) {
         CustomMessageBox::warning(this, tr("开始失败"), tr("HIT测试进行中，请结束后再开始!"));
+        return;
+    }
+    if (CustomMessageBox::question(this, tr("开始测试"),
+            tr("请确认样本、试剂、试管都已准备好。\n确定开始测试吗？"),
+            QMessageBox::Ok | QMessageBox::Cancel) != QMessageBox::Ok) {
         return;
     }
     mptesting.data()->TotalTaskProgress(); //总任务进度试管杯
@@ -3814,6 +3887,9 @@ void MainWindow::initBoardDataAcquisition()
 
 void MainWindow::handleBoardData(const QByteArray &data)
 {
+    if (m_manualMotionOwnsBus) {
+        return;
+    }
     // 此函数在主线程中运行，可以安全地更新 UI、发送信号等
     if (!data.isEmpty()) {
         emit sendOneDirectives(data, "同步主板信息");

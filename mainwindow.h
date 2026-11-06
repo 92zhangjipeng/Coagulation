@@ -140,6 +140,7 @@ public:
      * @param connectedCotl  true = 暂停 false = 读取
      */
     void pauseObtainmodulecommand(const QString &info, bool pauseRequested); //暂停读模组数据
+    void releaseManualMotionBus(); //手动清洗/复位结束后恢复模组轮询
     void displayHandoffUser(); //显示切换用户界面
     void machineReposition();//复位
     void dimmingprogress(bool isDimmingInProgress); //调光中
@@ -588,6 +589,7 @@ private:
     ObtainMainBoardData *m_boardData = nullptr;
     bool m_rechargePollPaused = false;
     int m_rechargePollGeneration = 0;
+    bool m_manualMotionOwnsBus = false;
 
 
     bool m_warmwasteliquor = false;     //提示闪烁废液

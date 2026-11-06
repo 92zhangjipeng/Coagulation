@@ -1637,7 +1637,7 @@ bool StructInstance::addReagentIntoChannelFinish(const int SampleId,quint8 index
    (*splitReagentIndexnum)->bcompleted = true;
 
    if (pumpSpitReagentAct.contains(indexNum) && nextDelayMs) {
-       const int delaytime = INI_File().GetAfterSpitDelayMs();
+       const int delaytime = INI_File().GetReagentAfterSuckLiftDelayMs();
        if (delaytime > 0) {
            *nextDelayMs = delaytime;
        }

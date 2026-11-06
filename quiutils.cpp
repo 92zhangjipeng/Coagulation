@@ -4159,7 +4159,7 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
         return static_cast<quint8>(outputArry.count() % 255);
     };
 
-    // 吸试剂探不到液面时下到的高度：用「吸试剂探液失败高度」输入框里的数
+    // 吸试剂不再探测液面，直接下到「吸试剂探液失败高度」
     const int falilinquehigh = INI_File().getFailedCleanLinqueReagNeedle();
 
     outputArry.clear();
@@ -4191,7 +4191,12 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
     indexCode = nextCmdIndex();
     outputArry.push_back(pActive->DLL_ZAxis_Reset(
                             MOTOR_REAGNET_INDEX, 0, TRAY_TESTCHANNEL, indexCode, false));
-    appendHangLiquidBlindThenDetect(outputArry, MOTOR_REAGNET_INDEX, falilinquehigh);
+    if (falilinquehigh > 0) {
+        indexCode = nextCmdIndex();
+        outputArry.push_back(pActive->DLL_ZMoveSpecifiedPosition(
+                    MOTOR_REAGNET_INDEX, falilinquehigh, 0, indexCode,
+                    false, falilinquehigh, false, GRIPPERNORMAL));
+    }
 
     auto& manager = PumpPositionManager::instance();
     int TotalSuckStep = SuckReagentNumberofSteps(indexReag);

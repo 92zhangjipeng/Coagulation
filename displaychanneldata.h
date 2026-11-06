@@ -101,6 +101,7 @@ public slots:
     void startthread();                                                  ///< 子线程入口（初始化通道/映射）
     void Recv_syncModuleChannelData(const QStringList channelData);      ///< 解析模组数据（主入口）
     void slotgetAnemiaValue();                                           ///< 读取通道贫血值(PPP)
+    void slotUseCurrentPppAndContinue();                                 ///< 正常模式等待超时：不是0就继续，不暂停
     void slotreadbloodyInitValue(quint8 indexReagent, quint8 indexActive); ///< 读取通道富血初始值(PRP)
     void slotopenTestChnTest(const int sampleId, const quint8 indexActive, const quint8 index_reagent); ///< 打开通道开始测试
     void handleCleanModuleBuffData();                                    ///< 断线时清空模组缓冲区
@@ -214,6 +215,7 @@ private:
     int m_prpZeroRetryCount = 0;              ///< 物理真 0 时的 PRP 重读次数
     bool m_offlineHoldReads = false;          ///< 掉线清值后禁止把 0 当作 PPP/PRP 初值
     bool m_lastFilterSecondValid[MACHINE_SETTING_CHANNEL] = {}; ///< 上一滤波秒是否有正点/已确认物理0
+    int m_lastRawValue[MACHINE_SETTING_CHANNEL] = {};           ///< 0 起始：通道最近一次原始读数
     int m_emptyFilterSeconds[MACHINE_SETTING_CHANNEL] = {};     ///< 连续无正点的滤波秒数
     quint32 m_positiveFilterSeq[MACHINE_SETTING_CHANNEL] = {};  ///< 正点滤波秒代次（换液后用来丢掉旧值）
     static constexpr int kPrpZeroRetryMax = 8;

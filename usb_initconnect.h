@@ -36,6 +36,7 @@ public slots:
     void onCeratActionData(const int ACtionType, const QByteArrayList groupActions); ///< 创建动作数据
     void abortPendingActions();                     ///< 中止未完成复位/清洗队列
     void slotDisconnectandreconnect();              ///< 断线重连处理（已空实现）
+    void onAckTimeout();                            ///< 单步动作久无应答
 
 signals:
     void writeCommand(const QByteArray, QString);          ///< 发送命令信号
@@ -55,6 +56,8 @@ private:
     void CompletedActions(const int indexActive);      ///< 动作完成回调
     void sendTaskHeader();                             ///< 发送下一个待执行任务
     void clearActionQueue();                           ///< 清空任务队列并释放内存
+    void armAckWatch();                                ///< 本步应答计时
+    void disarmAckWatch();                             ///< 停应答计时
 
     void dataSort();                                   ///< 按命令编号排序（可选）
     void logCommandFailure(const QStringList& commandData, const QString& errorLog); ///< 记录失败
@@ -66,6 +69,7 @@ private:
     int m_runingAction;                  ///< 当前执行的动作类型
     bool m_waitingForResponse = false;   ///< 是否正在等待设备响应（防止并发发送）
     bool m_taskFailed = false;           ///< 当前任务是否因错误而中止
+    class QTimer *m_ackTimer = nullptr;  ///< 单步应答超时
 };
 
 #endif // USB_INITCONNECT_H

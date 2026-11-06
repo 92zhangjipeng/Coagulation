@@ -492,6 +492,22 @@ void ParameterDialog::setColDelayTime(int val)
     }
 }
 
+void ParameterDialog::setStoredColDelay(int seconds)
+{
+    if (m_reagentData.contains(QStringLiteral("COL")))
+        m_reagentData[QStringLiteral("COL")].colDelay = seconds;
+    if (m_currentReagent == QStringLiteral("COL"))
+        setColDelayTime(seconds);
+}
+
+int ParameterDialog::storedColDelay() const
+{
+    const auto it = m_reagentData.constFind(QStringLiteral("COL"));
+    if (it == m_reagentData.cend())
+        return 0;
+    return it->colDelay;
+}
+
 quint8 ParameterDialog::getTriggerInvalid() const
 {
     return static_cast<quint8>(m_triggerInvalidSpin->value());

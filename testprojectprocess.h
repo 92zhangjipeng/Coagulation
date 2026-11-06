@@ -60,6 +60,7 @@ signals:
     void openChnMotor(const quint8, const bool);
 
     void getAnemiaValue();              //获取贫血初值
+    void useCurrentPppAndContinue();    //正常模式：PPP等待超时后按当前非0值继续
 
     void EmptyTubeCatched(quint8 );     //试管夹起变灰
 
@@ -297,6 +298,7 @@ private:
     void handleIdleChannelTasks();
     // 加样已完成但还没上通道：有空通道或还没洗针就先处理它，否则交给后面的调度
     bool resumeDeferredClipIfNeeded();
+    void rememberDeferredClip(int sampleId);
 
     //提示显示到主界面
     void promptsareDisplayed(const quint8 proIndex, const QString tips, const bool outwidgetTips);
@@ -504,7 +506,7 @@ private:
     int m_leaveCupChannel = -1;
     bool m_waitCupRemovedContinue = false;
     int m_waitCupRemovedSample = 0;
-    int m_deferClipSampleId = 0; //加样已完成，但要先丢完通道里的杯子再夹PPP
+    QList<int> m_deferClipSampleIds; //加样已完成，等通道空出来再夹PPP，按先后排队
     bool m_gripperFailPromptShown = false;
 
     QQueue<Finish_Data_> m_finishTestData; //完成测试通道

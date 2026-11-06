@@ -53,6 +53,7 @@ public slots:
     void write_data(const QByteArrayList);
     void writedataToEquipment(const QByteArray arry, QString kindCommad);
     void abortPendingWrites();
+    void prepareForManualMotion();                     ///< 清掉未发出的轮询，给手动动作让路
     int pendingWriteCount();
     void processWriteQueue();
     void Recv_TrayMoveTest(const QByteArrayList, const bool, const quint8);
