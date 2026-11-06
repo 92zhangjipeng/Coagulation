@@ -160,9 +160,17 @@ void SuoweiSerialPort::handleSerialError(QSerialPort::SerialPortError error)
         case QSerialPort::WriteError:
         case QSerialPort::ReadError:
             break;
-        case QSerialPort::ResourceError:
+        case QSerialPort::ResourceError: {
+            QMutexLocker locker(&m_serialMutex);
             m_portOpen = false;
+            if (mserialPort && mserialPort->isOpen()) {
+                mserialPort->close();
+            }
+            locker.unlock();
+            clearReceiveBuffer();
+            emit connectionStateChanged(false);
             break;
+        }
         default:
             QLOG_DEBUG() << "串口次要错误:" << errorMsg;
             break;
@@ -171,14 +179,30 @@ void SuoweiSerialPort::handleSerialError(QSerialPort::SerialPortError error)
 
 void SuoweiSerialPort::prepareReconnect()
 {
+    static bool running = false;
+    if (running) {
+        return;
+    }
+    running = true;
+
     abortPendingWrites();
     recvdisConnectCloseSerial();
+    clearReceiveBuffer();
 
-    QEventLoop loop;
-    QTimer::singleShot(150, &loop, &QEventLoop::quit);
-    loop.exec();
-
-    InstancingSerialandOpen(false);
+    bool opened = false;
+    for (int attempt = 1; attempt <= 8 && !opened; ++attempt) {
+        QEventLoop loop;
+        QTimer::singleShot(400, &loop, &QEventLoop::quit);
+        loop.exec();
+        const bool lastTry = (attempt == 8);
+        opened = InstancingSerialandOpen(false, lastTry);
+        if (opened) {
+            QLOG_INFO() << "串口重连成功，第" << attempt << "次";
+        } else {
+            QLOG_WARN() << "串口重连第" << attempt << "次未打开";
+        }
+    }
+    running = false;
 }
 
 void SuoweiSerialPort::recvdisConnectCloseSerial()
@@ -555,22 +579,71 @@ void SuoweiSerialPort::handleCmd5(const QStringList& recvdata, ConsumablesOper* 
     }
 }
 
+namespace {
+
+bool frameLooksAligned(const QByteArray &buffer)
+{
+    if (buffer.size() < 2) {
+        return false;
+    }
+    const quint8 addr = static_cast<quint8>(buffer.at(0));
+    const quint8 func = static_cast<quint8>(buffer.at(1));
+    if (addr < MODULE_1 || addr > MAIN_CONTROL) {
+        return false;
+    }
+    return func == MAINBOARD_PARA_FUNCT
+            || func == MAINBOARD_FUNCTIONCODE
+            || func == MOTOR_FUNCTIONCODE;
+}
+
+}
+
+void SuoweiSerialPort::clearReceiveBuffer()
+{
+    QWriteLocker locker(&m_bufferLock);
+    m_buffer.clear();
+    mreminderbufferfull = false;
+}
+
+QStringList SuoweiSerialPort::instrumentPortNames() const
+{
+    QStringList names;
+    const auto ports = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo &info : ports) {
+        if (info.hasVendorIdentifier() && info.hasProductIdentifier()
+                && info.vendorIdentifier() == VID_NUM
+                && info.productIdentifier() == PID_NUM) {
+            names.append(info.portName());
+        }
+    }
+    return names;
+}
+
+int SuoweiSerialPort::pendingWriteCount()
+{
+    QMutexLocker locker(&m_writeMutex);
+    return m_writeQueue.size();
+}
+
 void SuoweiSerialPort::handleRecvdata()
 {
     if (!mserialPort || !m_portOpen) return;
 
-    const qint64 bytesAvailable = mserialPort->bytesAvailable();
-    if (bytesAvailable <= 0) return;
-
-    const qint64 readSize = qMin<qint64>(bytesAvailable, 1024);
-    QByteArray newData = mserialPort->read(readSize);
+    QByteArray newData;
+    while (mserialPort->bytesAvailable() > 0 && newData.size() < MAX_BUFFER_SIZE) {
+        const qint64 chunk = qMin<qint64>(mserialPort->bytesAvailable(), 1024);
+        newData.append(mserialPort->read(chunk));
+    }
+    if (newData.isEmpty()) {
+        return;
+    }
 
     {
         QWriteLocker locker(&m_bufferLock);
         if (m_buffer.size() + newData.size() > MAX_BUFFER_SIZE) {
-            int overflow = m_buffer.size() + newData.size() - MAX_BUFFER_SIZE;
-            m_buffer.remove(0, overflow);
-            QLOG_WARN() << "Buffer overflow! Removed" << overflow << "bytes";
+            QLOG_WARN() << "接收缓冲溢出，整段丢弃后重新对齐"
+                        << (m_buffer.size() + newData.size());
+            m_buffer.clear();
         }
         m_buffer.append(newData);
     }
@@ -582,7 +655,19 @@ void SuoweiSerialPort::processCompleteFrames()
 {
     QWriteLocker locker(&m_bufferLock);
 
+    int dropped = 0;
+    while (m_buffer.size() >= PROTOCOL_LENGTH && !frameLooksAligned(m_buffer)) {
+        m_buffer.remove(0, 1);
+        ++dropped;
+    }
+    if (dropped > 0) {
+        QLOG_WARN() << "串口帧错位，丢弃" << dropped << "字节后重新对齐";
+    }
+
     while (m_buffer.size() >= PROTOCOL_LENGTH) {
+        if (!frameLooksAligned(m_buffer)) {
+            break;
+        }
         QByteArray frame = m_buffer.left(PROTOCOL_LENGTH);
         m_buffer.remove(0, PROTOCOL_LENGTH);
 
@@ -661,53 +746,64 @@ void SuoweiSerialPort::toReadSuckAirsValBack(const QStringList& recv_data)
     }
 }
 
-void SuoweiSerialPort::InstancingSerialandOpen(const bool initconnect)
+bool SuoweiSerialPort::InstancingSerialandOpen(const bool initconnect, bool notifyFailure)
 {
     QMutexLocker locker(&m_serialMutex);
+    clearReceiveBuffer();
     cleanupSerialPort();
 
-    mserialPort = new QSerialPort(this);
-
-    connect(mserialPort, &QSerialPort::readyRead,
-            this, &SuoweiSerialPort::slotReadData,
-            Qt::DirectConnection);
-
-    connect(mserialPort, &QSerialPort::bytesWritten,
-            this, &SuoweiSerialPort::handleBytesWritten,
-            Qt::DirectConnection);
-
     try {
-        if (!findAndValidateSerialPort()) {
+        const QStringList ports = instrumentPortNames();
+        if (ports.isEmpty()) {
             QLOG_WARN() << "未找到有效的仪器端口号!";
             throw SerialPortException("未找到仪器端口号");
         }
 
-        if (!openSerialPort(cglobal::gserialPortName)) {
-            QString errorMsg = getSerialPortErrorString(mserialPort);
-            QLOG_WARN() << "串口打开失败: " << errorMsg;
-            throw SerialPortException(errorMsg.toStdString());
-        }
+        QString lastError = QString::fromUtf8("串口打开失败");
+        for (const QString &name : ports) {
+            mserialPort = new QSerialPort(this);
+            connect(mserialPort, &QSerialPort::readyRead,
+                    this, &SuoweiSerialPort::slotReadData,
+                    Qt::DirectConnection);
+            connect(mserialPort, &QSerialPort::bytesWritten,
+                    this, &SuoweiSerialPort::handleBytesWritten,
+                    Qt::DirectConnection);
+            m_errorSignalConnected = false;
 
-        if (!m_errorSignalConnected) {
-            connect(mserialPort, &QSerialPort::errorOccurred,
-                    this, &SuoweiSerialPort::handleSerialError,
-                    Qt::QueuedConnection);
-            m_errorSignalConnected = true;
-        }
-
-        QLOG_INFO() << "串口打开成功: " << cglobal::gserialPortName;
-
-        if (!initconnect) {
-            emit prepareReconnectGetData();
-            if (cglobal::g_StartTesting) {
-                prepareReconnectTesting();
+            cglobal::gserialPortName = name;
+            if (openSerialPort(name)) {
+                if (!m_errorSignalConnected) {
+                    connect(mserialPort, &QSerialPort::errorOccurred,
+                            this, &SuoweiSerialPort::handleSerialError,
+                            Qt::QueuedConnection);
+                    m_errorSignalConnected = true;
+                }
+                QLOG_INFO() << "串口打开成功: " << cglobal::gserialPortName;
+                if (!initconnect) {
+                    emit prepareReconnectGetData();
+                    if (cglobal::g_StartTesting) {
+                        prepareReconnectTesting();
+                    }
+                } else {
+                    emit openequipmentCleanActive();
+                    emit connectionStateChanged(true);
+                }
+                return true;
             }
-        } else {
-            emit openequipmentCleanActive();
-            emit connectionStateChanged(true);
+
+            lastError = getSerialPortErrorString(mserialPort);
+            QLOG_WARN() << "串口打开失败: " << name << lastError;
+            cleanupSerialPort();
         }
+        throw SerialPortException(lastError.toStdString());
     } catch (const SerialPortException& e) {
-        handleInitializationFailure(e.what());
+        if (notifyFailure) {
+            handleInitializationFailure(e.what());
+        } else {
+            QLOG_WARN() << "串口打开未成功:" << e.what();
+            cleanupSerialPort();
+        }
+        return false;
     }
 }
 

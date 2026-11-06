@@ -782,6 +782,7 @@ void TestProjectProcess::executeSampleAddition(int sampleId, StructInstance& ins
 
     // 原子化状态更新
     instance.config_focusSample(sampleId, true);
+    instance.markBloodNeedleDirty();
     setSampleFocus(sampleId, FOCUS_ADDING_SAMPLE, tr("开始加样"));
     instance.updateSampleState(sampleId, ADDING_SAMPLE);
     logTestFsmInfo(QStringLiteral("add_sample_start"), tr("样本%1").arg(sampleId));
@@ -1575,6 +1576,21 @@ void TestProjectProcess::getFreeTimeTestChn()
         writeCommandHeader(instance->sendPPP2ChannelHeanderCommand(m_focus_sample_id,false),
                     tr("吸PPP试管到测试通道首命令"),DELAY_TIMENUM);
     } else {
+        if (!instance->isBloodNeedleDirty()) {
+            const DATASAMPLESTRUCT *before = instance->rfindIdSample(m_focus_sample_id);
+            const bool alreadyWashed = before
+                    && before->bcleanbloody_state
+                    && before->bcleanDoublePin_state;
+            if (before && !alreadyWashed) {
+                instance->markWaitingSampleNeedlesWashed(m_focus_sample_id);
+                QLOG_INFO() << "样本" << m_focus_sample_id
+                            << "血样针已在清洗双针里洗过，不再单独洗";
+                promptsareDisplayed(TESTINGLOG,
+                                    tr("样本%1血样针已在清洗双针里洗过，等待通道，不再单独洗血样针")
+                                    .arg(m_focus_sample_id),
+                                    false);
+            }
+        }
         const DATASAMPLESTRUCT *waiting = instance->rfindIdSample(m_focus_sample_id);
         if (waiting && waiting->bcleanbloody_state && waiting->bcleanDoublePin_state) {
             const int waitingId = m_focus_sample_id;
@@ -2181,10 +2197,15 @@ void TestProjectProcess::recvSpitReagent(quint8 indexActive, const int indexNum,
 }
 
 
-void TestProjectProcess::slotaddSampmeTestCleanPin(const int cleanPin ,const quint8 index_reagent)
+void TestProjectProcess::slotaddSampmeTestCleanPin(const int cleanPin ,const quint8 index_reagent,
+                                                    const int sampleId)
 {
     m_spitWashPending = false;
     m_spitOpenToken = 0;
+    if (sampleId > 0) {
+        m_focus_sample_id = sampleId;
+        StructInstance::getInstance()->config_focusSample(sampleId, true);
+    }
     quint8 focus_index_set = 0;
     QString outtext;
     if(cleanPin == WASH_DOUBLE_NEDDLES)
@@ -2247,8 +2268,15 @@ void TestProjectProcess::startCleanNeedleAckMode(const QString &tips)
     }
     promptsareDisplayed(TESTINGLOG, tips, false);
     const quint8 focus = StructInstance::getInstance()->read_focusSampleActive(m_focus_sample_id);
-    const QByteArray firstCmd = StructInstance::getInstance()->outputstheFirstIncompleteInstruction(
+    QByteArray firstCmd = StructInstance::getInstance()->outputstheFirstIncompleteInstruction(
                 m_focus_sample_id, focus);
+    if (firstCmd.isEmpty()
+            && StructInstance::getInstance()->reopenFinishedCleanSequence(m_focus_sample_id, focus)) {
+        QLOG_INFO() << "清洗序列上次已做完，重新打开后再洗 样本" << m_focus_sample_id
+                    << "焦点" << focus;
+        firstCmd = StructInstance::getInstance()->outputstheFirstIncompleteInstruction(
+                    m_focus_sample_id, focus);
+    }
     if (firstCmd.isEmpty()) {
         m_hasPendingCleanDeduct = false;
         const QString msg = tr("清洗序列无有效指令（常见原因：清洗位未标定为(0,0)或与原点相同），已暂停并放开焦点");
@@ -2269,6 +2297,9 @@ void TestProjectProcess::continueCleanNeedleAckMode(bool finished, const QByteAr
                                                     int cleanKind, const QString &tips)
 {
     if (finished) {
+        if (cleanKind == WASH_DOUBLE_NEDDLES || cleanKind == WASH_BLLODSAMPLE_NEDDLES) {
+            StructInstance::getInstance()->markBloodNeedleClean();
+        }
         deductPendingCleanConsumable();
         if (m_prpAbnormalWashPending) {
             const bool giveupAfter = m_prpAbnormalGiveupAfterWash;

@@ -2857,6 +2857,40 @@ bool washPosReadyForNeedleDown(const QPoint &washPos, const QPoint &originPos, c
     }
     return true;
 }
+
+}
+
+namespace {
+constexpr int kHangLiquidBlindMm = 3;
+
+template<typename CommandList>
+void appendHangLiquidBlindThenDetectImpl(CommandList &commands, int motorIndex, int failHeightMm)
+{
+    auto *pActive = Testing::getTaskDll();
+    if (!pActive || failHeightMm <= 0) {
+        return;
+    }
+    if (failHeightMm > kHangLiquidBlindMm) {
+        quint8 blindNum = static_cast<quint8>(commands.count() % 255);
+        commands.push_back(pActive->DLL_ZMoveSpecifiedPosition(
+                    motorIndex, kHangLiquidBlindMm, 0, blindNum,
+                    false, kHangLiquidBlindMm, false, GRIPPERNORMAL));
+    }
+    quint8 detectNum = static_cast<quint8>(commands.count() % 255);
+    commands.push_back(pActive->DLL_ZMoveSpecifiedPosition(
+                motorIndex, failHeightMm, 0, detectNum,
+                true, failHeightMm, false, GRIPPERNORMAL));
+}
+}
+
+void QUIUtils::appendHangLiquidBlindThenDetect(QByteArrayList &commands, int motorIndex, int failHeightMm)
+{
+    appendHangLiquidBlindThenDetectImpl(commands, motorIndex, failHeightMm);
+}
+
+void QUIUtils::appendHangLiquidBlindThenDetect(QVector<QByteArray> &commands, int motorIndex, int failHeightMm)
+{
+    appendHangLiquidBlindThenDetectImpl(commands, motorIndex, failHeightMm);
 }
 
 bool QUIUtils::isBloodSampleSuckAtOrigin(const QPoint &pos)
@@ -2929,9 +2963,7 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
     if (bloodWashReady) {
         quint8 num = nextNum();
         staged.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffBloodPin, 0, 0, num));
-        num = nextNum();
-        staged.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, failedBloodpin, 0, num, true,
-                                failedBloodpin, false, GRIPPERNORMAL));
+        appendHangLiquidBlindThenDetect(staged, MOTOR_BLOOD_INDEX, failedBloodpin);
     } else {
         QLOG_ERROR() << QString::fromUtf8("双针清洗：血样针清洗位无效，跳过吸清洗液下针");
     }
@@ -2954,9 +2986,7 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
     if (reagentWashReady) {
         quint8 num = nextNum();
         staged.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffReagnetPin, 0, 0, num));
-        num = nextNum();
-        staged.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX, failedreagentpin, 0,
-                          num, true, failedreagentpin, false, GRIPPERNORMAL));
+        appendHangLiquidBlindThenDetect(staged, MOTOR_REAGNET_INDEX, failedreagentpin);
     } else {
         QLOG_ERROR() << QString::fromUtf8("双针清洗：试剂针清洗位无效，跳过吸清洗液下针");
     }
@@ -3055,9 +3085,7 @@ void QUIUtils::CleanBloodPinActionCommd(int HadPorjects,QByteArrayList &CleanAct
     if (washPosReadyForNeedleDown(CleanReagOffBloodPin, CleanAxis, "血样针")) {
         quint8 num = static_cast<quint8>(CleanActionarry.count() % 255);
         CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffBloodPin, 0, 0, num));
-        num = static_cast<quint8>(CleanActionarry.count() % 255);
-        CleanActionarry.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, failedBloodpin, 0, num,
-                                  true, failedBloodpin, false, GRIPPERNORMAL));
+        appendHangLiquidBlindThenDetect(CleanActionarry, MOTOR_BLOOD_INDEX, failedBloodpin);
 
         samplePumpStep += totalWashSteps;
         num = static_cast<quint8>(CleanActionarry.count() % 255);
@@ -3132,9 +3160,7 @@ void QUIUtils::CleanReagentsPinActionCommd(QVector<QByteArray> &CleanActionarry)
    if (washPosReadyForNeedleDown(CleanReagOffReagnetPin, CleanAxis, "试剂针")) {
        num = static_cast<quint8>(CleanActionarry.count() % 255);
        CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanReagOffReagnetPin, 0, 0, num));
-       num = static_cast<quint8>(CleanActionarry.count() % 255);
-       CleanActionarry.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX, failedReagentPin, 0,
-                                                num, true, failedReagentPin, false, GRIPPERNORMAL));
+       appendHangLiquidBlindThenDetect(CleanActionarry, MOTOR_REAGNET_INDEX, failedReagentPin);
 
        num = static_cast<quint8>(CleanActionarry.count() % 255);
        CleanActionarry.push_back(pActive->SmallBenActive(true, cleanSteps, DIS_WASHES_PUMPS, num, 0));
@@ -3305,10 +3331,7 @@ int QUIUtils::suckPPPEndSplitPPP(QByteArrayList &outDirectiveslist,
                  << QString::fromUtf8("步数") << sampleSteps
                  << QString::fromUtf8("基线") << pumpBase;
 
-    num = static_cast<quint8>(outDirectiveslist.count() % 255);
-    outDirectiveslist.push_back(pActive->DLL_ZMoveSpecifiedPosition(
-                                    MOTOR_BLOOD_INDEX, fail_retract_height, 0, num,
-                                    true, fail_retract_height, false, GRIPPERNORMAL));
+    appendHangLiquidBlindThenDetect(outDirectiveslist, MOTOR_BLOOD_INDEX, fail_retract_height);
 
     num = static_cast<quint8>(outDirectiveslist.count() % 255);
     delayCommandSuck.append(num);
@@ -4131,7 +4154,6 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
 {
 
     bool SuckAirs = true;
-    const bool bLeveldetection = true;
     int setWashTime = 0;
     auto nextCmdIndex = [&outputArry]() {
         return static_cast<quint8>(outputArry.count() % 255);
@@ -4169,10 +4191,7 @@ void QUIUtils::suckReagentClipTubetoChnPut(quint8 indexReag,
     indexCode = nextCmdIndex();
     outputArry.push_back(pActive->DLL_ZAxis_Reset(
                             MOTOR_REAGNET_INDEX, 0, TRAY_TESTCHANNEL, indexCode, false));
-    indexCode = nextCmdIndex();
-    outputArry.push_back(pActive->DLL_ZMoveSpecifiedPosition(
-                            MOTOR_REAGNET_INDEX, falilinquehigh, TRAY_TESTCHANNEL, indexCode,
-                            bLeveldetection, falilinquehigh, false, GRIPPERNORMAL));
+    appendHangLiquidBlindThenDetect(outputArry, MOTOR_REAGNET_INDEX, falilinquehigh);
 
     auto& manager = PumpPositionManager::instance();
     int TotalSuckStep = SuckReagentNumberofSteps(indexReag);

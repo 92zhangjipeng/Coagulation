@@ -122,6 +122,7 @@ void StructInstance::setemptynull()
 
     m_BloodsampleInfo.squeeze();
     m_BloodsampleInfo.shrink_to_fit();
+    m_bloodNeedleDirty = false;
     QLOG_DEBUG()<<"全部完成释放样本任务内存capacity:"<<m_BloodsampleInfo.capacity();
     return;
 }
@@ -1877,6 +1878,89 @@ bool StructInstance::judge_alreadyCleanBloodpin(const int sampleId,quint8 indexA
         hadcleanBloodpin = itSample->bcleanbloody_state;
     }
     return hadcleanBloodpin;
+}
+
+void StructInstance::markBloodNeedleDirty()
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    m_bloodNeedleDirty = true;
+}
+
+void StructInstance::markBloodNeedleClean()
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    m_bloodNeedleDirty = false;
+}
+
+bool StructInstance::isBloodNeedleDirty() const
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    return m_bloodNeedleDirty;
+}
+
+void StructInstance::markWaitingSampleNeedlesWashed(int sampleId)
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    auto *sample = wfindIdSample(sampleId);
+    if (!sample) {
+        return;
+    }
+    sample->bcleanbloody_state = true;
+    sample->bcleanDoublePin_state = true;
+}
+
+bool StructInstance::reopenFinishedCleanSequence(int sampleId, quint8 focus)
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    auto *sample = wfindIdSample(sampleId);
+    if (!sample) {
+        return false;
+    }
+
+    tSingleActive_list commands;
+    switch (focus) {
+    case FOCUS_CLEAN_DOUBLEPIN:
+        commands = sample->clean_reag_blood_pin;
+        break;
+    case FOCUS_CLEAN_BLOODPIN:
+        commands = sample->clean_blood_pin;
+        break;
+    case FOCUS_CLEAN_EREAGENTPIN_AA:
+        commands = backCleanReagentNeedleComm(sample, AA_REAGENT);
+        break;
+    case FOCUS_CLEAN_EREAGENTPIN_ADP:
+        commands = backCleanReagentNeedleComm(sample, ADP_REAGENT);
+        break;
+    case FOCUS_CLEAN_EREAGENTPIN_EPI:
+        commands = backCleanReagentNeedleComm(sample, EPI_REAGENT);
+        break;
+    case FOCUS_CLEAN_EREAGENTPIN_COL:
+        commands = backCleanReagentNeedleComm(sample, COL_REAGENT);
+        break;
+    case FOCUS_CLEAN_EREAGENTPIN_RIS:
+        commands = backCleanReagentNeedleComm(sample, RIS_REAGENT);
+        break;
+    default:
+        return false;
+    }
+    if (commands.isEmpty()) {
+        return false;
+    }
+    for (const single_action_commands *cmd : commands) {
+        if (cmd && !cmd->bcompleted) {
+            return false;
+        }
+    }
+    for (single_action_commands *cmd : commands) {
+        if (cmd) {
+            cmd->bcompleted = false;
+        }
+    }
+    if (focus == FOCUS_CLEAN_DOUBLEPIN || focus == FOCUS_CLEAN_BLOODPIN) {
+        sample->bcleanbloody_state = false;
+        sample->bcleanDoublePin_state = false;
+    }
+    return true;
 }
 
 

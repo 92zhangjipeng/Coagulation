@@ -549,6 +549,10 @@ namespace QUIUtils
      */
     QByteArrayList backZAxisandmoveOrigin(const QPoint machineOriginAxis);
 
+    // 液面探测前先位置模式下降 3mm，避开针尖挂液刚下针就被当成液面。
+    void appendHangLiquidBlindThenDetect(QByteArrayList &commands, int motorIndex, int failHeightMm);
+    void appendHangLiquidBlindThenDetect(QVector<QByteArray> &commands, int motorIndex, int failHeightMm);
+
     //清洗样本针
     void CleanBloodPinActionCommd(int HadPorjects, QByteArrayList &CleanActionarry);
 

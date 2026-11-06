@@ -2021,9 +2021,7 @@ bool HitTestRunner::buildBloodTransfer(const QPoint &suck, const QPoint &spit, i
         manager.setSamplePumpLoc(BACK_SUCKAIRS);
     }
     const int absPos = BACK_SUCKAIRS + steps;
-    num = static_cast<quint8>(cmds.count() % 255);
-    cmds.push_back(dll->DLL_ZMoveSpecifiedPosition(
-                       MOTOR_BLOOD_INDEX, failH, 0, num, true, failH, false, GRIPPERNORMAL));
+    QUIUtils::appendHangLiquidBlindThenDetect(cmds, MOTOR_BLOOD_INDEX, failH);
     num = static_cast<quint8>(cmds.count() % 255);
     delays.append(num);
     cmds.push_back(dll->BigBenActive(true, absPos, num, DIS_WASHES_PUMPS, 0));
@@ -2091,10 +2089,7 @@ bool HitTestRunner::buildReagentTransfer(const QPoint &suck, const QPoint &spit,
     }
     num = static_cast<quint8>(cmds.count() % 255);
     cmds.push_back(dll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, TRAY_TESTCHANNEL, num, false));
-    num = static_cast<quint8>(cmds.count() % 255);
-    cmds.push_back(dll->DLL_ZMoveSpecifiedPosition(
-                       MOTOR_REAGNET_INDEX, failH, TRAY_TESTCHANNEL, num,
-                       true, failH, false, GRIPPERNORMAL));
+    QUIUtils::appendHangLiquidBlindThenDetect(cmds, MOTOR_REAGNET_INDEX, failH);
     num = static_cast<quint8>(cmds.count() % 255);
     delays.append(num);
     cmds.push_back(dll->SmallBenActive(true, absPos, DIS_WASHES_PUMPS, num, 0));

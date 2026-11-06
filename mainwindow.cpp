@@ -1781,6 +1781,9 @@ void MainWindow::sendOneModuleData(int moduleIndex)
     if (!cglobal::gserialConnecStatus){
         return;
     }
+    if (mlocalSerial && mlocalSerial->pendingWriteCount() > 12) {
+        return;
+    }
 
     // 模组索引有效性检查（原协议中模组编号为 1~3）
     if (moduleIndex < 1 || moduleIndex > 3) {

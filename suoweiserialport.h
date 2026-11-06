@@ -53,6 +53,7 @@ public slots:
     void write_data(const QByteArrayList);
     void writedataToEquipment(const QByteArray arry, QString kindCommad);
     void abortPendingWrites();
+    int pendingWriteCount();
     void processWriteQueue();
     void Recv_TrayMoveTest(const QByteArrayList, const bool, const quint8);
 
@@ -103,7 +104,9 @@ private:
     void clearWriteQueue();
 
     void toReadSuckAirsValBack(const QStringList &recv_data);
-    void InstancingSerialandOpen(const bool initconnect);
+    bool InstancingSerialandOpen(const bool initconnect, bool notifyFailure = true);
+    void clearReceiveBuffer();
+    QStringList instrumentPortNames() const;
     int Recve_Motor_motion_state(const QStringList, const int);
     int ParseSportLocation(const QStringList recv_data, const int Index);
     void prepareReconnectTesting();

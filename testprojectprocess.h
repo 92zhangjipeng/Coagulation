@@ -118,7 +118,7 @@ public slots:
     void slotSpitReagentTesting();      //获取富血值后延时再吐试剂到测试通道
     void handleOpenTestChnRejected(int sampleId); //吐完试剂时样本已无通道，暂停
 
-    void slotaddSampmeTestCleanPin(const int cleanPin, const quint8 index_reagent); //清洗针
+    void slotaddSampmeTestCleanPin(const int cleanPin, const quint8 index_reagent, const int sampleId); //清洗针
 
     void SampleReagTestFinish(QString finishid, const quint8 index_Chn, const quint8 indexReage); //测试完成通道
 

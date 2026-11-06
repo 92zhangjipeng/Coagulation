@@ -233,6 +233,14 @@ public:
 
     //获取样本针清洗状态
     bool judge_alreadyCleanBloodpin(const int sampleId, quint8 indexActive);
+    //这条清洗以前做过，把完成标记清掉，方便再洗一次
+    bool reopenFinishedCleanSequence(int sampleId, quint8 focus);
+    //加样吸过血后，共用的样本针变脏，下一次吐试剂后要洗双针
+    void markBloodNeedleDirty();
+    void markBloodNeedleClean();
+    bool isBloodNeedleDirty() const;
+    // 共用血样针刚洗过。等通道的样本记成已洗，避免再单独洗一次血样针。
+    void markWaitingSampleNeedlesWashed(int sampleId);
 
     //是否有待测试剂
     bool judge_hadWaitTestReag(const int testSample, quint8 &waitTestRrag);
@@ -542,6 +550,7 @@ private:
     mutable std::recursive_mutex m_dataMutex;
 
     int m_handsFailedtimes = 0; //抓手吸杯失败次数
+    bool m_bloodNeedleDirty = false; //样本针吸过血，尚未洗过
     int m_handsThrowFailedtimes = 0; //抓手丢被失败次数
     bool m_throwAwaitingReleaseRead = false;
     int m_gripperWaitMs = 0;

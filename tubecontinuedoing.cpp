@@ -136,9 +136,8 @@ QByteArrayList TubeContinueDoing::creatAbsorbReagentCommand()
     OnceCommand = Testing::getTaskDll()->SmallBenActive(true,SuckAirVol,DIS_WASHES_PUMPS,conde_num,0); //吸一段空气
     mStarArry.push_back(OnceCommand);
 
-    OnceCommand = Testing::getTaskDll()->DLL_ZMoveSpecifiedPosition(ZMotorReagent, falilinquehigh,TRAY_TESTCHANNEL,
-                                                                 conde_num,true,falilinquehigh,false,GRIPPERNORMAL); //(吸试剂液面探测)
-    mStarArry.push_back(OnceCommand);
+    QUIUtils::appendHangLiquidBlindThenDetect(mStarArry, ZMotorReagent, falilinquehigh);
+    conde_num = static_cast<quint8>(mStarArry.size() % 255);
     //SMALL_BEN_INHALE_ARI
 
     int suck_ul = SuckAirVol + milliliter * (SMALL_BEN_RATIO* AbsorbRatio) + (milliliter * ui->doubleSpinBox_addratio->value()*SMALL_BEN_RATIO * AbsorbRatio);

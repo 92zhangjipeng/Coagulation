@@ -1757,14 +1757,18 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,
                 << "focusActive" << indexActive;
     StructInstance::getInstance()->config_testChn_test_reagent(openChn, index_reagent);
 
-    // 清洗针策略：已清洗双针 → 清洗试剂针，否则 → 清洗双针
+    // 这支样本以前洗过样本针，但中途又加过别的血样，共用的样本针已经脏了，要洗双针
+    const bool bloodNeedleDirty = StructInstance::getInstance()->isBloodNeedleDirty();
     bool alreadyCleanBloodpin = StructInstance::getInstance()->judge_alreadyCleanBloodpin(
                 sampleId, indexActive);
+    if (bloodNeedleDirty) {
+        alreadyCleanBloodpin = false;
+    }
     if (!alreadyCleanBloodpin) {
-        emit addSampmeTestCleanPin(WASH_DOUBLE_NEDDLES, ANEMIA);
-        QLOG_DEBUG() << "准备清洗双针";
+        emit addSampmeTestCleanPin(WASH_DOUBLE_NEDDLES, ANEMIA, sampleId);
+        QLOG_DEBUG() << "准备清洗双针" << (bloodNeedleDirty ? "样本针刚吸过血" : "");
     } else {
-        emit addSampmeTestCleanPin(WASH_REAGENT_NEDDLES, index_reagent);
+        emit addSampmeTestCleanPin(WASH_REAGENT_NEDDLES, index_reagent, sampleId);
         QLOG_DEBUG() << "准备清试剂针" << index_reagent;
     }
 

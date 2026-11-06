@@ -41,6 +41,8 @@ const int kGripperAirMaxSpread = 120;
 const int kGripperAirOriginMaxSpread = 100;
 const int kGripperAirPhaseMinMs = 600;
 const int kGripperAirHoldDeltaMin = 80;
+const int kGripperAirHoldCommitDelta = 250;
+const int kGripperAirGrabGiveUpMs = 15000;
 const int kGripperAirDropMin = 150;
 const int kGripperAirReleaseTimeoutMs = 45000;
 const int kGripperAirDumpMaxRetry = 2;
@@ -82,6 +84,11 @@ const int kGripperAirVacuumOffBeforeMoveMs = 700;
 quint8 nextGripperCmdIndex(const QByteArrayList &cmds)
 {
     return static_cast<quint8>(cmds.size() % 255);
+}
+
+quint8 cancelHomingCmdIndex(const QByteArrayList &cmds)
+{
+    return static_cast<quint8>((40 + cmds.size()) % 255);
 }
 
 void appendXYReposition(QByteArrayList &cmds, UsbCodeDispose *pActive)
@@ -480,16 +487,13 @@ void MachineSetting::onGripperAirMotionFinished()
 void MachineSetting::cancelGripperAirDetect()
 {
     const bool wasActive = (m_gripperAirDetectStep != 0) || m_gripperAirPollHold || m_gripperAirAwaitingMotion;
-    const bool wasHolding = m_gripperAirPollHold;
     stopGripperAirPoll();
     if (m_gripperAirOriginAckFallbackTimer) {
         m_gripperAirOriginAckFallbackTimer->stop();
     }
     m_gripperAirAwaitingMotion = false;
     m_gripperAirMotionKind = 0;
-    if (wasHolding || m_gripperAirDetectStep != 0) {
-        sendGripperVacuumProbe(false);
-    }
+    m_gripperAirProbeHeight = 0;
     m_gripperAirDetectStep = 0;
     m_gripperAirEmptyBaseline = -1;
     m_gripperAirReleaseAfterDump = -1;
@@ -739,7 +743,34 @@ void MachineSetting::sendGripperCancelHoming()
     }
     QPoint origin(0, 0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT, origin);
-    QByteArrayList cmds = QUIUtils::backZAxisandmoveOrigin(origin);
+
+    // 抓杯位置不能直接 XY 复位。先抓手复位并关掉吸气，再试剂针、血样针复位，最后才 XY。
+    QByteArrayList cmds;
+    {
+        quint8 idx = cancelHomingCmdIndex(cmds);
+        cmds.push_back(QUIUtils::withGripperPump(
+                    pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, 0, TRAY_TESTCHANNEL, idx, false),
+                    GRIPPERMOVE_NORMAL));
+    }
+    {
+        quint8 idx = cancelHomingCmdIndex(cmds);
+        cmds.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, TRAY_TESTCHANNEL, idx, false));
+    }
+    {
+        quint8 idx = cancelHomingCmdIndex(cmds);
+        cmds.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, TRAY_TESTCHANNEL, idx, false));
+    }
+    {
+        quint8 idx = cancelHomingCmdIndex(cmds);
+        const QByteArray repos = pActive->_DLLXYMoveReposition_(idx, MACHINEBACK_SPEED);
+        if (!repos.isEmpty()) {
+            cmds.push_back(repos);
+        }
+    }
+    if (origin.x() != 0 || origin.y() != 0) {
+        quint8 idx = cancelHomingCmdIndex(cmds);
+        cmds.push_back(pActive->DLL_XYMoveSpecifiedPosition(origin, 0, 0, idx));
+    }
     if (cmds.isEmpty()) {
         return;
     }
@@ -903,6 +934,16 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
         return;
     }
 
+    if (m_gripperAirDetectStep == 2
+            && m_gripperAirLockedHold < 0
+            && m_gripperAirPhaseClock.elapsed() > kGripperAirGrabGiveUpMs) {
+        cancelGripperAirDetect();
+        QMessageBox::information(
+                    this, gtr(u8"没有抓到杯子"),
+                    gtr(u8"通道1没有抓到杯子，不丢杯。抓手、试剂针、血样针复位后再XY复位。"));
+        return;
+    }
+
     const auto finishDumpRelease = [this](int releaseVal) {
         m_gripperThrowDelayMeasured = clampGripperAutoDelay(
                     m_gripperThrowSeenMs >= 0
@@ -935,7 +976,7 @@ void MachineSetting::feedGripperAirSample(bool issuck, int airval)
 
     if (m_gripperAirDetectStep == 2 && issuck) {
         const bool holdByDelta = (m_gripperAirEmptyBaseline >= 0
-                                  && m_gripperAirEmptyBaseline - avg >= kGripperAirHoldDeltaMin);
+                                  && m_gripperAirEmptyBaseline - avg >= kGripperAirHoldCommitDelta);
         if (!holdByDelta) {
             return;
         }

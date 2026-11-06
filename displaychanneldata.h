@@ -76,7 +76,7 @@ signals:
     void SetChannelValueUpdate(const int, const int);                                  ///< 通知 UI 更新通道数值
     void DisplayTestingValue(const QString&, const quint8&, const quint8&,
                              const float&, const int&, const int&, const int&);        ///< 发送测试值（曲线+进度条）
-    void addSampmeTestCleanPin(const int, const quint8 index_reagent);                 ///< 通知清洗针
+    void addSampmeTestCleanPin(const int cleanPin, const quint8 index_reagent, const int sampleId); ///< 通知清洗针
     void CompleteGetAnemiaValue(quint8);                                               ///< 贫血值读取完成
     void spitReagentTesting();                                                          ///< 吐试剂
     void testComplete(QString, const quint8, const quint8);                             ///< 单个测试完成
