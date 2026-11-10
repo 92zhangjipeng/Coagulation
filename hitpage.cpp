@@ -8,10 +8,14 @@
 #include "custom_style/widgetdelegate.h"
 #include "hittestrunner.h"
 #include "loadequipmentpos.h"
+#include "operclass/fullyautomatedplatelets.h"
+#include "quiutils.h"
+#include "suoweiserialport.h"
 
 #include "custom_style/custommessagebox.h"
 
 #include <algorithm>
+#include <functional>
 #include <QAbstractItemView>
 #include <QCalendarWidget>
 #include <QCheckBox>
@@ -376,6 +380,16 @@ int pppHoleAt(int index)
     return 1 + (index / 2) * 10 + (index % 2) * 4;
 }
 
+bool hitPppSlot(int hole)
+{
+    const int total = bloodGroupCount() * 2;
+    for (int n = 0; n < total; ++n) {
+        if (pppHoleAt(n) == hole)
+            return true;
+    }
+    return false;
+}
+
 QStringList availablePppHoles(const QTableWidget *table, int exceptRow)
 {
     const QString pending = QString::fromUtf8("待测");
@@ -452,6 +466,9 @@ struct HitSettings {
     int negativeHeparinUl = 35;
     int negativeIncubateSec = 1200;
     int negativeRecordMin = 30;
+    int reagentSerumOffsetY = 0;
+    int reagentSerumSpitOffsetY = 0;
+    int serumFailHighMm = 76;
     int positiveDiffPercent = 10;
     int invalidPercent = 20;
 };
@@ -501,6 +518,15 @@ HitSettings loadHitSettings()
     data.negativeIncubateSec = iniInt(ini, "IncubateSec", data.negativeIncubateSec);
     data.negativeRecordMin = iniInt(ini, "RecordMin", data.negativeRecordMin);
     ini.endGroup();
+    ini.beginGroup(QStringLiteral("Serum"));
+    data.reagentSerumOffsetY = iniInt(ini, "ReagentOffsetY", data.reagentSerumOffsetY);
+    data.reagentSerumSpitOffsetY = iniInt(ini, "ReagentSpitOffsetY", data.reagentSerumOffsetY);
+    data.serumFailHighMm = iniInt(ini, "FailHighMm", data.serumFailHighMm);
+    if (data.serumFailHighMm < 1)
+        data.serumFailHighMm = 1;
+    if (data.serumFailHighMm > 99)
+        data.serumFailHighMm = 99;
+    ini.endGroup();
     ini.beginGroup(QStringLiteral("Judge"));
     data.positiveDiffPercent = iniInt(ini, "PositiveDiffPercent", data.positiveDiffPercent);
     data.invalidPercent = iniInt(ini, "InvalidPercent", data.invalidPercent);
@@ -541,6 +567,11 @@ void saveHitSettings(const HitSettings &data)
     ini.setValue(QStringLiteral("HeparinUl"), data.negativeHeparinUl);
     ini.setValue(QStringLiteral("IncubateSec"), data.negativeIncubateSec);
     ini.setValue(QStringLiteral("RecordMin"), data.negativeRecordMin);
+    ini.endGroup();
+    ini.beginGroup(QStringLiteral("Serum"));
+    ini.setValue(QStringLiteral("ReagentOffsetY"), data.reagentSerumOffsetY);
+    ini.setValue(QStringLiteral("ReagentSpitOffsetY"), data.reagentSerumSpitOffsetY);
+    ini.setValue(QStringLiteral("FailHighMm"), data.serumFailHighMm);
     ini.endGroup();
     ini.beginGroup(QStringLiteral("Judge"));
     ini.setValue(QStringLiteral("PositiveDiffPercent"), data.positiveDiffPercent);
@@ -648,7 +679,27 @@ struct HitHoleNote {
 struct HitPlaceMark {
     QString sampleId;
     int pppHole = 0;
+    int channel = 0;
 };
+
+struct HitChannelUse {
+    int channel = 0;
+    QString sampleText;
+};
+
+QColor hitGroupColor(int channel)
+{
+    static const QColor colors[] = {
+        QColor(47, 95, 147),
+        QColor(143, 74, 160),
+        QColor(16, 122, 110),
+        QColor(176, 82, 48),
+        QColor(62, 96, 168)
+    };
+    const int count = 5;
+    const int index = channel > 0 ? (channel - 1) % count : 0;
+    return colors[index];
+}
 
 QString hitFamily()
 {
@@ -696,6 +747,80 @@ QFont fitPixelFont(const QString &text, int pixel, qreal limit)
     return font;
 }
 
+class HitChannelStrip : public QWidget
+{
+public:
+    explicit HitChannelStrip(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setAutoFillBackground(true);
+        QPalette pal = palette();
+        pal.setColor(QPalette::Window, Qt::white);
+        setPalette(pal);
+        setFixedHeight(108);
+    }
+
+    void setInfo(int count, const QString &title, const QList<HitChannelUse> &uses)
+    {
+        m_count = count;
+        m_title = title;
+        m_uses = uses;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.fillRect(rect(), Qt::white);
+        QFont titleFont(hitFamily());
+        titleFont.setPixelSize(16);
+        painter.setFont(titleFont);
+        painter.setPen(QColor(26, 77, 107));
+        const QFontMetrics titleFm(titleFont);
+        painter.drawText(QRectF(12, 8, titleFm.width(m_title) + 8, 24),
+                         Qt::AlignLeft | Qt::AlignVCenter, m_title);
+
+        const qreal radius = 16;
+        qreal x = 16;
+        const qreal cy = 52;
+        for (int channel = 1; channel <= m_count; ++channel) {
+            QStringList sampleTexts;
+            for (int i = 0; i < m_uses.size(); ++i) {
+                if (m_uses.at(i).channel == channel && !m_uses.at(i).sampleText.isEmpty())
+                    sampleTexts << m_uses.at(i).sampleText;
+            }
+            const QString sampleText = sampleTexts.join(QStringLiteral(" "));
+            const bool used = !sampleText.isEmpty();
+            const QColor color = hitGroupColor(channel);
+            const QPointF center(x + radius, cy);
+            if (used) {
+                drawRing(painter, center, radius, color, color.darker(115));
+                const QFont numFont = fitPixelFont(QString::number(channel), 14, radius * 1.4);
+                drawCenterText(painter, center, QString::number(channel), numFont, Qt::white);
+                const QFont idFont = fitPixelFont(sampleText, 11, radius * 2 + 10);
+                painter.setFont(idFont);
+                painter.setPen(color);
+                const QFontMetrics idFm(idFont);
+                painter.drawText(QPointF(center.x() - idFm.width(sampleText) / 2.0,
+                                         center.y() + radius + 14),
+                                 sampleText);
+            } else {
+                drawRing(painter, center, radius, Qt::white, QColor(183, 197, 211));
+                const QFont numFont = fitPixelFont(QString::number(channel), 14, radius * 1.4);
+                drawCenterText(painter, center, QString::number(channel), numFont, QColor(26, 77, 107));
+            }
+            x += radius * 2 + 18;
+        }
+    }
+
+private:
+    int m_count = 0;
+    QString m_title;
+    QList<HitChannelUse> m_uses;
+};
+
 class HitPlaceMap : public QWidget
 {
 public:
@@ -707,6 +832,17 @@ public:
         pal.setColor(QPalette::Window, Qt::white);
         setPalette(pal);
         setMinimumSize(880, 480);
+        setMouseTracking(true);
+    }
+
+    void setHoleClicked(const std::function<void(int)> &clicked)
+    {
+        m_clicked = clicked;
+    }
+
+    void setLockedHoles(const QSet<int> &locked)
+    {
+        m_locked = locked;
     }
 
     void setMarks(const QList<HitPlaceMark> &marks)
@@ -754,27 +890,60 @@ protected:
                 notes.insert(mark.pppHole + 2, prpNote);
         }
 
+        paintReagents(painter, reagentRect());
+        paintBlood(painter, bloodRect(), notes);
         const int legendH = 36;
-        const int reagentW = 280;
-        const qreal splitGap = 16;
-        const QRectF reagent(12, 10, reagentW, height() - legendH - 16);
-        const QRectF blood(12 + reagentW + splitGap, 10,
-                           width() - reagentW - splitGap - 24, height() - legendH - 16);
-        paintReagents(painter, reagent);
-        paintBlood(painter, blood, notes);
         paintLegend(painter, QRectF(12, height() - legendH - 2, width() - 24, legendH), notes.isEmpty());
     }
 
-private:
-    void paintBlood(QPainter &painter, const QRectF &area, const QMap<int, HitHoleNote> &notes) const
+    void mousePressEvent(QMouseEvent *event) override
     {
+        const int hole = holeUnder(event->pos());
+        if (hole > 0 && hitPppSlot(hole) && m_clicked)
+            m_clicked(hole);
+        QWidget::mousePressEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        const int hole = holeUnder(event->pos());
+        const bool hot = hole > 0 && hitPppSlot(hole);
+        setCursor(hot ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        QWidget::mouseMoveEvent(event);
+    }
+
+private:
+    struct HoleSpot {
+        int hole;
+        QPointF center;
+        qreal radius;
+    };
+
+    QRectF reagentRect() const
+    {
+        const int legendH = 36;
+        return QRectF(12, 10, 280, height() - legendH - 16);
+    }
+
+    QRectF bloodRect() const
+    {
+        const int legendH = 36;
+        const int reagentW = 280;
+        const qreal splitGap = 16;
+        return QRectF(12 + reagentW + splitGap, 10,
+                      width() - reagentW - splitGap - 24, height() - legendH - 16);
+    }
+
+    void layoutBlood(const QRectF &area, QVector<HoleSpot> &spots) const
+    {
+        spots.clear();
         const int groups = bloodGroupCount();
         const int rows = 5;
         const qreal headerH = 22;
         const qreal holeNoH = 14;
         const qreal gridTop = area.top() + headerH;
         const qreal rowPitch = (area.height() - headerH) / rows;
-        const qreal colPitch = area.width() / groups;
+        const qreal colPitch = groups > 0 ? area.width() / groups : area.width();
         const qreal pairGap = 10;
         const qreal sidePad = 6;
         const qreal maxByCol = (colPitch - pairGap - sidePad * 2) / 4.0;
@@ -784,7 +953,46 @@ private:
             radius = 22;
         if (radius < 7)
             radius = qMax(4.0, maxByCol);
+        for (int col = 0; col < groups; ++col) {
+            const qreal span = radius * 4 + pairGap;
+            const qreal origin = area.left() + col * colPitch + (colPitch - span) / 2.0;
+            const qreal leftX = origin + radius;
+            const qreal rightX = origin + radius * 3 + pairGap;
+            for (int row = 0; row < rows; ++row) {
+                const qreal cy = gridTop + holeNoH + radius + row * rowPitch;
+                HoleSpot left;
+                left.hole = 1 + row * 2 + col * 10;
+                left.center = QPointF(leftX, cy);
+                left.radius = radius;
+                spots.append(left);
+                HoleSpot right;
+                right.hole = 2 + row * 2 + col * 10;
+                right.center = QPointF(rightX, cy);
+                right.radius = radius;
+                spots.append(right);
+            }
+        }
+    }
 
+    int holeUnder(const QPoint &pos) const
+    {
+        QVector<HoleSpot> spots;
+        layoutBlood(bloodRect(), spots);
+        for (int i = 0; i < spots.size(); ++i) {
+            const HoleSpot &spot = spots.at(i);
+            const qreal dx = pos.x() - spot.center.x();
+            const qreal dy = pos.y() - spot.center.y();
+            if (dx * dx + dy * dy <= spot.radius * spot.radius)
+                return spot.hole;
+        }
+        return 0;
+    }
+
+    void paintBlood(QPainter &painter, const QRectF &area, const QMap<int, HitHoleNote> &notes) const
+    {
+        const int groups = bloodGroupCount();
+        const qreal headerH = 22;
+        const qreal colPitch = groups > 0 ? area.width() / groups : area.width();
         static const char kLetters[] = "ABCDEFGHIJKL";
         QFont letterFont(hitFamily());
         letterFont.setPixelSize(15);
@@ -795,21 +1003,67 @@ private:
             painter.drawText(QRectF(area.left() + col * colPitch, area.top(), colPitch, headerH),
                              Qt::AlignHCenter | Qt::AlignBottom, letter);
         }
+        paintSelectionFrames(painter, area);
 
+        QVector<HoleSpot> spots;
+        layoutBlood(area, spots);
         QFont holeFont(hitFamily());
         holeFont.setPixelSize(11);
-        for (int col = 0; col < groups; ++col) {
-            const qreal span = radius * 4 + pairGap;
-            const qreal origin = area.left() + col * colPitch + (colPitch - span) / 2.0;
-            const qreal leftX = origin + radius;
-            const qreal rightX = origin + radius * 3 + pairGap;
-            for (int row = 0; row < rows; ++row) {
-                const qreal cy = gridTop + holeNoH + radius + row * rowPitch;
-                paintOneHole(painter, QPointF(leftX, cy), radius, holeFont,
-                             1 + row * 2 + col * 10, notes);
-                paintOneHole(painter, QPointF(rightX, cy), radius, holeFont,
-                             2 + row * 2 + col * 10, notes);
-            }
+        for (int i = 0; i < spots.size(); ++i)
+            paintOneHole(painter, spots.at(i).center, spots.at(i).radius, holeFont,
+                         spots.at(i).hole, notes);
+    }
+
+    void paintSelectionFrames(QPainter &painter, const QRectF &area) const
+    {
+        const int groups = bloodGroupCount();
+        if (groups <= 0)
+            return;
+        const int rows = 5;
+        const qreal headerH = 22;
+        const qreal gridTop = area.top() + headerH;
+        const qreal rowPitch = (area.height() - headerH) / rows;
+        const qreal colPitch = area.width() / groups;
+        static const char kLetters[] = "ABCDEFGHIJKL";
+        for (int i = 0; i < m_marks.size(); ++i) {
+            const HitPlaceMark &mark = m_marks.at(i);
+            if (mark.pppHole <= 0)
+                continue;
+            if (m_hidden.contains(mark.pppHole)
+                    && m_hidden.contains(mark.pppHole + 1)
+                    && m_hidden.contains(mark.pppHole + 2))
+                continue;
+            const int col = (mark.pppHole - 1) / 10;
+            const int row = ((mark.pppHole - 1) % 10) / 2;
+            if (col < 0 || col >= groups || row < 0 || row + 1 >= rows)
+                continue;
+            const QColor color = hitGroupColor(mark.channel);
+            const QRectF box(area.left() + col * colPitch + 4,
+                             gridTop + row * rowPitch + 1,
+                             colPitch - 8,
+                             rowPitch * 2 - 2);
+            QColor fill = color;
+            fill.setAlpha(36);
+            painter.setPen(QPen(color, 2.5));
+            painter.setBrush(fill);
+            painter.drawRoundedRect(box, 10, 10);
+
+            const QRectF head(area.left() + col * colPitch + 6, area.top() + 1,
+                              colPitch - 12, headerH - 2);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(color);
+            painter.drawRoundedRect(head, 6, 6);
+            painter.setPen(Qt::white);
+            QFont font(hitFamily());
+            font.setPixelSize(13);
+            painter.setFont(font);
+            const QString letter = col < 12
+                    ? QString(QLatin1Char(kLetters[col]))
+                    : QString::number(col + 1);
+            const QString title = mark.channel > 0
+                    ? QString("%1  %2").arg(letter).arg(mark.channel)
+                    : letter;
+            painter.drawText(head, Qt::AlignCenter, title);
         }
     }
 
@@ -833,6 +1087,10 @@ private:
             fill = QColor(215, 240, 228);
             rim = QColor(47, 143, 107);
             textColor = QColor(24, 92, 64);
+        } else if (!used && hitPppSlot(hole)) {
+            fill = QColor(255, 236, 196);
+            rim = QColor(184, 122, 20);
+            textColor = QColor(122, 84, 16);
         }
         drawRing(painter, center, radius, fill, rim);
 
@@ -844,8 +1102,13 @@ private:
                                  center.y() - radius - 2),
                          holeText);
 
-        if (!used)
+        if (!used) {
+            if (hitPppSlot(hole)) {
+                const QFont markFont = fitPixelFont(QStringLiteral("PPP"), 12, radius * 1.5);
+                drawCenterText(painter, center, QStringLiteral("PPP"), markFont, textColor);
+            }
             return;
+        }
         const QString roleText = note.role == HitRolePpp
                 ? QStringLiteral("PPP")
                 : (note.role == HitRoleSerum
@@ -934,6 +1197,8 @@ private:
     {
         qreal x = area.left();
         const qreal cy = area.center().y();
+        paintLegendItem(painter, &x, cy, QColor(255, 236, 196), QColor(184, 122, 20),
+                        QString::fromUtf8("可放PPP"));
         paintLegendItem(painter, &x, cy, QColor(214, 230, 245), QColor(47, 95, 147),
                         QString::fromUtf8("供体PPP"));
         paintLegendItem(painter, &x, cy, QColor(253, 231, 208), QColor(196, 122, 58),
@@ -944,15 +1209,16 @@ private:
         font.setPixelSize(14);
         painter.setFont(font);
         painter.setPen(QColor(90, 106, 120));
-        const QString hint = empty
-                ? QString::fromUtf8("没有待测样本")
-                : QString::fromUtf8("环内为样本号后四位");
+        Q_UNUSED(empty);
+        const QString hint = QString::fromUtf8("点琥珀色孔选择通道。环内为样本号后四位");
         painter.drawText(QRectF(x, area.top(), area.right() - x, area.height()),
                          Qt::AlignLeft | Qt::AlignVCenter, hint);
     }
 
     QList<HitPlaceMark> m_marks;
     QSet<int> m_hidden;
+    QSet<int> m_locked;
+    std::function<void(int)> m_clicked;
 };
 
 QSqlDatabase hitCurveDb()
@@ -1452,9 +1718,9 @@ HitPage::HitPage(QWidget *parent)
     root->addLayout(rightBar);
 
     connect(m_settingsButton, &QPushButton::clicked, this, [this] { showHitSettings(); });
-    connect(m_startButton, &QPushButton::clicked, this, [this] { showStartMap(); });
+    connect(m_startButton, &QPushButton::clicked, this, [this] { startPendingTest(); });
     connect(m_pauseButton, &QPushButton::clicked, this, [this] { togglePause(); });
-    connect(m_addButton, &QPushButton::clicked, this, [this] { appendTask(); });
+    connect(m_addButton, &QPushButton::clicked, this, [this] { showAddMap(); });
     connect(m_table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
         commitSampleId(item);
     });
@@ -1505,16 +1771,6 @@ void HitPage::buildTable()
 
 void HitPage::buildDelegates()
 {
-    QStringList channels;
-    const int count = channelCount();
-    for (int i = 1; i <= count; ++i)
-        channels << QString::number(i);
-    m_channelDelegate = new HitComboDelegate(channels);
-    m_channelDelegate->setParent(m_table);
-    m_table->setItemDelegateForColumn(ColChannel, m_channelDelegate);
-    HitHoleDelegate *holeDelegate = new HitHoleDelegate(m_table);
-    holeDelegate->setParent(m_table);
-    m_table->setItemDelegateForColumn(ColSampleTag, holeDelegate);
     m_table->setItemDelegate(new HitTextDelegate(false, m_table));
 }
 
@@ -1529,31 +1785,32 @@ int HitPage::channelCount() const
     return 12;
 }
 
-QString HitPage::nextSampleId() const
+QString HitPage::nextSampleId(const QStringList &reserved) const
 {
     const QString prefix = QStringLiteral("H") + QDate::currentDate().toString(QStringLiteral("yyyyMMdd"));
     int maxSeq = 0;
-    for (int row = 0; row < m_table->rowCount(); ++row) {
-        const QTableWidgetItem *item = m_table->item(row, ColSampleId);
-        if (!item)
-            continue;
-        const QString text = item->text();
+    const auto consider = [&](const QString &text) {
         if (!text.startsWith(prefix) || text.size() < prefix.size() + 4)
-            continue;
+            return;
         bool ok = false;
         const int seq = text.right(4).toInt(&ok);
         if (ok)
             maxSeq = qMax(maxSeq, seq);
+    };
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const QTableWidgetItem *item = m_table->item(row, ColSampleId);
+        if (item)
+            consider(item->text());
     }
+    for (int i = 0; i < reserved.size(); ++i)
+        consider(reserved.at(i));
     for (int n = 0; n < 10000; ++n) {
         const QString id = prefix + QString("%1").arg(maxSeq + 1 + n, 4, 10, QChar('0'));
-        bool inTable = false;
-        for (int row = 0; row < m_table->rowCount(); ++row) {
+        bool inTable = reserved.contains(id);
+        for (int row = 0; row < m_table->rowCount() && !inTable; ++row) {
             const QTableWidgetItem *item = m_table->item(row, ColSampleId);
-            if (item && item->text() == id) {
+            if (item && item->text() == id)
                 inTable = true;
-                break;
-            }
         }
         if (!inTable && !hitSampleIdInDb(id))
             return id;
@@ -1569,20 +1826,17 @@ int HitPage::nextPppHole() const
     return holes.first().toInt();
 }
 
-void HitPage::appendTask()
+void HitPage::appendPendingRow(const QString &sampleId, int channel, int hole)
 {
-    const int hole = nextPppHole();
-    if (hole < 0)
-        return;
     const int row = m_table->rowCount();
     m_table->insertRow(row);
     m_table->setRowHeight(row, kRowHeight);
     m_table->setItem(row, ColStatus, centeredItem(QString::fromUtf8("待测"), false));
-    QTableWidgetItem *sampleItem = centeredItem(nextSampleId(), true);
+    QTableWidgetItem *sampleItem = centeredItem(sampleId, true);
     sampleItem->setData(Qt::UserRole, sampleItem->text());
     m_table->setItem(row, ColSampleId, sampleItem);
-    m_table->setItem(row, ColChannel, centeredItem(QStringLiteral("1"), true));
-    m_table->setItem(row, ColSampleTag, centeredItem(QString::number(hole), true));
+    m_table->setItem(row, ColChannel, centeredItem(QString::number(channel), false));
+    m_table->setItem(row, ColSampleTag, centeredItem(QString::number(hole), false));
     for (int col = ColStartTime; col < ColSpontaneous; ++col)
         m_table->setItem(row, col, centeredItem(QString(), false));
     installStepBars(row);
@@ -1700,15 +1954,57 @@ void HitPage::showHitSettings()
     QFrame *pppCard = new QFrame(&dialog);
     pppCard->setObjectName(QStringLiteral("card"));
     pppCard->setAttribute(Qt::WA_StyledBackground, true);
-    QHBoxLayout *pppRow = new QHBoxLayout(pppCard);
-    pppRow->setContentsMargins(18, 14, 18, 14);
+    QVBoxLayout *pppCol = new QVBoxLayout(pppCard);
+    pppCol->setContentsMargins(18, 14, 18, 14);
+    pppCol->setSpacing(12);
+    QHBoxLayout *pppRow = new QHBoxLayout;
     pppRow->setSpacing(12);
     QLabel *pppLabel = new QLabel(QString::fromUtf8("吸PPP参照"), pppCard);
     pppLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     QSpinBox *pppRef = hitSpin(pppCard, wheelGuard, loaded.pppRefUl, 2000, ul, 120);
+    QLabel *suckOffsetLabel = new QLabel(QString::fromUtf8("吸血清Y"), pppCard);
+    suckOffsetLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    QSpinBox *serumSuckOffset = new QSpinBox(pppCard);
+    serumSuckOffset->setRange(-20000, 20000);
+    serumSuckOffset->setValue(loaded.reagentSerumOffsetY);
+    serumSuckOffset->setAlignment(Qt::AlignCenter);
+    serumSuckOffset->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    serumSuckOffset->setFixedSize(120, 36);
+    serumSuckOffset->installEventFilter(wheelGuard);
+    QLabel *spitOffsetLabel = new QLabel(QString::fromUtf8("吐血清Y"), pppCard);
+    spitOffsetLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    QSpinBox *serumSpitOffset = new QSpinBox(pppCard);
+    serumSpitOffset->setRange(-20000, 20000);
+    serumSpitOffset->setValue(loaded.reagentSerumSpitOffsetY);
+    serumSpitOffset->setAlignment(Qt::AlignCenter);
+    serumSpitOffset->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    serumSpitOffset->setFixedSize(120, 36);
+    serumSpitOffset->installEventFilter(wheelGuard);
     pppRow->addWidget(pppLabel);
     pppRow->addWidget(pppRef);
+    pppRow->addSpacing(24);
+    pppRow->addWidget(suckOffsetLabel);
+    pppRow->addWidget(serumSuckOffset);
+    pppRow->addWidget(spitOffsetLabel);
+    pppRow->addWidget(serumSpitOffset);
     pppRow->addStretch(1);
+    pppCol->addLayout(pppRow);
+    QHBoxLayout *failRow = new QHBoxLayout;
+    failRow->setSpacing(12);
+    QLabel *failLabel = new QLabel(QString::fromUtf8("吸血清失败高度"), pppCard);
+    failLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    QSpinBox *serumFail = new QSpinBox(pppCard);
+    serumFail->setRange(1, 99);
+    serumFail->setValue(loaded.serumFailHighMm);
+    serumFail->setSuffix(QStringLiteral(" mm"));
+    serumFail->setAlignment(Qt::AlignCenter);
+    serumFail->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    serumFail->setFixedSize(120, 36);
+    serumFail->installEventFilter(wheelGuard);
+    failRow->addWidget(failLabel);
+    failRow->addWidget(serumFail);
+    failRow->addStretch(1);
+    pppCol->addLayout(failRow);
     root->addWidget(pppCard);
 
     QFrame *tableCard = new QFrame(&dialog);
@@ -1871,9 +2167,18 @@ void HitPage::showHitSettings()
         data.negativeHeparinUl = negativeHeparin->value();
         data.negativeIncubateSec = negativeIncubate->value();
         data.negativeRecordMin = negativeRecord->value();
+        data.reagentSerumOffsetY = serumSuckOffset->value();
+        data.reagentSerumSpitOffsetY = serumSpitOffset->value();
+        data.serumFailHighMm = serumFail->value();
         data.positiveDiffPercent = positiveDiff->value();
         data.invalidPercent = invalidPercent->value();
         saveHitSettings(data);
+        SuoweiSerialPort *serial = FullyAutomatedPlatelets::pinstanceserialusb();
+        if (serial) {
+            QByteArrayList one;
+            one.append(QUIUtils::writeHitPara0x1e(true));
+            serial->slotwrite_instructions_group(one, QString::fromUtf8("HIT参数写入主板"));
+        }
         dialog.accept();
     });
     connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
@@ -1906,7 +2211,7 @@ void HitPage::setRunBusy(bool busy)
     for (int row = 0; row < m_table->rowCount(); ++row) {
         const QTableWidgetItem *statusItem = m_table->item(row, ColStatus);
         const bool pendingRow = statusItem && statusItem->text() == pending;
-        const int columns[] = {ColSampleId, ColSampleTag};
+        const int columns[] = {ColSampleId};
         for (int col : columns) {
             QTableWidgetItem *idItem = m_table->item(row, col);
             if (!idItem)
@@ -1920,6 +2225,40 @@ void HitPage::setRunBusy(bool busy)
             idItem->setFlags(flags);
         }
     }
+}
+
+void HitPage::clearStepBar(int row, int column)
+{
+    if (!m_table || row < 0 || column < 0)
+        return;
+    QWidget *widget = m_table->cellWidget(row, column);
+    if (!widget)
+        return;
+    m_table->removeCellWidget(row, column);
+    widget->hide();
+    widget->setParent(nullptr);
+    widget->deleteLater();
+}
+
+void HitPage::clearFinishedStepBars()
+{
+    if (!m_table)
+        return;
+    const int columns[] = {ColSpontaneous, ColLow, ColHigh, ColNegative};
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        for (int column : columns) {
+            const QTableWidgetItem *item = m_table->item(row, column);
+            if (!item || item->text().trimmed().isEmpty())
+                continue;
+            clearStepBar(row, column);
+        }
+    }
+}
+
+void HitPage::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    clearFinishedStepBars();
 }
 
 void HitPage::installStepBars(int row)
@@ -1956,6 +2295,11 @@ void HitPage::setStepProgress(int row, int mixIndex, int elapsedMs, int totalMs,
         return;
     const int columns[] = {ColSpontaneous, ColLow, ColHigh, ColNegative};
     const int column = columns[mixIndex];
+    const QTableWidgetItem *resultItem = m_table->item(row, column);
+    if (resultItem && !resultItem->text().trimmed().isEmpty()) {
+        clearStepBar(row, column);
+        return;
+    }
     QProgressBar *bar = qobject_cast<QProgressBar *>(m_table->cellWidget(row, column));
     if (!bar) {
         bar = new QProgressBar(m_table);
@@ -2002,7 +2346,7 @@ void HitPage::applyRunUpdate(int row, const QString &status, const QString &star
         if (texts[i].isEmpty())
             continue;
         if (columns[i] >= ColSpontaneous)
-            m_table->removeCellWidget(row, columns[i]);
+            clearStepBar(row, columns[i]);
         QTableWidgetItem *item = m_table->item(row, columns[i]);
         if (!item) {
             m_table->setItem(row, columns[i], centeredItem(texts[i], false));
@@ -2037,6 +2381,7 @@ void collectPendingHit(const QTableWidget *table, int channelMax,
         HitPlaceMark mark;
         mark.sampleId = idItem ? idItem->text() : QString();
         mark.pppHole = hole;
+        mark.channel = channel;
         marks.append(mark);
         HitSampleJob job;
         job.row = row;
@@ -2062,13 +2407,16 @@ void HitPage::ensurePlaceDialog()
     QVBoxLayout *layout = new QVBoxLayout(dialog);
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(10);
+    HitChannelStrip *channels = new HitChannelStrip(dialog);
+    layout->addWidget(channels);
     HitPlaceMap *map = new HitPlaceMap(dialog);
+    map->setHoleClicked([this](int hole) { onPlaceHole(hole); });
     layout->addWidget(map, 1);
 
     QHBoxLayout *buttons = new QHBoxLayout;
     buttons->addStretch(1);
     QPushButton *closeButton = new QPushButton(QString::fromUtf8("关闭"), dialog);
-    QPushButton *confirmButton = new QPushButton(QString::fromUtf8("确认测试"), dialog);
+    QPushButton *confirmButton = new QPushButton(QString::fromUtf8("确认添加"), dialog);
     closeButton->setStyleSheet(buttonStyle());
     confirmButton->setStyleSheet(buttonStyle());
     buttons->addWidget(closeButton);
@@ -2076,50 +2424,367 @@ void HitPage::ensurePlaceDialog()
     layout->addLayout(buttons);
     connect(closeButton, &QPushButton::clicked, dialog, &QDialog::hide);
     connect(confirmButton, &QPushButton::clicked, this, [this] {
-        if (!m_runner || (m_runner->running()))
+        if (m_runner && m_runner->running())
             return;
-        QList<HitPlaceMark> marks;
-        QVector<HitSampleJob> jobs;
-        collectPendingHit(m_table, channelCount(), marks, jobs);
-        QString reason;
-        if (!m_runner->start(jobs, &reason)) {
-            if (!reason.isEmpty())
-                CustomMessageBox::warning(this, QString::fromUtf8("提示"), reason);
+        if (m_placeDraft.isEmpty()) {
+            CustomMessageBox::warning(m_placeDialog, QString::fromUtf8("提示"),
+                QString::fromUtf8("请先点选可放PPP的孔，并选择测试通道"));
             return;
         }
-        if (m_placeConfirm)
-            m_placeConfirm->setEnabled(false);
-        setRunBusy(true);
+        QStringList ids;
+        for (int i = 0; i < m_placeDraft.size(); ++i)
+            ids << m_placeDraft.at(i).sampleId;
+        if (CustomMessageBox::question(m_placeDialog,
+                QString::fromUtf8("确认添加"),
+                QString::fromUtf8("确认添加样本号 %1 吗？").arg(ids.join(QString::fromUtf8("、"))),
+                QMessageBox::Ok | QMessageBox::Cancel) != QMessageBox::Ok) {
+            return;
+        }
+        for (int i = 0; i < m_placeDraft.size(); ++i) {
+            const HitDraftPick &pick = m_placeDraft.at(i);
+            appendPendingRow(pick.sampleId, pick.channel, pick.hole);
+        }
+        m_placeDraft.clear();
+        refreshPlaceMap();
+        m_placeDialog->hide();
     });
 
     m_placeDialog = dialog;
     m_placeMap = map;
+    m_placeChannels = channels;
     m_placeConfirm = confirmButton;
+}
+
+void HitPage::refreshPlaceMap()
+{
+    QList<HitPlaceMark> marks;
+    QVector<HitSampleJob> jobs;
+    collectPendingHit(m_table, channelCount(), marks, jobs);
+    QSet<int> locked;
+    for (int i = 0; i < marks.size(); ++i)
+        locked.insert(marks.at(i).pppHole);
+    QList<HitDraftPick> kept;
+    for (int i = 0; i < m_placeDraft.size(); ++i) {
+        const HitDraftPick &pick = m_placeDraft.at(i);
+        if (locked.contains(pick.hole))
+            continue;
+        kept.append(pick);
+        HitPlaceMark mark;
+        mark.sampleId = pick.sampleId;
+        mark.pppHole = pick.hole;
+        mark.channel = pick.channel;
+        marks.append(mark);
+    }
+    m_placeDraft = kept;
+    if (HitPlaceMap *map = static_cast<HitPlaceMap *>(m_placeMap)) {
+        map->setLockedHoles(locked);
+        map->setMarks(marks);
+    }
+    if (HitChannelStrip *strip = static_cast<HitChannelStrip *>(m_placeChannels)) {
+        quint8 kind = KS1200;
+        if (SingletonAxis::GetInstance())
+            SingletonAxis::GetInstance()->equipmentKind(READ_OPERRAT, kind);
+        QString name = QStringLiteral("KS1200");
+        if (kind == KS600)
+            name = QStringLiteral("KS600");
+        else if (kind == KS800)
+            name = QStringLiteral("KS800");
+        QList<HitChannelUse> uses;
+        for (int i = 0; i < jobs.size(); ++i) {
+            HitChannelUse use;
+            use.channel = jobs.at(i).channel;
+            use.sampleText = shortSampleNo(jobs.at(i).sampleId);
+            uses.append(use);
+        }
+        for (int i = 0; i < kept.size(); ++i) {
+            HitChannelUse use;
+            use.channel = kept.at(i).channel;
+            use.sampleText = shortSampleNo(kept.at(i).sampleId);
+            uses.append(use);
+        }
+        strip->setInfo(channelCount(),
+                       QString::fromUtf8("%1 可用通道").arg(name),
+                       uses);
+    }
+}
+
+bool HitPage::askPlaceChoice(int hole, int currentChannel, const QString &currentId, bool allowRemove,
+                             int *channelOut, QString *sampleIdOut, bool *removeOut)
+{
+    if (channelOut)
+        *channelOut = 0;
+    if (sampleIdOut)
+        *sampleIdOut = QString();
+    if (removeOut)
+        *removeOut = false;
+    QWidget *promptParent = m_placeDialog ? static_cast<QWidget *>(m_placeDialog) : static_cast<QWidget *>(this);
+    QDialog dialog(promptParent);
+    dialog.setWindowTitle(QString::fromUtf8("选择测试通道"));
+    dialog.setWindowModality(Qt::WindowModal);
+    dialog.setAttribute(Qt::WA_StyledBackground, true);
+    dialog.setStyleSheet(QString::fromUtf8(
+        "QDialog { background: #E7F0F7; }"
+        "QLabel { font-family: '楷体'; font-size: 18px; color: #1A4D6B; background: transparent; }"
+        "QLineEdit { font-family: '楷体'; font-size: 18px; color: #16384A; background: #FFFFFF;"
+        " border: 1px solid #C5D5E2; border-radius: 6px; padding: 0 8px; }"));
+    QVBoxLayout *root = new QVBoxLayout(&dialog);
+    root->setContentsMargins(18, 16, 18, 16);
+    root->setSpacing(12);
+    root->addWidget(new QLabel(
+        QString::fromUtf8("PPP孔 %1。相同通道可以重复选，样本号小的先做完。").arg(hole), &dialog));
+
+    QHBoxLayout *idRow = new QHBoxLayout;
+    idRow->addWidget(new QLabel(QString::fromUtf8("样本编号"), &dialog));
+    QLineEdit *sampleEdit = new QLineEdit(currentId, &dialog);
+    sampleEdit->setFixedHeight(40);
+    sampleEdit->setMinimumWidth(280);
+    idRow->addWidget(sampleEdit, 1);
+    root->addLayout(idRow);
+
+    QGridLayout *grid = new QGridLayout;
+    grid->setSpacing(8);
+    int chosen = currentChannel;
+    const QString idleStyle = QString::fromUtf8(
+        "QPushButton { font-family: '楷体'; font-size: 18px; min-width: 64px; min-height: 44px;"
+        " border: 1px solid #b7c5d3; border-radius: 8px; background: #ffffff; color: #1a4d6b; }"
+        "QPushButton:hover { border: 1px solid #4a7ab5; background: #e7f0f8; }");
+    const QString pickedStyle = QString::fromUtf8(
+        "QPushButton { font-family: '楷体'; font-size: 18px; min-width: 64px; min-height: 44px;"
+        " border: 2px solid #4a7ab5; border-radius: 8px; background: #D4EAF5; color: #1a4d6b; }");
+    QList<QPushButton *> channelButtons;
+    const int count = channelCount();
+    for (int n = 1; n <= count; ++n) {
+        QPushButton *button = new QPushButton(QString::number(n), &dialog);
+        button->setStyleSheet(n == chosen ? pickedStyle : idleStyle);
+        const int channelNo = n;
+        connect(button, &QPushButton::clicked, &dialog, [channelNo, &chosen, &channelButtons, idleStyle, pickedStyle] {
+            chosen = channelNo;
+            for (int i = 0; i < channelButtons.size(); ++i)
+                channelButtons.at(i)->setStyleSheet(i + 1 == chosen ? pickedStyle : idleStyle);
+        });
+        channelButtons.append(button);
+        grid->addWidget(button, (n - 1) / 6, (n - 1) % 6);
+    }
+    root->addLayout(grid);
+
+    QHBoxLayout *actions = new QHBoxLayout;
+    actions->addStretch(1);
+    QPushButton *removeButton = nullptr;
+    if (allowRemove) {
+        removeButton = new QPushButton(QString::fromUtf8("取消选择"), &dialog);
+        removeButton->setStyleSheet(buttonStyle());
+        actions->addWidget(removeButton);
+    }
+    QPushButton *okButton = new QPushButton(QString::fromUtf8("确定"), &dialog);
+    QPushButton *closeButton = new QPushButton(QString::fromUtf8("关闭"), &dialog);
+    okButton->setStyleSheet(buttonStyle());
+    closeButton->setStyleSheet(buttonStyle());
+    actions->addWidget(okButton);
+    actions->addWidget(closeButton);
+    root->addLayout(actions);
+    connect(closeButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+    if (removeButton) {
+        connect(removeButton, &QPushButton::clicked, &dialog, [removeOut, &dialog] {
+            if (removeOut)
+                *removeOut = true;
+            dialog.accept();
+        });
+    }
+    connect(okButton, &QPushButton::clicked, &dialog, [this, hole, currentId, &chosen, sampleEdit, &dialog] {
+        const QString sampleId = sampleEdit->text().trimmed();
+        if (chosen <= 0) {
+            CustomMessageBox::warning(&dialog, QString::fromUtf8("提示"),
+                QString::fromUtf8("请选择测试通道"));
+            return;
+        }
+        if (sampleId.isEmpty()) {
+            CustomMessageBox::warning(&dialog, QString::fromUtf8("提示"),
+                QString::fromUtf8("样本号不能为空"));
+            return;
+        }
+        if (sampleId != currentId) {
+            for (int row = 0; row < m_table->rowCount(); ++row) {
+                const QTableWidgetItem *item = m_table->item(row, ColSampleId);
+                if (item && item->text().trimmed() == sampleId) {
+                    CustomMessageBox::warning(&dialog, QString::fromUtf8("提示"),
+                        QString::fromUtf8("样本号已存在"));
+                    return;
+                }
+            }
+            for (int i = 0; i < m_placeDraft.size(); ++i) {
+                if (m_placeDraft.at(i).hole != hole && m_placeDraft.at(i).sampleId == sampleId) {
+                    CustomMessageBox::warning(&dialog, QString::fromUtf8("提示"),
+                        QString::fromUtf8("样本号已存在"));
+                    return;
+                }
+            }
+            if (hitSampleIdInDb(sampleId)) {
+                CustomMessageBox::warning(&dialog, QString::fromUtf8("提示"),
+                    QString::fromUtf8("样本号已存在"));
+                return;
+            }
+        }
+        dialog.accept();
+    });
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+    if (removeOut && *removeOut)
+        return true;
+    if (channelOut)
+        *channelOut = chosen;
+    if (sampleIdOut)
+        *sampleIdOut = sampleEdit->text().trimmed();
+    return chosen > 0 && sampleIdOut && !sampleIdOut->isEmpty();
+}
+
+void HitPage::onPlaceHole(int hole)
+{
+    if (m_runner && m_runner->running())
+        return;
+    if (!hitPppSlot(hole))
+        return;
+    int current = 0;
+    QString keptId;
+    int draftIndex = -1;
+    for (int i = 0; i < m_placeDraft.size(); ++i) {
+        if (m_placeDraft.at(i).hole == hole) {
+            current = m_placeDraft.at(i).channel;
+            keptId = m_placeDraft.at(i).sampleId;
+            draftIndex = i;
+            break;
+        }
+    }
+    int pendingRow = -1;
+    const QString pending = QString::fromUtf8("待测");
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const QTableWidgetItem *statusItem = m_table->item(row, ColStatus);
+        const QTableWidgetItem *tagItem = m_table->item(row, ColSampleTag);
+        if (!statusItem || statusItem->text().trimmed() != pending || !tagItem)
+            continue;
+        bool ok = false;
+        if (tagItem->text().toInt(&ok) != hole || !ok)
+            continue;
+        pendingRow = row;
+        const QTableWidgetItem *channelItem = m_table->item(row, ColChannel);
+        const QTableWidgetItem *idItem = m_table->item(row, ColSampleId);
+        bool channelOk = false;
+        current = channelItem ? channelItem->text().toInt(&channelOk) : 0;
+        if (!channelOk)
+            current = 0;
+        keptId = idItem ? idItem->text().trimmed() : QString();
+        break;
+    }
+    if (keptId.isEmpty()) {
+        QStringList reserved;
+        for (int i = 0; i < m_placeDraft.size(); ++i)
+            reserved << m_placeDraft.at(i).sampleId;
+        for (int row = 0; row < m_table->rowCount(); ++row) {
+            const QTableWidgetItem *item = m_table->item(row, ColSampleId);
+            if (item)
+                reserved << item->text().trimmed();
+        }
+        keptId = nextSampleId(reserved);
+    }
+    int channel = 0;
+    QString sampleId;
+    bool remove = false;
+    if (!askPlaceChoice(hole, current, keptId, draftIndex >= 0 || pendingRow >= 0,
+                        &channel, &sampleId, &remove))
+        return;
+    if (remove) {
+        if (draftIndex >= 0)
+            m_placeDraft.removeAt(draftIndex);
+        if (pendingRow >= 0) {
+            const QTableWidgetItem *item = m_table->item(pendingRow, ColSampleId);
+            if (item)
+                deleteHitSampleData(item->text().trimmed());
+            m_table->removeRow(pendingRow);
+        }
+        refreshPlaceMap();
+        return;
+    }
+    if (pendingRow >= 0) {
+        QTableWidgetItem *idItem = m_table->item(pendingRow, ColSampleId);
+        if (!idItem) {
+            idItem = centeredItem(sampleId, true);
+            m_table->setItem(pendingRow, ColSampleId, idItem);
+        }
+        m_sampleEditLock = true;
+        idItem->setText(sampleId);
+        idItem->setData(Qt::UserRole, sampleId);
+        m_sampleEditLock = false;
+        QTableWidgetItem *channelItem = m_table->item(pendingRow, ColChannel);
+        if (!channelItem) {
+            channelItem = centeredItem(QString::number(channel), false);
+            m_table->setItem(pendingRow, ColChannel, channelItem);
+        } else {
+            channelItem->setText(QString::number(channel));
+        }
+        refreshPlaceMap();
+        return;
+    }
+    if (draftIndex >= 0) {
+        m_placeDraft[draftIndex].channel = channel;
+        m_placeDraft[draftIndex].sampleId = sampleId;
+    } else {
+        HitDraftPick pick;
+        pick.hole = hole;
+        pick.channel = channel;
+        pick.sampleId = sampleId;
+        m_placeDraft.append(pick);
+    }
+    refreshPlaceMap();
+}
+
+void HitPage::showAddMap()
+{
+    if (m_runner && m_runner->running()) {
+        CustomMessageBox::warning(this, QString::fromUtf8("提示"),
+            QString::fromUtf8("测试进行中，不能添加"));
+        return;
+    }
+    ensurePlaceDialog();
+    refreshPlaceMap();
+    m_placeDialog->show();
+    m_placeDialog->raise();
+    m_placeDialog->activateWindow();
+}
+
+void HitPage::startPendingTest()
+{
+    if (!m_runner || m_runner->running())
+        return;
+    QList<HitPlaceMark> marks;
+    QVector<HitSampleJob> jobs;
+    collectPendingHit(m_table, channelCount(), marks, jobs);
+    if (jobs.isEmpty()) {
+        CustomMessageBox::warning(this, QString::fromUtf8("提示"),
+            QString::fromUtf8("请先添加待测样本"));
+        return;
+    }
+    if (CustomMessageBox::question(this,
+            QString::fromUtf8("开始测试"),
+            QString::fromUtf8("请确认这次测试的样本和试剂都已准备好。\n确定开始测试吗？"),
+            QMessageBox::Ok | QMessageBox::Cancel) != QMessageBox::Ok) {
+        return;
+    }
+    QString reason;
+    if (!m_runner->start(jobs, &reason)) {
+        if (!reason.isEmpty())
+            CustomMessageBox::warning(this, QString::fromUtf8("提示"), reason);
+        return;
+    }
+    setRunBusy(true);
 }
 
 void HitPage::syncPlaceDialog(bool testing)
 {
     if (!m_placeDialog)
         return;
-    if (!testing) {
-        QList<HitPlaceMark> marks;
-        QVector<HitSampleJob> jobs;
-        collectPendingHit(m_table, channelCount(), marks, jobs);
-        if (HitPlaceMap *map = static_cast<HitPlaceMap *>(m_placeMap))
-            map->setMarks(marks);
-    }
+    if (!testing)
+        refreshPlaceMap();
     if (m_placeConfirm)
         m_placeConfirm->setEnabled(!testing);
-}
-
-void HitPage::showStartMap()
-{
-    ensurePlaceDialog();
-    const bool testing = m_runner && m_runner->running();
-    syncPlaceDialog(testing);
-    m_placeDialog->show();
-    m_placeDialog->raise();
-    m_placeDialog->activateWindow();
 }
 
 void HitPage::showViewCurve()

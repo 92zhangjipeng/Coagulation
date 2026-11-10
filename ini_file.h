@@ -166,6 +166,14 @@ public:
     void setFailedCleanLinqueReagNeedle(quint8 );
     quint8 getFailedCleanLinqueReagNeedle();
 
+    /*针尖到试剂瓶口的下降高度，用来区分挂珠和真液面*/
+    void setReagentBottleMouthMm(int mm);
+    int getReagentBottleMouthMm();
+
+    /*针尖到血样试管口的下降高度，吸PPP时区分挂珠和真液面*/
+    void setBloodTubeMouthMm(int mm);
+    int getBloodTubeMouthMm();
+
     /* 探测失败高度（试剂）*/
     void SetFailedReagentsLinqueHigh(quint8 highValue);
     quint8 GetFailedReagentsLinqueHigh();

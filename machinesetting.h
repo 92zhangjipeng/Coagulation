@@ -366,6 +366,10 @@ private:
     QLabel *m_gripperAirStepLabel = nullptr;
     QLabel *m_gripperThrowDelayLabel = nullptr;
     QSpinBox *m_gripperThrowDelaySpin = nullptr;
+    QLabel *m_reagentBottleMouthLabel = nullptr;
+    QSpinBox *m_reagentBottleMouthSpin = nullptr;
+    QLabel *m_bloodTubeMouthLabel = nullptr;
+    QSpinBox *m_bloodTubeMouthSpin = nullptr;
     QPushButton *m_gripperAutoApplyBtn = nullptr;
 };
 

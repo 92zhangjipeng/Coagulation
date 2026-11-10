@@ -2140,6 +2140,9 @@ void MachineSetting::configWrite2BoardReagentNeedlePara() {
         ini.setTypesReagentNeedleDownHigh(reagentTypes[i], spitReagentDownHeigh[i]);
     }
     ini.SetReagentAfterSuckLiftDelayMs(ui->spinBox_reagentSuckLiftDelay->value());
+    if (m_reagentBottleMouthSpin) {
+        ini.setReagentBottleMouthMm(m_reagentBottleMouthSpin->value());
+    }
 
     // 5. 更新耗材容量和限位（提取成独立函数）
     updateReagentCapacityAndLimit();
@@ -2563,6 +2566,9 @@ void MachineSetting::reloadMaintenanceParamsFromIni()
     ui->spinBox_CleanLinqueFailedHigh->setValue(ini.GetFailedCleanLinqueHigh());
     ui->Testheighdownheigh->setValue(ini.GetAbsorbTubeBottom());
     ui->spinBox_faliedlinque->setValue(ini.GetFailedLinqueHigh());
+    if (m_bloodTubeMouthSpin) {
+        m_bloodTubeMouthSpin->setValue(ini.getBloodTubeMouthMm());
+    }
     ui->spinBox_suckairs->setValue(ini._getsuckairsuckPRP());
     ui->spinBox_WashesTime->setValue(ini.getWashesTime());
     loadBloodPinExtendedUiFromIni();
@@ -2606,6 +2612,9 @@ void MachineSetting::reloadMaintenanceParamsFromIni()
     ui->spinBox_TestReagentFailedhigh->setValue(ini.GetFailedReagentsLinqueHigh());
     ui->spinBox_deptime->setValue(ini._getdelayedtime());
     ui->spinBox_reagentSuckLiftDelay->setValue(ini.GetReagentAfterSuckLiftDelayMs());
+    if (m_reagentBottleMouthSpin) {
+        m_reagentBottleMouthSpin->setValue(ini.getReagentBottleMouthMm());
+    }
 
     ui->spinBoxSuckAirsMax->setValue(ini.rConfigPara(GRIPPERLESSTHANMAX).toInt());
     ui->spinBoxSplitAirsMin->setValue(ini.rConfigPara(GRIPPERBIGTHANMIM).toInt());
@@ -2652,6 +2661,9 @@ void MachineSetting::syncBloodPinUiToIni()
     ini.SetFailedCleanLinqueHigh(static_cast<quint8>(ui->spinBox_CleanLinqueFailedHigh->value()));
     ini.SetAbsorbTubeBottom(static_cast<quint8>(ui->Testheighdownheigh->value()));
     ini.SetFailedLinqueHigh(static_cast<quint8>(ui->spinBox_faliedlinque->value()));
+    if (m_bloodTubeMouthSpin) {
+        ini.setBloodTubeMouthMm(m_bloodTubeMouthSpin->value());
+    }
     ini._setsuckairsuckPRP(ui->spinBox_suckairs->value());
     ini.SetAfterSpitDelayMs(ui->spinBox_PPPdelay->value());
     ini.SetAfterSuckDelayMs(ui->spinBox_PRPdelay->value());
@@ -2735,7 +2747,19 @@ void MachineSetting::BloodPinParaWriteBoadr()
     QUIUtils::_writeParaBloodOtherOrder(bufferq8, bloodpara);
 
     const QByteArray extendedBlood = outParaOx1cWrite();
-    emit SetParatoInstrument({bufferq16, bufferq8, extendedBlood}, tr("血样针参数写入主板"));
+    const quint8 reagentTypes[5] = {
+        AA_REAGENT, ADP_REAGENT, EPI_REAGENT, COL_REAGENT, RIS_REAGENT
+    };
+    quint8 addRatioX100[5] = {0};
+    for (int i = 0; i < 5; ++i) {
+        addRatioX100[i] = static_cast<quint8>(
+                    qBound(0, qRound(INI_File().getTypesReagentSuckAdd_Ratio(reagentTypes[i]) * 100.0), 255));
+    }
+    const QByteArray extendedReagent = QUIUtils::writeExtendedReagentPara0x1d(
+                addRatioX100,
+                static_cast<quint16>(GlobalData::gripperThrowDelayMs()),
+                true);
+    emit SetParatoInstrument({bufferq16, bufferq8, extendedBlood, extendedReagent}, tr("血样针参数写入主板"));
     QMessageBox::information(this, tr("保存完成"), tr("仪器血样针参数已保存并写入主板!"));
     return;
 }

@@ -2,6 +2,7 @@
 #pragma execution_character_set("utf-8")
 #endif
 #include "performanceverification.h"  //性能验证
+#include "quiutils.h"
 #include <loadequipmentpos.h>
 #include <cglobal.h>
 #include <ini_file.h>
@@ -1372,6 +1373,34 @@ void Performanceverification::handleSerialData(const QStringList& recvdataList){
         m_peRegrab = false;
         // 抓取段已通过，后续放杯/丢杯不再做气密拦截
         m_peGrabArmed = false;
+    }
+
+    CommandGroup *hangGroup = nullptr;
+    int hangScene = 0;
+    if (PerformanceData *pdata = findChannel(m_peChannel)) {
+        if (mPE == activePE::CleanPin) {
+            hangGroup = &pdata->cleaningSystem.commands;
+            hangScene = QUIUtils::HangBeadCleanS1;
+        } else if (mPE == activePE::suckWater) {
+            hangGroup = &pdata->suckWater.commands;
+            hangScene = QUIUtils::HangBeadBloodTube;
+        } else if (mPE == activePE::suckBasicLinque) {
+            hangGroup = &pdata->suckBasicLiquid.commands;
+            hangScene = QUIUtils::HangBeadBloodTube;
+        }
+    }
+    if (hangGroup) {
+        auto it = hangGroup->find(commandIndex);
+        const bool knownDetect = hangScene != 0 && it != hangGroup->end()
+                && QUIUtils::sentCommandIsLiquidDetect(it->cmdData);
+        if (knownDetect && QUIUtils::hangBeadSuckDecision(recvdataList, hangScene, true) == 2) {
+            if (it != hangGroup->end()) {
+                ++it;
+                if (it != hangGroup->end() && !QUIUtils::sentCommandIsZReset(it->cmdData)) {
+                    it->isCompleted = true;
+                }
+            }
+        }
     }
 
 	this->executeCommand(mPE, slaveAddr, commandIndex);

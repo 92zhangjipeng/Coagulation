@@ -1230,7 +1230,8 @@ void TestProjectProcess::handlePendingtimeoutSampleTest(const quint8 indexAxtive
 }
 
 
-bool TestProjectProcess::gripperExceptionHandling(const quint8 commandIndex,const quint8 indexActive ){
+bool TestProjectProcess::gripperExceptionHandling(const quint8 commandIndex,const quint8 indexActive,
+                                                  const QStringList &recvdata){
     auto* instance = StructInstance::getInstance();
     auto* instrument = FullyAutomatedPlatelets::pinstanceinstrument();
     const bool gripperError = instance->getHandsStatus(m_focus_sample_id);
@@ -1243,7 +1244,7 @@ bool TestProjectProcess::gripperExceptionHandling(const quint8 commandIndex,cons
     }
 
     QByteArray nextPrepatch;
-    const bool activeFinished = instance->recvPrepatchActions(m_focus_sample_id,commandIndex, &nextPrepatch);
+    const bool activeFinished = instance->recvPrepatchActions(m_focus_sample_id,commandIndex, &nextPrepatch, recvdata);
     if(activeFinished){
         m_gripperErrStartMs = 0;
         m_prepatchAckPaced = false;
@@ -1436,7 +1437,7 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
 
     const quint8 indexActive = StructInstance::getInstance()->read_focusSampleActive(m_focus_sample_id); 
 
-    if(gripperExceptionHandling(commandIndex,indexActive)){
+    if(gripperExceptionHandling(commandIndex,indexActive, recvData)){
         return;
     }
 
@@ -2389,10 +2390,11 @@ void TestProjectProcess::sendFirstPrepatchCommand(const QString &tips)
 void TestProjectProcess::recv_cleanDoublePin(const int index_num, const int slaveAddr,
                                              const int actionMotor, const QStringList &recvdata)
 {
-    notifyHangLiquidWipeIfNeeded(slaveAddr, actionMotor, recvdata);
+    Q_UNUSED(slaveAddr);
+    Q_UNUSED(actionMotor);
     QByteArray nextCmd;
     const bool finished_clean = StructInstance::getInstance()->recv_cleanDobulePin(
-                index_num, m_focus_sample_id, nextCmd);
+                index_num, m_focus_sample_id, nextCmd, recvdata);
     continueCleanNeedleAckMode(finished_clean, nextCmd, WASH_DOUBLE_NEDDLES,
                                QString::fromUtf8("清洗双针"));
 }
@@ -2401,10 +2403,11 @@ void TestProjectProcess::recv_cleanReagentPin(const int index_num, const quint8 
                                               const int slaveAddr, const int actionMotor,
                                               const QStringList &recvdata)
 {
-    notifyHangLiquidWipeIfNeeded(slaveAddr, actionMotor, recvdata);
+    Q_UNUSED(slaveAddr);
+    Q_UNUSED(actionMotor);
     QByteArray nextCmd;
     const bool finished_clean = StructInstance::getInstance()->recv_cleanReagentPin(
-                index_num, index_reag, m_focus_sample_id, nextCmd);
+                index_num, index_reag, m_focus_sample_id, nextCmd, recvdata);
     continueCleanNeedleAckMode(finished_clean, nextCmd, WASH_REAGENT_NEDDLES,
                                QString::fromUtf8("清洗试剂针"));
 }
@@ -2412,10 +2415,11 @@ void TestProjectProcess::recv_cleanReagentPin(const int index_num, const quint8 
 void TestProjectProcess::recv_cleanBloodPin(const int index_num, const int slaveAddr,
                                             const int actionMotor, const QStringList &recvdata)
 {
-    notifyHangLiquidWipeIfNeeded(slaveAddr, actionMotor, recvdata);
+    Q_UNUSED(slaveAddr);
+    Q_UNUSED(actionMotor);
     QByteArray nextCmd;
     const bool finished_clean = StructInstance::getInstance()->recv_cleanbloodPin(
-                index_num, m_focus_sample_id, nextCmd);
+                index_num, m_focus_sample_id, nextCmd, recvdata);
     continueCleanNeedleAckMode(finished_clean, nextCmd, WASH_BLLODSAMPLE_NEDDLES,
                                QString::fromUtf8("洗样本针"));
 }
@@ -3235,7 +3239,8 @@ bool TestProjectProcess::tryHandlePppPreProbeAck(int index_num, int slaveAddr, i
         }
         notifyHangLiquidWipeIfNeeded(slaveAddr, axismovement, recvdata, false);
 
-        ++m_pppRecoveryAckPos;
+        const int decision = QUIUtils::hangBeadSuckDecision(recvdata, QUIUtils::HangBeadCleanS1);
+        m_pppRecoveryAckPos += (decision == 2 ? 2 : 1);
         if (m_pppRecoveryAckPos < m_pppRecoveryCommands.size()) {
             sendNextPppRecoveryCommand();
             return true;
@@ -3290,6 +3295,11 @@ void TestProjectProcess::receiveInstructionsSampleactive(int index_num, int slav
 
     if(axismovement == MOTOR_XY)
         updatetubeColorState(recvdata);
+
+    if (slaveAddr == Z_AXIS && axismovement == MOTOR_BLOOD_INDEX) {
+        StructInstance::getInstance()->applyPppSuckDetectAck(
+                    m_focus_sample_id, index_num, recvdata);
+    }
 
     bool iscompleteAddSample = false;
     QByteArray outdata = StructInstance::getInstance()->recvAddSampleIndexCommand(m_focus_sample_id,
@@ -4352,14 +4362,18 @@ void TestProjectProcess::recvNextTestReagent(quint8 reagentIndex, quint8 focusAc
                 tr("继续发送吸%1(PRP)到通道测试指令").arg(reagentName))) {
             return;
         }
-    } else {
-        notifyHangLiquidWipeIfNeeded(slaveAddr, Action_motor, recvdata, false);
     }
     if (!handsControlActive && isMainControlMotorXY(slaveAddr, Action_motor)) {
         QPoint moveingAxis = updateEmptyClipAway(recvdata);
         if (SingletonAxis::GetInstance()->ismoveXYsuckReagent(moveingAxis)) {
             FindSuckReagentAxis(moveingAxis, reagentIndex);
         }
+    }
+
+    if (!handsControlActive && slaveAddr == Z_AXIS
+            && static_cast<quint8>(Action_motor) == MOTOR_REAGNET_INDEX) {
+        instance->applyReagentSuckDetectAck(m_focus_sample_id, reagentIndex,
+                                             commandIndex, recvdata);
     }
 
     QByteArray sendData;

@@ -281,6 +281,7 @@ public slots:
 
     //采集通道数据对比失败提示
     void recvshowDimmingFailedChn(const QList<quint8> &failedChn);
+    void showDeferredDimmingFailed();
     void recvRequestSmartCupClear(const QList<quint8> &failedChn1Based);
     void slotSmartCupClearFinished();
 
@@ -540,6 +541,7 @@ private:
     QPointer<ConfigureWriteParameter> WriteParameter;//命令参数写入仪器
     QPointer<CommandExceptional> m_pReminderExceptional;//提示框
     QPointer<ControltheModuletemp> m_popwidgetTips; //调光提示
+    QList<quint8> m_deferredDimmingFailed;
     QPointer<theTestModuleProtocol> mtestmoduleprotocol; //模组数据解析
     QPointer<customProgresscontrols> m_pProgress; //进度条
 

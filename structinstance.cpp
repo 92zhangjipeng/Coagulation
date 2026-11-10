@@ -210,7 +210,44 @@ bool StructInstance::continueTestPendTimeSample(quint8 &focuActive,int sampleId)
 
 
 
-bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd){
+namespace {
+void completeNextCleanStep(tSingleActive_list &commands, int indexNum)
+{
+    for (int i = 0; i < commands.size(); ++i) {
+        single_action_commands *cmd = commands.at(i);
+        if (!cmd || cmd->bcompleted || cmd->index_ != static_cast<quint8>(indexNum)) {
+            continue;
+        }
+        if (i + 1 < commands.size() && commands.at(i + 1) && !commands.at(i + 1)->bcompleted) {
+            if (QUIUtils::sentCommandIsZReset(commands.at(i + 1)->arrcode)) {
+                return;
+            }
+            commands.at(i + 1)->bcompleted = true;
+        }
+        return;
+    }
+}
+
+void skipCleanFallbackWhenSuckHere(tSingleActive_list &commands, int indexNum, const QStringList &recvdata)
+{
+    QByteArray sent;
+    for (single_action_commands *cmd : commands) {
+        if (cmd && cmd->index_ == static_cast<quint8>(indexNum)) {
+            sent = cmd->arrcode;
+            break;
+        }
+    }
+    if (!QUIUtils::sentCommandIsLiquidDetect(sent)) {
+        return;
+    }
+    if (QUIUtils::hangBeadSuckDecision(recvdata, QUIUtils::HangBeadCleanS1, true) == 2) {
+        completeNextCleanStep(commands, indexNum);
+    }
+}
+}
+
+bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd,
+                                          const QStringList &recvdata){
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (nextCmd) {
         nextCmd->clear();
@@ -232,6 +269,7 @@ bool  StructInstance::recvPrepatchActions(const int id ,const quint8 activenum, 
                     << id << QString::fromUtf8("动作编号") << activenum;
         return false;
     }
+    skipCleanFallbackWhenSuckHere(itSample->prePatchActions, activenum, recvdata);
     (*itactive)->bcompleted = true;
     auto itFinish = find_if(itSample->prePatchActions.begin(),itSample->prePatchActions.end(),
                             find_allactivefinish(false));
@@ -1272,6 +1310,8 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
        QVector<QByteArray> suckCup2TestChannel;
        quint8 suckPRPindex = 0,ktestPRPsuckBacknum,ktestPRPsplitBacknum; //吸杯起始指令号
        quint8 suckReagentwait = 0;
+       quint8 suckDetectIndex = 0;
+       quint8 suckFallbackIndex = 0;
        QUIUtils::suckReagentClipTubetoChnPut(pReagentInfo->index_Reagent,
                                              testingChannel,
                                              pReagentInfo->indexHole,
@@ -1280,7 +1320,9 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
                                              suckPRPindex,
                                              ktestPRPsuckBacknum,
                                              ktestPRPsplitBacknum
-                                            ,suckReagentwait);
+                                            ,suckReagentwait
+                                            ,suckDetectIndex
+                                            ,suckFallbackIndex);
 
        pReagentInfo->pTestingReagentActive.reserve(suckCup2TestChannel.size());
        for(const QByteArray &suckPRP2Channel : suckCup2TestChannel){
@@ -1291,6 +1333,9 @@ void StructInstance::reagentTestintotheStructure(const int sampleId, quint8 &fir
 
 
        pReagentInfo->nextSteOriginReagentNeedle = suckReagentwait;
+       pReagentInfo->reagentSuckDetectPending = (suckFallbackIndex != 0);
+       pReagentInfo->reagentSuckDetectIndex = suckDetectIndex;
+       pReagentInfo->reagentSuckFallbackIndex = suckFallbackIndex;
        pReagentInfo->suckCupIndexCommand = suckPRPindex;
        std::sort(pReagentInfo->pTestingReagentActive.begin(),
                  pReagentInfo->pTestingReagentActive.end(),
@@ -1410,6 +1455,146 @@ bool StructInstance::recvSuckReagentClipTube(const int sampleId,int index_code,
         allTseaReagentActiveFinish(kptestingReagent, finished, nextCmd);
     });
 }
+
+namespace {
+QString zDetectSpeedText(int speedMode)
+{
+    switch (speedMode) {
+    case 0: return QString::fromUtf8("位置模式");
+    case 1: return QString::fromUtf8("正速度液面探测");
+    case 2: return QString::fromUtf8("负速度复位");
+    default: return QString::fromUtf8("未知");
+    }
+}
+}
+
+void StructInstance::applyPppSuckDetectAck(int sampleId, int index_code,
+                                            const QStringList &recvdata)
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    auto *sample = wfindIdSample(sampleId);
+    if (!sample || !sample->pppSuckDetectPending
+            || static_cast<quint8>(index_code) != sample->pppSuckDetectIndex) {
+        return;
+    }
+    sample->pppSuckDetectPending = false;
+
+    int speedMode = -1;
+    if (recvdata.size() > 4) {
+        int commandMode = 0;
+        int runStatus = 0;
+        int actionMotor = 0;
+        GlobalData::Parse4thBytecommandstatus(recvdata, commandMode, runStatus,
+                                              speedMode, actionMotor);
+    }
+    const bool detected = QUIUtils::isZAxisLiquidLevelDetected(recvdata);
+    const int heightMm = QUIUtils::zAxisReportedHeightMm(recvdata);
+    const int mouthMm = INI_File().getBloodTubeMouthMm();
+    const int failMm = INI_File().GetFailedLinqueHigh();
+    QString rawHeight;
+    if (recvdata.size() >= 14) {
+        rawHeight = recvdata.mid(10, 4).join(QLatin1Char(' '));
+    }
+    const QString flagByte = recvdata.size() > 5 ? recvdata.at(5) : QString::fromUtf8("无");
+    QLOG_INFO() << "[吸PPP探测] 样本" << sampleId
+                << "命令号" << index_code
+                << "运动模式" << speedMode << zDetectSpeedText(speedMode)
+                << "探测标志" << (detected ? 1 : 0)
+                << (detected ? "成功" : "失败")
+                << "回包高度" << heightMm << "mm"
+                << "针尖到试管口" << mouthMm << "mm"
+                << "吸血探液失败高度" << failMm << "mm"
+                << "距离2原始" << rawHeight
+                << "第5字节" << flagByte;
+
+    const bool hangingBead = detected && mouthMm > 0 && heightMm >= 0 && heightMm <= mouthMm;
+    QUIUtils::noteLiquidDetectResult(QString::fromUtf8("血样针吸PPP"),
+                                     detected, heightMm, mouthMm,
+                                     QString::fromUtf8("针尖到试管口"),
+                                     failMm, hangingBead);
+    if (hangingBead) {
+        return;
+    }
+    for (single_action_commands *cmd : sample->tadd_sample_active) {
+        if (cmd && cmd->index_ == sample->pppSuckFallbackIndex && !cmd->bcompleted) {
+            cmd->bcompleted = true;
+            QLOG_INFO() << "[吸PPP探测] 跳过位置模式下到失败高度" << failMm
+                        << "mm 命令号" << cmd->index_;
+            break;
+        }
+    }
+}
+
+void StructInstance::applyReagentSuckDetectAck(int sampleId, quint8 indexReag,
+                                               int index_code, const QStringList &recvdata)
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    const auto iter = find_if(m_BloodsampleInfo.begin(), m_BloodsampleInfo.end(), find_id(sampleId));
+    if (iter == m_BloodsampleInfo.end() || *iter == nullptr) {
+        return;
+    }
+    auto itreagent = find_if((*iter)->ptestReagent_active.begin(),
+                             (*iter)->ptestReagent_active.end(),
+                             findtest_testreagent(indexReag));
+    if (itreagent == (*iter)->ptestReagent_active.end() || *itreagent == nullptr) {
+        return;
+    }
+    Testing_reagents *reag = *itreagent;
+    if (!reag->reagentSuckDetectPending
+            || static_cast<quint8>(index_code) != reag->reagentSuckDetectIndex) {
+        return;
+    }
+    reag->reagentSuckDetectPending = false;
+
+    int speedMode = -1;
+    if (recvdata.size() > 4) {
+        int commandMode = 0;
+        int runStatus = 0;
+        int actionMotor = 0;
+        GlobalData::Parse4thBytecommandstatus(recvdata, commandMode, runStatus,
+                                              speedMode, actionMotor);
+    }
+    const bool detected = QUIUtils::isZAxisLiquidLevelDetected(recvdata);
+    const int heightMm = QUIUtils::zAxisReportedHeightMm(recvdata);
+    const int mouthMm = INI_File().getReagentBottleMouthMm();
+    const int failMm = INI_File().getFailedCleanLinqueReagNeedle();
+    QString rawHeight;
+    if (recvdata.size() >= 14) {
+        rawHeight = recvdata.mid(10, 4).join(QLatin1Char(' '));
+    }
+    const QString flagByte = recvdata.size() > 5 ? recvdata.at(5) : QString::fromUtf8("无");
+    QLOG_INFO() << "[吸试剂探测]" << GlobalData::mapIndexReagentnames(indexReag)
+                << "样本" << sampleId
+                << "命令号" << index_code
+                << "运动模式" << speedMode << zDetectSpeedText(speedMode)
+                << "探测标志" << (detected ? 1 : 0)
+                << (detected ? "成功" : "失败")
+                << "回包高度" << heightMm << "mm"
+                << "针尖到瓶口" << mouthMm << "mm"
+                << "吸试剂探液失败高度" << failMm << "mm"
+                << "距离2原始" << rawHeight
+                << "第5字节" << flagByte;
+
+    const bool hangingBead = detected && mouthMm > 0 && heightMm >= 0 && heightMm <= mouthMm;
+    QUIUtils::noteLiquidDetectResult(
+                QString::fromUtf8("试剂针吸%1").arg(GlobalData::mapIndexReagentnames(indexReag)),
+                detected, heightMm, mouthMm,
+                QString::fromUtf8("针尖到瓶口"),
+                failMm, hangingBead);
+
+    if (hangingBead) {
+        return;
+    }
+    for (single_action_commands *cmd : reag->pTestingReagentActive) {
+        if (cmd && cmd->index_ == reag->reagentSuckFallbackIndex && !cmd->bcompleted) {
+            cmd->bcompleted = true;
+            QLOG_INFO() << "[吸试剂探测] 跳过位置模式下到失败高度" << failMm
+                        << "mm 命令号" << cmd->index_;
+            break;
+        }
+    }
+}
+
 void StructInstance::allTseaReagentActiveFinish(const Testing_reagents *ptestReagent,bool &iscomplete,QByteArray &outdata){
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
 	auto itFinish = find_if(ptestReagent->pTestingReagentActive.cbegin(),
@@ -2033,7 +2218,8 @@ bool StructInstance::isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double
     return cleanfinished_;
 }
 
-bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample, QByteArray &nextCmd)
+bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample, QByteArray &nextCmd,
+                                         const QStringList &recvdata)
 {
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     nextCmd.clear();
@@ -2060,6 +2246,7 @@ bool StructInstance::recv_cleanDobulePin(const int index_num,int loseFocusSample
             .arg(index_num);
         return false;
     }
+    skipCleanFallbackWhenSuckHere(commands, index_num, recvdata);
     (*commandIt)->bcompleted = true;
 
     if (isDoublePinCleaningFinished(*sampleIt, loseFocusSample)) {
@@ -2122,7 +2309,7 @@ void StructInstance::send_cleanReagPin(const int sampleid, const quint8 index_re
 
 
 bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample,
-                                          QByteArray &nextCmd)
+                                          QByteArray &nextCmd, const QStringList &recvdata)
 {
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     nextCmd.clear();
@@ -2152,6 +2339,7 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 		return false;
 	}
 
+    skipCleanFallbackWhenSuckHere((*recvCleanReagent)->pCleanReagentActive, index_num, recvdata);
 	(*recvIndex)->bcompleted = true;
 	auto finishCleanAll = find_if((*recvCleanReagent)->pCleanReagentActive.cbegin(),
 									(*recvCleanReagent)->pCleanReagentActive.cend(),
@@ -2166,7 +2354,8 @@ bool StructInstance::recv_cleanReagentPin(const int index_num, quint8 index_reag
 
 
 
-bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd)
+bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd,
+                                        const QStringList &recvdata)
 {
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     nextCmd.clear();
@@ -2187,6 +2376,7 @@ bool StructInstance::recv_cleanbloodPin(const int index_num, int loseFocusSample
         return false;
     }
 
+    skipCleanFallbackWhenSuckHere(sampleinfo->clean_blood_pin, index_num, recvdata);
 	(*cleanBloodNeedle)->bcompleted = true;
 
 	auto cleanFinishAll = find_if(sampleinfo->clean_blood_pin.cbegin(),
@@ -3070,7 +3260,9 @@ void StructInstance::creataddSampleCommands(const QByteArrayList addSamplecomman
 
 void StructInstance::setPppPreProbeMeta(DATASAMPLESTRUCT *sample,
                                         const QByteArrayList &pendingTail,
-                                        quint8 preProbeCmdIndex)
+                                        quint8 preProbeCmdIndex,
+                                        quint8 pppDetectIndex,
+                                        quint8 pppFallbackIndex)
 {
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (!sample) {
@@ -3083,6 +3275,9 @@ void StructInstance::setPppPreProbeMeta(DATASAMPLESTRUCT *sample,
     sample->pppAwaitManualWipe = false;
     sample->pppManualPreProbeRetry = false;
     sample->pppPreProbeCompleted = false;
+    sample->pppSuckDetectIndex = pppDetectIndex;
+    sample->pppSuckFallbackIndex = pppFallbackIndex;
+    sample->pppSuckDetectPending = (pppFallbackIndex != 0);
 }
 
 namespace {
@@ -3161,6 +3356,14 @@ void StructInstance::appendPendingPppAddSampleTail(int sampleId)
         pIdsample->tadd_sample_active.push_back(
             new single_action_commands(newIndex, false, patched));
     }
+
+    auto remapOne = [&indexRemap](quint8 &idx) {
+        if (indexRemap.contains(idx)) {
+            idx = indexRemap.value(idx);
+        }
+    };
+    remapOne(pIdsample->pppSuckDetectIndex);
+    remapOne(pIdsample->pppSuckFallbackIndex);
 
     remapDelayIndexList(pIdsample->sPPPsuckDelaytime, indexRemap);
     remapDelayIndexList(pIdsample->sPPPspitDelaytime, indexRemap);
@@ -4619,6 +4822,8 @@ QByteArray StructInstance::restartPrpClipFromFirst(int sampleId, quint8 reagent)
     quint8 suckBack = 0;
     quint8 spitBack = 0;
     quint8 suckReagentwait = 0;
+    quint8 suckDetectIndex = 0;
+    quint8 suckFallbackIndex = 0;
     QUIUtils::suckReagentClipTubetoChnPut(reag->index_Reagent,
                                           sample->indexTestingChn,
                                           reag->indexHole,
@@ -4627,11 +4832,16 @@ QByteArray StructInstance::restartPrpClipFromFirst(int sampleId, quint8 reagent)
                                           suckPRPindex,
                                           suckBack,
                                           spitBack,
-                                          suckReagentwait);
+                                          suckReagentwait,
+                                          suckDetectIndex,
+                                          suckFallbackIndex);
     fillCommandList(reag->pTestingReagentActive, suckCup2TestChannel);
     reag->testPRPsucknum = suckBack;
     reag->testPRPsplitnum = spitBack;
     reag->nextSteOriginReagentNeedle = suckReagentwait;
+    reag->reagentSuckDetectPending = (suckFallbackIndex != 0);
+    reag->reagentSuckDetectIndex = suckDetectIndex;
+    reag->reagentSuckFallbackIndex = suckFallbackIndex;
     reag->suckCupIndexCommand = suckPRPindex;
     reag->emptyHoleAxisHands = bloodyAxis;
     backorigintimes();

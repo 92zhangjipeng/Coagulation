@@ -80,7 +80,8 @@ public:
     //输出清洗试剂针命令
     tSingleActive_list backCleanReagentNeedleComm(const DATASAMPLESTRUCT *itsample,const quint8 testReagent);
 
-    bool  recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd = nullptr);
+    bool  recvPrepatchActions(const int id ,const quint8 activenum, QByteArray *nextCmd = nullptr,
+                              const QStringList &recvdata = QStringList());
     void  fillRecvPrepatch(const int id, const QByteArrayList dataList); //填充
     void  clearRecvPrepatch(const int id); //清空
 
@@ -348,7 +349,12 @@ public:
     void appendPendingPppAddSampleTail(int sampleId);
     void setPppPreProbeMeta(DATASAMPLESTRUCT *sample,
                             const QByteArrayList &pendingTail,
-                            quint8 preProbeCmdIndex);
+                            quint8 preProbeCmdIndex,
+                            quint8 pppDetectIndex,
+                            quint8 pppFallbackIndex);
+
+    // 吸PPP液面探测回包：高度小于或等于试管口就保留“下到失败高度”，否则跳过
+    void applyPppSuckDetectAck(int sampleId, int index_code, const QStringList &recvdata);
 
     //输出吸样命令(开始)根据样本号
     void OutputCommands(const int taskNum, QByteArrayList &sendData);  ///////////////测试后可删除
@@ -460,6 +466,10 @@ public:
                                    , bool &laterTimer
                                    , bool &isnextStepUpReagentNeedle);
 
+    // 试剂针液面探测回包：记下标志和高度。挂珠才保留“下到失败高度”，否则跳过那一步
+    void applyReagentSuckDetectAck(int sampleId, quint8 indexReag,
+                                   int index_code, const QStringList &recvdata);
+
 
     /** 吸试剂抓PRP到测试通道指令发送首个
      * @brief sendsuckReagentCatchCuptoTestChannelHead
@@ -506,19 +516,22 @@ public:
 
     /********************清洗双针********************************/
      void sendCleanDoubleNeedle(const int sampleid, QByteArrayList &senddata);
-     bool recv_cleanDobulePin(const int index_num, int loseFocusSample, QByteArray &nextCmd);
+     bool recv_cleanDobulePin(const int index_num, int loseFocusSample, QByteArray &nextCmd,
+                              const QStringList &recvdata = QStringList());
      bool isDoublePinCleaningFinished(DATASAMPLESTRUCT *pclean_double,int loseFocusSample);
 
 
     /******************** 清洗样本针 *********************************/
     void creat_cleanBloodyPin(bool bcleanDoublePin, QByteArrayList allcommand, DATASAMPLESTRUCT *&psampleinfo);
     void send_CleanbloodyPinActive(const int sampleID, QByteArrayList &senddata);  //清洗开始
-    bool recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd);
+    bool recv_cleanbloodPin(const int index_num, int loseFocusSample, QByteArray &nextCmd,
+                            const QStringList &recvdata = QStringList());
 
 
     /****清洗试剂针********/
     void send_cleanReagPin(const int sampleid, const quint8 index_reagent, QByteArrayList &senddata); //洗试剂针
-    bool recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample, QByteArray &nextCmd);
+    bool recv_cleanReagentPin(const int index_num, quint8 index_reag, int loseFocusSample, QByteArray &nextCmd,
+                              const QStringList &recvdata = QStringList());
 
     QByteArray nextIncompletePrepatch(const int sampleId) const;
 

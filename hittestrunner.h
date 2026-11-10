@@ -32,7 +32,8 @@ struct HitMixSpec {
 };
 
 // HIT 独立测试：运动同一时间只服务一个样本。通道进入预孵育或记录后让出运动，
-// 去给其它空闲通道加样。相同通道要等当前样本做完。不占用 AA 结果表，也不置 g_StartTesting。
+// 去给其它空闲通道加样。相同通道可以排队，样本号小的先做完再开始下一个。
+// 不占用 AA 结果表，也不置 g_StartTesting。
 class HitTestRunner : public QObject
 {
     Q_OBJECT
@@ -167,6 +168,9 @@ private:
     void beginIncubateClock();
     void startIncubate();
     void beginStableWait();
+    void armPrp0Watch();
+    void releaseMotionKeepWait();
+    void syncMotionFromLane(const HitLane &lane);
     void parkStable(HitLane &lane);
     void stopAllStir();
     void beginBatch();
@@ -202,7 +206,8 @@ private:
     bool trayPoint(int hole, quint8 needle, QPoint &out, QString *err) const;
     bool reagentPoint(int index, QPoint &out, QString *err) const;
     bool channelReagentPoint(QPoint &out, QString *err) const;
-    bool buildBloodTransfer(const QPoint &suck, const QPoint &spit, int ul, QString *err);
+    bool buildBloodTransfer(const QPoint &suck, const QPoint &spit, int ul, QString *err, bool prp = false);
+    bool buildSerumTransfer(const QPoint &bloodSuck, const QPoint &bloodSpit, int ul, QString *err);
     bool buildReagentTransfer(const QPoint &suck, const QPoint &spit, int ul,
                               quint8 reagentType, QString *err);
     bool buildWashBlood();
@@ -235,6 +240,9 @@ private:
     QVector<HitMixSpec> m_mix;
     QVector<CmdStep> m_batch;
     int m_pppUl = 150;
+    int m_serumSuckOffsetY = 0;
+    int m_serumSpitOffsetY = 0;
+    int m_serumFailHighMm = 76;
     int m_sampleIndex = 0;
     int m_mixIndex = 0;
     int m_stage = StageIdle;

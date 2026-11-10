@@ -356,6 +356,7 @@
 #define   ERRORLOG              3  //错误
 #define   MOTHERBOARD_ERR       4 //清洗液S2 废液提示 主板信号异常
 #define   TESTINGLOG            5 //测试过程中的提示
+#define   TESTINGWARN           6 //测试过程中的异常，界面日志用红色
 
 #define   ALL_SAMPLE_TESTED     0 //所有样本测试完成
 

@@ -192,6 +192,15 @@ void HitTestRunner::loadSettings()
     high.incubateSec = ini.value(QStringLiteral("IncubateSec"), high.incubateSec).toInt();
     high.recordMin = ini.value(QStringLiteral("RecordMin"), high.recordMin).toInt();
     ini.endGroup();
+    ini.beginGroup(QStringLiteral("Serum"));
+    m_serumSuckOffsetY = ini.value(QStringLiteral("ReagentOffsetY"), 0).toInt();
+    m_serumSpitOffsetY = ini.value(QStringLiteral("ReagentSpitOffsetY"), m_serumSuckOffsetY).toInt();
+    m_serumFailHighMm = ini.value(QStringLiteral("FailHighMm"), 76).toInt();
+    if (m_serumFailHighMm < 1)
+        m_serumFailHighMm = 1;
+    if (m_serumFailHighMm > 99)
+        m_serumFailHighMm = 99;
+    ini.endGroup();
     ini.beginGroup(QStringLiteral("Negative"));
     negative.prpUl = ini.value(QStringLiteral("PrpUl"), negative.prpUl).toInt();
     negative.reagentUl = ini.value(QStringLiteral("HeparinUl"), negative.reagentUl).toInt();
@@ -442,6 +451,27 @@ bool HitTestRunner::yieldIfReagentDue(int nextStage)
     return true;
 }
 
+static bool hitSampleIdBefore(const QString &left, const QString &right)
+{
+    int leftCut = left.size();
+    int rightCut = right.size();
+    while (leftCut > 0 && left.at(leftCut - 1).isDigit())
+        --leftCut;
+    while (rightCut > 0 && right.at(rightCut - 1).isDigit())
+        --rightCut;
+    const QString leftPrefix = left.left(leftCut);
+    const QString rightPrefix = right.left(rightCut);
+    if (leftPrefix != rightPrefix)
+        return leftPrefix < rightPrefix;
+    bool leftOk = false;
+    bool rightOk = false;
+    const qlonglong leftNum = left.mid(leftCut).toLongLong(&leftOk);
+    const qlonglong rightNum = right.mid(rightCut).toLongLong(&rightOk);
+    if (leftOk && rightOk && leftNum != rightNum)
+        return leftNum < rightNum;
+    return left < right;
+}
+
 int HitTestRunner::pickLane() const
 {
     for (int i = 0; i < m_lanes.size(); ++i) {
@@ -449,17 +479,30 @@ int HitTestRunner::pickLane() const
         if (!lane.finished && lane.needsMotion && lane.stage == StageSuckReagent)
             return i;
     }
+    int nextNew = -1;
+    QString nextId;
     for (int i = 0; i < m_lanes.size(); ++i) {
         const HitLane &lane = m_lanes.at(i);
         if (lane.started || lane.finished || lane.jobIndex < 0 || lane.jobIndex >= m_jobs.size())
             continue;
-        if (!channelBusy(m_jobs.at(lane.jobIndex).channel, i))
-            return i;
+        if (channelBusy(m_jobs.at(lane.jobIndex).channel, i))
+            continue;
+        const QString sampleId = m_jobs.at(lane.jobIndex).sampleId;
+        if (nextNew < 0 || hitSampleIdBefore(sampleId, nextId)) {
+            nextNew = i;
+            nextId = sampleId;
+        }
     }
+    if (nextNew >= 0)
+        return nextNew;
     for (int i = 0; i < m_lanes.size(); ++i) {
         const HitLane &lane = m_lanes.at(i);
-        if (!lane.finished && lane.needsMotion)
-            return i;
+        if (lane.finished || !lane.needsMotion)
+            continue;
+        if (!lane.started && lane.jobIndex >= 0 && lane.jobIndex < m_jobs.size()
+                && channelBusy(m_jobs.at(lane.jobIndex).channel, i))
+            continue;
+        return i;
     }
     return -1;
 }
@@ -617,9 +660,11 @@ void HitTestRunner::serviceStable(HitLane &lane)
     lane.nextRecordMs = lane.recordOriginMs + 1000;
     lane.waitKind = TimerRecord;
     lane.stage = StageThrowMix;
+    lane.needsMotion = false;
     lane.stepOriginMs = lane.recordOriginMs;
     lane.stepTotalMs = qMax(lane.recordMs, 1);
     lane.lastProgressSec = 0;
+    syncMotionFromLane(lane);
     emitStepProgress(lane);
 }
 
@@ -646,6 +691,7 @@ void HitTestRunner::serviceRecord(HitLane &lane)
     else
         lane.peakPercent = qMax(lane.peakPercent, pct);
     savePointOf(lane, QString::fromLatin1(mix->key), lane.recordSeq, elapsed, value, pct);
+    syncMotionFromLane(lane);
     if (elapsed >= lane.recordMs) {
         finishParkedRecord(lane);
         return;
@@ -798,13 +844,24 @@ void HitTestRunner::enter(int stage)
         break;
     }
     case StageWashPpp:
-    case StageWashSerum:
     case StageWashPrp: {
         if (!GlobalData::cleaningFluidCoversNextUse(1)) {
             fail(u8("\xe6\xb8\x85\xe6\xb4\x97\xe6\xb6\xb2S1\xe4\xb8\x8d\xe5\xa4\x9f\xe5\xae\x8c\xe6\x88\x90\xe6\x9c\xac\xe6\xac\xa1\xe6\xb8\x85\xe6\xb4\x97\xef\xbc\x8c\xe8\xaf\xb7\xe6\x9b\xb4\xe6\x8d\xa2\xe5\x90\x8e\xe5\x86\x8d\xe7\xbb\xa7\xe7\xbb\xad"));
             return;
         }
         if (!buildWashBlood()) {
+            fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8"));
+            return;
+        }
+        sendAt(0);
+        break;
+    }
+    case StageWashSerum: {
+        if (!GlobalData::cleaningFluidCoversNextUse(0)) {
+            fail(u8("\xe6\xb8\x85\xe6\xb4\x97\xe6\xb6\xb2S1\xe4\xb8\x8d\xe5\xa4\x9f\xe5\xae\x8c\xe6\x88\x90\xe6\x9c\xac\xe6\xac\xa1\xe6\xb8\x85\xe6\xb4\x97\xef\xbc\x8c\xe8\xaf\xb7\xe6\x9b\xb4\xe6\x8d\xa2\xe5\x90\x8e\xe5\x86\x8d\xe7\xbb\xa7\xe7\xbb\xad"));
+            return;
+        }
+        if (!buildWashReagent()) {
             fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8"));
             return;
         }
@@ -879,7 +936,7 @@ void HitTestRunner::enter(int stage)
         QString err;
         if (!bloodPoint(displayHole, suck, &err)
                 || !trayPoint(m_cupHole, MOTOR_BLOOD_INDEX, spit, &err)
-                || !buildBloodTransfer(suck, spit, mix->prpUl, &err)) {
+                || !buildBloodTransfer(suck, spit, mix->prpUl, &err, true)) {
             fail(err.isEmpty() ? u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88") : err);
             return;
         }
@@ -887,22 +944,38 @@ void HitTestRunner::enter(int stage)
         sendAt(0);
         break;
     }
-    case StageSuckSerum:
+    case StageSuckSerum: {
+        const HitMixSpec *mix = currentMix();
+        if (!mix) {
+            fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8"));
+            return;
+        }
+        const int displayHole = m_jobs.at(m_sampleIndex).pppHole + 1;
+        QPoint suck;
+        QPoint spit;
+        QString err;
+        if (!bloodPoint(displayHole, suck, &err)
+                || !trayPoint(m_cupHole, MOTOR_BLOOD_INDEX, spit, &err)
+                || !buildSerumTransfer(suck, spit, mix->serumUl, &err)) {
+            fail(err.isEmpty() ? u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88") : err);
+            return;
+        }
+        sendAt(0);
+        break;
+    }
     case StageSuckPrp: {
         const HitMixSpec *mix = currentMix();
         if (!mix) {
             fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8"));
             return;
         }
-        const int displayHole = m_jobs.at(m_sampleIndex).pppHole
-                + (stage == StageSuckSerum ? 1 : 2);
-        const int ul = stage == StageSuckSerum ? mix->serumUl : mix->prpUl;
+        const int displayHole = m_jobs.at(m_sampleIndex).pppHole + 2;
         QPoint suck;
         QPoint spit;
         QString err;
         if (!bloodPoint(displayHole, suck, &err)
                 || !trayPoint(m_cupHole, MOTOR_BLOOD_INDEX, spit, &err)
-                || !buildBloodTransfer(suck, spit, ul, &err)) {
+                || !buildBloodTransfer(suck, spit, mix->prpUl, &err, true)) {
             fail(err.isEmpty() ? u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88") : err);
             return;
         }
@@ -1077,7 +1150,7 @@ void HitTestRunner::onBatchDone()
             enter(StageGripMix);
         break;
     case StageWashSerum:
-        deductClean(BLOOD_PIN);
+        deductClean(REAGENT_PIN);
         startIncubate();
         break;
     case StageSuckPrp:
@@ -1100,10 +1173,18 @@ void HitTestRunner::onBatchDone()
         }
         break;
     case StageSuckReagent:
+        armPrp0Watch();
         enter(StageWashReagent);
         break;
     case StageWashReagent:
         deductClean(REAGENT_PIN);
+        if (m_motionLane >= 0 && m_motionLane < m_lanes.size()) {
+            const int kind = m_lanes.at(m_motionLane).waitKind;
+            if (kind == TimerStable || kind == TimerRecord) {
+                releaseMotionKeepWait();
+                break;
+            }
+        }
         beginStableWait();
         break;
     case StageThrowMix:
@@ -1196,6 +1277,39 @@ void HitTestRunner::onSerial(const QStringList &recv)
             return;
         }
         m_deepen = 0;
+    }
+    auto hangSceneFor = [](int stage) -> int {
+        switch (stage) {
+        case StageSuckPpp:
+        case StagePrepPrp:
+        case StageSuckPrp:
+            return QUIUtils::HangBeadBloodTube;
+        case StageSuckSerum:
+            return QUIUtils::HangBeadHitSerum;
+        case StageSuckReagent:
+            return QUIUtils::HangBeadReagentBottle;
+        case StageWashPpp:
+        case StageWashSerum:
+        case StageWashPrp:
+        case StageWashReagent:
+            return QUIUtils::HangBeadCleanS1;
+        default:
+            return 0;
+        }
+    };
+    const int hangScene = hangSceneFor(m_stage);
+    if (hangScene != 0) {
+        const bool knownDetect = m_pos >= 0 && m_pos < m_batch.size()
+                && QUIUtils::sentCommandIsLiquidDetect(m_batch.at(m_pos).cmd);
+        const int decision = knownDetect
+                ? QUIUtils::hangBeadSuckDecision(recv, hangScene, true) : 0;
+        if (decision == 1 || decision == 2) {
+            const int following = m_pos + 1;
+            const bool followingIsReset = following >= 0 && following < m_batch.size()
+                    && QUIUtils::sentCommandIsZReset(m_batch.at(following).cmd);
+            sendAt(m_pos + ((decision == 2 && !followingIsReset) ? 2 : 1));
+            return;
+        }
     }
     if (step.waitAfterMs > 0) {
         m_phase = PhaseWait;
@@ -1625,6 +1739,55 @@ void HitTestRunner::startIncubate()
     releaseForWait(TimerIncubate, remain);
 }
 
+void HitTestRunner::syncMotionFromLane(const HitLane &lane)
+{
+    if (m_motionLane < 0 || m_motionLane >= m_lanes.size())
+        return;
+    if (&lane != &m_lanes.at(m_motionLane))
+        return;
+    m_prp0 = lane.prp0;
+    m_prpn = lane.prpn;
+    m_readRetry = lane.readRetry;
+    m_recordSeq = lane.recordSeq;
+    m_recordMs = lane.recordMs;
+    m_pppSeq = lane.pppSeq;
+    m_peakPercent = lane.peakPercent;
+}
+
+void HitTestRunner::armPrp0Watch()
+{
+    if (!m_clock || !m_clock->isValid() || m_motionLane < 0 || m_motionLane >= m_lanes.size())
+        return;
+    MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
+    m_pppSeq = mw ? mw->getChannelPositiveFilterSeq(static_cast<quint8>(channel1())) : 0;
+    m_readRetry = 0;
+    HitLane &lane = m_lanes[m_motionLane];
+    lane.pppSeq = m_pppSeq;
+    lane.readRetry = 0;
+    lane.waitKind = TimerStable;
+    lane.deadlineMs = m_clock->elapsed() + 1000;
+    lane.needsMotion = false;
+}
+
+void HitTestRunner::releaseMotionKeepWait()
+{
+    if (m_motionLane < 0 || m_motionLane >= m_lanes.size())
+        return;
+    const int kind = m_lanes.at(m_motionLane).waitKind;
+    captureMotionLane();
+    HitLane &lane = m_lanes[m_motionLane];
+    lane.waitKind = kind;
+    lane.needsMotion = false;
+    if (kind == TimerRecord)
+        lane.stage = StageThrowMix;
+    QLOG_INFO() << "HIT record clock kept channel" << channel1() << "wait" << kind;
+    m_motionLane = -1;
+    m_phase = PhaseIdle;
+    m_stage = StageIdle;
+    m_timer->stop();
+    pump();
+}
+
 void HitTestRunner::beginStableWait()
 {
     MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
@@ -1989,7 +2152,7 @@ bool HitTestRunner::reagentPoint(int index, QPoint &out, QString *err) const
     return true;
 }
 
-bool HitTestRunner::buildBloodTransfer(const QPoint &suck, const QPoint &spit, int ul, QString *err)
+bool HitTestRunner::buildBloodTransfer(const QPoint &suck, const QPoint &spit, int ul, QString *err, bool prp)
 {
     beginBatch();
     UsbCodeDispose *dll = Testing::getTaskDll();
@@ -2001,8 +2164,14 @@ bool HitTestRunner::buildBloodTransfer(const QPoint &suck, const QPoint &spit, i
     }
     const int failH = ini.GetFailedLinqueHigh();
     const int tubeDown = static_cast<int>(ini.GetEmptyTubeDownHigh());
-    const double ratio = qRound(ini.GetPPPConversionScale() * 100.0) / 100.0;
+    double ratio = qRound((prp ? ini.getPRPConvertTheratioColumn()
+                               : ini.GetPPPConversionScale()) * 100.0) / 100.0;
+    if (ratio <= 0)
+        ratio = qRound(ini.GetPPPConversionScale() * 100.0) / 100.0;
+    if (ratio <= 0)
+        ratio = BIG_BEN_RATIO;
     const int steps = static_cast<int>(qRound(ul * ratio));
+    QLOG_INFO() << (prp ? "HIT PRP" : "HIT PPP") << "ul" << ul << "ratio" << ratio << "steps" << steps;
     if (failH <= 0 || tubeDown <= 0 || steps <= 0) {
         if (err)
             *err = u8("\xe4\xb8\x8b\xe9\x99\x8d\xe9\xab\x98\xe5\xba\xa6\xe6\x97\xa0\xe6\x95\x88");
@@ -2021,7 +2190,11 @@ bool HitTestRunner::buildBloodTransfer(const QPoint &suck, const QPoint &spit, i
         manager.setSamplePumpLoc(BACK_SUCKAIRS);
     }
     const int absPos = BACK_SUCKAIRS + steps;
-    QUIUtils::appendHangLiquidBlindThenDetect(cmds, MOTOR_BLOOD_INDEX, failH);
+    quint8 detectIndex = 0;
+    quint8 fallbackIndex = 0;
+    QUIUtils::appendDetectThenFallback(cmds, MOTOR_BLOOD_INDEX, failH, detectIndex, fallbackIndex);
+    Q_UNUSED(detectIndex);
+    Q_UNUSED(fallbackIndex);
     num = static_cast<quint8>(cmds.count() % 255);
     delays.append(num);
     cmds.push_back(dll->BigBenActive(true, absPos, num, DIS_WASHES_PUMPS, 0));
@@ -2041,6 +2214,81 @@ bool HitTestRunner::buildBloodTransfer(const QPoint &suck, const QPoint &spit, i
     cmds.push_back(dll->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
     takeCommands(cmds);
     const int waitMs = ini.GetAfterSuckDelayMs();
+    for (int i = 0; i < m_batch.size(); ++i) {
+        const quint8 id = static_cast<quint8>(m_batch.at(i).cmd.at(GET_COMMAND_INDEX));
+        if (delays.contains(id))
+            m_batch[i].waitAfterMs = waitMs;
+    }
+    return !m_batch.isEmpty();
+}
+
+bool HitTestRunner::buildSerumTransfer(const QPoint &bloodSuck, const QPoint &bloodSpit, int ul, QString *err)
+{
+    beginBatch();
+    UsbCodeDispose *dll = Testing::getTaskDll();
+    auto &ini = INI_File();
+    if (!dll || !pointOk(bloodSuck) || !pointOk(bloodSpit)) {
+        if (err)
+            *err = u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88");
+        return false;
+    }
+    const QPoint suck(bloodSuck.x(), bloodSuck.y() + m_serumSuckOffsetY);
+    const QPoint spit(bloodSpit.x(), bloodSpit.y() + m_serumSpitOffsetY);
+    const int failH = m_serumFailHighMm;
+    const int tubeDown = static_cast<int>(ini.GetEmptyTubeDownHigh());
+    int steps = static_cast<int>(qRound(static_cast<double>(ul) * SMALL_BEN_RATIO));
+    if (steps < 0)
+        steps = 0;
+    int absPos = SMALL_BEN_INHALE_ARI + steps;
+    if (absPos > 7200)
+        absPos = 7200;
+    if (failH <= 0 || tubeDown <= 0 || steps <= 0 || !pointOk(suck) || !pointOk(spit)) {
+        if (err)
+            *err = u8("\xe4\xb8\x8b\xe9\x99\x8d\xe9\xab\x98\xe5\xba\xa6\xe6\x97\xa0\xe6\x95\x88");
+        return false;
+    }
+    QLOG_INFO() << "HIT serum reagent needle suckOffsetY" << m_serumSuckOffsetY
+                << "spitOffsetY" << m_serumSpitOffsetY
+                << "failHighMm" << failH
+                << "suck" << suck << "spit" << spit
+                << "ul" << ul << "steps" << steps;
+
+    QByteArrayList cmds;
+    QList<quint8> delays;
+    QUIUtils::allZAxisBackOrigin(cmds, 0);
+    quint8 num = static_cast<quint8>(cmds.count() % 255);
+    cmds.push_back(dll->DLL_XYMoveSpecifiedPosition(suck, ReagentNeddle, TRAY_BLOOD, num));
+    auto &manager = PumpPositionManager::instance();
+    if (manager.getPosition().reagentPumpLoc != SMALL_BEN_INHALE_ARI) {
+        num = static_cast<quint8>(cmds.count() % 255);
+        cmds.push_back(dll->SmallBenActive(true, SMALL_BEN_INHALE_ARI, DIS_WASHES_PUMPS, num, 0));
+        manager.setReagentPumpLoc(SMALL_BEN_INHALE_ARI);
+    }
+    quint8 detectIndex = 0;
+    quint8 fallbackIndex = 0;
+    QUIUtils::appendDetectThenFallback(cmds, MOTOR_REAGNET_INDEX, failH, detectIndex, fallbackIndex);
+    Q_UNUSED(detectIndex);
+    Q_UNUSED(fallbackIndex);
+    num = static_cast<quint8>(cmds.count() % 255);
+    delays.append(num);
+    cmds.push_back(dll->SmallBenActive(true, absPos, DIS_WASHES_PUMPS, num, 0));
+    manager.setReagentPumpLoc(absPos);
+    num = static_cast<quint8>(cmds.count() % 255);
+    cmds.push_back(dll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, TRAY_BLOOD, num, false));
+    num = static_cast<quint8>(cmds.count() % 255);
+    cmds.push_back(dll->DLL_XYMoveSpecifiedPosition(spit, ReagentNeddle, TRAY_TESTENPTY, num));
+    num = static_cast<quint8>(cmds.count() % 255);
+    cmds.push_back(dll->DLL_ZMoveSpecifiedPosition(
+                       MOTOR_REAGNET_INDEX, tubeDown, TRAY_TESTENPTY, num,
+                       false, tubeDown, false, GRIPPERNORMAL));
+    num = static_cast<quint8>(cmds.count() % 255);
+    delays.append(num);
+    cmds.push_back(dll->SmallBenActive(false, SMALL_BEN_INHALE_ARI, DIS_WASHES_PUMPS, num, 0));
+    manager.setReagentPumpLoc(SMALL_BEN_INHALE_ARI);
+    num = static_cast<quint8>(cmds.count() % 255);
+    cmds.push_back(dll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, TRAY_TESTENPTY, num, false));
+    takeCommands(cmds);
+    const int waitMs = ini.GetReagentAfterSuckLiftDelayMs();
     for (int i = 0; i < m_batch.size(); ++i) {
         const quint8 id = static_cast<quint8>(m_batch.at(i).cmd.at(GET_COMMAND_INDEX));
         if (delays.contains(id))
@@ -2087,12 +2335,11 @@ bool HitTestRunner::buildReagentTransfer(const QPoint &suck, const QPoint &spit,
         cmds.push_back(dll->SmallBenActive(true, SMALL_BEN_INHALE_ARI, DIS_WASHES_PUMPS, num, 0));
         manager.setReagentPumpLoc(SMALL_BEN_INHALE_ARI);
     }
-    num = static_cast<quint8>(cmds.count() % 255);
-    cmds.push_back(dll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, TRAY_TESTCHANNEL, num, false));
-    num = static_cast<quint8>(cmds.count() % 255);
-    cmds.push_back(dll->DLL_ZMoveSpecifiedPosition(
-                       MOTOR_REAGNET_INDEX, failH, 0, num,
-                       false, failH, false, GRIPPERNORMAL));
+    quint8 detectIndex = 0;
+    quint8 fallbackIndex = 0;
+    QUIUtils::appendDetectThenFallback(cmds, MOTOR_REAGNET_INDEX, failH, detectIndex, fallbackIndex);
+    Q_UNUSED(detectIndex);
+    Q_UNUSED(fallbackIndex);
     num = static_cast<quint8>(cmds.count() % 255);
     delays.append(num);
     cmds.push_back(dll->SmallBenActive(true, absPos, DIS_WASHES_PUMPS, num, 0));
@@ -2112,7 +2359,7 @@ bool HitTestRunner::buildReagentTransfer(const QPoint &suck, const QPoint &spit,
     num = static_cast<quint8>(cmds.count() % 255);
     cmds.push_back(dll->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, TRAY_TESTCHANNEL, num, false));
     takeCommands(cmds);
-    const int waitMs = ini.GetAfterSuckDelayMs();
+    const int waitMs = ini.GetReagentAfterSuckLiftDelayMs();
     for (int i = 0; i < m_batch.size(); ++i) {
         const quint8 id = static_cast<quint8>(m_batch.at(i).cmd.at(GET_COMMAND_INDEX));
         if (delays.contains(id))

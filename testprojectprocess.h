@@ -145,7 +145,8 @@ private:
 
 
 
-    bool gripperExceptionHandling(const quint8 commandIndex,const quint8 indexActive);
+    bool gripperExceptionHandling(const quint8 commandIndex,const quint8 indexActive,
+                                  const QStringList &recvdata = QStringList());
     bool isFinishedThrowFocus(quint8 focusActive) const;
     bool prepareFinishedThrowLeaveCup(quint8 focusActive);
     void finishFinishedThrowLeaveCup();

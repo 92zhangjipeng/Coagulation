@@ -50,7 +50,7 @@ signals:
     void taskErrorOccurred(const QString& errorMsg);      ///< 命令执行错误信号，供上层提示
 
 private:
-    void deleteFinishCommand(quint8 indexcode);        ///< 标记命令完成
+    void deleteFinishCommand(quint8 indexcode, bool skipFollowing = false);        ///< 标记命令完成
     bool ProcessEquipmentActions(ActionVec_ &actions); ///< 处理设备动作队列（发送下一个）
     bool ActionsPerformed(const int indexActive, QString &aboutActive); ///< 动作执行处理
     void CompletedActions(const int indexActive);      ///< 动作完成回调

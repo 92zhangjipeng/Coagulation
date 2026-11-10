@@ -360,9 +360,12 @@ void Alarm::InsertText(quint8 ReminderKind, const QString detailedDescription)
 
 void Alarm::handleReminderText(quint8 reminderKind, const QString outtext)
 {
-    if (reminderKind == TESTINGLOG) {
+    if (reminderKind == TESTINGLOG || reminderKind == TESTINGWARN) {
         QString currentDate = "[" + QDateTime::currentDateTime().toString("hh:mm:ss") + tr(" Test System]");
-        appendLog(currentDate, outtext, MedicalColors::LOG_TEXT_NORMAL);
+        const QString color = (reminderKind == TESTINGWARN)
+                ? MedicalColors::LOG_TEXT_ERROR
+                : MedicalColors::LOG_TEXT_NORMAL;
+        appendLog(currentDate, outtext, color);
     }
     m_textBrowser->moveCursor(QTextCursor::End);
 }

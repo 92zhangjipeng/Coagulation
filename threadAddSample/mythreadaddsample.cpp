@@ -318,27 +318,26 @@ void mythreadaddsample::SycnAddTaskTestHoleAndCommder(int totalSample)
 		}
 		total_test_project = pSampleBasicInfo->bloody_tube.size();
 
-		//加样动作（PPP：XY到位后Z复位预探测，通过后再液面探测吸PPP）
-		QByteArrayList addSamplePrefix;
-        QByteArrayList pppTailAfterProbe;
+		//加样：吸PPP直接液面探测，回包高度小于或等于试管口再下到失败高度，不再做吸样前预探测
+		QByteArrayList addSampleCommands;
         QList<quint8> delayCommandsuckPPP,delayCommandspitPPP;
-        quint8 pppPreProbeIndex = 0;
-        QUIUtils::buildAddSamplePppPreProbeSplit(addSamplePrefix, pppTailAfterProbe,
-                                                 AnaemiAaxis, AnaemiinEmptyAaxis,
-                                                 delayCommandsuckPPP, delayCommandspitPPP,
-                                                 pppPreProbeIndex,
-                                                 total_test_project == 1);
+        quint8 pppDetectIndex = 0;
+        quint8 pppFallbackIndex = 0;
+        QUIUtils::suckPPPEndSplitPPP(addSampleCommands, AnaemiAaxis, AnaemiinEmptyAaxis,
+                                     delayCommandsuckPPP, delayCommandspitPPP,
+                                     pppDetectIndex, pppFallbackIndex,
+                                     total_test_project == 1);
 
-        //PRP加样（接在PPP尾段之后，预探测通过时一并入队）
         QLOG_DEBUG()<<"样本ID"<<sampleId<<"吸PRP下降高度"<<data_stu->_testheighvalue;
-        QList<quint8> delayCommandsuckPRP,delayCommandspitPRP;//吐样本编号
-        QUIUtils::SuckPRPandSpitoutPRP(pppTailAfterProbe,data_stu->_testheighvalue,suckbloodyAxis,
+        QList<quint8> delayCommandsuckPRP,delayCommandspitPRP;
+        QUIUtils::SuckPRPandSpitoutPRP(addSampleCommands,data_stu->_testheighvalue,suckbloodyAxis,
                                        spit_bloody_poslist,delayCommandsuckPRP,delayCommandspitPRP);
 
-        StructInstance::getInstance()->creataddSampleCommands(addSamplePrefix,pSampleBasicInfo,
+        StructInstance::getInstance()->creataddSampleCommands(addSampleCommands,pSampleBasicInfo,
                                                               delayCommandsuckPPP,delayCommandspitPPP,
                                                               delayCommandsuckPRP,delayCommandspitPRP);
-        StructInstance::getInstance()->setPppPreProbeMeta(pSampleBasicInfo, pppTailAfterProbe, pppPreProbeIndex);
+        StructInstance::getInstance()->setPppPreProbeMeta(pSampleBasicInfo, QByteArrayList(),
+                                                          0, pppDetectIndex, pppFallbackIndex);
 
 
 

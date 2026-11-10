@@ -1973,7 +1973,8 @@ void MainWindow::refreshConsumableStockHint()
         lab->hide();
         return;
     }
-    const QString shown = tr("请及时充值 %1").arg(lowNames.join(QStringLiteral("、")));
+    const QString shown = QString::fromUtf8("\xe8\xaf\xb7\xe5\x8f\x8a\xe6\x97\xb6\xe5\x85\x85\xe5\x80\xbc %1")
+            .arg(lowNames.join(QString::fromUtf8("\xe3\x80\x81")));
     lab->setToolTip(shown);
     lab->setStyleSheet(QStringLiteral(
         "QLabel#label_consumableRecharge{background:#FFF4D6;color:#9A6B00;"
@@ -4342,8 +4343,40 @@ void MainWindow::slotSmartCupClearFinished()
     FullyAutomatedPlatelets::pinstancedimming()->theEndDimmingActive();
 }
 
+void MainWindow::showDeferredDimmingFailed()
+{
+    QTimer::singleShot(0, this, [this]() {
+        if (m_deferredDimmingFailed.isEmpty())
+            return;
+        if (QWidget *modal = QApplication::activeModalWidget()) {
+            if (QDialog *dlg = qobject_cast<QDialog *>(modal)) {
+                connect(dlg, &QDialog::finished, this,
+                        &MainWindow::showDeferredDimmingFailed, Qt::UniqueConnection);
+            } else {
+                QTimer::singleShot(200, this, &MainWindow::showDeferredDimmingFailed);
+            }
+            return;
+        }
+        const QList<quint8> channels = m_deferredDimmingFailed;
+        m_deferredDimmingFailed.clear();
+        recvshowDimmingFailedChn(channels);
+    });
+}
+
 void MainWindow::recvshowDimmingFailedChn(const QList<quint8>& failedChn)
 {
+    if (QApplication::activeModalWidget()) {
+        m_deferredDimmingFailed = failedChn;
+        if (QDialog *dlg = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+            connect(dlg, &QDialog::finished, this,
+                    &MainWindow::showDeferredDimmingFailed, Qt::UniqueConnection);
+        } else {
+            QTimer::singleShot(200, this, &MainWindow::showDeferredDimmingFailed);
+        }
+        QLOG_INFO() << tr("调光失败提示延后，先关掉当前提示框");
+        return;
+    }
+
     // 优化1: 使用QStringList和join优化字符串拼接
     QStringList failedChnStrs;
     std::transform(failedChn.cbegin(), failedChn.cend(), std::back_inserter(failedChnStrs),

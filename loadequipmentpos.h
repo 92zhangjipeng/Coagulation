@@ -399,9 +399,11 @@ private:
 #define CONTROLGRIPPERPARA           26  //0X1A
 #define CONTROL_MODULEDIMMINGVALUE   27  //0X1B 模组调光值
 #define PARA_EXTENDED_BLOOD          28  //0X1C 样本针扩展(PE加吸/多吸PRP/延时/先吸空气/参照底距)
-#define PARA_EXTENDED_REAGENT        29  //0X1D 五种试剂加吸比例
+#define PARA_EXTENDED_REAGENT        29  //0X1D 五种试剂加吸比例，末两字节是针尖到瓶口、针尖到试管口
+#define PARA_HIT                     30  //0x1E HIT设置。字节5是版本，版本0保留本地HitConfig.ini
 
 #define PARA_EXT_PROTOCOL_VER        1   //0x1C/0x1D 末字节版本，固件未实现时读回为0，不覆盖本地INI
+#define PARA_HIT_PROTOCOL_VER        1   //0x1E 字节5的版本
 
 
 #define MAINBORD_REAGENT_AA_INFO            100 //主板 AA试剂信息
@@ -529,6 +531,8 @@ private:
     void recveExtendedBloodPara(const QStringList& hexArry);
     //0x1d 试剂加吸比例
     void recveExtendedReagentPara(const QStringList& hexArry);
+    //0x1e HIT设置
+    void recveHitPara(const QStringList& hexArry);
 
 
     void recvReagentCapacity(const QStringList hexArry);
@@ -652,6 +656,7 @@ private:
 
     QByteArray initWriteExtendedBloodPara();
     QByteArray initWriteExtendedReagentPara();
+    QByteArray initWriteHitPara();
 
     void initwriteMainReagNum();//写主板内耗材数
 

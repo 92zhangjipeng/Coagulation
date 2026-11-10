@@ -843,17 +843,20 @@ void QcStartAction::runJob()
         return;
     }
     const bool pickStep = gripJob(job.kind) && !m_placing;
+    if (job.kind == JobWash || job.kind == JobSuck) {
+        m_pending = cmds;
+        sendPendingAt(0);
+        return;
+    }
     if (pickStep) {
         m_pending = cmds;
         m_grabDeepenTimes = 0;
         sendPendingAt(0);
         return;
     }
-    m_stepwise = false;
-    m_pending.clear();
-    m_expectIndex = m_batchIndexes.last();
-    m_phase = PhaseAck;
-    emit sendOrderList(cmds, QStringLiteral("QC"));
+    // 放杯、丢杯也逐条等回包，避免Z复位还没完成就把XY写出去
+    m_pending = cmds;
+    sendPendingAt(0);
 }
 
 void QcStartAction::advance()
@@ -998,7 +1001,16 @@ void QcStartAction::onSerial(const QStringList &recv)
             fail(u8("\xe5\xa4\x8d\xe4\xbd\x8d\xe5\xa4\xb1\xe8\xb4\xa5 ") + err);
             return;
         }
-        sendAbortAt(m_abortPos + 1);
+        int decision = 0;
+        const QByteArray sent = (m_abortPos >= 0 && m_abortPos < m_abortCmds.size())
+                ? m_abortCmds.at(m_abortPos) : QByteArray();
+        if (QUIUtils::sentCommandIsLiquidDetect(sent)) {
+            decision = QUIUtils::hangBeadSuckDecision(recv, QUIUtils::HangBeadCleanS1, true);
+        }
+        const int abortNext = m_abortPos + 1;
+        const bool abortNextIsReset = abortNext >= 0 && abortNext < m_abortCmds.size()
+                && QUIUtils::sentCommandIsZReset(m_abortCmds.at(abortNext));
+        sendAbortAt(m_abortPos + ((decision == 2 && !abortNextIsReset) ? 2 : 1));
         return;
     }
 
@@ -1006,6 +1018,40 @@ void QcStartAction::onSerial(const QStringList &recv)
         return;
     const bool picking = m_jobIndex >= 0 && m_jobIndex < m_jobs.size()
             && gripJob(m_jobs.at(m_jobIndex).kind) && !m_placing;
+    if (m_stepwise && !picking && m_jobIndex >= 0 && m_jobIndex < m_jobs.size()) {
+        QString stepErr;
+        if (!GlobalData::commandStatus(runStatus, stepErr)) {
+            fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8 ") + stepErr);
+            return;
+        }
+        const JobKind kind = m_jobs.at(m_jobIndex).kind;
+        int decision = 0;
+        if (kind == JobWash) {
+            const QByteArray sent = (m_pendingPos >= 0 && m_pendingPos < m_pending.size())
+                    ? m_pending.at(m_pendingPos) : QByteArray();
+            if (QUIUtils::sentCommandIsLiquidDetect(sent)) {
+                decision = QUIUtils::hangBeadSuckDecision(recv, QUIUtils::HangBeadCleanS1, true);
+            }
+        } else if (kind == JobSuck) {
+            const QByteArray sent = (m_pendingPos >= 0 && m_pendingPos < m_pending.size())
+                    ? m_pending.at(m_pendingPos) : QByteArray();
+            if (QUIUtils::sentCommandIsLiquidDetect(sent)) {
+                decision = QUIUtils::hangBeadSuckDecision(recv, QUIUtils::HangBeadBloodTube, true);
+            }
+        }
+        const int following = m_pendingPos + 1;
+        const bool followingIsReset = following >= 0 && following < m_pending.size()
+                && QUIUtils::sentCommandIsZReset(m_pending.at(following));
+        const int next = m_pendingPos + ((decision == 2 && !followingIsReset) ? 2 : 1);
+        if (next >= m_pending.size()) {
+            m_stepwise = false;
+            m_pending.clear();
+            advance();
+            return;
+        }
+        sendPendingAt(next);
+        return;
+    }
     QString err;
     if (!GlobalData::commandStatus(runStatus, err)) {
         if (picking)

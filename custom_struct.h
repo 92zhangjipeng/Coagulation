@@ -165,6 +165,10 @@ typedef struct Testing_reagents
 
     quint8 nextSteOriginReagentNeedle = 0; //试剂针复位编号前一个动作 泵吸完试剂
 
+    bool reagentSuckDetectPending = false; //下一帧试剂针液面探测回包还要判挂珠
+    quint8 reagentSuckDetectIndex = 0;
+    quint8 reagentSuckFallbackIndex = 0; //挂珠时改下到失败高度，否则跳过
+
     quint8 suckCupIndexCommand = 0;  //吸杯开始指令号
     quint8 index_Reagent = 0;       //测试测试剂
     quint8 indexHole = 0;           //血样的孔
@@ -249,6 +253,9 @@ typedef struct DataSampleStruct
     bool pppAwaitManualWipe = false;         // 洗针后仍误探，等待人工擦针
     bool pppManualPreProbeRetry = false;     // 人工擦针后点「继续」重做预探测
     bool pppPreProbeCompleted = false;       // 预探测已通过，勿再拦截同号液面探测ACK
+    bool pppSuckDetectPending = false;       // 吸PPP液面探测回包还要判挂珠
+    quint8 pppSuckDetectIndex = 0;
+    quint8 pppSuckFallbackIndex = 0;         // 挂珠时改下到失败高度，否则跳过
 
     //吸PPP延时
     QList<quint8> sPPPsuckDelaytime;

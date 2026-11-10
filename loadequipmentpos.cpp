@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <QDesktopWidget>
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QSettings>
 #include <functional>
 #include <QFile>
@@ -1901,7 +1902,8 @@ void loadEquipmentPos::equipmentParaParsing(quint8 index_ , const QStringList Ar
         {CONTROLGRIPPERPARA, [&](const QStringList& data) { recveNegativePressure(data); }},
 		{CONTROL_MODULEDIMMINGVALUE, [&](const QStringList& data) { recveModuleDataPressure(data); }},
         {PARA_EXTENDED_BLOOD, [&](const QStringList& data) { recveExtendedBloodPara(data); }},
-        {PARA_EXTENDED_REAGENT, [&](const QStringList& data) { recveExtendedReagentPara(data); }}
+        {PARA_EXTENDED_REAGENT, [&](const QStringList& data) { recveExtendedReagentPara(data); }},
+        {PARA_HIT, [&](const QStringList& data) { recveHitPara(data); }}
     };
     // 查找并调用对应的处理函数
     auto it = handlerMap.find(index_);
@@ -2094,6 +2096,11 @@ void loadEquipmentPos::groupReagentinfo(bool bread)
         pExtendedReagent->readfinish = false;
         mwriteAxismap.insert(PARA_EXTENDED_REAGENT, pExtendedReagent);
 
+        buffer = QUIUtils::ReadcoordinateArry(PARA_HIT);
+        READPARAMENTER* pHit = new READPARAMENTER;
+        pHit->_readparaorder = buffer;
+        pHit->readfinish = false;
+        mwriteAxismap.insert(PARA_HIT, pHit);
 
         //耗材余量信息
         QByteArray buffer_info;
@@ -3418,8 +3425,24 @@ void loadEquipmentPos::recveExtendedReagentPara(const QStringList& hexArry)
             if (throwDelay > 0) {
                 ini.wConfigPara(GRIPPERTHROWTIME, throwDelay);
             }
+            const int bottleFromBoard = safeGetHexByte(13);
+            const int bottleLocal = ini.getReagentBottleMouthMm();
+            if (bottleFromBoard > 0 || bottleLocal <= 0) {
+                ini.setReagentBottleMouthMm(bottleFromBoard);
+            } else {
+                QLOG_WARN() << QString::fromUtf8("0x1D针尖到瓶口为0，保留本地") << bottleLocal;
+            }
+            const int tubeFromBoard = safeGetHexByte(14);
+            const int tubeLocal = ini.getBloodTubeMouthMm();
+            if (tubeFromBoard > 0 || tubeLocal <= 0) {
+                ini.setBloodTubeMouthMm(tubeFromBoard);
+            } else {
+                QLOG_WARN() << QString::fromUtf8("0x1D针尖到试管口为0，保留本地") << tubeLocal;
+            }
             QLOG_DEBUG() << "0x1D读回试剂加吸比例 AA=" << ini.getTypesReagentSuckAdd_Ratio(AA_REAGENT)
                          << "丢杯延时=" << ini.rConfigPara(GRIPPERTHROWTIME).toInt()
+                         << "针尖到瓶口=" << ini.getReagentBottleMouthMm()
+                         << "针尖到试管口=" << ini.getBloodTubeMouthMm()
                          << "ADP=" << ini.getTypesReagentSuckAdd_Ratio(ADP_REAGENT)
                          << "EPI=" << ini.getTypesReagentSuckAdd_Ratio(EPI_REAGENT)
                          << "COL=" << ini.getTypesReagentSuckAdd_Ratio(COL_REAGENT)
@@ -3428,9 +3451,80 @@ void loadEquipmentPos::recveExtendedReagentPara(const QStringList& hexArry)
             QLOG_WARN() << "0x1D版本为0，保留本地INI（主板可能尚未支持该命令）";
         }
         completeddel(PARA_EXTENDED_REAGENT);
-        GroupReadParaCommder(MAINBORD_REAGENT_AA_INFO);
+        GroupReadParaCommder(PARA_HIT);
     } else {
         _writeFinish(PARA_EXTENDED_REAGENT);
+        _sendWriteAxisOrder(PARA_HIT);
+    }
+}
+
+void loadEquipmentPos::recveHitPara(const QStringList& hexArry)
+{
+    const auto hexByte = [&](int index) -> int {
+        if (index < 0 || index >= hexArry.size())
+            return -1;
+        bool ok = false;
+        return hexArry.at(index).toInt(&ok, 16) & 0xFF;
+    };
+    const auto hexU16 = [&](int high, int low) -> int {
+        const int hi = hexByte(high);
+        const int lo = hexByte(low);
+        if (hi < 0 || lo < 0)
+            return 0;
+        return (hi << 8) | lo;
+    };
+    const auto hexI16 = [&](int high, int low) -> int {
+        return static_cast<qint16>(hexU16(high, low));
+    };
+
+    if (!m_bReadorWrite) {
+        const int ver = hexByte(5);
+        if (ver >= PARA_HIT_PROTOCOL_VER && hexArry.size() >= 49) {
+            QSettings ini(QCoreApplication::applicationDirPath() + QStringLiteral("/HitConfig.ini"),
+                          QSettings::IniFormat);
+            ini.setIniCodec("UTF-8");
+            auto put = [&](const char *group, const char *key, int value) {
+                ini.beginGroup(QString::fromLatin1(group));
+                ini.setValue(QString::fromLatin1(key), value);
+                ini.endGroup();
+            };
+            put("Ppp", "RefUl", qBound(0, hexU16(7, 6), 2000));
+            const char *groups[] = {"Spontaneous", "Low", "High"};
+            const char *reagentKeys[] = {"BufferUl", "HeparinUl", "HeparinUl"};
+            for (int i = 0; i < 3; ++i) {
+                const int base = 8 + i * 9;
+                put(groups[i], "SerumUl", qBound(0, hexU16(base + 1, base), 2000));
+                put(groups[i], "PrpUl", qBound(0, hexU16(base + 3, base + 2), 2000));
+                put(groups[i], reagentKeys[i], qBound(0, hexU16(base + 5, base + 4), 2000));
+                put(groups[i], "IncubateSec", qBound(0, hexU16(base + 7, base + 6), 7200));
+                put(groups[i], "RecordMin", qBound(0, hexByte(base + 8), 180));
+            }
+            put("Negative", "PrpUl", qBound(0, hexU16(36, 35), 2000));
+            put("Negative", "HeparinUl", qBound(0, hexU16(38, 37), 2000));
+            put("Negative", "IncubateSec", qBound(0, hexU16(40, 39), 7200));
+            put("Negative", "RecordMin", qBound(0, hexByte(41), 180));
+            put("Serum", "ReagentOffsetY", qBound(-20000, hexI16(43, 42), 20000));
+            put("Serum", "ReagentSpitOffsetY", qBound(-20000, hexI16(45, 44), 20000));
+            int failMm = hexByte(46);
+            if (failMm < 1)
+                failMm = 1;
+            if (failMm > 99)
+                failMm = 99;
+            put("Serum", "FailHighMm", failMm);
+            put("Judge", "PositiveDiffPercent", qBound(0, hexByte(47), 100));
+            put("Judge", "InvalidPercent", qBound(0, hexByte(48), 100));
+            ini.sync();
+            QLOG_DEBUG() << "0x1E读回HIT设置 PPP=" << hexU16(7, 6)
+                         << "吸血清Y=" << hexI16(43, 42)
+                         << "吐血清Y=" << hexI16(45, 44)
+                         << "失败高度=" << failMm;
+        } else {
+            QLOG_WARN() << "0x1E版本为0或长度不够，保留本地HIT设置";
+        }
+        completeddel(PARA_HIT);
+        GroupReadParaCommder(MAINBORD_REAGENT_AA_INFO);
+    } else {
+        _writeFinish(PARA_HIT);
         _sendWriteAxisOrder(MAINBORD_REAGENT_AA_INFO);
     }
 }
@@ -4277,6 +4371,7 @@ void loadEquipmentPos::initwritereagentParaDataI()
 
     addParameterToEquipment(PARA_EXTENDED_BLOOD, initWriteExtendedBloodPara());
     addParameterToEquipment(PARA_EXTENDED_REAGENT, initWriteExtendedReagentPara());
+    addParameterToEquipment(PARA_HIT, initWriteHitPara());
 
     return;
 }
@@ -4342,6 +4437,11 @@ QByteArray loadEquipmentPos::initWriteExtendedReagentPara()
                 addRatioX100,
                 static_cast<quint16>(GlobalData::gripperThrowDelayMs()),
                 true);
+}
+
+QByteArray loadEquipmentPos::initWriteHitPara()
+{
+    return QUIUtils::writeHitPara0x1e(true);
 }
 
 

@@ -610,6 +610,30 @@ quint8 INI_File::getFailedCleanLinqueReagNeedle()
     return  m_psetting->value(m_Section_Key).toInt();
 }
 
+void INI_File::setReagentBottleMouthMm(int mm)
+{
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("ReagentBottleMouthMm");
+    m_psetting->setValue(m_Section_Key, mm);
+}
+
+int INI_File::getReagentBottleMouthMm()
+{
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("ReagentBottleMouthMm");
+    return m_psetting->value(m_Section_Key, 0).toInt();
+}
+
+void INI_File::setBloodTubeMouthMm(int mm)
+{
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("BloodNeedleTubeMouthMm");
+    m_psetting->setValue(m_Section_Key, mm);
+}
+
+int INI_File::getBloodTubeMouthMm()
+{
+    m_Section_Key = QString("%1/%2").arg(Instrument_parameters).arg("BloodNeedleTubeMouthMm");
+    return m_psetting->value(m_Section_Key, 0).toInt();
+}
+
 /*
 * 探测失败高度（试剂）
 */

@@ -398,10 +398,13 @@ namespace QUIUtils
                                           quint16 refBottomX10,
                                           bool writeDirectly);
 
-    //0x1d 五种试剂加吸比例。字节11-12是丢杯判定延时，0x1A已经排满
+    //0x1d 五种试剂加吸比例。字节11-12是丢杯判定延时。字节13是针尖到瓶口，字节14是针尖到试管口
     QByteArray writeExtendedReagentPara0x1d(const quint8 addRatioX100[5],
                                             quint16 throwDelayMs,
                                             bool writeDirectly);
+
+    //0x1E HIT设置。从HitConfig.ini打包，字节5为版本
+    QByteArray writeHitPara0x1e(bool writeDirectly);
 
     //group buffer 坐标
     void  get6_7NumcodeArry(QByteArray &x_Buffer, quint8 bufferState_x, QByteArray &y_Buffer,
@@ -553,6 +556,29 @@ namespace QUIUtils
     void appendHangLiquidBlindThenDetect(QByteArrayList &commands, int motorIndex, int failHeightMm);
     void appendHangLiquidBlindThenDetect(QVector<QByteArray> &commands, int motorIndex, int failHeightMm);
 
+    // 先正速度液面探测，紧跟着一条位置模式下到同一失败高度。回包后再决定发不发第二条。
+    void appendDetectThenFallback(QByteArrayList &commands, int motorIndex, int failHeightMm,
+                                  quint8 &detectIndex, quint8 &fallbackIndex, quint8 indexBase = 0);
+    void appendDetectThenFallback(QVector<QByteArray> &commands, int motorIndex, int failHeightMm,
+                                  quint8 &detectIndex, quint8 &fallbackIndex, quint8 indexBase = 0);
+
+    // 液面探测完成回包：0 不是这次探测；1 挂珠，下一条要下到失败高度；2 原地开泵，调用方跳过下一条。
+    // knownDetectCommand 为真时，这条就是发出去的液面探测，按回包高度判断，不再要求回包速度模式是 1。
+    enum HangBeadScene {
+        HangBeadBloodTube = 1,
+        HangBeadReagentBottle = 2,
+        HangBeadCleanS1 = 3,
+        HangBeadHitSerum = 4
+    };
+    bool sentCommandIsLiquidDetect(const QByteArray &cmd);
+    bool sentCommandIsZReset(const QByteArray &cmd);
+    int hangBeadSuckDecision(const QStringList &recvData, int scene, bool knownDetectCommand = false);
+
+    // 探测结论写到文件，并显示在测试日志。疑似挂珠用红色。
+    void noteLiquidDetectResult(const QString &where, bool detected, int heightMm,
+                                int mouthMm, const QString &mouthName, int failMm,
+                                bool hanging);
+
     //清洗样本针
     void CleanBloodPinActionCommd(int HadPorjects, QByteArrayList &CleanActionarry);
 
@@ -575,6 +601,8 @@ namespace QUIUtils
                             const QPoint splitPPPloc,
                             QList<quint8> &delayCommandSuck,
                             QList<quint8> &delayCommandSplit,
+                            quint8 &pppDetectIndex,
+                            quint8 &pppFallbackIndex,
                             bool singleProjectHoldPumpAt360 = false);
 
     /** 加样：PPP位XY到位后Z复位预探测 + 通过后执行的吸吐PPP体 */
@@ -585,10 +613,15 @@ namespace QUIUtils
                                        QList<quint8> &delayCommandSuck,
                                        QList<quint8> &delayCommandSplit,
                                        quint8 &outPreProbeCmdIndex,
+                                       quint8 &pppDetectIndex,
+                                       quint8 &pppFallbackIndex,
                                        bool singleProjectHoldPumpAt360 = false);
 
     /** Z轴回报第5字节：样本/试剂针液面是否已探测到（0=未探测到） */
     bool isZAxisLiquidLevelDetected(const QStringList &recvData);
+
+    /** Z轴回报电机距离2（索引10-13），低字节在前。液面探测成功时是实际高度。帧不够时返回 -1。 */
+    int zAxisReportedHeightMm(const QStringList &recvData);
 
     /** Z轴完成且为样本针复位模式(非液面探测下针)，用于PPP预探测应答识别 */
     bool isBloodNeedleZPreProbeResetAck(const QStringList &recvData);
@@ -735,7 +768,8 @@ namespace QUIUtils
      */
     void suckReagentClipTubetoChnPut(quint8 indexReag, int TestChn, quint8 emptyHole, QVector<QByteArray> &outputArry,
                                        QPoint &bloodyHoleAxis, quint8 &suckPRPindex, quint8 &ktestPRPsuckBacknum,
-                                       quint8 &ktestPRPsplitBacknum, quint8 &suckReagentwait);
+                                       quint8 &ktestPRPsplitBacknum, quint8 &suckReagentwait,
+                                       quint8 &suckDetectIndex, quint8 &suckFallbackIndex);
 
     /** 试剂已吸完：双针Z复位 + 杯盘抓PRP + 放到测试通道（供抓杯失败重试/复位续跑） */
     void buildPrpGripFromTrayToChannel(int testChn,

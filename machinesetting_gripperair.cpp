@@ -1084,7 +1084,27 @@ void MachineSetting::installParameterHints()
     tip(ui->label_3, ui->Testheighdownheigh, gtr(u8"血浆模式不探液面，样本针直接下到这个固定高度。批量加样时的默认下针高度也是它。\n点击后到血样孔 2 按这个高度试一次。"));
 
     ui->label_failedlinque->setText(gtr(u8"吸血探液失败高度"));
-    tip(ui->label_failedlinque, ui->spinBox_faliedlinque, gtr(u8"吸血样时样本针做液面探测，探到液面就停。探不到就下到这个高度为止，避免扎穿试管。血浆模式不用这项。\n主板上这一项也叫贫血探测失败高度。点击后到血样孔 1 按这个高度试一次。"));
+    tip(ui->label_failedlinque, ui->spinBox_faliedlinque, gtr(u8"吸PPP先做液面探测。探到的高度比「针尖到试管口」浅，就当成针尖挂珠，再下到这个高度去吸。探到的高度到达试管口或更深，就在液面处吸。一直探不到也会停在这个高度。\n点击后到血样孔 1 按这个高度试一次。"));
+
+    if (!m_bloodTubeMouthSpin && ui->gridLayout_5) {
+        m_bloodTubeMouthLabel = new QLabel(ui->tab_configbloodpin);
+        m_bloodTubeMouthLabel->setText(gtr(u8"针尖到试管口"));
+        m_bloodTubeMouthLabel->setMinimumHeight(30);
+        m_bloodTubeMouthLabel->setAlignment(Qt::AlignBottom | Qt::AlignLeft);
+        m_bloodTubeMouthSpin = new QSpinBox(ui->tab_configbloodpin);
+        m_bloodTubeMouthSpin->setRange(0, 99);
+        m_bloodTubeMouthSpin->setSuffix(gtr(u8"mm"));
+        m_bloodTubeMouthSpin->setAlignment(Qt::AlignCenter);
+        m_bloodTubeMouthSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        m_bloodTubeMouthSpin->setFixedSize(140, 30);
+        m_bloodTubeMouthSpin->setValue(INI_File().getBloodTubeMouthMm());
+        ui->gridLayout_5->addWidget(m_bloodTubeMouthLabel, 9, 6, 1, 1);
+        ui->gridLayout_5->addWidget(m_bloodTubeMouthSpin, 10, 6, 1, 1);
+        connect(m_bloodTubeMouthSpin, &QSpinBox::editingFinished, this, [this]() {
+            INI_File().setBloodTubeMouthMm(m_bloodTubeMouthSpin->value());
+        });
+    }
+    tip(m_bloodTubeMouthLabel, m_bloodTubeMouthSpin, gtr(u8"从样本针原点往下，到血样试管口的毫米数。吸PPP液面探测成功时，回包高度比这个数小，就判定针尖挂珠，改下到吸血探液失败高度再吸。填 0 时不判断挂珠。\n改完离开输入框就会记下；点写入血样针参数时也会再写一次。"));
 
     tip(ui->label_SecurityValue, ui->SecurityValue_box, gtr(u8"样本泵换向时空走的补偿，界面上仍叫空回值。吐样时按 空回值/0.347 折成步数补上。偏小容易吐不净，偏大就多吐空气。"));
     tip(ui->Poor_blood_changliang, ui->poorBlood_changliang, gtr(u8"每一份血样要吸的微升数。真正的泵步数还要再乘 PPP 系数或 PRP 系数。"));
@@ -1145,7 +1165,27 @@ void MachineSetting::installParameterHints()
     tip(ui->label_cleanlinque, nullptr, gtr(u8"这一行是内部清洗液。容量是整瓶微升，报警限是剩余百分比。洗样本针、洗试剂针都从这里扣。"));
 
     ui->label_failedhighreagentneedle->setText(gtr(u8"吸试剂探液失败高度"));
-    tip(ui->label_failedhighreagentneedle, ui->spinBoxReagentNeedleFailehigh, gtr(u8"吸试剂不再做液面探测，试剂针直接下到这个高度再吸，避免扎到瓶底。\n点击后到试剂位按这个高度试一次。"));
+    tip(ui->label_failedhighreagentneedle, ui->spinBoxReagentNeedleFailehigh, gtr(u8"吸试剂先做液面探测。探到的高度比「针尖到瓶口」浅，就当成针尖挂珠，再下到这个高度去吸。探到的高度到达瓶口或更深，就在液面处吸。一直探不到也会停在这个高度。\n点击后到试剂位按这个高度试一次。"));
+
+    if (!m_reagentBottleMouthSpin && ui->gridLayout_reagPinParams) {
+        m_reagentBottleMouthLabel = new QLabel(ui->widgetFucn);
+        m_reagentBottleMouthLabel->setText(gtr(u8"针尖到瓶口"));
+        m_reagentBottleMouthLabel->setMinimumHeight(28);
+        m_reagentBottleMouthLabel->setAlignment(Qt::AlignBottom | Qt::AlignHCenter);
+        m_reagentBottleMouthSpin = new QSpinBox(ui->widgetFucn);
+        m_reagentBottleMouthSpin->setRange(0, 99);
+        m_reagentBottleMouthSpin->setSuffix(gtr(u8"mm"));
+        m_reagentBottleMouthSpin->setAlignment(Qt::AlignCenter);
+        m_reagentBottleMouthSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        m_reagentBottleMouthSpin->setFixedSize(120, 30);
+        m_reagentBottleMouthSpin->setValue(INI_File().getReagentBottleMouthMm());
+        ui->gridLayout_reagPinParams->addWidget(m_reagentBottleMouthLabel, 2, 0, 1, 1);
+        ui->gridLayout_reagPinParams->addWidget(m_reagentBottleMouthSpin, 2, 1, 1, 1);
+        connect(m_reagentBottleMouthSpin, &QSpinBox::editingFinished, this, [this]() {
+            INI_File().setReagentBottleMouthMm(m_reagentBottleMouthSpin->value());
+        });
+    }
+    tip(m_reagentBottleMouthLabel, m_reagentBottleMouthSpin, gtr(u8"从针尖原点往下，到试剂瓶口的毫米数。液面探测成功时，回包高度比这个数小，就判定针尖挂珠，改下到探液失败高度再吸。填 0 时不判断挂珠。\n改完离开输入框就会记下；点保存试剂针参数时也会再写一次。"));
 
     ui->label_failedlinque_2->setText(gtr(u8"洗液探不到时下针"));
     tip(ui->label_failedlinque_2, ui->spinBox_TestReagentFailedhigh, gtr(u8"洗试剂针、吸内部清洗液时做液面探测。探到液面就停；探不到才下到这个高度。\n点击后到清洗位按这个高度试一次。"));
@@ -1902,6 +1942,11 @@ void MachineSetting::frameNeedleConfigPages()
             }
             lowerGrid->addWidget(makeNeedleItemCard(lower, label, editor), 0, stripCells.at(i).col);
             lowerGrid->setColumnStretch(stripCells.at(i).col, 1);
+        }
+        if (m_reagentBottleMouthLabel && m_reagentBottleMouthSpin) {
+            lowerGrid->addWidget(makeNeedleItemCard(lower, m_reagentBottleMouthLabel,
+                                                    m_reagentBottleMouthSpin), 1, 1);
+            lowerGrid->setColumnStretch(1, 1);
         }
         lower->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 

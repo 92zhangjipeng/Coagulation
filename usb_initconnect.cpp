@@ -198,9 +198,22 @@ void USB_InitConnect::recvSerialdata(const QStringList commandData)
     }
 
     if (runStatus == MOTOR_FINISH) {
-        // 命令成功完成
-        QMetaObject::invokeMethod(this, [this, commandIndex]() {
-            deleteFinishCommand(commandIndex);
+        const bool cleanAction = m_runingAction == EQUIPMENT_BTN_CLEAN
+                || m_runingAction == EQUIPMENT_BOOT_CLEAN;
+        QByteArray sent;
+        if (cleanAction && m_pActionVec) {
+            for (const EquipmentActive_ *action : *m_pActionVec) {
+                if (action && action->Command_number == static_cast<quint8>(commandIndex)
+                        && !action->CompletionStatus) {
+                    sent = action->CommamdArry;
+                    break;
+                }
+            }
+        }
+        const bool skipFollowing = QUIUtils::sentCommandIsLiquidDetect(sent)
+                && QUIUtils::hangBeadSuckDecision(commandData, QUIUtils::HangBeadCleanS1, true) == 2;
+        QMetaObject::invokeMethod(this, [this, commandIndex, skipFollowing]() {
+            deleteFinishCommand(commandIndex, skipFollowing);
         }, Qt::QueuedConnection);
     } else {
         // 命令执行失败：记录错误，中止当前任务序列
@@ -268,7 +281,7 @@ void USB_InitConnect::slotDisconnectandreconnect()
 // 任务队列管理
 // ============================================================================
 
-void USB_InitConnect::deleteFinishCommand(quint8 indexcode)
+void USB_InitConnect::deleteFinishCommand(quint8 indexcode, bool skipFollowing)
 {
     if (!m_pActionVec) {
         QLOG_WARN() << "deleteFinishCommand: m_pActionVec is null";
@@ -283,6 +296,14 @@ void USB_InitConnect::deleteFinishCommand(quint8 indexcode)
 
     if (iter != m_pActionVec->end()) {
         (*iter)->CompletionStatus = true;
+        if (skipFollowing) {
+            auto next = iter + 1;
+            if (next != m_pActionVec->end() && *next && !(*next)->CompletionStatus
+                    && !QUIUtils::sentCommandIsZReset((*next)->CommamdArry)) {
+                (*next)->CompletionStatus = true;
+                QLOG_DEBUG() << "挂珠探测通过，跳过下到失败高度，命令号:" << (*next)->Command_number;
+            }
+        }
         QLOG_DEBUG() << "命令完成，命令号:" << indexcode;
     } else {
         QLOG_WARN() << "未找到匹配的未完成命令，命令号:" << indexcode;

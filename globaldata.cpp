@@ -375,19 +375,19 @@ QVector<double> GlobalData::smoothData(const QVector<double>& input, int windowS
 QString GlobalData::mapReagentNames(const quint8 KindConsumables){
 
     static const QHash<quint8, QString> consumablesMap = {
-        {INDEX_AA_CONSUMABLE,      "AA"},
-        {INDEX_ADP_CONSUMABLE,     "ADP"},
-        {INDEX_EPI_CONSUMABLE,     "EPI"},
-        {INDEX_COL_CONSUMABLE,     "COL"},
-        {INDEX_RIS_CONSUMABLE,     "RIS"},
-        {INDEX_CLEANLINQUE_CONSUMABLE, "清洗剂S1(内)"},
-        {INDEX_TESTTUBE_CONSUMABLE,    "测试试管"},
-        {OUTSIDE_CLEANLINQUE_S2,   "清洗剂S2(外)"},
-        {INDEX_AA_1_CONSUMABLE,      "AA(R)"},
-        {INDEX_ADP_1_CONSUMABLE,     "ADP(R)"},
-        {INDEX_EPI_1_CONSUMABLE,     "EPI(R)"},
-        {INDEX_COL_1_CONSUMABLE,     "COL(R)"},
-        {INDEX_RIS_1_CONSUMABLE,     "RIS(R)"}
+        {INDEX_AA_CONSUMABLE,      QStringLiteral("AA")},
+        {INDEX_ADP_CONSUMABLE,     QStringLiteral("ADP")},
+        {INDEX_EPI_CONSUMABLE,     QStringLiteral("EPI")},
+        {INDEX_COL_CONSUMABLE,     QStringLiteral("COL")},
+        {INDEX_RIS_CONSUMABLE,     QStringLiteral("RIS")},
+        {INDEX_CLEANLINQUE_CONSUMABLE, QString::fromUtf8("\xe6\xb8\x85\xe6\xb4\x97\xe5\x89\x82S1(\xe5\x86\x85)")},
+        {INDEX_TESTTUBE_CONSUMABLE,    QString::fromUtf8("\xe6\xb5\x8b\xe8\xaf\x95\xe8\xaf\x95\xe7\xae\xa1")},
+        {OUTSIDE_CLEANLINQUE_S2,   QString::fromUtf8("\xe6\xb8\x85\xe6\xb4\x97\xe5\x89\x82S2(\xe5\xa4\x96)")},
+        {INDEX_AA_1_CONSUMABLE,      QStringLiteral("AA(R)")},
+        {INDEX_ADP_1_CONSUMABLE,     QStringLiteral("ADP(R)")},
+        {INDEX_EPI_1_CONSUMABLE,     QStringLiteral("EPI(R)")},
+        {INDEX_COL_1_CONSUMABLE,     QStringLiteral("COL(R)")},
+        {INDEX_RIS_1_CONSUMABLE,     QStringLiteral("RIS(R)")}
     };
 
     // 使用value()方法并设置默认返回值
