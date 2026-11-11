@@ -9,7 +9,6 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QDateTime>
-#include <QtConcurrent>
 #include <QSemaphore>
 #include <array>
 
@@ -26,6 +25,7 @@ SuoweiSerialPort::SuoweiSerialPort(QObject *parent)
     , mTotalCommd(0)
     , mTestMoveTrayTubeFinished(0)
     , m_threadPool(new QThreadPool(this))
+    , m_parsingFrames(false)
 {
     qRegisterMetaType<QSerialPort::SerialPortError>("SerialPortError");
 
@@ -653,40 +653,36 @@ void SuoweiSerialPort::handleRecvdata()
 
 void SuoweiSerialPort::processCompleteFrames()
 {
-    QWriteLocker locker(&m_bufferLock);
-
-    int dropped = 0;
-    while (m_buffer.size() >= PROTOCOL_LENGTH && !frameLooksAligned(m_buffer)) {
-        m_buffer.remove(0, 1);
-        ++dropped;
+    // 串口线程里一帧解析完再取下一帧。以前正常测试把帧丢进线程池并发解析，
+    // 针在动、回包很密时会和测试线程一起改堆，坏掉后下一次分配才报 0xC0000374。
+    // 解析过程中如果又读进新字节，外层循环会接着取，不必再嵌套进来。
+    if (m_parsingFrames) {
+        return;
     }
-    if (dropped > 0) {
-        QLOG_WARN() << "串口帧错位，丢弃" << dropped << "字节后重新对齐";
-    }
+    m_parsingFrames = true;
 
-    while (m_buffer.size() >= PROTOCOL_LENGTH) {
-        if (!frameLooksAligned(m_buffer)) {
-            break;
-        }
-        QByteArray frame = m_buffer.left(PROTOCOL_LENGTH);
-        m_buffer.remove(0, PROTOCOL_LENGTH);
-
-        locker.unlock();
-
-        if (Performanceverification::instance()->returnPerformanceTestFlag()) {
-            processFrame(frame);
-        } else {
-            if (m_threadPool->activeThreadCount() < m_threadPool->maxThreadCount()) {
-                QtConcurrent::run(m_threadPool, [this, frame]() {
-                    processFrame(frame);
-                });
-            } else {
-                processFrame(frame);
+    while (true) {
+        QByteArray frame;
+        {
+            QWriteLocker locker(&m_bufferLock);
+            int dropped = 0;
+            while (m_buffer.size() >= PROTOCOL_LENGTH && !frameLooksAligned(m_buffer)) {
+                m_buffer.remove(0, 1);
+                ++dropped;
             }
+            if (dropped > 0) {
+                QLOG_WARN() << "串口帧错位，丢弃" << dropped << "字节后重新对齐";
+            }
+            if (m_buffer.size() < PROTOCOL_LENGTH || !frameLooksAligned(m_buffer)) {
+                break;
+            }
+            frame = m_buffer.left(PROTOCOL_LENGTH);
+            m_buffer.remove(0, PROTOCOL_LENGTH);
         }
-
-        locker.relock();
+        processFrame(frame);
     }
+
+    m_parsingFrames = false;
 }
 
 void SuoweiSerialPort::processFrame(const QByteArray& frame)

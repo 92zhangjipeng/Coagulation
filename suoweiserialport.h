@@ -132,6 +132,7 @@ private:
     QSerialPort *mserialPort = nullptr;
     QByteArray m_buffer;
     QThreadPool *m_threadPool;
+    bool m_parsingFrames = false;
     const int MAX_BUFFER_SIZE = 15 * 256;
     const quint16 mprotocolLength = 15;
     bool mreminderbufferfull = false;

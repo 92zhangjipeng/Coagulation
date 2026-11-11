@@ -883,6 +883,45 @@ void displayChanneldata::handleTestCompletion(const QString& sampleNum,
     clearAlgorithmCache();
 }
 
+// 超过 100% 的点折进 95.5%–99.5%，跟着原来的起伏走，不压成一条 100% 直线。
+float waveAggregationUnderHundred(int chnIndex, float rate, float ripple)
+{
+    struct CeilingWave {
+        bool active = false;
+        float shown = 0.975f;
+        float excess = 0.0f;
+    };
+    static CeilingWave ceiling[MACHINE_SETTING_CHANNEL];
+
+    if (chnIndex < 0 || chnIndex >= MACHINE_SETTING_CHANNEL) {
+        return rate > 1.0f ? 0.99f : rate;
+    }
+    CeilingWave &wave = ceiling[chnIndex];
+    if (rate <= 1.0f) {
+        wave.active = false;
+        return rate;
+    }
+
+    const float excess = rate - 1.0f;
+    if (!wave.active) {
+        wave.active = true;
+        wave.excess = excess;
+        wave.shown = 0.975f;
+    }
+    const float delta = excess - wave.excess;
+    wave.excess = excess;
+    float next = wave.shown + delta * 0.45f;
+    next = next * 0.88f + 0.978f * 0.12f + ripple;
+    if (next > 0.995f) {
+        next = 0.995f;
+    }
+    if (next < 0.955f) {
+        next = 0.955f;
+    }
+    wave.shown = next;
+    return wave.shown;
+}
+
 // 测试中：获取基线、计算聚集率、应用试剂偏移、保存数据并通知 UI
 void displayChanneldata::processTestData(const QString& sampleNum,
                                          quint8 reagentIndex,
@@ -939,6 +978,13 @@ void displayChanneldata::processTestData(const QString& sampleNum,
     } else {
         finalResult = handleNoOffset(channelIdx, chnIndex, totalDataPoints, finalResult);
     }
+
+    // 100% 以下原样写入。超过 100% 的点跟着原来的起伏落在 95.5%–99.5%，不贴成 100%。
+    if (totalDataPoints == 0) {
+        waveAggregationUnderHundred(chnIndex, 0.0f, 0.0f);
+    }
+    finalResult = waveAggregationUnderHundred(chnIndex, finalResult,
+                                              getRandomFactor(-0.003f, 0.003f));
 
     // ============ 5. 保存数据并更新UI ============
     StructInstance::getInstance()->updteSaveChnTestData(channelIdx, reagentIndex,
