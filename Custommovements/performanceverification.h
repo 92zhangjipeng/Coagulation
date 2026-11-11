@@ -220,13 +220,27 @@ public:
                                         [](const auto& cmd) { return cmd.isCompleted; });
         container.enabled = allFinish;
         if (!allFinish && matched && !continueInfo.isEmpty()) {
+            QByteArray nextData;
             for (auto it = commands.constBegin(); it != commands.constEnd(); ++it) {
                 const ActiveCommand& cmd = it.value();
                 if (!cmd.isCompleted && !cmd.cmdData.isEmpty()) {
-                    QByteArrayList nextCmd;
-                    nextCmd.append(cmd.cmdData);
-                    emit sendorderList(nextCmd, continueInfo);
+                    nextData = cmd.cmdData;
                     break;
+                }
+            }
+            if (!nextData.isEmpty()) {
+                const int waitMs = emptyCupSpitLiftDelayMs(target->cmdData, nextData);
+                QByteArrayList nextCmd;
+                nextCmd.append(nextData);
+                if (waitMs > 0) {
+                    QTimer::singleShot(waitMs, this, [this, nextCmd, continueInfo]() {
+                        if (!returnPerformanceTestFlag() || m_peAbortHoming) {
+                            return;
+                        }
+                        emit sendorderList(nextCmd, continueInfo);
+                    });
+                } else {
+                    emit sendorderList(nextCmd, continueInfo);
                 }
             }
         }
@@ -261,6 +275,8 @@ public:
     void peSendNextAbortHome();
     void peFinishAbortHome();
     void peSendFirstPending(const QString &info);
+    /** 吐进空试杯的泵命令完成后，下一条是抬针时返回正常测试的吐完延时，否则返回 0。 */
+    int emptyCupSpitLiftDelayMs(const QByteArray &done, const QByteArray &next) const;
 
 
     // 命令执行入口函数

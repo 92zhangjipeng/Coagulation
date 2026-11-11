@@ -71,6 +71,8 @@ void HitTestRunner::setPaused(bool paused)
     if (m_paused == paused)
         return;
     m_paused = paused;
+    if (!m_lastAction.isEmpty())
+        showMotionFor(m_lastActionJob, m_lastAction);
     if (paused || !m_running)
         return;
     if (m_holdAdvance) {
@@ -109,6 +111,78 @@ const HitMixSpec *HitTestRunner::currentMix() const
     if (m_mixIndex < 0 || m_mixIndex >= m_mix.size())
         return nullptr;
     return &m_mix.at(m_mixIndex);
+}
+
+QString HitTestRunner::mixAction(const QString &action) const
+{
+    const HitMixSpec *mix = currentMix();
+    if (!mix || !mix->statusUtf8 || !mix->statusUtf8[0])
+        return action;
+    return action + QString::fromUtf8(" ") + QString::fromUtf8(mix->statusUtf8);
+}
+
+QString HitTestRunner::stageAction(int stage) const
+{
+    switch (stage) {
+    case StageTakePpp:
+    case StageSuckPpp:
+        return QString::fromUtf8("\xe5\x90\xb8PPP");
+    case StagePrepPrp:
+    case StageSuckPrp:
+        return mixAction(QString::fromUtf8("\xe5\x90\xb8PRP"));
+    case StageWashPpp:
+    case StageWashPrp:
+        return QString::fromUtf8("\xe6\xb8\x85\xe6\xb4\x97\xe6\xa0\xb7\xe6\x9c\xac\xe9\x92\x88");
+    case StageGripPpp:
+        return QString::fromUtf8("\xe5\xa4\xb9PPP\xe5\x88\xb0\xe9\x80\x9a\xe9\x81\x93");
+    case StageThrowPpp:
+        return QString::fromUtf8("\xe5\xbc\x83PPP\xe6\x9d\xaf");
+    case StageTakeMix:
+    case StageSuckSerum:
+        return mixAction(QString::fromUtf8("\xe5\x90\xb8\xe8\xa1\x80\xe6\xb8\x85"));
+    case StageGripMix:
+        return mixAction(QString::fromUtf8("\xe5\xa4\xb9\xe6\x9d\xaf\xe5\x88\xb0\xe9\x80\x9a\xe9\x81\x93"));
+    case StageWashSerum:
+    case StageWashReagent:
+        return QString::fromUtf8("\xe6\xb8\x85\xe6\xb4\x97\xe8\xaf\x95\xe5\x89\x82\xe9\x92\x88");
+    case StageSuckReagent:
+        return mixAction(QString::fromUtf8("\xe5\x90\xb8\xe8\xaf\x95\xe5\x89\x82"));
+    case StageRead0:
+        return mixAction(QString::fromUtf8("\xe8\xaf\xbbPRP0"));
+    case StageThrowMix:
+    case StageAbortThrow:
+        return mixAction(QString::fromUtf8("\xe5\xbc\x83\xe6\x9d\xaf"));
+    case StageHome:
+    case StageAbortHome:
+        return QString::fromUtf8("\xe5\x9b\x9e\xe5\x8e\x9f\xe7\x82\xb9");
+    default:
+        return QString();
+    }
+}
+
+void HitTestRunner::showMotionFor(int jobIndex, const QString &action)
+{
+    if (action.isEmpty())
+        return;
+    m_lastAction = action;
+    m_lastActionJob = jobIndex;
+    MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
+    if (!mw)
+        return;
+    QString text = action;
+    if (jobIndex >= 0 && jobIndex < m_jobs.size()) {
+        text = QString::fromUtf8("\xe6\xa0\xb7\xe6\x9c\xac%1  %2")
+                .arg(m_jobs.at(jobIndex).sampleId)
+                .arg(action);
+    }
+    if (m_paused)
+        text += QString::fromUtf8("  \xef\xbc\x88\xe5\xb7\xb2\xe6\x9a\x82\xe5\x81\x9c\xef\xbc\x89");
+    mw->showHitMotionStatus(text);
+}
+
+void HitTestRunner::showMotion(const QString &action)
+{
+    showMotionFor(m_sampleIndex, action);
 }
 
 void HitTestRunner::ensureWired()
@@ -265,6 +339,7 @@ bool HitTestRunner::start(const QVector<HitSampleJob> &jobs, QString *reason)
         return false;
     }
     m_motionLane = -1;
+    m_yieldedLane = -1;
     m_sampleIndex = -1;
     m_stage = StageIdle;
     m_phase = PhaseIdle;
@@ -297,7 +372,7 @@ void HitTestRunner::beginSample()
     m_recordMs = 0;
     m_pppSeq = 0;
     m_startText = nowText();
-    publish(u8("\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xad"), m_startText);
+    publish(u8("\xe5\x8a\xa0\xe6\xa0\xb7"), m_startText);
     insertRun();
     if (m_motionLane >= 0 && m_motionLane < m_lanes.size()) {
         HitLane &lane = m_lanes[m_motionLane];
@@ -399,6 +474,8 @@ void HitTestRunner::releaseForWait(int waitKind, int waitMs)
     pump();
 }
 
+static bool hitSampleIdBefore(const QString &left, const QString &right);
+
 bool HitTestRunner::channelBusy(int channel, int exceptLane) const
 {
     for (int i = 0; i < m_lanes.size(); ++i) {
@@ -411,6 +488,69 @@ bool HitTestRunner::channelBusy(int channel, int exceptLane) const
             return true;
     }
     return false;
+}
+
+int HitTestRunner::pickSmallestId(const QVector<int> &indexes) const
+{
+    int best = -1;
+    QString bestId;
+    for (int i = 0; i < indexes.size(); ++i) {
+        const int laneIndex = indexes.at(i);
+        if (laneIndex < 0 || laneIndex >= m_lanes.size())
+            continue;
+        const int jobIndex = m_lanes.at(laneIndex).jobIndex;
+        if (jobIndex < 0 || jobIndex >= m_jobs.size())
+            continue;
+        const QString sampleId = m_jobs.at(jobIndex).sampleId;
+        if (best < 0 || hitSampleIdBefore(sampleId, bestId)) {
+            best = laneIndex;
+            bestId = sampleId;
+        }
+    }
+    return best;
+}
+
+bool HitTestRunner::shouldYieldToFillChannels() const
+{
+    if (m_motionLane < 0)
+        return false;
+    for (int i = 0; i < m_lanes.size(); ++i) {
+        if (i == m_motionLane)
+            continue;
+        const HitLane &lane = m_lanes.at(i);
+        if (lane.finished || lane.jobIndex < 0 || lane.jobIndex >= m_jobs.size())
+            continue;
+        if (!lane.started) {
+            if (!channelBusy(m_jobs.at(lane.jobIndex).channel, i))
+                return true;
+            continue;
+        }
+        if (lane.needsMotion && !lane.cupInChannel && lane.waitKind == TimerNone)
+            return true;
+    }
+    return false;
+}
+
+bool HitTestRunner::yieldToFillChannels(int nextStage)
+{
+    if (!shouldYieldToFillChannels())
+        return false;
+    m_stage = nextStage;
+    captureMotionLane();
+    HitLane &lane = m_lanes[m_motionLane];
+    lane.needsMotion = true;
+    lane.stage = nextStage;
+    if (lane.waitKind != TimerIncubate && lane.waitKind != TimerRecord && lane.waitKind != TimerStable)
+        lane.waitKind = TimerNone;
+    m_yieldedLane = m_motionLane;
+    QLOG_INFO() << "HIT yield to fill channels, parked" << channel1() << "resume" << nextStage;
+    m_motionLane = -1;
+    m_phase = PhaseIdle;
+    m_stage = StageIdle;
+    m_timer->stop();
+    m_timerMode = TimerNone;
+    pump();
+    return true;
 }
 
 bool HitTestRunner::reagentDue(int exceptLane) const
@@ -474,37 +614,56 @@ static bool hitSampleIdBefore(const QString &left, const QString &right)
 
 int HitTestRunner::pickLane() const
 {
+    QVector<int> unstarted;
+    QVector<int> early;
+    QVector<int> earlyAvoided;
+    QVector<int> reagent;
+    QVector<int> other;
+    QVector<int> otherAvoided;
     for (int i = 0; i < m_lanes.size(); ++i) {
         const HitLane &lane = m_lanes.at(i);
-        if (!lane.finished && lane.needsMotion && lane.stage == StageSuckReagent)
-            return i;
-    }
-    int nextNew = -1;
-    QString nextId;
-    for (int i = 0; i < m_lanes.size(); ++i) {
-        const HitLane &lane = m_lanes.at(i);
-        if (lane.started || lane.finished || lane.jobIndex < 0 || lane.jobIndex >= m_jobs.size())
+        if (lane.finished || lane.jobIndex < 0 || lane.jobIndex >= m_jobs.size())
             continue;
-        if (channelBusy(m_jobs.at(lane.jobIndex).channel, i))
+        const bool busy = channelBusy(m_jobs.at(lane.jobIndex).channel, i);
+        if (!lane.started) {
+            if (!busy)
+                unstarted.append(i);
             continue;
-        const QString sampleId = m_jobs.at(lane.jobIndex).sampleId;
-        if (nextNew < 0 || hitSampleIdBefore(sampleId, nextId)) {
-            nextNew = i;
-            nextId = sampleId;
         }
-    }
-    if (nextNew >= 0)
-        return nextNew;
-    for (int i = 0; i < m_lanes.size(); ++i) {
-        const HitLane &lane = m_lanes.at(i);
-        if (lane.finished || !lane.needsMotion)
+        if (!lane.needsMotion)
             continue;
-        if (!lane.started && lane.jobIndex >= 0 && lane.jobIndex < m_jobs.size()
-                && channelBusy(m_jobs.at(lane.jobIndex).channel, i))
+        if (!lane.cupInChannel && lane.waitKind == TimerNone) {
+            if (i == m_yieldedLane)
+                earlyAvoided.append(i);
+            else
+                early.append(i);
             continue;
-        return i;
+        }
+        if (lane.stage == StageSuckReagent) {
+            reagent.append(i);
+            continue;
+        }
+        if (i == m_yieldedLane)
+            otherAvoided.append(i);
+        else
+            other.append(i);
     }
-    return -1;
+    const int fresh = pickSmallestId(unstarted);
+    if (fresh >= 0)
+        return fresh;
+    const int reachChannel = pickSmallestId(early);
+    if (reachChannel >= 0)
+        return reachChannel;
+    const int reachAvoided = pickSmallestId(earlyAvoided);
+    if (reachAvoided >= 0)
+        return reachAvoided;
+    const int dueReagent = pickSmallestId(reagent);
+    if (dueReagent >= 0)
+        return dueReagent;
+    const int continued = pickSmallestId(other);
+    if (continued >= 0)
+        return continued;
+    return pickSmallestId(otherAvoided);
 }
 
 bool HitTestRunner::lanesWaiting() const
@@ -527,6 +686,7 @@ void HitTestRunner::pump()
     if (m_stage == StageHome || m_stage == StageAbortHome || m_stage == StageAbortThrow)
         return;
     const int next = pickLane();
+    m_yieldedLane = -1;
     if (next < 0) {
         if (lanesWaiting())
             return;
@@ -660,6 +820,13 @@ void HitTestRunner::serviceStable(HitLane &lane)
     lane.nextRecordMs = lane.recordOriginMs + 1000;
     lane.waitKind = TimerRecord;
     lane.stage = StageThrowMix;
+    if (m_motionLane < 0 && lane.jobIndex >= 0) {
+        const QString mixName = mix->statusUtf8 ? QString::fromUtf8(mix->statusUtf8) : QString();
+        showMotionFor(lane.jobIndex,
+                      mixName.isEmpty()
+                      ? QString::fromUtf8("\xe8\xae\xb0\xe5\xbd\x95")
+                      : QString::fromUtf8("\xe8\xae\xb0\xe5\xbd\x95 ") + mixName);
+    }
     lane.needsMotion = false;
     lane.stepOriginMs = lane.recordOriginMs;
     lane.stepTotalMs = qMax(lane.recordMs, 1);
@@ -788,6 +955,7 @@ void HitTestRunner::enter(int stage)
     m_timer->stop();
     m_stage = stage;
     QLOG_INFO() << "HIT stage" << stage << "sample" << m_sampleIndex << "mix" << m_mixIndex;
+    showMotion(stageAction(stage));
 
     switch (stage) {
     case StageTakePpp: {
@@ -801,7 +969,7 @@ void HitTestRunner::enter(int stage)
         }
         m_cupHole = m_cups[0];
         m_cupClaimed = true;
-        publish(u8("\xe5\x90\xb8PPP\xe5\x8f\x82\xe7\x85\xa7"));
+        publish(u8("\xe5\x8a\xa0\xe6\xa0\xb7"));
         enter(StageSuckPpp);
         break;
     }
@@ -940,7 +1108,7 @@ void HitTestRunner::enter(int stage)
             fail(err.isEmpty() ? u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88") : err);
             return;
         }
-        publish(u8(mix->statusUtf8));
+        publish(u8("\xe5\x8a\xa0\xe6\xa0\xb7"));
         sendAt(0);
         break;
     }
@@ -1102,7 +1270,7 @@ void HitTestRunner::onBatchDone()
         m_cupFilled[0] = true;
         m_mixIndex = 0;
         notifySourceSucked(0);
-        if (!yieldIfReagentDue(StagePrepPrp))
+        if (!yieldToFillChannels(StagePrepPrp) && !yieldIfReagentDue(StagePrepPrp))
             enter(StagePrepPrp);
         break;
     case StagePrepPrp:
@@ -1111,7 +1279,7 @@ void HitTestRunner::onBatchDone()
         ++m_mixIndex;
         if (m_mixIndex >= m_mix.size())
             notifySourceSucked(2);
-        if (!yieldIfReagentDue(StagePrepPrp))
+        if (!yieldToFillChannels(StagePrepPrp) && !yieldIfReagentDue(StagePrepPrp))
             enter(StagePrepPrp);
         break;
     case StageGripPpp:
@@ -1122,6 +1290,7 @@ void HitTestRunner::onBatchDone()
             MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
             m_pppSeq = mw ? mw->getChannelPositiveFilterSeq(static_cast<quint8>(channel1())) : 0;
         }
+        showMotion(QString::fromUtf8("\xe8\xaf\xbbPPP"));
         armTimer(TimerPppWait, 5000, false);
         break;
     case StageThrowPpp:
@@ -1129,7 +1298,7 @@ void HitTestRunner::onBatchDone()
         m_cupInChannel = false;
         setStir(false);
         m_mixIndex = 0;
-        if (!yieldIfReagentDue(StageTakeMix))
+        if (!yieldToFillChannels(StageTakeMix) && !yieldIfReagentDue(StageTakeMix))
             enter(StageTakeMix);
         break;
     case StageWashPpp:
@@ -1140,13 +1309,13 @@ void HitTestRunner::onBatchDone()
             break;
         }
         m_cupHole = m_cups[0];
-        if (!yieldIfReagentDue(StageGripPpp))
+        if (!yieldToFillChannels(StageGripPpp) && !yieldIfReagentDue(StageGripPpp))
             enter(StageGripPpp);
         break;
     case StageSuckSerum:
         if (m_mixIndex >= 0 && m_mixIndex + 1 < HitCupSlots)
             m_cupFilled[m_mixIndex + 1] = true;
-        if (!yieldIfReagentDue(StageGripMix))
+        if (!yieldToFillChannels(StageGripMix) && !yieldIfReagentDue(StageGripMix))
             enter(StageGripMix);
         break;
     case StageWashSerum:
@@ -1154,11 +1323,13 @@ void HitTestRunner::onBatchDone()
         startIncubate();
         break;
     case StageSuckPrp:
-        enter(StageWashPrp);
+        if (!yieldToFillChannels(StageWashPrp))
+            enter(StageWashPrp);
         break;
     case StageWashPrp:
         deductClean(BLOOD_PIN);
-        enter(StageGripMix);
+        if (!yieldToFillChannels(StageGripMix))
+            enter(StageGripMix);
         break;
     case StageGripMix:
         m_cupInChannel = true;
@@ -1166,7 +1337,7 @@ void HitTestRunner::onBatchDone()
         m_readRetry = 0;
         beginIncubateClock();
         if (mix && mix->serumUl > 0) {
-            if (!yieldIfReagentDue(StageWashSerum))
+            if (!yieldToFillChannels(StageWashSerum) && !yieldIfReagentDue(StageWashSerum))
                 enter(StageWashSerum);
         } else {
             startIncubate();
@@ -1192,7 +1363,7 @@ void HitTestRunner::onBatchDone()
         m_cupInChannel = false;
         setStir(false);
         ++m_mixIndex;
-        if (!yieldIfReagentDue(StageTakeMix))
+        if (!yieldToFillChannels(StageTakeMix) && !yieldIfReagentDue(StageTakeMix))
             enter(StageTakeMix);
         break;
     default:
@@ -1367,9 +1538,10 @@ void HitTestRunner::readPpp()
         value = readChannel();
     m_ppp = value;
     savePpp();
-    publish(u8("\xe5\x90\xb8PPP\xe5\x8f\x82\xe7\x85\xa7"), QString(), QString(), QString::number(value));
+    publish(u8("\xe5\x8a\xa0\xe6\xa0\xb7"), QString(), QString(), QString::number(value));
     QLOG_INFO() << "HIT PPP" << value;
-    enter(StageThrowPpp);
+    if (!yieldToFillChannels(StageThrowPpp))
+        enter(StageThrowPpp);
 }
 
 void HitTestRunner::readPrp0()
@@ -1660,6 +1832,10 @@ void HitTestRunner::cleanup(const QString &message)
         }
     }
     stopAllStir();
+    m_lastAction.clear();
+    m_lastActionJob = -1;
+    if (MainWindow *mw = FullyAutomatedPlatelets::mainWindow())
+        mw->showHitMotionStatus(QString());
     QString text = message;
     if (text.isEmpty() && !m_dbReady)
         text = u8("\xe6\x95\xb0\xe6\x8d\xae\xe5\xba\x93\xe6\x9c\xaa\xe5\x86\x99\xe5\x85\xa5\xef\xbc\x8c\xe7\xbb\x93\xe6\x9e\x9c\xe7\x95\x99\xe5\x9c\xa8\xe8\xa1\xa8\xe6\xa0\xbc");
@@ -1736,6 +1912,7 @@ void HitTestRunner::startIncubate()
             beginStableWait();
         return;
     }
+    showMotion(mixAction(QString::fromUtf8("\xe5\xad\xb5\xe8\x82\xb2")));
     releaseForWait(TimerIncubate, remain);
 }
 
@@ -1793,6 +1970,7 @@ void HitTestRunner::beginStableWait()
     MainWindow *mw = FullyAutomatedPlatelets::mainWindow();
     m_pppSeq = mw ? mw->getChannelPositiveFilterSeq(static_cast<quint8>(channel1())) : 0;
     m_readRetry = 0;
+    showMotion(mixAction(QString::fromUtf8("\xe8\xaf\xbbPRP0")));
     releaseForWait(TimerStable, 1000);
 }
 

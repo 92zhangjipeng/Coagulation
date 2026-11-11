@@ -1057,6 +1057,31 @@ QByteArray Performanceverification::peBuildGrabDeepenCmd(quint8 commandIndex) co
     }
 }
 
+int Performanceverification::emptyCupSpitLiftDelayMs(const QByteArray &done, const QByteArray &next) const
+{
+    if (done.size() < 10 || static_cast<quint8>(done.at(0)) != 0x05
+            || static_cast<quint8>(done.at(1)) != 0x17) {
+        return 0;
+    }
+    if (!QUIUtils::sentCommandIsZReset(next)) {
+        return 0;
+    }
+    const int steps = static_cast<int>(static_cast<quint8>(done.at(6))
+            | (static_cast<quint8>(done.at(7)) << 8)
+            | (static_cast<quint8>(done.at(8)) << 16)
+            | (static_cast<quint8>(done.at(9)) << 24));
+    if (steps != BIG_BEN_INHALE_ARI) {
+        return 0;
+    }
+    const int waitMs = INI_File().GetAfterSpitDelayMs();
+    if (waitMs <= 0) {
+        return 0;
+    }
+    QLOG_INFO() << QString::fromUtf8("PE吐进空试杯完成，延时") << waitMs
+                << QString::fromUtf8("ms再抬针");
+    return waitMs;
+}
+
 void Performanceverification::peSendFirstPending(const QString &info)
 {
     CommandGroup *group = currentGripperCommandGroup();

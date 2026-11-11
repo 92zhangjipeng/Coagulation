@@ -210,6 +210,16 @@ QTimer *usbUnplugDebounceTimer(QObject *owner)
 
 } // namespace
 
+void MainWindow::showHitMotionStatus(const QString &text)
+{
+    QLabel *lab = ui && ui->StatusBar
+            ? ui->StatusBar->findChild<QLabel *>(QStringLiteral("label_focusTask"))
+            : nullptr;
+    if (!lab && ui)
+        lab = ensureFocusTaskLabel(ui);
+    setFocusTaskStatusText(lab, text);
+}
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     m_pauseIcon(":/Picture/pause.png")
     ,m_continueIcon(":/Picture/Start.png")

@@ -31,9 +31,9 @@ struct HitMixSpec {
     int recordMin = 0;
 };
 
-// HIT 独立测试：运动同一时间只服务一个样本。通道进入预孵育或记录后让出运动，
-// 去给其它空闲通道加样。相同通道可以排队，样本号小的先做完再开始下一个。
-// 不占用 AA 结果表，也不置 g_StartTesting。
+// HIT 独立测试：运动同一时间只服务一个样本。不同通道先各启动一条，
+// 杯子还没进通道时轮流做，避免有的通道一直空着。相同通道排队，样本号小的先做完。
+// 通道都占上之后，才继续加试剂、记录和下一杯。不占用 AA 结果表，也不置 g_StartTesting。
 class HitTestRunner : public QObject
 {
     Q_OBJECT
@@ -148,6 +148,9 @@ private:
     bool reagentDue(int exceptLane) const;
     bool yieldIfReagentDue(int nextStage);
     bool channelBusy(int channel, int exceptLane) const;
+    bool shouldYieldToFillChannels() const;
+    bool yieldToFillChannels(int nextStage);
+    int pickSmallestId(const QVector<int> &indexes) const;
     bool lanesWaiting() const;
     void serviceLanes();
     void emitStepProgress(const HitLane &lane);
@@ -187,6 +190,10 @@ private:
                  const QString &endTime = QString(), const QString &ppp = QString(),
                  const QString &spontaneous = QString(), const QString &low = QString(),
                  const QString &high = QString(), const QString &negative = QString());
+    void showMotion(const QString &action);
+    void showMotionFor(int jobIndex, const QString &action);
+    QString stageAction(int stage) const;
+    QString mixAction(const QString &action) const;
     bool claimCup(QString *err);
     bool claimAllCups(QString *err);
     bool planCups(QString *reason);
@@ -237,6 +244,9 @@ private:
     QVector<HitSampleJob> m_jobs;
     QVector<HitLane> m_lanes;
     int m_motionLane = -1;
+    int m_yieldedLane = -1;
+    int m_lastActionJob = -1;
+    QString m_lastAction;
     QVector<HitMixSpec> m_mix;
     QVector<CmdStep> m_batch;
     int m_pppUl = 150;

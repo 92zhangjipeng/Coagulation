@@ -282,6 +282,7 @@ public slots:
     //采集通道数据对比失败提示
     void recvshowDimmingFailedChn(const QList<quint8> &failedChn);
     void showDeferredDimmingFailed();
+    void showHitMotionStatus(const QString &text);
     void recvRequestSmartCupClear(const QList<quint8> &failedChn1Based);
     void slotSmartCupClearFinished();
 
