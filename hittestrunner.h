@@ -31,9 +31,9 @@ struct HitMixSpec {
     int recordMin = 0;
 };
 
-// HIT 独立测试：运动同一时间只服务一个样本。不同通道先各启动一条，
-// 杯子还没进通道时轮流做，避免有的通道一直空着。相同通道排队，样本号小的先做完。
-// 通道都占上之后，才继续加试剂、记录和下一杯。不占用 AA 结果表，也不置 g_StartTesting。
+// HIT 独立测试：一个人洗完针就进通道。预孵到点先加试剂。
+// 前面的通道这一项记录完了，优先丢杯做下一项，不等第一轮通道都占满。
+// 同一通道上一份没做完不开始下一份。不占用 AA 结果表，也不置 g_StartTesting。
 class HitTestRunner : public QObject
 {
     Q_OBJECT
@@ -124,6 +124,7 @@ private:
         int recordSeq = 0;
         int recordMs = 0;
         qint64 deadlineMs = 0;
+        qint64 addStartMs = -1;
         qint64 recordOriginMs = 0;
         qint64 nextRecordMs = 0;
         qint64 stepOriginMs = 0;
@@ -145,12 +146,18 @@ private:
     void releaseForWait(int waitKind, int waitMs);
     void pump();
     int pickLane() const;
+    qint64 placeNewSampleMs() const;
+    qint64 soonestArmDeadlineMs() const;
+    bool armCanStartNewSample() const;
+    QString armWindowText() const;
+    void logHitSchedule(const QString &text) const;
     bool reagentDue(int exceptLane) const;
     bool yieldIfReagentDue(int nextStage);
     bool channelBusy(int channel, int exceptLane) const;
     bool shouldYieldToFillChannels() const;
     bool yieldToFillChannels(int nextStage);
     int pickSmallestId(const QVector<int> &indexes) const;
+    int pickFrontChannel(const QVector<int> &indexes) const;
     bool lanesWaiting() const;
     void serviceLanes();
     void emitStepProgress(const HitLane &lane);
@@ -245,6 +252,7 @@ private:
     QVector<HitLane> m_lanes;
     int m_motionLane = -1;
     int m_yieldedLane = -1;
+    mutable bool m_deferNewSampleLogged = false;
     int m_lastActionJob = -1;
     QString m_lastAction;
     QVector<HitMixSpec> m_mix;
@@ -265,6 +273,7 @@ private:
     int m_grabDownMm = 0;
     int m_deepen = 0;
     bool m_promptingGrab = false;
+    bool m_homeGripBeforePrompt = false;
     int m_readRetry = 0;
     int m_recordSeq = 0;
     int m_recordMs = 0;

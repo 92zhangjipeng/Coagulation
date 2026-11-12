@@ -74,6 +74,12 @@ enum HitColumn {
 };
 
 const int kRowHeight = 64;
+const int kStepTotalRole = Qt::UserRole + 10;
+const int kStepElapsedRole = Qt::UserRole + 11;
+const int kStepPhaseRole = Qt::UserRole + 12;
+
+QString stepClockText(int ms);
+void paintHitStepBar(QPainter *painter, const QRect &cell, int elapsed, int total, int phase);
 
 QString buttonStyle()
 {
@@ -113,15 +119,37 @@ QString stepClockText(int ms)
             .arg(totalSec % 60, 2, 10, QChar('0'));
 }
 
-QString stepBarStyle()
+void paintHitStepBar(QPainter *painter, const QRect &cell, int elapsed, int total, int phase)
 {
-    return QString::fromUtf8(
-        "QProgressBar {"
-        "  font-family: '楷体'; font-size: 14px; color: #1a4d6b;"
-        "  background: #eef3f7; border: 1px solid #c5d5e2; border-radius: 6px;"
-        "  text-align: center; margin: 14px 8px;"
-        "}"
-        "QProgressBar::chunk { background: #4a7ab5; border-radius: 5px; }");
+    const QRect bar = cell.adjusted(8, 16, -8, -16);
+    if (bar.width() < 8 || bar.height() < 8 || total <= 0)
+        return;
+    if (elapsed < 0)
+        elapsed = 0;
+    if (elapsed > total)
+        elapsed = total;
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(QColor(197, 213, 226)));
+    painter->setBrush(QColor(238, 243, 247));
+    painter->drawRoundedRect(bar, 6, 6);
+    const int chunkW = bar.width() * elapsed / total;
+    if (chunkW > 0) {
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor(74, 122, 181));
+        const QRect chunk(bar.left() + 1, bar.top() + 1, qMax(1, chunkW - 2), bar.height() - 2);
+        painter->drawRoundedRect(chunk, 5, 5);
+    }
+    painter->setPen(QColor(26, 77, 107));
+    QFont font(QString::fromUtf8("楷体"));
+    font.setPixelSize(14);
+    painter->setFont(font);
+    const QString title = phase == 1
+            ? QString::fromUtf8("记录 ")
+            : QString::fromUtf8("预孵 ");
+    painter->drawText(bar, Qt::AlignCenter,
+                      title + stepClockText(elapsed) + QStringLiteral(" / ") + stepClockText(total));
+    painter->restore();
 }
 
 QString tableStyle()
@@ -217,6 +245,22 @@ public:
         const QAbstractItemView *view = qobject_cast<const QAbstractItemView *>(option.widget);
         const bool editing = (option.state & QStyle::State_Editing)
                 || (view && view->indexWidget(index));
+        const int total = index.data(kStepTotalRole).toInt();
+        const QString shown = index.data(Qt::DisplayRole).toString().trimmed();
+        if (!editing && total > 0 && shown.isEmpty()
+                && index.column() >= ColSpontaneous && index.column() <= ColNegative) {
+            QStyleOptionViewItem opt(option);
+            opt.state &= ~QStyle::State_HasFocus;
+            painter->fillRect(opt.rect, (opt.features & QStyleOptionViewItem::Alternate)
+                              ? QColor(244, 248, 251) : QColor(255, 255, 255));
+            if (opt.state & QStyle::State_Selected)
+                painter->fillRect(opt.rect, QColor(231, 240, 248));
+            const int elapsed = index.data(kStepElapsedRole).toInt();
+            const int phase = index.data(kStepPhaseRole).toInt();
+            paintHitStepBar(painter, opt.rect, elapsed, total, phase);
+            paintHitRowFrame(painter, opt, index);
+            return;
+        }
         if (editing) {
             painter->fillRect(option.rect, QColor(231, 240, 248));
             paintHitRowFrame(painter, option, index);
@@ -2232,12 +2276,18 @@ void HitPage::clearStepBar(int row, int column)
     if (!m_table || row < 0 || column < 0)
         return;
     QWidget *widget = m_table->cellWidget(row, column);
-    if (!widget)
+    if (widget) {
+        m_table->removeCellWidget(row, column);
+        widget->hide();
+        widget->setParent(nullptr);
+        widget->deleteLater();
+    }
+    QTableWidgetItem *item = m_table->item(row, column);
+    if (!item)
         return;
-    m_table->removeCellWidget(row, column);
-    widget->hide();
-    widget->setParent(nullptr);
-    widget->deleteLater();
+    item->setData(kStepTotalRole, 0);
+    item->setData(kStepElapsedRole, 0);
+    item->setData(kStepPhaseRole, 0);
 }
 
 void HitPage::clearFinishedStepBars()
@@ -2277,15 +2327,16 @@ void HitPage::installStepBars(int row)
         int totalMs = incubateMs[i];
         if (totalMs < 1000)
             totalMs = 1000;
-        QProgressBar *bar = new QProgressBar(m_table);
-        bar->setRange(0, totalMs);
-        bar->setValue(0);
-        bar->setTextVisible(true);
-        bar->setAlignment(Qt::AlignCenter);
-        bar->setFormat(QString::fromUtf8("预孵 ") + stepClockText(0)
-                       + QStringLiteral(" / ") + stepClockText(totalMs));
-        bar->setStyleSheet(stepBarStyle());
-        m_table->setCellWidget(row, columns[i], bar);
+        QTableWidgetItem *item = m_table->item(row, columns[i]);
+        if (!item) {
+            item = centeredItem(QString(), false);
+            m_table->setItem(row, columns[i], item);
+        }
+        if (!item->text().trimmed().isEmpty())
+            continue;
+        item->setData(kStepTotalRole, totalMs);
+        item->setData(kStepElapsedRole, 0);
+        item->setData(kStepPhaseRole, 0);
     }
 }
 
@@ -2300,24 +2351,19 @@ void HitPage::setStepProgress(int row, int mixIndex, int elapsedMs, int totalMs,
         clearStepBar(row, column);
         return;
     }
-    QProgressBar *bar = qobject_cast<QProgressBar *>(m_table->cellWidget(row, column));
-    if (!bar) {
-        bar = new QProgressBar(m_table);
-        bar->setTextVisible(true);
-        bar->setAlignment(Qt::AlignCenter);
-        bar->setStyleSheet(stepBarStyle());
-        m_table->setCellWidget(row, column, bar);
+    QTableWidgetItem *item = m_table->item(row, column);
+    if (!item) {
+        item = centeredItem(QString(), false);
+        m_table->setItem(row, column, item);
     }
     if (elapsedMs < 0)
         elapsedMs = 0;
     if (elapsedMs > totalMs)
         elapsedMs = totalMs;
-    const QString title = phase == 1
-            ? QString::fromUtf8("记录 ")
-            : QString::fromUtf8("预孵 ");
-    bar->setRange(0, totalMs);
-    bar->setValue(elapsedMs);
-    bar->setFormat(title + stepClockText(elapsedMs) + QStringLiteral(" / ") + stepClockText(totalMs));
+    item->setData(kStepTotalRole, totalMs);
+    item->setData(kStepElapsedRole, elapsedMs);
+    item->setData(kStepPhaseRole, phase);
+    m_table->viewport()->update(m_table->visualRect(m_table->model()->index(row, column)));
 }
 
 void HitPage::applyRunUpdate(int row, const QString &status, const QString &startTime,
