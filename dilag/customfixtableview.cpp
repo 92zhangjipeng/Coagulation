@@ -100,6 +100,7 @@ CustomFixTableView::CustomFixTableView(QWidget *parent) :
     m_labelEPIColor(nullptr), m_labelEPIcurve(nullptr),
     m_labelcolColor(nullptr), m_labelcolcurve(nullptr),
     m_labelrisColor(nullptr), m_labelriscurve(nullptr),
+    m_pppWarnLabel(nullptr),
     m_showAnim(nullptr),
     m_hideAnim(nullptr),
     m_currentScreen(nullptr),
@@ -473,8 +474,8 @@ void CustomFixTableView::createDynamicUI()
 
                                                   // 创建底部控制栏（曲线颜色图例和选项）
     QWidget *bottomControlBar = new QWidget();
-    bottomControlBar->setMinimumHeight(40);
-    bottomControlBar->setMaximumHeight(40);
+    bottomControlBar->setMinimumHeight(44);
+    bottomControlBar->setMaximumHeight(44);
     bottomControlBar->setStyleSheet(R"(
         QWidget {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -553,7 +554,18 @@ void CustomFixTableView::createDynamicUI()
         }
     )");
 
+    m_pppWarnLabel = new QLabel();
+    m_pppWarnLabel->setObjectName(QStringLiteral("pppWarnLabel"));
+    m_pppWarnLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
+    m_pppWarnLabel->setStyleSheet(QStringLiteral(
+        "QLabel#pppWarnLabel {"
+        "  color: #C0392B; font-family: 'Microsoft YaHei'; font-size: 12px;"
+        "  font-weight: bold; background: transparent; border: none;"
+        "}"));
+    m_pppWarnLabel->hide();
+
     bottomLayout->addWidget(colorWidget);
+    bottomLayout->addWidget(m_pppWarnLabel, 1);
     bottomLayout->addStretch();
     bottomLayout->addWidget(m_checkBoxSmooth);
     bottomLayout->addWidget(m_checkBoxAUC);
@@ -1136,6 +1148,8 @@ void CustomFixTableView::showResult(const bool& smooth)
         bool issetSex = updateSetSexReferValue();
         Analyzeresultingvalues(issetSex);
     }
+    // PPP>0 且 <1000：状态改异常，底部栏提示原因（不中断测试，仅展示）。
+    applyPppLowVolumeWarn();
 
     // 强制重绘窗口，确保数据正确显示
     update();
@@ -1397,6 +1411,7 @@ void CustomFixTableView::refreshReagentIfViewing(const QString &sampleId, quint8
     if (!m_tableWidget || sampleId.isEmpty() || m_viewIDstr != sampleId)
         return;
     updatetabletestedResult(reagent);
+    applyPppLowVolumeWarn();
 }
 
 void CustomFixTableView::setReagentStatus(int row, int col, Status status)
@@ -1421,6 +1436,35 @@ void CustomFixTableView::setReagentStatus(int row, int col, Status status)
         break;
     }
     updateParaState(m_tableWidget, row, col, QColor(250, 250, 250), iconPath, statusText);
+}
+
+void CustomFixTableView::applyPppLowVolumeWarn()
+{
+    int pppValue = -1;
+    if (auto *sql = FullyAutomatedPlatelets::pinstancesqlData())
+        pppValue = sql->querySamplePppInit(m_viewIDNum);
+
+    const bool lowVolume = (pppValue > 0 && pppValue < GlobalData::kPppLowVolumeWarn);
+    if (m_pppWarnLabel) {
+        if (lowVolume) {
+            m_pppWarnLabel->setText(
+                tr("测试异常：PPP=%1（小于%2），可能加样少或有气泡")
+                    .arg(pppValue)
+                    .arg(GlobalData::kPppLowVolumeWarn));
+            m_pppWarnLabel->show();
+        } else {
+            m_pppWarnLabel->clear();
+            m_pppWarnLabel->hide();
+        }
+    }
+    if (!lowVolume || !m_tableWidget)
+        return;
+
+    const int reagentStateCol = static_cast<int>(TableItemnum::ReagentState);
+    const int rows = qMin(5, m_tableWidget->rowCount());
+    for (int row = 0; row < rows; ++row)
+        setReagentStatus(row, reagentStateCol, Status::Abnormal);
+    m_tableWidget->viewport()->update();
 }
 
 bool CustomFixTableView::updateSetSexReferValue()

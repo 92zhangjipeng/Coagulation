@@ -3812,6 +3812,35 @@ void CustomCreatSql::saveSamplePppInit(int sampleNum, int channel, int pppInit)
     q.exec();
 }
 
+int CustomCreatSql::querySamplePppInit(int sampleNum)
+{
+    if (sampleNum <= 0)
+        return -1;
+    if (!m_sampleInitBloodDb.isOpen())
+        initSampleInitBloodDb();
+    if (!m_sampleInitBloodDb.isOpen())
+        return -1;
+
+    QSqlQuery q(m_sampleInitBloodDb);
+    q.prepare(QStringLiteral(
+        "SELECT ppp_init FROM ppp_init_value WHERE sample_num = ?"));
+    q.addBindValue(sampleNum);
+    if (!q.exec())
+        return -1;
+
+    int found = -1;
+    while (q.next()) {
+        const int v = q.value(0).toInt();
+        if (v > 0 && v < GlobalData::kPppLowVolumeWarn)
+            return v;
+        if (v > 0)
+            found = v;
+        else if (found < 0)
+            found = v;
+    }
+    return found;
+}
+
 void CustomCreatSql::saveSamplePrpInit(int sampleNum, int reagentIndex, int channel, int prpInit)
 {
     if (!m_sampleInitBloodDb.isOpen()) {

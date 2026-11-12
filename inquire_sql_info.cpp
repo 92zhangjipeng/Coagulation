@@ -23,6 +23,7 @@
 #include <limits>
 #include <numeric>
 #include <custom_style/custommessagebox.h>
+#include "pairframetablewidget.h"
 #include "PrintReport/PrintTemplate.h"
 
 Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
@@ -106,10 +107,10 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
             "QLabel { font-weight: normal; font-size: 12px; background: transparent;"
             " color: #1A3344; padding: 0px 6px 0px 8px; }"));
     };
-    auto fitCheck = [&](QCheckBox *box) {
+    auto fitCheck = [&](QCheckBox *box, int extra = 48) {
         box->setFont(fieldFont);
         box->setFixedHeight(fieldH);
-        box->setFixedWidth(fieldMetrics.width(box->text()) + 40);
+        box->setFixedWidth(fieldMetrics.width(box->text()) + extra);
         box->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     };
     auto fitButton = [&](QToolButton *btn) {
@@ -126,7 +127,7 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
     fitCheck(checkBox_today);
     fitCheck(checkBox_this_month);
     fitCheck(checkBox_all);
-    fitCheck(checkBox_select_time);
+    fitCheck(checkBox_select_time, 64);
     fitLabel(label_fromdate);
     fitLabel(label);
     fitLabel(label_Sample);
@@ -489,6 +490,27 @@ Inquire_Sql_Info::Inquire_Sql_Info(QWidget *parent) :
         ui->tableWidget_SQL_Inquire->verticalScrollBar()->setStyleSheet(tableBar);
     if (ui->tableWidget_SQL_Inquire->horizontalScrollBar())
         ui->tableWidget_SQL_Inquire->horizontalScrollBar()->setStyleSheet(tableBar);
+    // 样式套完后再冻结，左侧叠层才能跟表格同色。
+    if (PairFrameTableWidget *freezeTable =
+            dynamic_cast<PairFrameTableWidget *>(ui->tableWidget_SQL_Inquire)) {
+        freezeTable->setFrozenColumnCount(4);
+        // 固定列叠层吃掉点击，主表收不到 itemClicked；转到同一套曲线逻辑。
+        if (QTableView *frozen = freezeTable->frozenView()) {
+            connect(frozen, &QAbstractItemView::clicked, this,
+                    [this](const QModelIndex &index) {
+                        if (!index.isValid() || !ui || !ui->tableWidget_SQL_Inquire)
+                            return;
+                        QTableWidget *table = ui->tableWidget_SQL_Inquire;
+                        // 固定列按 4 行合并，只有组首行有 item。
+                        const int row = (index.row() / 4) * 4;
+                        QTableWidgetItem *item = table->item(row, index.column());
+                        if (!item)
+                            item = table->item(row, 0);
+                        if (item)
+                            onSelectRowItem(item);
+                    });
+        }
+    }
     toolButtonFindexatc->setStyleSheet(QStringLiteral(
         "QToolButton { font-family: 'Microsoft YaHei'; font-size: 12px; color: #1A6F99;"
         " background: #FFFFFF; border: 1px solid #1A6F99; border-radius: 3px;"
@@ -608,11 +630,20 @@ void Inquire_Sql_Info::initTableWidgetStyle()
     table->verticalHeader()->setDefaultSectionSize(32);
     table->horizontalHeader()->setMinimumHeight(40);
 
-    // ----- 2. 设置列宽策略：Stretch模式，自动均匀填充整个表格宽度，避免水平溢出 -----
-    for (int i = 0; i < allcol; ++i) {
+    // 前 4 列固定宽度并冻结；后面的列拉伸。
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    table->setColumnWidth(0, 140);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    table->setColumnWidth(1, 110);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    table->setColumnWidth(2, 140);
+    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    table->setColumnWidth(3, 100);
+    for (int i = 4; i < allcol; ++i)
         table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
-    }
     table->horizontalHeader()->setStretchLastSection(true);
+    table->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 
     // 表头字体
     QFont headerFont("楷体", 12, QFont::Bold);
@@ -1746,6 +1777,8 @@ void Inquire_Sql_Info::fillInquireChunk()
     }
 
     table->setUpdatesEnabled(true);
+    if (PairFrameTableWidget *freezeTable = dynamic_cast<PairFrameTableWidget *>(table))
+        freezeTable->syncLayout();
     qDeleteAll(m_pendingInquireRows);
     m_pendingInquireRows.clear();
     m_inquireFilling = false;

@@ -162,6 +162,8 @@ public:
 
     void initSampleInitBloodDb();
     void saveSamplePppInit(int sampleNum, int channel, int pppInit);
+    // 查样本 PPP 初值；无记录返回 -1。优先返回 (0,1000) 的偏低值。
+    int querySamplePppInit(int sampleNum);
     void saveSamplePrpInit(int sampleNum, int reagentIndex, int channel, int prpInit);
 
     void ensureQcChannelDailyTable();

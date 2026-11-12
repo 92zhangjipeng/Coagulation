@@ -194,6 +194,7 @@ private:
     QLabel *m_labelEPIColor, *m_labelEPIcurve;
     QLabel *m_labelcolColor, *m_labelcolcurve;
     QLabel *m_labelrisColor, *m_labelriscurve;
+    QLabel *m_pppWarnLabel = nullptr; // 底部状态栏：PPP 偏低等测试异常原因
 
     // 动画相关 - 使用原始指针
     QPropertyAnimation *m_showAnim;
@@ -299,6 +300,7 @@ private:
         const QString& iconPath,
         const QString& text);
     void setReagentStatus(int row, int col, Status status);
+    void applyPppLowVolumeWarn();
     void spanTableWidget(const int &fromrows, const int& indexCols, QString pathicon, QString outResult);
 
     // 参考值相关

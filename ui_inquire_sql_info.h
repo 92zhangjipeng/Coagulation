@@ -22,6 +22,7 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 #include <qcustomplot.h>
+#include "pairframetablewidget.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -30,7 +31,7 @@ class Ui_Inquire_Sql_Info
 public:
     QVBoxLayout *mainLayout;
     QGroupBox *widget_date_;
-    QTableWidget *tableWidget_SQL_Inquire;
+    PairFrameTableWidget *tableWidget_SQL_Inquire;
     QProgressBar *progressBarLoad;
     QGroupBox *widget_curve;
     QHBoxLayout *horizontalLayout_3;
@@ -385,7 +386,7 @@ public:
 
         mainLayout->addWidget(widget_date_);
 
-        tableWidget_SQL_Inquire = new QTableWidget(Inquire_Sql_Info);
+        tableWidget_SQL_Inquire = new PairFrameTableWidget(Inquire_Sql_Info);
         tableWidget_SQL_Inquire->setObjectName(QStringLiteral("tableWidget_SQL_Inquire"));
         QSizePolicy sizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         sizePolicy.setHorizontalStretch(0);

@@ -2,6 +2,7 @@
 #include "calibrate.h"
 #include "pairframetablewidget.h"
 #include <QCoreApplication>
+#include <QCursor>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QScrollBar>
@@ -26,7 +27,6 @@
 #include <QTimer>
 #include <QStyleOptionViewItem>
 #include <custom_style/widgetdelegate.h>
-#include <custom_style/freezetablewidget.h>
 #include <operclass/fullyautomatedplatelets.h>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1900)
@@ -202,8 +202,10 @@ void Calibrate::InitSaveTableList(QTableWidget * pTable)
 	pTable->setColumnWidth(1, 110);
 	pTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
 	pTable->setColumnWidth(2, 140);
+	pTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+	pTable->setColumnWidth(3, 100);
 
-	for (int i = 3; i < headerList.size(); i++) {
+	for (int i = 4; i < headerList.size(); i++) {
 		pTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch);
 	}
 
@@ -277,6 +279,14 @@ void Calibrate::InitSaveTableList(QTableWidget * pTable)
 			});
 	}
 
+	// 样本号、添加时间、条形码、姓名：横向滚动时固定在左侧。
+	if (PairFrameTableWidget *freezeTable = dynamic_cast<PairFrameTableWidget *>(pTable)) {
+		freezeTable->setFrozenColumnCount(4);
+		freezeTable->refreshFrozenDelegates();
+		freezeTable->setFrozenContextMenuHandler([this](int row) {
+			showContextMenuForRow(row);
+		});
+	}
 }
 
 void Calibrate::setNoteditableCol(QList<int> cols) {
@@ -345,13 +355,28 @@ void Calibrate::showContextpup(const QPoint &pos) {
 	QTableWidget *ptablewidget = ui->saveTaskWidgetList;
 
 	int clickrow = -1;
-	QTableWidgetItem *item = ptablewidget->itemAt(pos); // 获取点击项
-	if (item) {
-		clickrow = item->row(); // 获取行号
+	if (PairFrameTableWidget *freezeTable = dynamic_cast<PairFrameTableWidget *>(ptablewidget)) {
+		clickrow = freezeTable->frozenRowAtGlobal(QCursor::pos());
 	}
 	if (clickrow < 0) {
-		return;
+		QTableWidgetItem *item = ptablewidget->itemAt(pos);
+		if (!item && ptablewidget->viewport()) {
+			item = ptablewidget->itemAt(ptablewidget->viewport()->mapFrom(ptablewidget, pos));
+		}
+		if (!item && ptablewidget->viewport()) {
+			item = ptablewidget->itemAt(ptablewidget->viewport()->mapFromGlobal(QCursor::pos()));
+		}
+		if (item)
+			clickrow = item->row();
 	}
+	showContextMenuForRow(clickrow);
+}
+
+void Calibrate::showContextMenuForRow(int clickrow)
+{
+	QTableWidget *ptablewidget = ui->saveTaskWidgetList;
+	if (clickrow < 0 || clickrow >= ptablewidget->rowCount())
+		return;
 
 	QString clickDate, sampleSex;
 	int clickIdNum;
@@ -380,7 +405,6 @@ void Calibrate::showContextpup(const QPoint &pos) {
 		QLOG_ERROR() << "选中样本未设置性别,查询对比值失败";
 	}
 
-	// 收集样本ID列表
 	QList<QString> hanSampleID;
 	hanSampleID.reserve(ptablewidget->rowCount());
 	for (int row = 0; row < ptablewidget->rowCount(); ++row) {
@@ -390,18 +414,16 @@ void Calibrate::showContextpup(const QPoint &pos) {
 		}
 	}
 
-
 	mpdatawidget->setCheckBoxState(false, sampleSex, hanSampleID);
 	mpdatawidget->setClickViewId(clickId, clickIdNum);
 	mpdatawidget->showResult(false);
 
 	if (mpdatawidget->isMinimized()) {
-		mpdatawidget->showNormal();  // 先恢复窗口标准状态
-		mpdatawidget->raise();       // 确保窗口置顶[[12]]
-		mpdatawidget->activateWindow(); // 激活窗口焦点
+		mpdatawidget->showNormal();
+		mpdatawidget->raise();
+		mpdatawidget->activateWindow();
 	}
 	mpdatawidget->showWithAnimation();
-
 }
 
 

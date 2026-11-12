@@ -1,104 +1,62 @@
 ﻿#ifndef PAIRFRAMETABLEWIDGET_H
 #define PAIRFRAMETABLEWIDGET_H
 
-#include <QTableWidget>
+#include <QHeaderView>
 #include <QPainter>
 #include <QSet>
+#include <QTableView>
+#include <QTableWidget>
 #include <QVector>
 #include <algorithm>
+#include <functional>
 
-// QTableWidget 子类:在 paintEvent 中绘制配对样本框。
-// 替代原 overlay 方案(overlay 作为 viewport 子widget 做几何同步,会与 viewport 形成
-// Move/Resize 几何循环,导致切到结果预览后主线程卡死、内存持续上涨)。
-// paintEvent 是合法绘制上下文(QPainter 在 paintEvent 内使用),不触发重入重绘;
-// 不涉及子 widget 几何同步,无 Move/Resize 循环。
-//
-// 注意:本类无信号/槽/属性,故不使用 Q_OBJECT 宏,避免对 MOC 的依赖
-// (否则需 MOC 生成 moc_pairframetablewidget.cpp,未重新运行 qmake 会导致链接错误:
-//  无法解析 metaObject/qt_metacast/qt_metacall/staticMetaObject)。
-// ui->saveTaskWidgetList 已被 calibrate.ui 提升为本类指针,可直接调用 setPairRows。
+// 结果预览表：QTableWidget 子类。
+// 1) paintEvent 画配对框/选中框，避免 overlay 几何循环。
+// 2) 可选冻结左侧若干列，横向滚动时钉住不动。
+// 无 Q_OBJECT，避免额外 MOC 依赖。
 class PairFrameTableWidget : public QTableWidget
 {
 public:
-    explicit PairFrameTableWidget(QWidget *parent = nullptr) : QTableWidget(parent) {}
+    explicit PairFrameTableWidget(QWidget *parent = nullptr);
+    ~PairFrameTableWidget();
 
-    // 设置需要画框的行号集合(外部在数据变化时调用)
-    void setPairRows(const QSet<int> &rows) { m_pairRows = rows; viewport()->update(); }
-    void clearPairRows() { m_pairRows.clear(); viewport()->update(); }
+    void setPairRows(const QSet<int> &rows);
+    void clearPairRows();
+    void syncLayout();
 
-    void syncLayout()
-    {
-        doItemsLayout();
-        updateGeometries();
-        if (QWidget *vp = viewport()) {
-            vp->update();
-        }
-    }
+    // 冻结左侧列数。结果预览固定前 4 列：样本号、添加时间、条形码、姓名。
+    void setFrozenColumnCount(int count);
+    int frozenColumnCount() const { return m_freezeCount; }
+    void refreshFrozenDelegates();
+
+    QTableView *frozenView() const;
+
+    // 固定列右键：回调行号（叠层 indexAt），避免主表横向滚动后 itemAt 点空。
+    void setFrozenContextMenuHandler(const std::function<void(int row)> &handler);
+
+    // 全局坐标落在固定列叠层时返回行号，否则 -1。
+    int frozenRowAtGlobal(const QPoint &globalPos) const;
 
 protected:
-    void paintEvent(QPaintEvent *event) override
-    {
-        QTableWidget::paintEvent(event);  // 先画表格内容
-
-        QPainter painter(viewport());
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setBrush(Qt::NoBrush);
-        const QRect visibleRect = viewport()->rect();
-
-        if (!m_pairRows.isEmpty()) {
-            painter.setPen(QPen(QColor(0, 120, 215), 2, Qt::DashLine));
-            const int margin = 2;
-            for (int row : m_pairRows) {
-                QTableWidgetItem *item = this->item(row, 0);
-                if (!item)
-                    continue;
-                QRect rect = visualItemRect(item);
-                if (rect.isNull() || !rect.isValid() || !visibleRect.intersects(rect))
-                    continue;
-                rect.setLeft(0);
-                rect.setRight(visibleRect.width());
-                painter.drawRect(rect.adjusted(margin, margin, -margin, -margin));
-            }
-        }
-
-        if (!selectionModel())
-            return;
-        QVector<int> selectedRows;
-        const QModelIndexList selected = selectionModel()->selectedRows();
-        selectedRows.reserve(selected.size());
-        for (const QModelIndex &index : selected) {
-            if (index.isValid())
-                selectedRows.append(index.row());
-        }
-        if (selectedRows.isEmpty())
-            return;
-        std::sort(selectedRows.begin(), selectedRows.end());
-        painter.setPen(QPen(QColor(20, 135, 184), 2));
-        int blockStart = selectedRows.first();
-        int blockEnd = blockStart;
-        auto drawBlock = [&](int firstRow, int lastRow) {
-            const int y = rowViewportPosition(firstRow);
-            int blockH = 0;
-            for (int row = firstRow; row <= lastRow; ++row)
-                blockH += rowHeight(row);
-            if (blockH <= 0 || y + blockH <= 0 || y >= visibleRect.height())
-                return;
-            const QRect frame(1, y + 1, qMax(0, visibleRect.width() - 3), qMax(0, blockH - 2));
-            painter.drawRoundedRect(frame, 4, 4);
-        };
-        for (int i = 1; i < selectedRows.size(); ++i) {
-            if (selectedRows.at(i) == blockEnd + 1) {
-                blockEnd = selectedRows.at(i);
-                continue;
-            }
-            drawBlock(blockStart, blockEnd);
-            blockStart = blockEnd = selectedRows.at(i);
-        }
-        drawBlock(blockStart, blockEnd);
-    }
+    void resizeEvent(QResizeEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
+    class FrozenSideView;
+
+    void initFrozenView();
+    void updateFrozenGeometry();
+    void syncFrozenColumnWidths();
+    void syncFrozenRowHeights();
+    void syncFrozenVisibility();
+    void syncFrozenSpans();
+    void applyFrozenStyle();
+    void handleFrozenContextMenu(const QPoint &viewportPos);
+
     QSet<int> m_pairRows;
+    FrozenSideView *m_frozen = nullptr;
+    int m_freezeCount = 0;
+    std::function<void(int row)> m_frozenContextMenuHandler;
 };
 
 #endif // PAIRFRAMETABLEWIDGET_H
