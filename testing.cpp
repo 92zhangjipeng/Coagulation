@@ -936,8 +936,15 @@ void Testing::allSampleTested()
         QLOG_ERROR() << "this pointer is null!";
         return;
     }
-    QLOG_INFO() << "线程中调用的 AllSampleTested 方法:" << QThread::currentThread();
-    QMetaObject::invokeMethod(this, &Testing::doAllSampleTestedUIUpdate, Qt::QueuedConnection);
+    // 先清测试中标志，避免再排队一轮 UI 更新时界面仍显示「测试中」、开始键点不了。
+    cglobal::g_StartTesting.store(false);
+    QLOG_INFO() << "线程中调用的 AllSampleTested 方法:" << QThread::currentThread()
+                << "已清除 g_StartTesting";
+    if (QThread::currentThread() == thread()) {
+        doAllSampleTestedUIUpdate();
+    } else {
+        QMetaObject::invokeMethod(this, &Testing::doAllSampleTestedUIUpdate, Qt::QueuedConnection);
+    }
 }
 
 void Testing::doAllSampleTestedUIUpdate()
