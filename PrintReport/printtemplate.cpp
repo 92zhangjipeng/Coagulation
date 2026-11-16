@@ -1,5 +1,6 @@
 ﻿#include "PrintTemplate.h"
 #include "ini_file.h"
+#include "cglobal.h"
 #include <QDateTime>
 #include <QMessageBox>
 #include <QFormLayout>
@@ -263,10 +264,10 @@ void PrintTemplate::initUI()
     m_reportTitleLabel->setFont(titleFont);
     m_mainLayout->addWidget(m_reportTitleLabel);
 
-    // 3. 报告日期
+    // 3. 报告日期（右对齐略留右边距，避免末尾被裁切）
     m_reportDateLabel = new QLabel(QString::fromUtf8("报告日期: ") + QDateTime::currentDateTime().toString(QString::fromUtf8("yyyy-MM-dd HH:mm:ss")));
-    m_reportDateLabel->setAlignment(Qt::AlignRight);
-    m_reportDateLabel->setStyleSheet(QString::fromUtf8("font-size: 12px; color: #666;"));
+    m_reportDateLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    m_reportDateLabel->setStyleSheet(QString::fromUtf8("font-size: 12px; color: #666; padding-right: 28px;"));
     m_mainLayout->addWidget(m_reportDateLabel);
     m_mainLayout->addSpacing(8);
 
@@ -317,11 +318,14 @@ void PrintTemplate::initUI()
     patientGrid->addWidget(inspectPair.second, 1, 7);
 
     auto referPair = createLabelPair(QString::fromUtf8("送检医生:"), m_referDoctorLabel);
+    auto examiningPair = createLabelPair(QString::fromUtf8("检验医生:"), m_examiningDoctorLabel);
     auto reviewPair = createLabelPair(QString::fromUtf8("审核医生:"), m_reviewDoctorLabel);
     patientGrid->addWidget(referPair.first, 2, 0);
     patientGrid->addWidget(referPair.second, 2, 1);
-    patientGrid->addWidget(reviewPair.first, 2, 2);
-    patientGrid->addWidget(reviewPair.second, 2, 3);
+    patientGrid->addWidget(examiningPair.first, 2, 2);
+    patientGrid->addWidget(examiningPair.second, 2, 3);
+    patientGrid->addWidget(reviewPair.first, 2, 4);
+    patientGrid->addWidget(reviewPair.second, 2, 5);
 
     m_mainLayout->addWidget(m_patientFrame);
     m_mainLayout->addSpacing(8);
@@ -504,6 +508,12 @@ void PrintTemplate::updateReportDisplay()
         return s.trimmed().isEmpty() ? QString::fromUtf8("-") : s;
     };
     m_referDoctorLabel->setText(textOrDash(m_patientInfo.refertithedoctor_));
+    {
+        QString examiningDoctor = m_patientInfo.medicalexaminer_.trimmed();
+        if (examiningDoctor.isEmpty())
+            examiningDoctor = cglobal::g_UserName_str;
+        m_examiningDoctorLabel->setText(textOrDash(examiningDoctor));
+    }
     m_reviewDoctorLabel->setText(textOrDash(m_patientInfo.reviewdoctors_));
     m_remarkLabel->setText(textOrDash(m_patientInfo.remark_));
 
@@ -708,6 +718,7 @@ void PrintTemplate::clearData()
     m_submissionTimeLabel->setText(QString::fromUtf8("-"));
     m_inspectionTimeLabel->setText(QString::fromUtf8("-"));
     m_referDoctorLabel->setText(QString::fromUtf8("-"));
+    m_examiningDoctorLabel->setText(QString::fromUtf8("-"));
     m_reviewDoctorLabel->setText(QString::fromUtf8("-"));
     m_remarkLabel->setText(QString::fromUtf8("-"));
 

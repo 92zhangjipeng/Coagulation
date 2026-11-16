@@ -2419,7 +2419,17 @@ void loadEquipmentPos::recvBloodPinq16data(const QStringList hexArry)
           hexstr = hexArry[8] + hexArry[7];
           quint16 q16suckPPPPRPmm = hexstr.toUInt(&ok,HEX_SWITCH);
           QLOG_DEBUG()<<"读吸PPP/RPP样本单位量"<<q16suckPPPPRPmm;
-          ini.SetLearnSamplevolume(q16suckPPPPRPmm);
+          // 界面范围 100~1000；无效读回保留本地，避免把已保存值冲掉
+          if (ok && q16suckPPPPRPmm >= 100 && q16suckPPPPRPmm <= 1000) {
+              ini.SetLearnSamplevolume(q16suckPPPPRPmm);
+          } else {
+              const int localUl = static_cast<int>(ini.GetLearnSamplevolume());
+              const int kept = (localUl >= 100 && localUl <= 1000) ? localUl : 100;
+              if (localUl != kept)
+                  ini.SetLearnSamplevolume(kept);
+              QLOG_WARN() << QString::fromUtf8("读PPP/PRP样本量无效，保留本地")
+                          << q16suckPPPPRPmm << kept;
+          }
 
 
           hexstr = hexArry[10] + hexArry[9];
@@ -4239,7 +4249,7 @@ void loadEquipmentPos::_initwriteBloodPinParaX(bool _bexit,QString _path)
     loadParaData(_bexit,_path,cleanTimekey,dataend);
 
     QByteArray sendOrder;
-    QUIUtils::_writeParaNumBloodOrder(sendOrder,data[0],data[1],data[2],dataend,false);
+    QUIUtils::_writeParaNumBloodOrder(sendOrder,data[0],data[1],data[2],dataend,true);
 
     delete []data;
 

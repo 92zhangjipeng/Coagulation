@@ -55,6 +55,8 @@ public:
 
     void _setrefertithedoctor(const QString refertithedoctor);
 
+    void _setexaminingdoctor(const QString examiningdoctor);
+
     void _setreviewdoctors(const QString);
 
     void _setTestCurvedata(QVariant data);
@@ -123,6 +125,7 @@ private:
     QString m_sampledepartment; //科室
     QString m_samplebarcode;
     QString m_refertithedoctor; //送检医生
+    QString m_examiningdoctor;  //检验医生
     QString m_reviewdoctors; //审核医生
     QVariant m_testReagResult;
 

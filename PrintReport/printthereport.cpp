@@ -379,8 +379,12 @@ void Printthereport::printDocument(QPrinter *printer)
     QPoint bottomRightSendDor(spacing_ + infoWidth*2,topinfoy + infoHeight*2);
     pPainter->drawText(QRect(topLeftSendDor,bottomRightSendDor),Qt::AlignVCenter|Qt::AlignLeft, "送检医生: "+ m_refertithedoctor);
 
-    QPoint topLeftViewDor(bottomRightSendDor.x(),topinfoy + infoHeight);
-    QPoint bottomRightViewDor(spacing_ + infoWidth*3,topinfoy + infoHeight*2);
+    QPoint topLeftExamDor(bottomRightSendDor.x(),topinfoy + infoHeight);
+    QPoint bottomRightExamDor(spacing_ + infoWidth*3,topinfoy + infoHeight*2);
+    pPainter->drawText(QRect(topLeftExamDor,bottomRightExamDor),Qt::AlignVCenter|Qt::AlignLeft,"检验医生: "+ m_examiningdoctor);
+
+    QPoint topLeftViewDor(bottomRightExamDor.x(),topinfoy + infoHeight);
+    QPoint bottomRightViewDor(spacing_ + infoWidth*4,topinfoy + infoHeight*2);
     pPainter->drawText(QRect(topLeftViewDor,bottomRightViewDor),Qt::AlignVCenter|Qt::AlignLeft,"审核医生: "+ m_reviewdoctors);
 
     QPoint topLeftcodebar(bottomRightViewDor.x(),topinfoy + infoHeight);
@@ -596,8 +600,12 @@ void Printthereport::CreatPdfFileLayout(const QString& file_path)
     QPoint bottomRightSendDor(kPageMargin + infoWidth*2,topinfoy + infoHeight*2);
     pPainter->drawText(QRect(topLeftSendDor,bottomRightSendDor),Qt::AlignVCenter|Qt::AlignLeft, "送检医生: "+ m_refertithedoctor);
 
-    QPoint topLeftViewDor(bottomRightSendDor.x(),topinfoy + infoHeight);
-    QPoint bottomRightViewDor(kPageMargin + infoWidth*3,topinfoy + infoHeight*2);
+    QPoint topLeftExamDor(bottomRightSendDor.x(),topinfoy + infoHeight);
+    QPoint bottomRightExamDor(kPageMargin + infoWidth*3,topinfoy + infoHeight*2);
+    pPainter->drawText(QRect(topLeftExamDor,bottomRightExamDor),Qt::AlignVCenter|Qt::AlignLeft,"检验医生: "+ m_examiningdoctor);
+
+    QPoint topLeftViewDor(bottomRightExamDor.x(),topinfoy + infoHeight);
+    QPoint bottomRightViewDor(kPageMargin + infoWidth*4,topinfoy + infoHeight*2);
     pPainter->drawText(QRect(topLeftViewDor,bottomRightViewDor),Qt::AlignVCenter|Qt::AlignLeft,"审核医生: "+ m_reviewdoctors);
 
     QPoint topLeftcodebar(bottomRightViewDor.x(),topinfoy + infoHeight);
@@ -774,6 +782,7 @@ void Printthereport::initpara()
     m_sampledepartment =""; //科室
     m_samplebarcode ="";
     m_refertithedoctor =""; //送检医生
+    m_examiningdoctor =""; //检验医生
     m_reviewdoctors =""; //审核医生
     m_testReagResult.clear();
 }
@@ -827,6 +836,12 @@ void Printthereport::_setsampleBarcode(const QString barcodenum)
 void Printthereport::_setrefertithedoctor(const QString refertithedoctor)
 {
     m_refertithedoctor = refertithedoctor;
+    return;
+}
+
+void Printthereport::_setexaminingdoctor(const QString examiningdoctor)
+{
+    m_examiningdoctor = examiningdoctor;
     return;
 }
 

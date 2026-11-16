@@ -1692,6 +1692,8 @@ void QUIUtils::_writeReagPinParaDataOrder(QByteArray &bufferI, QByteArray &buffe
 
     QBitArray  funcbit(8);
     funcbit.fill(false);
+    // 与 0x18 一致：bit4 写 Flash，否则吸剂量/下针高度重启后被主板旧值覆盖
+    funcbit.setBit(4, true);
     QString fucnstr = bitArray2String(funcbit);
     QByteArray fucnbyte_ = QByteArray::fromHex(fucnstr.toLatin1());
     bufferI.push_back(fucnbyte_);
@@ -1699,7 +1701,7 @@ void QUIUtils::_writeReagPinParaDataOrder(QByteArray &bufferI, QByteArray &buffe
     // 直接写入ReagentSuck和ReagentDown的原始字节
     bufferI.append(reinterpret_cast<const char*>(ReagentSuck), 5);
     bufferI.append(reinterpret_cast<const char*>(ReagentDown), 5);
-    QLOG_DEBUG()<<"0x17缓存:"<< bufferI.toHex(' ').trimmed().toUpper()<<"leng="<< bufferI.size()<<endl;
+    QLOG_DEBUG()<<"0x17写入:"<< bufferI.toHex(' ').trimmed().toUpper()<<"leng="<< bufferI.size()<<endl;
 
     bufferII.clear();
     bufferII = QByteArray::fromHex(QString::number(MAIN_CONTROL,HEX_SWITCH).toUtf8());

@@ -102,6 +102,7 @@ private:
     QLabel *m_submissionTimeLabel;
     QLabel *m_inspectionTimeLabel;
     QLabel *m_referDoctorLabel;
+    QLabel *m_examiningDoctorLabel;  // 检验医生（登录用户）
     QLabel *m_reviewDoctorLabel;
     QLabel *m_remarkLabel;
     QFrame *m_remarkSection;

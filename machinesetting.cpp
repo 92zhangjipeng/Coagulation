@@ -288,6 +288,12 @@ void MachineSetting::_initpara()
     //初始化调光表格
     initDimmingTab(ui->tableWidget_controlChn, m_typedequipment);
     ui->tableWidget_controlChn->setTabKeyNavigation(false);
+    // SelectedClicked：回车结束后再点同一格可直接进入编辑，无需先点别处
+    ui->tableWidget_controlChn->setEditTriggers(
+                QAbstractItemView::DoubleClicked
+                | QAbstractItemView::SelectedClicked
+                | QAbstractItemView::EditKeyPressed
+                | QAbstractItemView::AnyKeyPressed);
     ui->widget_valuediaplay->hide();
 
     Instrument_configuration_channel_display(m_typedequipment); //仪器配置通道显示
@@ -2508,22 +2514,25 @@ void MachineSetting::HandsParaWriteBoard()
 
 QByteArray MachineSetting::outParaOx1aWrite(){
     quint8 FilteringMode = static_cast<quint8>(INI_File().getFilteringMode());
+    // writeDirectly=true：落 Flash（抓手负压阈值/延时、实验模式等）
     return QUIUtils::writeGripperParaDataArry(ui->spinBoxSuckAirsMax->value(),
                                         ui->spinBoxSplitAirsMin->value(),
                                         ui->spinBox_suckLatetimer->value(),
                                         FilteringMode,
                                         ui->checkBoxExperimental->isChecked(),
-                                        ui->checkBox_absorbance->isChecked(),false);
+                                        ui->checkBox_absorbance->isChecked(),
+                                        true);
 }
 
 
 void MachineSetting::configWriteDimming2Board(){
     auto& ini = INI_File();
+    // writeDirectly=true：与全量写入路径一致，调光值落 Flash
     const QByteArray arryData = QUIUtils::writeModuleDimmingVal0x1b(
            static_cast<quint16>(ini.getModuledimmingVal(MODULE_1)),
            static_cast<quint16>(ini.getModuledimmingVal(MODULE_2)),
            static_cast<quint16>(ini.getModuledimmingVal(MODULE_3)),
-           false
+           true
     );
     emit SetParatoInstrument({ arryData },"模组调光值写入主板");
 }
@@ -2652,7 +2661,7 @@ void MachineSetting::syncBloodPinUiToIni()
     ini.setPRPConvertTheratioColumn(ui->doubleSpinBox_PRPratio->value());
     ini.setPEAddSuckRatio(ui->doubleSpinBoxAddRatio->value());
     ini.SetSecurityValue(static_cast<quint8>(ui->SecurityValue_box->value()));
-    ini.SetLearnSamplevolume(static_cast<quint8>(ui->poorBlood_changliang->value()));
+    ini.SetLearnSamplevolume(ui->poorBlood_changliang->value());
     ini.SetFixedHigh(ui->FixedHighvalue->value());
     ini.SetTestDifference(ui->OffsetTestHeightValue->value());
     ini.setRefBottomDistance(ui->doubleSpinBoxBottomHeigh->value());
@@ -2724,12 +2733,13 @@ void MachineSetting::BloodPinParaWriteBoadr()
 
     // 数据打包
     QByteArray bufferq16;
+    // iswrite=true：bit4 写 Flash，否则仅 RAM，重启软件读主板又会变回旧值
     QUIUtils::_writeParaNumBloodOrder(bufferq16,
             params.paramIndex4.cleanLinqueblood,
             params.paramIndex4.suckppporprp,
             params.paramIndex4.suckairs,
             params.paramIndex4.washesTime,
-            false);
+            true);
 
     QByteArray bufferq8;
     quint8 bloodpara[10] = {
@@ -3296,9 +3306,8 @@ void MachineSetting::_initBloodpinpara()
     ui->SecurityValue_box->setValue(EmptybackValue);
 
 
-    //吸血样本的量PPP/PRP
-    quint8  bloodSampleAspirated = ini.GetLearnSamplevolume();
-    ui->poorBlood_changliang->setValue(bloodSampleAspirated);
+    //吸血样本的量PPP/PRP（界面 100~1000ul，勿用 quint8）
+    ui->poorBlood_changliang->setValue(static_cast<int>(ini.GetLearnSamplevolume()));
 
     double Differencemm =  ini.GetTestDifference();
     ui->OffsetTestHeightValue->setValue(Differencemm);
@@ -3759,6 +3768,13 @@ void MachineSetting::initDimmingTab(QTableWidget *pdimmingTable, const quint8 in
        connect(pdimmingTable, &QTableWidget::itemChanged, [=](QTableWidgetItem* item) {
            if (!item) return;
            itemChangeValue(item->row(), item->column(), item->text().toInt());
+           // 提交后清掉当前格，避免还要点别处才能再改同一格
+           QTimer::singleShot(0, pdimmingTable, [pdimmingTable]() {
+               if (!pdimmingTable)
+                   return;
+               pdimmingTable->clearSelection();
+               pdimmingTable->setCurrentItem(nullptr);
+           });
        });
        signalConnected = true;
    }
@@ -3947,6 +3963,10 @@ void MachineSetting::handleButtonAction(int moduleIndex, int column)
         try {
             QByteArray sendData = action.getData();
             emit WriteArryCommand(sendData, action.actionName);
+            // 「保存模组」同时写入主控 0x1B，无需再单独点「写入调光值」
+            if (action.requiresPause) {
+                configWriteDimming2Board();
+            }
         } catch (const std::exception& e) {
             QLOG_ERROR() << "操作执行失败:" << e.what();
         }
