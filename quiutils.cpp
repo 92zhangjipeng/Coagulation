@@ -1,4 +1,4 @@
-﻿#ifdef _MSC_VER
+#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
 #endif
 #include <qlocale.h>
@@ -2619,7 +2619,6 @@ double QUIUtils::bloody_pin_clean_deplete(int turn_)
 
 QByteArrayList QUIUtils::moveThrowCupCommands(const QPoint throwAxis,const int downHeigh)
 {
-    quint8 index = 0;
     QByteArrayList throwCupCommands;
     auto *pactive = Testing::getTaskDll();
 
@@ -2628,34 +2627,42 @@ QByteArrayList QUIUtils::moveThrowCupCommands(const QPoint throwAxis,const int d
         return throwCupCommands;
     }
 
+    // XY 前抬起三根 Z，命令号按条递增
+    allZAxisBackOrigin(throwCupCommands, 0);
+    auto nextIdx = [&]() {
+        return static_cast<quint8>(throwCupCommands.size() % 255);
+    };
+
     //执行动作前提抓手复位 抓手吸泵是吸的
-    QByteArray cmd0 = outPutHandsReset(downHeigh,GRABCUPWITHGRIPPER,index);
+    quint8 idx = nextIdx();
+    QByteArray cmd0 = outPutHandsReset(downHeigh, GRABCUPWITHGRIPPER, idx);
     if (!cmd0.isEmpty()) {
        throwCupCommands.push_back(cmd0);
     }
 
     //移动到弃杯孔位置
-    QByteArray cmd1 = pactive->DLL_XYMoveSpecifiedPosition(throwAxis,OFFSET_ZHANDS,TRAY_TESTENPTY,index);
+    QByteArray cmd1 = pactive->DLL_XYMoveSpecifiedPosition(throwAxis, OFFSET_ZHANDS, TRAY_TESTENPTY, nextIdx());
     if (!cmd1.isEmpty()) {
        throwCupCommands.push_back(cmd1);
     }
 
     //在弃杯孔下针
-    QByteArray cmd2 = pactive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,downHeigh,0, index,
+    QByteArray cmd2 = pactive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downHeigh, 0, nextIdx(),
                                false, downHeigh, false, GRABCUPWITHGRIPPER);
     if (!cmd2.isEmpty()) {
        throwCupCommands.push_back(cmd2);
     }
 
     //在弃杯孔下针 打开空气泵
-    QByteArray cmd3 = pactive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,downHeigh,0, index,
+    QByteArray cmd3 = pactive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX, downHeigh, 0, nextIdx(),
                                false, downHeigh, false, GRIPPERNORMAL);
     if (!cmd3.isEmpty()) {
        throwCupCommands.push_back(cmd3);
     }
 
     //抓手复位
-    QByteArray cmd4 = outPutHandsReset(downHeigh,GRIPPERNORMAL,index);
+    idx = nextIdx();
+    QByteArray cmd4 = outPutHandsReset(downHeigh, GRIPPERNORMAL, idx);
     if (!cmd4.isEmpty()) {
        throwCupCommands.push_back(cmd4);
     }
@@ -2667,18 +2674,44 @@ QByteArrayList QUIUtils::moveThrowCupCommands(const QPoint throwAxis,const int d
 //测试抓手抓取试杯区试管准确度
 QByteArrayList QUIUtils::testHandsCatchtubePrecise(QPoint formAxis, QPoint endAxis,int downMm )
 {
-    quint8 index = 0;
     QByteArrayList cmdList;
-    allZAxisBackOrigin(cmdList,index);
-    index = cmdList.size();
+    allZAxisBackOrigin(cmdList, 0);
+    auto nextIdx = [&]() {
+        return static_cast<quint8>(cmdList.size() % 255);
+    };
 
-    QByteArray cmd0 = outPutxyMoveAxisComd(formAxis,index);
-    QByteArray cmd1 = outPutHandsLocComd(downMm,GRABCUPWITHGRIPPER,index);
-    QByteArray cmd2 = outPutHandsReset(downMm,GRABCUPWITHGRIPPER,index);
-    QByteArray cmd3 = outPutxyMoveAxisComd(endAxis,index);
-    QByteArray cmd4 = outPutHandsLocComd(downMm,GRIPPERNORMAL,index);
-    QByteArray cmd5 = outPutHandsReset(downMm,GRIPPERNORMAL,index);
-    cmdList << cmd0 << cmd1 << cmd2 << cmd3 << cmd4 << cmd5;
+    quint8 idx = nextIdx();
+    QByteArray cmd0 = outPutxyMoveAxisComd(formAxis, idx);
+    if (!cmd0.isEmpty()) {
+        cmdList << cmd0;
+    }
+    idx = nextIdx();
+    QByteArray cmd1 = outPutHandsLocComd(downMm, GRABCUPWITHGRIPPER, idx);
+    if (!cmd1.isEmpty()) {
+        cmdList << cmd1;
+    }
+    idx = nextIdx();
+    QByteArray cmd2 = outPutHandsReset(downMm, GRABCUPWITHGRIPPER, idx);
+    if (!cmd2.isEmpty()) {
+        cmdList << cmd2;
+    }
+    // 二次 XY 前再抬三轴，避免主板联锁报针未复位
+    allZAxisBackOrigin(cmdList, static_cast<quint8>(cmdList.size() % 255));
+    idx = nextIdx();
+    QByteArray cmd3 = outPutxyMoveAxisComd(endAxis, idx);
+    if (!cmd3.isEmpty()) {
+        cmdList << cmd3;
+    }
+    idx = nextIdx();
+    QByteArray cmd4 = outPutHandsLocComd(downMm, GRIPPERNORMAL, idx);
+    if (!cmd4.isEmpty()) {
+        cmdList << cmd4;
+    }
+    idx = nextIdx();
+    QByteArray cmd5 = outPutHandsReset(downMm, GRIPPERNORMAL, idx);
+    if (!cmd5.isEmpty()) {
+        cmdList << cmd5;
+    }
     return cmdList;
 }
 
@@ -2687,34 +2720,28 @@ QByteArrayList QUIUtils::testHandsCatchtubePrecise(QPoint formAxis, QPoint endAx
 void QUIUtils::allZAxisBackOrigin(QByteArrayList &ZbackOrigin,quint8 hadsize)
 {
     int faileddownHeigh = 0;
-    quint8 currentIndex = hadsize;  // 使用当前索引，不修改原值
-    const quint8 totalArry = 3;
-
     auto *pactive = Testing::getTaskDll();
-    // 空指针检查
     if (!pactive) {
         qWarning() << "allZAxisBackOrigin: m_TaskDll is null";
         return;
     }
 
-    // 使用智能指针或QVector避免内存泄漏
-    QVector<QByteArray> commands(totalArry);
-    commands[0] = pactive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, faileddownHeigh,
-                                        TRAY_TESTCHANNEL, currentIndex, GRIPPERNORMAL);
-
-    commands[1] = pactive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, faileddownHeigh,
-                                        TRAY_TESTCHANNEL, currentIndex, GRIPPERNORMAL);
-
-    commands[2] = withGripperPump(
-                pactive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, faileddownHeigh,
-                                        TRAY_TESTCHANNEL, currentIndex, GRIPPERNORMAL),
-                GRIPPERMOVE_NORMAL);
-    for (const auto& cmd : commands) {
+    // 命令号必须递增：USB 队列按命令号匹配应答，三根轴共用同一号时
+    // 主板可能只认第一次，后续 XY 会报「样本针或试剂针未复位」。
+    auto pushReset = [&](int motor, bool withGripperPumpFlag) {
+        const quint8 idx = static_cast<quint8>((hadsize + ZbackOrigin.size()) % 255);
+        QByteArray cmd = pactive->DLL_ZAxis_Reset(motor, faileddownHeigh,
+                                                  TRAY_TESTCHANNEL, idx, GRIPPERNORMAL);
+        if (withGripperPumpFlag) {
+            cmd = withGripperPump(cmd, GRIPPERMOVE_NORMAL);
+        }
         if (!cmd.isEmpty()) {
             ZbackOrigin.push_back(cmd);
         }
-    }
-    return;
+    };
+    pushReset(MOTOR_BLOOD_INDEX, false);
+    pushReset(MOTOR_REAGNET_INDEX, false);
+    pushReset(MOTOR_HANDS_INDEX, true);
 }
 
 
@@ -2726,34 +2753,34 @@ void QUIUtils::allZAxisBackOrigin(QByteArrayList &ZbackOrigin,quint8 hadsize)
  */
 QByteArrayList QUIUtils::backZAxisandmoveOrigin(const QPoint machineOriginAxis)
 {
-    quint8 index = 0;
-    QByteArrayList  resetCommands;
+    QByteArrayList resetCommands;
     auto *pactive = Testing::getTaskDll();
     if (!pactive) {
         qWarning() << "backZAxisandmoveOrigin: m_TaskDll is null";
         return resetCommands;
     }
 
-    //执行动作前提Z复位
-    allZAxisBackOrigin(resetCommands,index);
+    //执行动作前提Z复位（命令号 0/1/2）
+    allZAxisBackOrigin(resetCommands, 0);
+    auto nextIdx = [&]() {
+        return static_cast<quint8>(resetCommands.size() % 255);
+    };
 
-    index = resetCommands.size();
-
-    // XY轴负速度模式复位（如果函数返回QByteArray）
-    QByteArray repositionCmd = pactive->_DLLXYMoveReposition_(index, MACHINEBACK_SPEED);
+    // XY轴负速度模式复位
+    QByteArray repositionCmd = pactive->_DLLXYMoveReposition_(nextIdx(), MACHINEBACK_SPEED);
     if (!repositionCmd.isEmpty()) {
         resetCommands.append(repositionCmd);
     }
 
     //走到0位
-    const QPoint moveoriginAxis(0,0);
-    QByteArray zeroAxisModeBack = pactive->DLL_XYMoveSpecifiedPosition(moveoriginAxis, 0,0,index);
+    const QPoint moveoriginAxis(0, 0);
+    QByteArray zeroAxisModeBack = pactive->DLL_XYMoveSpecifiedPosition(moveoriginAxis, 0, 0, nextIdx());
     if (!zeroAxisModeBack.isEmpty()) {
         resetCommands.append(zeroAxisModeBack);
     }
 
     // 移动到机器原点位置
-    QByteArray moveToCleanCmd = pactive->DLL_XYMoveSpecifiedPosition(machineOriginAxis, 0, 0, index);
+    QByteArray moveToCleanCmd = pactive->DLL_XYMoveSpecifiedPosition(machineOriginAxis, 0, 0, nextIdx());
     if (!moveToCleanCmd.isEmpty()) {
         resetCommands.append(moveToCleanCmd);
     }
@@ -2773,39 +2800,40 @@ QByteArrayList QUIUtils::perfusionAction(uint &back_leng,const bool enoughReagen
     quint8 bloodPinDown =   40;     //样本针开机清洗高度
     quint8 reagentPindown = 40;     //试剂针开机清洗高度
     QByteArrayList activeCommandarry;
-    allZAxisBackOrigin(activeCommandarry,0); //执行动作前提Z复位
     activeCommandarry.reserve(46);
-    quint8 num = activeCommandarry.count()%255;
+    allZAxisBackOrigin(activeCommandarry,0); //执行动作前提Z复位
     auto *pactive = Testing::getTaskDll();
-
+    auto nextNum = [&]() {
+        return static_cast<quint8>(activeCommandarry.count() % 255);
+    };
 
     auto& manager = PumpPositionManager::instance();
     auto downByPosition = [&](int motor, int downMm) {
         activeCommandarry.push_back(pactive->DLL_ZMoveSpecifiedPosition(
-                    motor, downMm, 0, num, false, downMm, false, GRIPPERNORMAL));
+                    motor, downMm, 0, nextNum(), false, downMm, false, GRIPPERNORMAL));
     };
 
-    //负速度模式复位
+    //负速度模式复位（每条命令号递增）
 	const QPoint moveoriginAxis(0,0);
-    activeCommandarry.push_back(pactive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED));
-	activeCommandarry.push_back(pactive->DLL_XYMoveSpecifiedPosition(moveoriginAxis, 0,0,num));
-    activeCommandarry.push_back(pactive->DLL_XYMoveSpecifiedPosition(Originaxis,0,0,num));
+    activeCommandarry.push_back(pactive->_DLLXYMoveReposition_(nextNum(),MACHINEBACK_SPEED));
+	activeCommandarry.push_back(pactive->DLL_XYMoveSpecifiedPosition(moveoriginAxis, 0,0,nextNum()));
+    activeCommandarry.push_back(pactive->DLL_XYMoveSpecifiedPosition(Originaxis,0,0,nextNum()));
 
     //样本针位置模式下针到灌注高度
     downByPosition(MOTOR_BLOOD_INDEX, bloodPinDown);
 
     // ===== 样本针（大泵）动作序列 =====
     // 1. 下针，大泵吐空（移动到0）
-    activeCommandarry.push_back(pactive->BigBenActive(false,pumpBackOrigin,num,DIS_WASHES_PUMPS,0));
+    activeCommandarry.push_back(pactive->BigBenActive(false,pumpBackOrigin,nextNum(),DIS_WASHES_PUMPS,0));
     manager.setSamplePumpLoc(pumpBackOrigin);   // 更新大泵位置为0
 
     //样本针复位
-    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
 
 
     // 2. 复位Z后，大泵吸满（移动到 benfull * INIT_CLEAN_RATIO）
     int targetFull = pumpfull * INIT_CLEAN_RATIO;
-    activeCommandarry.push_back(pactive->BigBenActive(true, targetFull, num, DIS_WASHES_PUMPS,0));
+    activeCommandarry.push_back(pactive->BigBenActive(true, targetFull, nextNum(), DIS_WASHES_PUMPS,0));
     manager.setSamplePumpLoc(targetFull);
 
     //样本针再次位置模式下针
@@ -2813,13 +2841,13 @@ QByteArrayList QUIUtils::perfusionAction(uint &back_leng,const bool enoughReagen
 
 
     // 3. 再次下针，大泵吐空（回到0）并清洗
-    activeCommandarry.push_back(pactive->BigBenActive(false,pumpBackOrigin,num,WASHES_PUMPS,cleantime));
+    activeCommandarry.push_back(pactive->BigBenActive(false,pumpBackOrigin,nextNum(),WASHES_PUMPS,cleantime));
     manager.setSamplePumpLoc(pumpBackOrigin);
 
     //样本针复位
-    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
 
-    activeCommandarry.push_back(pactive->BigBenActive(true,BACK_SUCKAIRS,num,DIS_WASHES_PUMPS,cleantime));
+    activeCommandarry.push_back(pactive->BigBenActive(true,BACK_SUCKAIRS,nextNum(),DIS_WASHES_PUMPS,cleantime));
     manager.setSamplePumpLoc(BACK_SUCKAIRS); //灌注完成后回到BACK_SUCKAIRS的位置
 
 
@@ -2827,25 +2855,25 @@ QByteArrayList QUIUtils::perfusionAction(uint &back_leng,const bool enoughReagen
     downByPosition(MOTOR_REAGNET_INDEX, reagentPindown);
 
     // 1. 小泵吐空（移动到0）
-    activeCommandarry.push_back(pactive->SmallBenActive(false,pumpBackOrigin,DIS_WASHES_PUMPS,num,0));
+    activeCommandarry.push_back(pactive->SmallBenActive(false,pumpBackOrigin,DIS_WASHES_PUMPS,nextNum(),0));
     manager.setReagentPumpLoc(pumpBackOrigin);
 
-    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false));
+    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,nextNum(),false));
 
     // 2. 小泵吸满（移动到 benfull）
-    activeCommandarry.push_back(pactive->SmallBenActive(true,pumpfull,DIS_WASHES_PUMPS,num,0));
+    activeCommandarry.push_back(pactive->SmallBenActive(true,pumpfull,DIS_WASHES_PUMPS,nextNum(),0));
     manager.setReagentPumpLoc(pumpfull);
 
 
     downByPosition(MOTOR_REAGNET_INDEX, reagentPindown);
 
     // 3. 下针，小泵吐空并清洗（移动到0）
-    activeCommandarry.push_back(pactive->SmallBenActive(false,pumpBackOrigin,WASHES_PUMPS,num,cleantime));
+    activeCommandarry.push_back(pactive->SmallBenActive(false,pumpBackOrigin,WASHES_PUMPS,nextNum(),cleantime));
     manager.setReagentPumpLoc(pumpBackOrigin);
 
-    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false));
+    activeCommandarry.push_back(pactive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,nextNum(),false));
 
-    activeCommandarry.push_back(pactive->SmallBenActive(true,SMALL_BEN_INHALE_ARI,DIS_WASHES_PUMPS,num,0));
+    activeCommandarry.push_back(pactive->SmallBenActive(true,SMALL_BEN_INHALE_ARI,DIS_WASHES_PUMPS,nextNum(),0));
     manager.setReagentPumpLoc(SMALL_BEN_INHALE_ARI);//小泵灌注 再到720位置
 
 
@@ -2860,8 +2888,6 @@ QByteArrayList QUIUtils::perfusionAction(uint &back_leng,const bool enoughReagen
 
 void QUIUtils::_Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_,int down_)
 {
-    quint8 index = 0;
-
     auto *pactive = Testing::getTaskDll();
     // 空指针检查
     if (!pactive) {
@@ -2870,26 +2896,27 @@ void QUIUtils::_Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_,int dow
     }
 
     // 执行动作前提Z复位
-    allZAxisBackOrigin(ZbackOrigin, index);
-
-    index = ZbackOrigin.size();
+    allZAxisBackOrigin(ZbackOrigin, static_cast<quint8>(ZbackOrigin.size() % 255));
+    auto nextIdx = [&]() {
+        return static_cast<quint8>(ZbackOrigin.size() % 255);
+    };
 
     // XY移动到样本针试剂位置
-    QByteArray cmd1 = pactive->DLL_XYMoveSpecifiedPosition(loc_, 0, 0, index);
+    QByteArray cmd1 = pactive->DLL_XYMoveSpecifiedPosition(loc_, 0, 0, nextIdx());
     if (!cmd1.isEmpty()) {
         ZbackOrigin.push_back(cmd1);
     }
 
     // 样本针Z轴移动到指定位置
     QByteArray cmd2 = pactive->DLL_ZMoveSpecifiedPosition(
-        MOTOR_BLOOD_INDEX, down_, 0, index, false, down_, false, GRIPPERNORMAL);
+        MOTOR_BLOOD_INDEX, down_, 0, nextIdx(), false, down_, false, GRIPPERNORMAL);
     if (!cmd2.isEmpty()) {
         ZbackOrigin.push_back(cmd2);
     }
 
     // 试剂针Z轴移动到指定位置
     QByteArray cmd3 = pactive->DLL_ZMoveSpecifiedPosition(
-        MOTOR_REAGNET_INDEX, down_, 0, index, false, down_, false, GRIPPERNORMAL);
+        MOTOR_REAGNET_INDEX, down_, 0, nextIdx(), false, down_, false, GRIPPERNORMAL);
     if (!cmd3.isEmpty()) {
         ZbackOrigin.push_back(cmd3);
     }
@@ -2901,20 +2928,29 @@ QByteArrayList QUIUtils::TargCleanLinqueHole(const quint8 indexPin,const int dow
                                              const QPoint axis,const bool isSucking)
 {
     QByteArrayList outputArry;
-    quint8 index = 0;
-    allZAxisBackOrigin(outputArry, index);
-    index = outputArry.size();
+    allZAxisBackOrigin(outputArry, 0);
+    auto nextIdx = [&]() {
+        return static_cast<quint8>(outputArry.size() % 255);
+    };
 
-    QByteArray cmd3 = outPutxyMoveAxisComd(axis,index);
+    quint8 idx = nextIdx();
+    QByteArray cmd3 = outPutxyMoveAxisComd(axis, idx);
+    if (!cmd3.isEmpty()) {
+        outputArry << cmd3;
+    }
+    idx = nextIdx();
     QByteArray cmd4;
-    if(MOTOR_BLOOD_INDEX  == indexPin)
-        cmd4 = outPutBloodPinLocComd(downHeigh,index);
-    else if(MOTOR_REAGNET_INDEX == indexPin)
-        cmd4 = outPutReagentPinLocComd(downHeigh,index);
-    else if(MOTOR_HANDS_INDEX == indexPin)
-        cmd4 = outPutHandsLocComd(downHeigh,isSucking,index);
-    outputArry <<cmd3 << cmd4;
-    return  outputArry;
+    if (MOTOR_BLOOD_INDEX == indexPin) {
+        cmd4 = outPutBloodPinLocComd(downHeigh, idx);
+    } else if (MOTOR_REAGNET_INDEX == indexPin) {
+        cmd4 = outPutReagentPinLocComd(downHeigh, idx);
+    } else if (MOTOR_HANDS_INDEX == indexPin) {
+        cmd4 = outPutHandsLocComd(downHeigh, isSucking, idx);
+    }
+    if (!cmd4.isEmpty()) {
+        outputArry << cmd4;
+    }
+    return outputArry;
 }
 
 
@@ -3107,8 +3143,13 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
     const bool reagentWashReady = washPosReadyForNeedleDown(
                 CleanReagOffReagnetPin, machineOriginAxis, "试剂针");
     if (reagentWashReady) {
-        // 血样针已复位。XY 相对试剂针，走到试剂针自己的清洗剂 S1 位置。
+        // 去试剂针清洗位前再抬双针：主板联锁要求两针 Z 已复位，
+        // 刚洗完样本针时只抬了血样针，否则 XY 会报针未复位。
         quint8 num = nextNum();
+        staged.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, 0, num, false));
+        num = nextNum();
+        staged.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+        num = nextNum();
         staged.push_back(pActive->DLL_XYMoveSpecifiedPosition(
                              CleanReagOffReagnetPin, ReagentNeddle, 0, num));
         quint8 s1Detect = 0;
@@ -3137,7 +3178,12 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
     }
 
     {
+        // 回清洗池吐液前确保双针已抬起，再 XY
         quint8 num = nextNum();
+        staged.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, 0, num, false));
+        num = nextNum();
+        staged.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+        num = nextNum();
         staged.push_back(pActive->DLL_XYMoveSpecifiedPosition(machineOriginAxis, 0, 0, num));
         num = nextNum();
         staged.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, CLEANING_DOWNHIGN, 0, num, false,
@@ -3231,8 +3277,12 @@ void QUIUtils::CleanBloodPinActionCommd(int HadPorjects,QByteArrayList &CleanAct
         QLOG_ERROR() << QString::fromUtf8("血样针清洗位无效，已跳过吸清洗液下针，请标定清洗位");
     }
 
-    // XY移动到清洗池（原点）吐液
+    // XY移动到清洗池（原点）吐液前再抬双针
     quint8 num = static_cast<quint8>(CleanActionarry.count() % 255);
+    CleanActionarry.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+    num = static_cast<quint8>(CleanActionarry.count() % 255);
+    CleanActionarry.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, 0, num, false));
+    num = static_cast<quint8>(CleanActionarry.count() % 255);
     CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanAxis, 0, 0, num));
     num = static_cast<quint8>(CleanActionarry.count() % 255);
     CleanActionarry.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, CLEANING_DOWNHIGN, 0, num,
@@ -3289,6 +3339,16 @@ void QUIUtils::CleanReagentsPinActionCommd(QVector<QByteArray> &CleanActionarry)
    int cleanSteps = static_cast<int>(washReagPinVol * (SMALL_BEN_RATIO * maxRatio) + current.reagentPumpLoc);
 
    const int washtime = INI_File().getWashesTime();
+   // XY 前抬起样本针/试剂针/抓手三轴，避免主板报针未复位
+   {
+       QByteArrayList zReset;
+       allZAxisBackOrigin(zReset, static_cast<quint8>(CleanActionarry.count() % 255));
+       for (const QByteArray &cmd : zReset) {
+           if (!cmd.isEmpty()) {
+               CleanActionarry.push_back(cmd);
+           }
+       }
+   }
    quint8 num = 0;
    if (washPosReadyForNeedleDown(CleanReagOffReagnetPin, CleanAxis, "试剂针")) {
        num = static_cast<quint8>(CleanActionarry.count() % 255);
@@ -3309,6 +3369,11 @@ void QUIUtils::CleanReagentsPinActionCommd(QVector<QByteArray> &CleanActionarry)
    } else {
        QLOG_ERROR() << QString::fromUtf8("试剂针清洗位无效，已跳过吸清洗液下针，请标定清洗位");
    }
+   // 回清洗池吐液前再抬双针
+   num = static_cast<quint8>(CleanActionarry.count() % 255);
+   CleanActionarry.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+   num = static_cast<quint8>(CleanActionarry.count() % 255);
+   CleanActionarry.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, 0, num, false));
    num = static_cast<quint8>(CleanActionarry.count() % 255);
    CleanActionarry.push_back(pActive->DLL_XYMoveSpecifiedPosition(CleanAxis, 0, 0, num));
    num = static_cast<quint8>(CleanActionarry.count() % 255);
@@ -4146,28 +4211,46 @@ void QUIUtils::initequipmentgrabcups(quint8 index_equipment,QByteArrayList &_thr
 
 
     // 4. 预分配列表容量，减少动态扩容
-    constexpr int COMMANDS_PER_CHANNEL = 6;
-    constexpr int EXTRA_COMMANDS = 3;
+    constexpr int COMMANDS_PER_CHANNEL = 10;
+    constexpr int EXTRA_COMMANDS = 6;
     const int expectedSize = totalChannel * COMMANDS_PER_CHANNEL + EXTRA_COMMANDS;
     _throwthecups.reserve(expectedSize);
 
+    // 开机丢杯前先抬三轴，再允许 XY
+    allZAxisBackOrigin(_throwthecups, 0);
 
     // 5. 遍历每个通道，生成命令序列
     for (quint8 ch = 0; ch < totalChannel; ++ch) {
-        // 命令索引：基于当前列表长度取模（与原始逻辑完全一致）
-        quint8 cmdIndex = static_cast<quint8>(_throwthecups.size() % 255);
-
         // 获取该通道的抓杯位置
         QPoint channelAxis;
         SingletonAxis::chnZoneAxisPos(READ_OPERRAT, ch, MOTOR_HANDS_INDEX, channelAxis);
 
         const int handsDownHeight = static_cast<int>(ini._gethandsdownheiht(ch));
 
-        cmdIndex = static_cast<quint8>(_throwthecups.size() % 255);
+        // 主板联锁：每次 XY 前样本针/试剂针须已复位
+        QVector<QByteArray> needleReset;
+        appendBloodReagentNeedleResetBeforeGripperXy(needleReset,
+                                                     static_cast<quint8>(_throwthecups.size() % 255));
+        for (const QByteArray &cmd : needleReset) {
+            if (!cmd.isEmpty()) {
+                _throwthecups.append(cmd);
+            }
+        }
+        quint8 cmdIndex = static_cast<quint8>(_throwthecups.size() % 255);
         _throwthecups.append(pActive->DLL_XYMoveSpecifiedPosition(channelAxis, MOTOR_HANDS_INDEX, 0, cmdIndex));
         QVector<QByteArray> grabSteps;
-        appendGripperDescendThenVacuumHold(grabSteps, handsDownHeight, bRepeatGrabCup, cmdIndex);
+        quint8 suckBack = 0;
+        appendGripperDescendThenVacuumHold(grabSteps, handsDownHeight, bRepeatGrabCup, suckBack,
+                                           static_cast<quint8>(_throwthecups.size() % 255));
         for (const QByteArray &cmd : grabSteps) {
+            if (!cmd.isEmpty()) {
+                _throwthecups.append(cmd);
+            }
+        }
+        needleReset.clear();
+        appendBloodReagentNeedleResetBeforeGripperXy(needleReset,
+                                                     static_cast<quint8>(_throwthecups.size() % 255));
+        for (const QByteArray &cmd : needleReset) {
             if (!cmd.isEmpty()) {
                 _throwthecups.append(cmd);
             }
@@ -4176,7 +4259,8 @@ void QUIUtils::initequipmentgrabcups(quint8 index_equipment,QByteArrayList &_thr
         _throwthecups.append(pActive->DLL_XYMoveSpecifiedPosition(throwAxis, 0, 0, throwIdx));
         QVector<QByteArray> throwSteps;
         quint8 splitIdx = 0;
-        appendGripperDescendThenVacuumRelease(throwSteps, throwCupsHeight, splitIdx);
+        appendGripperDescendThenVacuumRelease(throwSteps, throwCupsHeight, splitIdx,
+                                              static_cast<quint8>(_throwthecups.size() % 255));
         for (const QByteArray &cmd : throwSteps) {
             if (!cmd.isEmpty()) {
                 _throwthecups.append(cmd);
@@ -4187,10 +4271,12 @@ void QUIUtils::initequipmentgrabcups(quint8 index_equipment,QByteArrayList &_thr
    // 6. 添加全局复位命令（XY 轴回到零点并执行回位动作）
    QPoint cleanAxis;
    SingletonAxis::originPos(READ_OPERRAT, cleanAxis);
+   allZAxisBackOrigin(_throwthecups, static_cast<quint8>(_throwthecups.size() % 255));
    quint8 finalIndex = static_cast<quint8>(_throwthecups.size() % 255);
-
    _throwthecups.append(pActive->DLL_XYMoveSpecifiedPosition(cleanAxis, 0, 0, finalIndex));
+   finalIndex = static_cast<quint8>(_throwthecups.size() % 255);
    _throwthecups.append(pActive->_DLLXYMoveReposition_(finalIndex, MACHINEBACK_SPEED));
+   finalIndex = static_cast<quint8>(_throwthecups.size() % 255);
    _throwthecups.append(pActive->DLL_XYMoveSpecifiedPosition(cleanAxis, 0, 0, finalIndex));
 }
 
@@ -4228,9 +4314,12 @@ void QUIUtils::appendThrowCupsForChannels(const QList<quint8> &channels1Based, Q
     }
     QPoint cleanAxis;
     SingletonAxis::originPos(READ_OPERRAT, cleanAxis);
+    allZAxisBackOrigin(outList, static_cast<quint8>(outList.size() % 255));
     quint8 finalIndex = static_cast<quint8>(outList.size() % 255);
     outList.append(pActive->DLL_XYMoveSpecifiedPosition(cleanAxis, 0, 0, finalIndex));
+    finalIndex = static_cast<quint8>(outList.size() % 255);
     outList.append(pActive->_DLLXYMoveReposition_(finalIndex, MACHINEBACK_SPEED));
+    finalIndex = static_cast<quint8>(outList.size() % 255);
     outList.append(pActive->DLL_XYMoveSpecifiedPosition(cleanAxis, 0, 0, finalIndex));
 }
 
@@ -4258,15 +4347,17 @@ void QUIUtils::appendGripperDescendThenOpenVacuum(QVector<QByteArray> &outarry,
     if (!pActive || downMm <= 0) {
         return;
     }
-    quint8 idx = static_cast<quint8>(outarry.size() % 255);
+    auto nextIdx = [&]() {
+        return static_cast<quint8>(outarry.size() % 255);
+    };
     outarry.push_back(withGripperPump(pActive->DLL_ZMoveSpecifiedPosition(
-                          MOTOR_HANDS_INDEX, downMm, 0, idx, false, downMm, false, GRIPPERNORMAL),
+                          MOTOR_HANDS_INDEX, downMm, 0, nextIdx(), false, downMm, false, GRIPPERNORMAL),
                       GRIPPERMOVE_NORMAL));
     outarry.push_back(withGripperPump(pActive->DLL_ZMoveSpecifiedPosition(
-                          MOTOR_HANDS_INDEX, downMm, 0, idx, false, downMm, bRepeatGrabCup, GRABCUPWITHGRIPPER),
+                          MOTOR_HANDS_INDEX, downMm, 0, nextIdx(), false, downMm, bRepeatGrabCup, GRABCUPWITHGRIPPER),
                       GRIPPERMOVE_ABNORMALLY));
     outarry.push_back(withGripperPump(pActive->DLL_ZMoveSpecifiedPosition(
-                          MOTOR_HANDS_INDEX, downMm, 0, idx, false, downMm, bRepeatGrabCup, GRABCUPWITHGRIPPER),
+                          MOTOR_HANDS_INDEX, downMm, 0, nextIdx(), false, downMm, bRepeatGrabCup, GRABCUPWITHGRIPPER),
                       GRIPPERMOVE_ABNORMALLY));
 }
 
@@ -4742,29 +4833,31 @@ void QUIUtils::qualitysucksampleact(QPoint suckSampleAxis,QPoint splitSampleAxis
 
     // 先把三轴抬起来，再走XY。后面由质控按回包逐条发送。
     allZAxisBackOrigin(outdataList, outdataList.size());
-    quint8 num = static_cast<quint8>(outdataList.count() % 255);
+    auto nextNum = [&]() {
+        return static_cast<quint8>(outdataList.count() % 255);
+    };
 
-    outdataList.push_back(pActive->DLL_XYMoveSpecifiedPosition(suckSampleAxis, 0, 0, num));
-    outdataList.push_back(pActive->BigBenActive(true,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
+    outdataList.push_back(pActive->DLL_XYMoveSpecifiedPosition(suckSampleAxis, 0, 0, nextNum()));
+    outdataList.push_back(pActive->BigBenActive(true, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
     quint8 detectIndex = 0;
     quint8 fallbackIndex = 0;
     appendDetectThenFallback(outdataList, MOTOR_BLOOD_INDEX, LeveldetectionFailed,
                              detectIndex, fallbackIndex);
     Q_UNUSED(detectIndex);
     Q_UNUSED(fallbackIndex);
-    num = static_cast<quint8>(outdataList.count() % 255);
     //吸贫血量 + 空气量
     int suck_ul = suckmiter * proportionalValue + BIG_BEN_INHALE_ARI;
-    outdataList.push_back(pActive->BigBenActive(true,suck_ul,num,DIS_WASHES_PUMPS,0)); //吸样量
-    outdataList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false)); //样本针复位
+    outdataList.push_back(pActive->BigBenActive(true, suck_ul, nextNum(), DIS_WASHES_PUMPS, 0)); //吸样量
+    outdataList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false)); //样本针复位
 
-
-    outdataList.push_back(pActive->DLL_XYMoveSpecifiedPosition(splitSampleAxis, 0, 0, num));
-    outdataList.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,testTubeDownHigh,0,num,false,
-                                                                testTubeDownHigh,false,GRIPPERNORMAL));
-    int spit_ul =  BIG_BEN_INHALE_ARI/2; //吐出贫血剩一半空气
-    outdataList.push_back(pActive->BigBenActive(false,spit_ul,num,DIS_WASHES_PUMPS,0));
-    outdataList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false)); //样本针复位
+    // 吐样 XY 前再抬三轴
+    allZAxisBackOrigin(outdataList, static_cast<quint8>(outdataList.size() % 255));
+    outdataList.push_back(pActive->DLL_XYMoveSpecifiedPosition(splitSampleAxis, 0, 0, nextNum()));
+    outdataList.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, testTubeDownHigh, 0, nextNum(), false,
+                                                                testTubeDownHigh, false, GRIPPERNORMAL));
+    int spit_ul = BIG_BEN_INHALE_ARI / 2; //吐出贫血剩一半空气
+    outdataList.push_back(pActive->BigBenActive(false, spit_ul, nextNum(), DIS_WASHES_PUMPS, 0));
+    outdataList.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false)); //样本针复位
 }
 
 
@@ -4799,7 +4892,9 @@ QByteArrayList QUIUtils::_controltestbloodpindownheigh(int  index_,int down_mm)
     out_directives.clear();
     auto* pActive = Testing::getTaskDll();
     allZAxisBackOrigin(out_directives,out_directives.size());//先Z轴复位
-    quint8  num_ = out_directives.count()%255; /*命令下标*/
+    auto nextNum = [&]() {
+        return static_cast<quint8>(out_directives.count() % 255);
+    };
     if(index_ == BLOODPINDOWNHEIGH)
     {
         //样本针下降高度
@@ -4811,47 +4906,47 @@ QByteArrayList QUIUtils::_controltestbloodpindownheigh(int  index_,int down_mm)
         SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,5,MOTOR_BLOOD_INDEX,topright_);
         SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,54,MOTOR_BLOOD_INDEX,bottomleft_);
         SingletonAxis::GetInstance()->testTaryZoneAxisPos(READ_OPERRAT,59,MOTOR_BLOOD_INDEX,bottmright_);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topleft_,0,0,num_));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topleft_,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,
-                                                                                num_,false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
+                                                                                nextNum(),false,down_mm,false,GRIPPERNORMAL));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topright_,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topright_,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottomleft_,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,num_,
-                                                                                false,down_mm,false,GRIPPERNORMAL));
-
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
-
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottmright_,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottomleft_,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
 
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
+
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottmright_,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,nextNum(),
+                                                                                false,down_mm,false,GRIPPERNORMAL));
+
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
     }
     else if(BLOODPINDOWNHEIGH_CLEANLINQUEFAILED == index_)
     {
         //样本针液面探测失败下降高度(清洗液)
         QPoint cleanzoneoffBloodNedl(0,0);
         SingletonAxis::GetInstance()->cleanZoneAxisPos(READ_OPERRAT,MOTOR_BLOOD_INDEX ,cleanzoneoffBloodNedl);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(cleanzoneoffBloodNedl,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,num_,false,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(cleanzoneoffBloodNedl,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,nextNum(),false,
                                                                                 down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
     }
     else if(BLOODPINDOWNHEIGH_SERUMMODEL == index_)
     {
         //样本针血浆模式下针高度
         QPoint bloodSamplePos(0,0);
         SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,1,bloodSamplePos);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bloodSamplePos,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bloodSamplePos,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
 
     }
     else if(BLOODPINDOWNHEIGH_ANEMIALINQUEFAILED == index_)
@@ -4859,16 +4954,16 @@ QByteArrayList QUIUtils::_controltestbloodpindownheigh(int  index_,int down_mm)
         //样本针液面探测失败下降高度(贫血)
         QPoint bloodSamplePos(0,0);
         SingletonAxis::GetInstance()->bloodSampleZonePos(READ_OPERRAT,0,bloodSamplePos);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bloodSamplePos,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bloodSamplePos,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,nextNum(),false));
 
     }
     QPoint _getoriginpos(0,0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,_getoriginpos);
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, num_));
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_getoriginpos,0,0, num_));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, nextNum()));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_getoriginpos,0,0, nextNum()));
     return out_directives;
 }
 
@@ -4878,38 +4973,40 @@ QByteArrayList QUIUtils::_controlReagpindownheih(int index_,int down_mm)
     out_directives.clear();
     auto* pActive = Testing::getTaskDll();
     allZAxisBackOrigin(out_directives,out_directives.size());     //先Z轴复位
-    quint8  num_ = out_directives.count()%255;                           /*命令下标*/
+    auto nextNum = [&]() {
+        return static_cast<quint8>(out_directives.count() % 255);
+    };
     if(index_ == REAGPIN_CLEANLINQUE_DOWN)
     {
         QPoint cleanzoneoffreagpin(0,0);
         SingletonAxis::GetInstance()->cleanZoneAxisPos(READ_OPERRAT,MOTOR_REAGNET_INDEX ,cleanzoneoffreagpin);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(cleanzoneoffreagpin,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(cleanzoneoffreagpin,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,nextNum(),false));
     }
     else if(index_ == REAGPIN_REAGLINQUE_FAILEDDOWN)
     {
         QPoint reagpinoffsetreagloc(0,0);
         SingletonAxis::GetInstance()->reagetZoneAxisPos(READ_OPERRAT,0 ,reagpinoffsetreagloc);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(reagpinoffsetreagloc,0,0,num_));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(reagpinoffsetreagloc,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,down_mm,0,
-                                                                                num_,false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num_,false));
+                                                                                nextNum(),false,down_mm,false,GRIPPERNORMAL));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,nextNum(),false));
     }
     else if(index_ >= REAGPIN_DOWNHEIGH_IN_AA && index_ <= REAGPIN_DOWNHEIGH_IN_RIS)
     {
         QPoint chnPos(0,0);
         SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT, 0 ,MOTOR_REAGNET_INDEX,chnPos);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(chnPos,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(chnPos,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_REAGNET_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,nextNum(),false));
     }
     QPoint _getoriginpos(0,0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,_getoriginpos);
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, num_));
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_getoriginpos,0,0, num_));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, nextNum()));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_getoriginpos,0,0, nextNum()));
     return out_directives;
 }
 
@@ -4919,17 +5016,19 @@ QByteArrayList QUIUtils::_controlHandsdowntest(int index_,int down_mm)
     out_directives.clear();
     auto *pActive = Testing::getTaskDll();
     allZAxisBackOrigin(out_directives,out_directives.size());     //先Z轴复位
-    quint8  num_ = out_directives.count()%255;                           /*命令下标*/
+    auto nextNum = [&]() {
+        return static_cast<quint8>(out_directives.count() % 255);
+    };
     QPoint throwcuphole(0,0);
     SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT,throwcuphole);
     uint throwbak_y = std::abs(throwcuphole.y() - PUTTUBEMOVE);
     QPoint throwHolePos(throwcuphole.x(),throwbak_y);
     if(index_ == HANDSDOWN_THROWCUP)
     {
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,nextNum(),false));
     }
     else if(index_ >= HANDSDOWN_TRAYTUBE_1 && index_ <= HANDSDOWN_TRAYTUBE_4)
     {
@@ -4975,67 +5074,67 @@ QByteArrayList QUIUtils::_controlHandsdowntest(int index_,int down_mm)
         }
 
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topleft_,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topleft_,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,nextNum(),
                                     false,down_mm,false,GRABCUPWITHGRIPPER));
 
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num_,false));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,num_));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,nextNum(),false));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),
-                                                                                0,num_,false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
+                                                                                0,nextNum(),false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, num_,false));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, nextNum(),false));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topright_,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,num_,
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(topright_,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,nextNum(),
                                                                                 false,down_mm,false,GRABCUPWITHGRIPPER));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num_,false));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,num_));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,nextNum(),false));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),
-                                                                                0,num_,false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, num_));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, num_,false));
+                                                                                0,nextNum(),false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, nextNum()));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, nextNum(),false));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottomleft_,0,0,num_));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottomleft_,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,
-                                                                                num_,false,down_mm,false,GRABCUPWITHGRIPPER));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num_,false));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,num_));
+                                                                                nextNum(),false,down_mm,false,GRABCUPWITHGRIPPER));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,nextNum(),false));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),
-                                                                                0,num_,false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, num_));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, num_,false));
+                                                                                0,nextNum(),false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, nextNum()));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, nextNum(),false));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottmright_,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,num_,false,down_mm,false,GRABCUPWITHGRIPPER));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num_,false));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,num_));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(bottmright_,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,nextNum(),false,down_mm,false,GRABCUPWITHGRIPPER));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,nextNum(),false));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),
-                            0,num_,false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, num_));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, num_,false));
+                            0,nextNum(),false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, nextNum()));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, nextNum(),false));
     }
     else if(index_ >= HANDSDOWN_CHN_1 && index_ <= HANDSDOWN_CHN_12)
     {
         QPoint _chnpos(0,0);
         int chn_ = index_ - HANDSDOWN_CHN_1;
         SingletonAxis::GetInstance()->chnZoneAxisPos(READ_OPERRAT,chn_,MOTOR_HANDS_INDEX,_chnpos);
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_chnpos,0,0,num_));
-        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,num_,false,down_mm,false,GRABCUPWITHGRIPPER));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num_,false));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_chnpos,0,0,nextNum()));
+        out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,down_mm,0,nextNum(),false,down_mm,false,GRABCUPWITHGRIPPER));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,nextNum(),false));
 
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,num_));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwcuphole,0,0,nextNum()));
         out_directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),
-                                                                                0,num_,false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
-        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, num_));
-        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, num_,false));
+                                                                                0,nextNum(),false,INI_File()._gethandsdownthrowcpus(),false,GRIPPERNORMAL));
+        out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwHolePos,0,0, nextNum()));
+        out_directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,INI_File()._gethandsdownthrowcpus(),0, nextNum(),false));
     }
 
     QPoint _getoriginpos(0,0);
     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,_getoriginpos);
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, num_));
-    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_getoriginpos,0,0, num_));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(QPoint(0,0),0,0, nextNum()));
+    out_directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(_getoriginpos,0,0, nextNum()));
     return out_directives;
 }
 
@@ -5082,39 +5181,41 @@ void QUIUtils::controlPEAddBasicLinque(QByteArrayList &directives,const QPoint &
 
     //先Z轴复位
     allZAxisBackOrigin(directives,directives.size());
-    quint8  num = directives.count()%255;
-
+    auto nextNum = [&]() {
+        return static_cast<quint8>(directives.count() % 255);
+    };
 
     auto addLinqueStep = [&](int volume, const QPoint &targetAxis,const QPoint &originAxis) {
-         directives.append(pActive->DLL_XYMoveSpecifiedPosition(suckAxis, 0, 0, num));
-         directives.push_back(pActive->BigBenActive(true,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
+         allZAxisBackOrigin(directives, static_cast<quint8>(directives.size() % 255));
+         directives.append(pActive->DLL_XYMoveSpecifiedPosition(suckAxis, 0, 0, nextNum()));
+         directives.push_back(pActive->BigBenActive(true, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
          quint8 detectIndex = 0;
          quint8 fallbackIndex = 0;
          appendDetectThenFallback(directives, MOTOR_BLOOD_INDEX, failRetractHeight,
                                   detectIndex, fallbackIndex);
          Q_UNUSED(detectIndex);
          Q_UNUSED(fallbackIndex);
-         num = static_cast<quint8>(directives.count() % 255);
-         directives.push_back(pActive->BigBenActive(true,volume,num,DIS_WASHES_PUMPS,0));
-         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+         directives.push_back(pActive->BigBenActive(true, volume, nextNum(), DIS_WASHES_PUMPS, 0));
+         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
-
-         directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetAxis,0,0,num));
+         allZAxisBackOrigin(directives, static_cast<quint8>(directives.size() % 255));
+         directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetAxis, 0, 0, nextNum()));
          directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,
-                                                                  tubeDownHeight,0,
-                                                                  num,false,tubeDownHeight,
-                                                                  false,GRIPPERNORMAL));
-         directives.push_back(pActive->BigBenActive(false,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
-         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+                                                                  tubeDownHeight, 0,
+                                                                  nextNum(), false, tubeDownHeight,
+                                                                  false, GRIPPERNORMAL));
+         directives.push_back(pActive->BigBenActive(false, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
+         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
          //移动到原点把剩余液体和试剂吐掉
-         directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         directives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED));
-         directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
-                                                                    false,downOriginMM,false,GRIPPERNORMAL));
-         directives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));
-         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+         allZAxisBackOrigin(directives, static_cast<quint8>(directives.size() % 255));
+         directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis, 0, 0, nextNum()));
+         directives.push_back(pActive->_DLLXYMoveReposition_(nextNum(), MACHINEBACK_SPEED));
+         directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis, 0, 0, nextNum()));
+         directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, downOriginMM, 0, nextNum(),
+                                                                    false, downOriginMM, false, GRIPPERNORMAL));
+         directives.push_back(pActive->BigBenActive(false, 0, nextNum(), DIS_WASHES_PUMPS, 0));
+         directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
     };
 
@@ -5177,67 +5278,71 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
     const int  tubeDownHeight = static_cast<int>(ini.GetEmptyTubeDownHigh());
 
     allZAxisBackOrigin(outDirectives,outDirectives.size());//先Z轴复位
-    quint8  num = outDirectives.count()%255;
+    auto nextNum = [&]() {
+        return static_cast<quint8>(outDirectives.count() % 255);
+    };
 
-    outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(suckWaterAxis,0,0,num));
-    outDirectives.push_back(pActive->BigBenActive(true,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
+    outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(suckWaterAxis, 0, 0, nextNum()));
+    outDirectives.push_back(pActive->BigBenActive(true, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
     quint8 waterDetect = 0;
     quint8 waterFallback = 0;
     appendDetectThenFallback(outDirectives, MOTOR_BLOOD_INDEX, failTestDownHeight,
                              waterDetect, waterFallback);
     Q_UNUSED(waterDetect);
     Q_UNUSED(waterFallback);
-    num = static_cast<quint8>(outDirectives.count() % 255);
-    outDirectives.push_back(pActive->BigBenActive(true,suckWaterBasic,num,DIS_WASHES_PUMPS,0));
-    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false)); //样本针复位
+    outDirectives.push_back(pActive->BigBenActive(true, suckWaterBasic, nextNum(), DIS_WASHES_PUMPS, 0));
+    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false)); //样本针复位
 
-    outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(splitWaterAxis,0,0,num));
-    outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,tubeDownHeight,0,
-                                                                 num,false,tubeDownHeight,false,GRIPPERNORMAL));
-    outDirectives.push_back(pActive->BigBenActive(false,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
-    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false)); //样本针复位
+    allZAxisBackOrigin(outDirectives, static_cast<quint8>(outDirectives.size() % 255));
+    outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(splitWaterAxis, 0, 0, nextNum()));
+    outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, tubeDownHeight, 0,
+                                                                 nextNum(), false, tubeDownHeight, false, GRIPPERNORMAL));
+    outDirectives.push_back(pActive->BigBenActive(false, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
+    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false)); //样本针复位
 
-	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
-    outDirectives.push_back(pActive->_DLLXYMoveReposition_(num, MACHINEBACK_SPEED));
-	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
+    allZAxisBackOrigin(outDirectives, static_cast<quint8>(outDirectives.size() % 255));
+	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, nextNum()));
+    outDirectives.push_back(pActive->_DLLXYMoveReposition_(nextNum(), MACHINEBACK_SPEED));
+	outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, nextNum()));
 
-    outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
-                                                               false,downOriginMM,false,GRIPPERNORMAL));
-	outDirectives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));
-    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+    outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, downOriginMM, 0, nextNum(),
+                                                               false, downOriginMM, false, GRIPPERNORMAL));
+	outDirectives.push_back(pActive->BigBenActive(false, 0, nextNum(), DIS_WASHES_PUMPS, 0));
+    outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
 
     auto addLinqueStep = [&](int volume, const QPoint &targetAxis ,const QPoint &originAxis) {
-         outDirectives.append(pActive->DLL_XYMoveSpecifiedPosition(suckWaterAxis, 0, 0, num));
-         outDirectives.push_back(pActive->BigBenActive(true,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
+         allZAxisBackOrigin(outDirectives, static_cast<quint8>(outDirectives.size() % 255));
+         outDirectives.append(pActive->DLL_XYMoveSpecifiedPosition(suckWaterAxis, 0, 0, nextNum()));
+         outDirectives.push_back(pActive->BigBenActive(true, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
          quint8 detectIndex = 0;
          quint8 fallbackIndex = 0;
          appendDetectThenFallback(outDirectives, MOTOR_BLOOD_INDEX, failTestDownHeight,
                                   detectIndex, fallbackIndex);
          Q_UNUSED(detectIndex);
          Q_UNUSED(fallbackIndex);
-         num = static_cast<quint8>(outDirectives.count() % 255);
-         outDirectives.push_back(pActive->BigBenActive(true,volume,num,DIS_WASHES_PUMPS,0));
-         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+         outDirectives.push_back(pActive->BigBenActive(true, volume, nextNum(), DIS_WASHES_PUMPS, 0));
+         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
-
-         outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetAxis,0,0,num));
+         allZAxisBackOrigin(outDirectives, static_cast<quint8>(outDirectives.size() % 255));
+         outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetAxis, 0, 0, nextNum()));
          outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,
-                                                                  tubeDownHeight,0,
-                                                                  num,false,tubeDownHeight,
-                                                                  false,GRIPPERNORMAL));
-         outDirectives.push_back(pActive->BigBenActive(false,BIG_BEN_INHALE_ARI,num,DIS_WASHES_PUMPS,0));
-         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+                                                                  tubeDownHeight, 0,
+                                                                  nextNum(), false, tubeDownHeight,
+                                                                  false, GRIPPERNORMAL));
+         outDirectives.push_back(pActive->BigBenActive(false, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
+         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
          //移动到原点把剩余液体和试剂吐掉
-         outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
-         outDirectives.push_back(pActive->_DLLXYMoveReposition_(num,MACHINEBACK_SPEED));
-         outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis,0,0,num));
+         allZAxisBackOrigin(outDirectives, static_cast<quint8>(outDirectives.size() % 255));
+         outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis, 0, 0, nextNum()));
+         outDirectives.push_back(pActive->_DLLXYMoveReposition_(nextNum(), MACHINEBACK_SPEED));
+         outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originAxis, 0, 0, nextNum()));
 
-         outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX,downOriginMM,0,num,
-                                                                    false,downOriginMM,false,GRIPPERNORMAL));
-         outDirectives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));//吐干净
-         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0,num,false));
+         outDirectives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, downOriginMM, 0, nextNum(),
+                                                                    false, downOriginMM, false, GRIPPERNORMAL));
+         outDirectives.push_back(pActive->BigBenActive(false, 0, nextNum(), DIS_WASHES_PUMPS, 0));//吐干净
+         outDirectives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
     };
     addLinqueStep(suckWaterAddHeighVal,  PEHeighValAxis,originLoc);
     addLinqueStep(suckWaterAddMidVal, PEMidValAxis,originLoc);
@@ -5270,36 +5375,40 @@ void QUIUtils::peTransferFiveBloodHolesToTray(QByteArrayList &directives,
     static const double kBaseAmount[5] = {200.0, 200.0, 50.0, 100.0, 150.0};
 
     allZAxisBackOrigin(directives, directives.size());
-    quint8 num = directives.count() % 255;
+    auto nextNum = [&]() {
+        return static_cast<quint8>(directives.count() % 255);
+    };
 
     auto transferOnce = [&](const QPoint &suckAxis, const QPoint &targetAxis, double baseAmount) {
         const int volume = static_cast<int>(baseAmount * pppRatio + BIG_BEN_INHALE_ARI
                                             + baseAmount * pppRatio * addSuckRatio);
-        directives.append(pActive->DLL_XYMoveSpecifiedPosition(suckAxis, 0, 0, num));
-        directives.push_back(pActive->BigBenActive(true, BIG_BEN_INHALE_ARI, num, DIS_WASHES_PUMPS, 0));
+        allZAxisBackOrigin(directives, static_cast<quint8>(directives.size() % 255));
+        directives.append(pActive->DLL_XYMoveSpecifiedPosition(suckAxis, 0, 0, nextNum()));
+        directives.push_back(pActive->BigBenActive(true, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
         quint8 detectIndex = 0;
         quint8 fallbackIndex = 0;
         appendDetectThenFallback(directives, MOTOR_BLOOD_INDEX, failRetractHeight,
                                  detectIndex, fallbackIndex);
         Q_UNUSED(detectIndex);
         Q_UNUSED(fallbackIndex);
-        num = static_cast<quint8>(directives.count() % 255);
-        directives.push_back(pActive->BigBenActive(true, volume, num, DIS_WASHES_PUMPS, 0));
-        directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+        directives.push_back(pActive->BigBenActive(true, volume, nextNum(), DIS_WASHES_PUMPS, 0));
+        directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
-        directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetAxis, 0, 0, num));
+        allZAxisBackOrigin(directives, static_cast<quint8>(directives.size() % 255));
+        directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(targetAxis, 0, 0, nextNum()));
         directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, tubeDownHeight, 0,
-                                                                 num, false, tubeDownHeight, false, GRIPPERNORMAL));
-        directives.push_back(pActive->BigBenActive(false, BIG_BEN_INHALE_ARI, num, DIS_WASHES_PUMPS, 0));
-        directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+                                                                 nextNum(), false, tubeDownHeight, false, GRIPPERNORMAL));
+        directives.push_back(pActive->BigBenActive(false, BIG_BEN_INHALE_ARI, nextNum(), DIS_WASHES_PUMPS, 0));
+        directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
 
-        directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
-        directives.push_back(pActive->_DLLXYMoveReposition_(num, MACHINEBACK_SPEED));
-        directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, num));
-        directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, downOriginMM, 0, num,
+        allZAxisBackOrigin(directives, static_cast<quint8>(directives.size() % 255));
+        directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, nextNum()));
+        directives.push_back(pActive->_DLLXYMoveReposition_(nextNum(), MACHINEBACK_SPEED));
+        directives.push_back(pActive->DLL_XYMoveSpecifiedPosition(originLoc, 0, 0, nextNum()));
+        directives.push_back(pActive->DLL_ZMoveSpecifiedPosition(MOTOR_BLOOD_INDEX, downOriginMM, 0, nextNum(),
                                                                false, downOriginMM, false, GRIPPERNORMAL));
-        directives.push_back(pActive->BigBenActive(false, 0, num, DIS_WASHES_PUMPS, 0));
-        directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, num, false));
+        directives.push_back(pActive->BigBenActive(false, 0, nextNum(), DIS_WASHES_PUMPS, 0));
+        directives.push_back(pActive->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, nextNum(), false));
     };
 
     for (int i = 0; i < 5; ++i) {

@@ -1421,17 +1421,30 @@ QByteArrayList GlobalData::letallAxisBackOrigin(QList<quint8> &backnumList){
      backnumList.clear();
      outdataCommand.reserve(5);
      backnumList.reserve(5);
-     QPoint nativeOrigin(0,0);
-     quint8 num = 0;
-     backnumList<<0<<1<<2<<3<<4;
-     outdataCommand.push_back(QUIUtils::withGripperPump(
-                 pActivestu->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX,0,0,num,false),
-                 GRIPPERMOVE_NORMAL));
-     outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX,0,0,num,false));
-     outdataCommand.push_back(pActivestu->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX,0,0, num,false));
-     outdataCommand.push_back(pActivestu->DLL_XYMoveSpecifiedPosition(nativeOrigin,0,0,num));
-     SingletonAxis::GetInstance()->originPos(READ_OPERRAT,nativeOrigin);
-     outdataCommand.push_back(pActivestu->DLL_XYMoveSpecifiedPosition(nativeOrigin,0,0,num));
+     QPoint nativeOrigin(0, 0);
+     SingletonAxis::GetInstance()->originPos(READ_OPERRAT, nativeOrigin);
+
+     // 命令号必须互不相同，否则应答匹配错乱，XY 会报针未复位
+     auto pushResetOrXy = [&](const QByteArray &cmd) {
+         if (cmd.isEmpty()) {
+             return;
+         }
+         backnumList.push_back(static_cast<quint8>(outdataCommand.size() % 255));
+         outdataCommand.push_back(cmd);
+     };
+
+     quint8 n = static_cast<quint8>(outdataCommand.size() % 255);
+     pushResetOrXy(QUIUtils::withGripperPump(
+                       pActivestu->DLL_ZAxis_Reset(MOTOR_HANDS_INDEX, 0, 0, n, false),
+                       GRIPPERMOVE_NORMAL));
+     n = static_cast<quint8>(outdataCommand.size() % 255);
+     pushResetOrXy(pActivestu->DLL_ZAxis_Reset(MOTOR_REAGNET_INDEX, 0, 0, n, false));
+     n = static_cast<quint8>(outdataCommand.size() % 255);
+     pushResetOrXy(pActivestu->DLL_ZAxis_Reset(MOTOR_BLOOD_INDEX, 0, 0, n, false));
+     n = static_cast<quint8>(outdataCommand.size() % 255);
+     pushResetOrXy(pActivestu->DLL_XYMoveSpecifiedPosition(QPoint(0, 0), 0, 0, n));
+     n = static_cast<quint8>(outdataCommand.size() % 255);
+     pushResetOrXy(pActivestu->DLL_XYMoveSpecifiedPosition(nativeOrigin, 0, 0, n));
      return outdataCommand;
 }
 
