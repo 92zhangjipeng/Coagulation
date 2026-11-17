@@ -1,4 +1,4 @@
-#ifdef _MSC_VER
+﻿#ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
 #endif
 #include <qlocale.h>
@@ -2629,8 +2629,10 @@ QByteArrayList QUIUtils::moveThrowCupCommands(const QPoint throwAxis,const int d
 
     // XY 前抬起三根 Z，命令号按条递增
     allZAxisBackOrigin(throwCupCommands, 0);
-    auto nextIdx = [&]() {
-        return static_cast<quint8>(throwCupCommands.size() % 255);
+    quint8 cmdNum = 0;
+    auto nextIdx = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(throwCupCommands.size() % 255);
+        return cmdNum;
     };
 
     //执行动作前提抓手复位 抓手吸泵是吸的
@@ -2676,8 +2678,10 @@ QByteArrayList QUIUtils::testHandsCatchtubePrecise(QPoint formAxis, QPoint endAx
 {
     QByteArrayList cmdList;
     allZAxisBackOrigin(cmdList, 0);
-    auto nextIdx = [&]() {
-        return static_cast<quint8>(cmdList.size() % 255);
+    quint8 cmdNum = 0;
+    auto nextIdx = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(cmdList.size() % 255);
+        return cmdNum;
     };
 
     quint8 idx = nextIdx();
@@ -2729,7 +2733,7 @@ void QUIUtils::allZAxisBackOrigin(QByteArrayList &ZbackOrigin,quint8 hadsize)
     // 命令号必须递增：USB 队列按命令号匹配应答，三根轴共用同一号时
     // 主板可能只认第一次，后续 XY 会报「样本针或试剂针未复位」。
     auto pushReset = [&](int motor, bool withGripperPumpFlag) {
-        const quint8 idx = static_cast<quint8>((hadsize + ZbackOrigin.size()) % 255);
+        quint8 idx = static_cast<quint8>((hadsize + ZbackOrigin.size()) % 255);
         QByteArray cmd = pactive->DLL_ZAxis_Reset(motor, faileddownHeigh,
                                                   TRAY_TESTCHANNEL, idx, GRIPPERNORMAL);
         if (withGripperPumpFlag) {
@@ -2762,8 +2766,10 @@ QByteArrayList QUIUtils::backZAxisandmoveOrigin(const QPoint machineOriginAxis)
 
     //执行动作前提Z复位（命令号 0/1/2）
     allZAxisBackOrigin(resetCommands, 0);
-    auto nextIdx = [&]() {
-        return static_cast<quint8>(resetCommands.size() % 255);
+    quint8 cmdNum = 0;
+    auto nextIdx = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(resetCommands.size() % 255);
+        return cmdNum;
     };
 
     // XY轴负速度模式复位
@@ -2803,8 +2809,10 @@ QByteArrayList QUIUtils::perfusionAction(uint &back_leng,const bool enoughReagen
     activeCommandarry.reserve(46);
     allZAxisBackOrigin(activeCommandarry,0); //执行动作前提Z复位
     auto *pactive = Testing::getTaskDll();
-    auto nextNum = [&]() {
-        return static_cast<quint8>(activeCommandarry.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(activeCommandarry.count() % 255);
+        return cmdNum;
     };
 
     auto& manager = PumpPositionManager::instance();
@@ -2897,8 +2905,10 @@ void QUIUtils::_Locatetheorigin(QByteArrayList &ZbackOrigin, QPoint loc_,int dow
 
     // 执行动作前提Z复位
     allZAxisBackOrigin(ZbackOrigin, static_cast<quint8>(ZbackOrigin.size() % 255));
-    auto nextIdx = [&]() {
-        return static_cast<quint8>(ZbackOrigin.size() % 255);
+    quint8 cmdNum = 0;
+    auto nextIdx = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(ZbackOrigin.size() % 255);
+        return cmdNum;
     };
 
     // XY移动到样本针试剂位置
@@ -2929,8 +2939,10 @@ QByteArrayList QUIUtils::TargCleanLinqueHole(const quint8 indexPin,const int dow
 {
     QByteArrayList outputArry;
     allZAxisBackOrigin(outputArry, 0);
-    auto nextIdx = [&]() {
-        return static_cast<quint8>(outputArry.size() % 255);
+    quint8 cmdNum = 0;
+    auto nextIdx = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(outputArry.size() % 255);
+        return cmdNum;
     };
 
     quint8 idx = nextIdx();
@@ -3105,8 +3117,10 @@ void QUIUtils::cleaningDoubleNeedleAction(QByteArrayList &CleanActionarry,int re
     const quint8 indexBase = static_cast<quint8>(CleanActionarry.size() % 255);
     //先Z轴全部复位开始。编号接着已有指令排，避免和探测命令撞号。
     allZAxisBackOrigin(staged, indexBase);
-    auto nextNum = [&]() {
-        return static_cast<quint8>((indexBase + staged.count()) % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>((indexBase + staged.count()) % 255);
+        return cmdNum;
     };
 
     QLOG_DEBUG() << QString::fromUtf8("双针清洗 原点") << machineOriginAxis
@@ -4347,8 +4361,10 @@ void QUIUtils::appendGripperDescendThenOpenVacuum(QVector<QByteArray> &outarry,
     if (!pActive || downMm <= 0) {
         return;
     }
-    auto nextIdx = [&]() {
-        return static_cast<quint8>(outarry.size() % 255);
+    quint8 cmdNum = 0;
+    auto nextIdx = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(outarry.size() % 255);
+        return cmdNum;
     };
     outarry.push_back(withGripperPump(pActive->DLL_ZMoveSpecifiedPosition(
                           MOTOR_HANDS_INDEX, downMm, 0, nextIdx(), false, downMm, false, GRIPPERNORMAL),
@@ -4833,8 +4849,10 @@ void QUIUtils::qualitysucksampleact(QPoint suckSampleAxis,QPoint splitSampleAxis
 
     // 先把三轴抬起来，再走XY。后面由质控按回包逐条发送。
     allZAxisBackOrigin(outdataList, outdataList.size());
-    auto nextNum = [&]() {
-        return static_cast<quint8>(outdataList.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(outdataList.count() % 255);
+        return cmdNum;
     };
 
     outdataList.push_back(pActive->DLL_XYMoveSpecifiedPosition(suckSampleAxis, 0, 0, nextNum()));
@@ -4892,8 +4910,10 @@ QByteArrayList QUIUtils::_controltestbloodpindownheigh(int  index_,int down_mm)
     out_directives.clear();
     auto* pActive = Testing::getTaskDll();
     allZAxisBackOrigin(out_directives,out_directives.size());//先Z轴复位
-    auto nextNum = [&]() {
-        return static_cast<quint8>(out_directives.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(out_directives.count() % 255);
+        return cmdNum;
     };
     if(index_ == BLOODPINDOWNHEIGH)
     {
@@ -4973,8 +4993,10 @@ QByteArrayList QUIUtils::_controlReagpindownheih(int index_,int down_mm)
     out_directives.clear();
     auto* pActive = Testing::getTaskDll();
     allZAxisBackOrigin(out_directives,out_directives.size());     //先Z轴复位
-    auto nextNum = [&]() {
-        return static_cast<quint8>(out_directives.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(out_directives.count() % 255);
+        return cmdNum;
     };
     if(index_ == REAGPIN_CLEANLINQUE_DOWN)
     {
@@ -5016,8 +5038,10 @@ QByteArrayList QUIUtils::_controlHandsdowntest(int index_,int down_mm)
     out_directives.clear();
     auto *pActive = Testing::getTaskDll();
     allZAxisBackOrigin(out_directives,out_directives.size());     //先Z轴复位
-    auto nextNum = [&]() {
-        return static_cast<quint8>(out_directives.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(out_directives.count() % 255);
+        return cmdNum;
     };
     QPoint throwcuphole(0,0);
     SingletonAxis::GetInstance()->throwTubeHolePos(READ_OPERRAT,throwcuphole);
@@ -5181,8 +5205,10 @@ void QUIUtils::controlPEAddBasicLinque(QByteArrayList &directives,const QPoint &
 
     //先Z轴复位
     allZAxisBackOrigin(directives,directives.size());
-    auto nextNum = [&]() {
-        return static_cast<quint8>(directives.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(directives.count() % 255);
+        return cmdNum;
     };
 
     auto addLinqueStep = [&](int volume, const QPoint &targetAxis,const QPoint &originAxis) {
@@ -5278,8 +5304,10 @@ void QUIUtils::testPEWaterSuckSplit(QByteArrayList &outDirectives,const QPoint &
     const int  tubeDownHeight = static_cast<int>(ini.GetEmptyTubeDownHigh());
 
     allZAxisBackOrigin(outDirectives,outDirectives.size());//先Z轴复位
-    auto nextNum = [&]() {
-        return static_cast<quint8>(outDirectives.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(outDirectives.count() % 255);
+        return cmdNum;
     };
 
     outDirectives.push_back(pActive->DLL_XYMoveSpecifiedPosition(suckWaterAxis, 0, 0, nextNum()));
@@ -5375,8 +5403,10 @@ void QUIUtils::peTransferFiveBloodHolesToTray(QByteArrayList &directives,
     static const double kBaseAmount[5] = {200.0, 200.0, 50.0, 100.0, 150.0};
 
     allZAxisBackOrigin(directives, directives.size());
-    auto nextNum = [&]() {
-        return static_cast<quint8>(directives.count() % 255);
+    quint8 cmdNum = 0;
+    auto nextNum = [&]() -> quint8& {
+        cmdNum = static_cast<quint8>(directives.count() % 255);
+        return cmdNum;
     };
 
     auto transferOnce = [&](const QPoint &suckAxis, const QPoint &targetAxis, double baseAmount) {
