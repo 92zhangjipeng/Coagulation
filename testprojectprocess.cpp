@@ -4071,6 +4071,19 @@ void TestProjectProcess::releaseSampleChannel(int sampleId, bool flashAsError)
 
 bool TestProjectProcess::startPendingContinueReagent()
 {
+    auto *instance = StructInstance::getInstance();
+    // 当前焦点正在弃杯/夹杯时不要抢走焦点，否则通道杯子会留着永远丢不掉
+    if (instance && instance->sampleHadFocus() && m_focus_sample_id > 0) {
+        const quint8 curFocus = instance->read_focusSampleActive(m_focus_sample_id);
+        if (isFinishedThrowFocus(curFocus)
+                || curFocus == FOCUS_THORW_ANEMIA
+                || curFocus == FOCUS_CLIP_ANEMIA_TO_CHN) {
+            QLOG_WARN() << "样本" << m_focus_sample_id
+                        << "正在" << focusActionText(curFocus)
+                        << "，继续吸试剂队列暂不调度";
+            return false;
+        }
+    }
     while (!m_pendingContinueReagent.isEmpty()) {
         const int sampleId = m_pendingContinueReagent.dequeue();
         if (beginNextReagentForSample(sampleId)) {
@@ -4158,13 +4171,18 @@ void TestProjectProcess::resumeTestingAfterReagentPause(bool hasFocus)
     m_continueAfterReagentHome = false;
     mbackOriginnumList.clear();
     m_gripperRestartAwait = GripperRestartNone;
+    // 暂停期间拦住的指令先挪出来；若当前焦点是弃杯/夹杯等，必须先刷回去，
+    // 不能直接 clear（样本3：弃AA首令被耗材暂停拦住，恢复后队列被清掉又去吸下一份试剂）。
+    const QByteArrayList pausedCmds = m_pauseCommandQueue;
     m_pauseCommandQueue.clear();
     m_outstandingAcks = 0;
     disarmAckWatchdog();
     cglobal::g_PauseTesting.store(false);
     emit requestPauseUiSync(false);
     logTestFsmInfo(QStringLiteral("resume_after_consumable"),
-                   tr("样本焦点=%1").arg(hasFocus ? m_focus_sample_id : 0));
+                   tr("样本焦点=%1 暂停队列=%2")
+                       .arg(hasFocus ? m_focus_sample_id : 0)
+                       .arg(pausedCmds.size()));
 
     m_holdReagentPause = true;
     if (hasFocus) {
@@ -4181,7 +4199,58 @@ void TestProjectProcess::resumeTestingAfterReagentPause(bool hasFocus)
             m_holdReagentPause = false;
             return;
         }
+
+        const bool armMotionFocus =
+                isFinishedThrowFocus(focusNow)
+                || focusNow == FOCUS_THORW_ANEMIA
+                || focusNow == FOCUS_CLIP_ANEMIA_TO_CHN
+                || focusNow == FOCUS_SPIT_AA_TESTING
+                || focusNow == FOCUS_SPIT_ADP_TESTING
+                || focusNow == FOCUS_SPIT_EPI_TESTING
+                || focusNow == FOCUS_SPIT_COL_TESTING
+                || focusNow == FOCUS_SPIT_RIS_TESTING
+                || focusNow == FOCUS_TESTING_AA
+                || focusNow == FOCUS_TESTING_ADP
+                || focusNow == FOCUS_TESTING_EPI
+                || focusNow == FOCUS_TESTING_COL
+                || focusNow == FOCUS_TESTING_RIS
+                || focusNow == FOCUS_ADDING_SAMPLE;
+        if (armMotionFocus) {
+            if (!pausedCmds.isEmpty()) {
+                m_pauseCommandQueue = pausedCmds;
+                logTestFsmInfo(QStringLiteral("resume_flush_arm"),
+                               tr("先发当前焦点暂停指令 队列=%1").arg(m_pauseCommandQueue.size()));
+                flushPauseQueue(tr("更换耗材后继续发送暂停期间拦住的指令"));
+                m_holdReagentPause = false;
+                return;
+            }
+            if (isFinishedThrowFocus(focusNow)) {
+                static const QMap<quint8, quint8> throwReagentMap = {
+                    {FOCUS_THROW_AA_TUBE,  AA_REAGENT},
+                    {FOCUS_THROW_ADP_TUBE, ADP_REAGENT},
+                    {FOCUS_THROW_EPI_TUBE, EPI_REAGENT},
+                    {FOCUS_THROW_COL_TUBE, COL_REAGENT},
+                    {FOCUS_THROW_RIS_TUBE, RIS_REAGENT}
+                };
+                const quint8 reagent = throwReagentMap.value(focusNow, 0);
+                if (reagent != 0
+                        && restartThrowReagentAfterHome(
+                               reagent, tr("更换耗材后继续弃测试杯"))) {
+                    m_holdReagentPause = false;
+                    return;
+                }
+            }
+            exceptionRetest(tr("更换耗材后继续当前动作"));
+            m_holdReagentPause = false;
+            return;
+        }
+    } else if (!pausedCmds.isEmpty()) {
+        m_pauseCommandQueue = pausedCmds;
+        flushPauseQueue(tr("更换耗材后继续发送暂停期间拦住的指令"));
+        m_holdReagentPause = false;
+        return;
     }
+
     m_pendingPrpReread = false;
     m_waitingPrpRead = false;
     ++m_prpMotionEpoch;
@@ -4206,7 +4275,10 @@ void TestProjectProcess::noteCommandsSent(int count)
         return;
     }
     m_outstandingAcks += count;
-    logTestFsmInfo(QStringLiteral("ack_sent"), tr("+%1 -> %2").arg(count).arg(m_outstandingAcks));
+    // 逐步应答不再打 INFO，避免加样/抓杯刷屏；需要时开 DEBUG 看
+    QLOG_DEBUG() << "[TestFsm]" << "ack_sent"
+                 << "sample" << m_focus_sample_id
+                 << "+" << count << "->" << m_outstandingAcks;
     armAckWatchdog();
 }
 
@@ -4215,7 +4287,9 @@ void TestProjectProcess::noteAckReceived()
     if (m_outstandingAcks > 0) {
         --m_outstandingAcks;
     }
-    logTestFsmInfo(QStringLiteral("ack_recv"), tr("-> %1").arg(m_outstandingAcks));
+    QLOG_DEBUG() << "[TestFsm]" << "ack_recv"
+                 << "sample" << m_focus_sample_id
+                 << "->" << m_outstandingAcks;
     if (m_outstandingAcks > 0 || m_waitingPppRead || m_waitingPrpRead) {
         armAckWatchdog();
     } else {
