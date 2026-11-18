@@ -238,6 +238,7 @@ private:
     static constexpr size_t kMaxChannels = MACHINE_SETTING_CHANNEL;
     bool mOpenChnTest[MACHINE_SETTING_CHANNEL] = {};  ///< 通道是否处于测试中
     quint32 m_openChnGeneration[MACHINE_SETTING_CHANNEL] = {};   ///< 打开采数代次，用于作废迟到的 2s 定时器
+    mutable QMutex m_channelStateMutex;       ///< 保护开测/COL/滤波秒状态跨线程读写
 
     // -------------------------------------------------------------------------
     // [4] COL 试剂专用：跳过前 n 个数据点

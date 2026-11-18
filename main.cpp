@@ -17,6 +17,7 @@
 #include <new>
 #include "mainwindow.h"
 #include "operclass/fullyautomatedplatelets.h"
+#include <cstdio>
 #include <cstdlib>
 #include "Lib\VLD_SDK\vld.h"
 
@@ -210,6 +211,28 @@ public:
 	Logger* logger() const { return m_logger; }
 };
 
+#ifdef Q_OS_WIN
+static QtMessageHandler s_prevQtMessageHandler = nullptr;
+
+static void coagulationQtMessageHandler(QtMsgType type,
+										const QMessageLogContext &context,
+										const QString &msg)
+{
+	if (type == QtFatalMsg) {
+		CCreateDump::ForceWriteMiniDump(nullptr);
+	}
+	if (s_prevQtMessageHandler) {
+		s_prevQtMessageHandler(type, context, msg);
+	} else {
+		fprintf(stderr, "%s\n", msg.toLocal8Bit().constData());
+		fflush(stderr);
+	}
+	if (type == QtFatalMsg) {
+		_exit(3);
+	}
+}
+#endif
+
 // 崩溃处理初始化器
 class CrashHandler {
 public:
@@ -324,11 +347,20 @@ public:
 		}
 
 #ifdef Q_OS_WIN
+		// 日志系统之后再挂，避免被其它 qInstallMessageHandler 覆盖后丢 QtFatal 转储
+		CCreateDump::Instance()->ReinstallFilter();
+		s_prevQtMessageHandler = qInstallMessageHandler(coagulationQtMessageHandler);
 		{
 			const wchar_t* dumpDir = CCreateDump::Instance()->dumpDirectory();
 			if (dumpDir && dumpDir[0] != L'\0') {
 				QLOG_INFO() << QString::fromUtf8("崩溃转储目录:")
 							<< QString::fromWCharArray(dumpDir);
+				QLOG_INFO() << QString::fromUtf8(
+					"闪退时将在此目录生成 Coagulation_时间.dmp；"
+					"若目录存在 _dump_ready.txt 说明启动时已可写。");
+			} else {
+				QLOG_ERROR() << QString::fromUtf8(
+					"崩溃转储目录初始化失败，闪退时可能无法生成 .dmp");
 			}
 		}
 #endif

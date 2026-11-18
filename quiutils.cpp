@@ -4345,12 +4345,20 @@ void QUIUtils::appendBloodReagentNeedleResetBeforeGripperXy(QVector<QByteArray> 
     if (!pActive) {
         return;
     }
-    auto pushReset = [&](int motor) {
+    // 应答超时后可能停在半空：重建抓手流程时先抬抓手再抬双针，再发 XY，避免卡联锁或残留下位。
+    auto pushReset = [&](int motor, bool withPump) {
         quint8 idx = static_cast<quint8>((cmdIndexBase + outarry.size()) % 255);
-        outarry.push_back(pActive->DLL_ZAxis_Reset(motor, 0, 0, idx, false));
+        QByteArray cmd = pActive->DLL_ZAxis_Reset(motor, 0, 0, idx, false);
+        if (withPump) {
+            cmd = withGripperPump(cmd, GRIPPERMOVE_NORMAL);
+        }
+        if (!cmd.isEmpty()) {
+            outarry.push_back(cmd);
+        }
     };
-    pushReset(MOTOR_REAGNET_INDEX);
-    pushReset(MOTOR_BLOOD_INDEX);
+    pushReset(MOTOR_HANDS_INDEX, true);
+    pushReset(MOTOR_REAGNET_INDEX, false);
+    pushReset(MOTOR_BLOOD_INDEX, false);
 }
 
 void QUIUtils::appendGripperDescendThenOpenVacuum(QVector<QByteArray> &outarry,

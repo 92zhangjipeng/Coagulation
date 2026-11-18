@@ -6,6 +6,7 @@
 #pragma once
 #include <QObject>
 #include <QMutex>
+#include <QSet>
 #include <mutex>
 #include <atomic>
 #include <functional>
@@ -145,6 +146,13 @@ public:
 
     //删除一整个测试样本包括通道数据
     void onetestend_del(int indexSample);
+    /** 样本动作链表仍有未完成项时延后删除，避免清洗/丢杯应答 UAF；force=true 用于放弃样本 */
+    bool onetestend_del_safe(int indexSample, bool force = false);
+    /** 尝试删掉此前延后的样本；清洗/丢杯完成后调用 */
+    void flushDeferredSampleDeletes();
+    bool sampleHasPendingActionCommands(int sampleId) const;
+    /** 通道表登记的测试样本号，0 表示未绑定 */
+    int channelBoundSampleId(quint8 indexChn) const;
 
     void clearSampleDataByNumber(DATASAMPLESTRUCT& data, int targetSample);
     void safeRemoveSampleFromContainer(DataSampleList &container, int target);
@@ -189,6 +197,8 @@ public:
 
     //设置样本测试通道
     void setTestingChn(const int focuSampleID, const quint8 indexchn );
+    /** 释放通道占用时同步清掉样本上的 indexTestingChn，避免残留绑错采数/丢杯 */
+    void clearSampleTestingChannelIndex(int sampleId);
 
     //放弃样本输出未测试的试管号 + 试管标记已使用
     void labelCancelTubes(const int sampleid,QList<quint8> &outCancelTube);
@@ -568,6 +578,9 @@ private:
     bool m_throwAwaitingReleaseRead = false;
     int m_gripperWaitMs = 0;
     QVector<int> m_lisReadySamples;
+    QSet<int> m_deferredDeleteSampleIds;
+
+    DATASAMPLESTRUCT *findSampleBoundToChannelUnlocked(quint8 indexChn);
 
     enum GripperGrabReadPhase {
         GrabReadIdle = 0,

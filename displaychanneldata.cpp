@@ -99,6 +99,13 @@ QVector<double> cascadeMedianEWMA(const QVector<double>& data)
 double getFinalOptimalValue(const QVector<double>& rawData)
 {
     QVector<double> filtered = cascadeMedianEWMA(rawData);
+    if (filtered.isEmpty()) {
+        return 0.0;
+    }
+    // 开测后前几秒桶内可能只有 1 个点；原先 size-2 会负索引写坏堆。
+    if (filtered.size() == 1) {
+        return filtered.first();
+    }
 
     // 1. 计算末端信噪比(SNR)
     double noisePower = 0.0;
@@ -539,10 +546,13 @@ void displayChanneldata::slotStopChannelAcquisition(quint8 channelIdx)
     if (channelIdx >= MACHINE_SETTING_CHANNEL) {
         return;
     }
-    mOpenChnTest[channelIdx] = false;
-    ++m_openChnGeneration[channelIdx];
-    m_channelInColMode[channelIdx] = false;
-    m_colSkipRawCount[channelIdx] = 0;
+    {
+        QMutexLocker locker(&m_channelStateMutex);
+        mOpenChnTest[channelIdx] = false;
+        ++m_openChnGeneration[channelIdx];
+        m_channelInColMode[channelIdx] = false;
+        m_colSkipRawCount[channelIdx] = 0;
+    }
     QLOG_WARN() << "通道" << channelIdx + 1 << "停止采数";
 }
 
@@ -559,9 +569,12 @@ void displayChanneldata::tryOpenChannelAcquisition(quint8 openChn, quint32 openG
     if (openChn >= MACHINE_SETTING_CHANNEL) {
         return;
     }
-    if (openGeneration != m_openChnGeneration[openChn]) {
-        QLOG_DEBUG() << "通道" << openChn + 1 << "延时打开已作废";
-        return;
+    {
+        QMutexLocker locker(&m_channelStateMutex);
+        if (openGeneration != m_openChnGeneration[openChn]) {
+            QLOG_DEBUG() << "通道" << openChn + 1 << "延时打开已作废";
+            return;
+        }
     }
     if (!cglobal::gserialConnecStatus.load() || m_offlineHoldReads) {
         QPointer<displayChanneldata> guard(this);
@@ -572,7 +585,14 @@ void displayChanneldata::tryOpenChannelAcquisition(quint8 openChn, quint32 openG
         });
         return;
     }
-    mOpenChnTest[openChn] = true;
+    {
+        QMutexLocker locker(&m_channelStateMutex);
+        if (openGeneration != m_openChnGeneration[openChn]) {
+            QLOG_DEBUG() << "通道" << openChn + 1 << "延时打开已作废";
+            return;
+        }
+        mOpenChnTest[openChn] = true;
+    }
     QLOG_INFO() << "[TestChn] acquisition_open chn" << (openChn + 1);
 }
 
@@ -729,8 +749,11 @@ void displayChanneldata::outPutModuleTestData()
     // 设备暂停只停机械臂调度，已在反应的通道继续采数、算聚集率
     constexpr auto kMaxChannels = MACHINE_SETTING_CHANNEL;
     for (int channelIdx = 0; channelIdx < kMaxChannels; ++channelIdx) {
-        if (!mOpenChnTest[channelIdx]) {
-            continue;
+        {
+            QMutexLocker locker(&m_channelStateMutex);
+            if (!mOpenChnTest[channelIdx]) {
+                continue;
+            }
         }
         processChannelData(channelIdx);
     }
@@ -797,12 +820,15 @@ void displayChanneldata::calculationFormula(const QString& sampleNum,
     }
 
     // ---------- COL 试剂丢弃前 n 个数据点 ----------
-    if (isCOLReagent(reagentIndex) && m_channelInColMode[chnIndex]) {
-        m_colSkipRawCount[chnIndex]++;
-        if (m_colSkipRawCount[chnIndex] <= m_testColJumpEmptyData) {
-            QLOG_DEBUG() << "COL 模式丢弃通道" << channelIdx
-                         << "第" << m_colSkipRawCount[chnIndex] << "个数据点";
-            return;
+    {
+        QMutexLocker locker(&m_channelStateMutex);
+        if (isCOLReagent(reagentIndex) && m_channelInColMode[chnIndex]) {
+            m_colSkipRawCount[chnIndex]++;
+            if (m_colSkipRawCount[chnIndex] <= m_testColJumpEmptyData) {
+                QLOG_DEBUG() << "COL 模式丢弃通道" << channelIdx
+                             << "第" << m_colSkipRawCount[chnIndex] << "个数据点";
+                return;
+            }
         }
     }
 
@@ -842,8 +868,11 @@ void displayChanneldata::handleTestCompletion(const QString& sampleNum,
     // 重置该通道的 COL 模式标志与跳过计数
     int chnIndex = channelIdx - 1;
     if (chnIndex >= 0 && chnIndex < MACHINE_SETTING_CHANNEL) {
-        m_channelInColMode[chnIndex] = false;
-        m_colSkipRawCount[chnIndex] = 0;
+        {
+            QMutexLocker locker(&m_channelStateMutex);
+            m_channelInColMode[chnIndex] = false;
+            m_colSkipRawCount[chnIndex] = 0;
+        }
 
         // ============ 新增：测试完成时重置该通道的平滑状态 ============
         resetSmoothControl(chnIndex);
@@ -866,7 +895,10 @@ void displayChanneldata::handleTestCompletion(const QString& sampleNum,
                      << "试剂" << reagentIndex << "通道" << channelIdx;
     } else {
         const int chn0 = channelIdx - 1;
-        mOpenChnTest[chn0] = false;
+        {
+            QMutexLocker locker(&m_channelStateMutex);
+            mOpenChnTest[chn0] = false;
+        }
         QLOG_INFO() << "[TestChn] reag_done sample" << sampleNum
                     << "reag" << reagentIndex << "chn" << channelIdx
                     << "-> testComplete";
@@ -1887,17 +1919,23 @@ void displayChanneldata::slotopenTestChnTest(const int sampleId,
         return;
     }
 
-    // 根据试剂类型设置 COL 模式及重置计数器
+    // 根据试剂类型设置 COL 模式及重置计数器；延时 2 秒开测（与清洗并行是预期行为）
+    quint32 openGeneration = 0;
+    {
+        QMutexLocker locker(&m_channelStateMutex);
+        if (isCOLReagent(index_reagent)) {
+            m_channelInColMode[openChn] = true;
+            m_colSkipRawCount[openChn] = 0;
+        } else {
+            m_channelInColMode[openChn] = false;
+        }
+        openGeneration = ++m_openChnGeneration[openChn];
+    }
     if (isCOLReagent(index_reagent)) {
-        m_channelInColMode[openChn] = true;
-        m_colSkipRawCount[openChn] = 0;
         QLOG_DEBUG() << "通道" << openChn + 1 << "启用 COL 模式，将跳空前n个数据点";
-    } else {
-        m_channelInColMode[openChn] = false;
     }
 
-    // 延时 2 秒后打开通道（保证物理准备完成）；放弃/停采会增加代次，迟到的定时器直接作废
-    const quint32 openGeneration = ++m_openChnGeneration[openChn];
+    // 放弃/停采会增加代次，迟到的定时器直接作废
     QPointer<displayChanneldata> guard(this);
     QTimer::singleShot(2000, this, [guard, openChn, openGeneration]() {
         if (guard) {

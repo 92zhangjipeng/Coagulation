@@ -12,14 +12,15 @@ QTimerThread::~QTimerThread()
         thread.wait();
     }
 
-    //对象的销毁顺序也很重要
-	for (int i = 0; i < m_qTimerList.size(); i++) {
-		QTimer *pt = m_qTimerList.at(i);
-		pt->stop();
-		m_qTimerList.removeOne(pt);
-		delete pt;
-		pt = nullptr;
-	}
+    // 先取出再删，避免边遍历边 removeOne 导致漏删/下标错乱
+    while (!m_qTimerList.isEmpty()) {
+        QTimer *pt = m_qTimerList.takeFirst();
+        if (!pt) {
+            continue;
+        }
+        pt->stop();
+        delete pt;
+    }
 }
 
 void QTimerThread::stopThread(){

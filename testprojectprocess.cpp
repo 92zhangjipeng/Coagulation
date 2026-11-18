@@ -317,6 +317,7 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     m_prp0SpitDelayPending = false;
     ++m_prp0SpitToken;
     m_spitWashPending = false;
+    m_spitOpenArmed = false;
     ++m_spitOpenToken;
     m_prpZeroSkipAfterThrow = false;
     m_prpAbnormalWashPending = false;
@@ -951,8 +952,8 @@ void TestProjectProcess::giveupSamplenum(const int sampleid){
          Q_EMIT EmptyTubeCatched(hole);
      }
 
-     //结构体删除样本
-     instance->onetestend_del(sampleid);
+     // 放弃：强制删除（焦点/队列已清）；正常完成走 onetestend_del_safe 延后
+     instance->onetestend_del_safe(sampleid, true);
      if (m_focus_sample_id == sampleid) {
          m_focus_sample_id = 0;
      }
@@ -2164,6 +2165,7 @@ void TestProjectProcess::slotSpitReagentTesting()
 void TestProjectProcess::handleOpenTestChnRejected(int sampleId)
 {
     m_spitWashPending = false;
+    m_spitOpenArmed = false;
     m_spitOpenToken = 0;
     const QString msg = tr("样本%1没有测试通道，洗针没有发出，已暂停").arg(sampleId);
     QLOG_ERROR() << msg;
@@ -2199,10 +2201,13 @@ void TestProjectProcess::recvSpitReagent(quint8 indexActive, const int indexNum,
         const int sampleId = m_focus_sample_id;
         const int token = ++m_spitOpenToken;
         m_spitWashPending = true;
+        m_spitOpenArmed = true;
         QTimer::singleShot(delayMs, this, [guard, sampleId, indexActive, indexReagentForAbsorbent, token]() {
-            if (!guard || token != guard->m_spitOpenToken || !guard->m_spitWashPending)
+            if (!guard || token != guard->m_spitOpenToken || !guard->m_spitWashPending
+                    || !guard->m_spitOpenArmed)
                 return;
             guard->m_spitWashPending = false;
+            guard->m_spitOpenArmed = false;
             guard->logTestFsmInfo(QStringLiteral("open_chn_test_emit"),
                                   tr("样本%1 试剂索引%2").arg(sampleId).arg(indexReagentForAbsorbent));
             emit guard->openTestChnTest(sampleId, indexActive, indexReagentForAbsorbent);
@@ -2228,6 +2233,7 @@ void TestProjectProcess::slotaddSampmeTestCleanPin(const int cleanPin ,const qui
                                                     const int sampleId)
 {
     m_spitWashPending = false;
+    m_spitOpenArmed = false;
     m_spitOpenToken = 0;
     if (sampleId > 0) {
         m_focus_sample_id = sampleId;
@@ -2324,10 +2330,12 @@ void TestProjectProcess::continueCleanNeedleAckMode(bool finished, const QByteAr
                                                     int cleanKind, const QString &tips)
 {
     if (finished) {
+        auto *instance = StructInstance::getInstance();
         if (cleanKind == WASH_DOUBLE_NEDDLES || cleanKind == WASH_BLLODSAMPLE_NEDDLES) {
-            StructInstance::getInstance()->markBloodNeedleClean();
+            instance->markBloodNeedleClean();
         }
         deductPendingCleanConsumable();
+        instance->flushDeferredSampleDeletes();
         if (m_prpAbnormalWashPending) {
             const bool giveupAfter = m_prpAbnormalGiveupAfterWash;
             const bool continueAfter = m_prpAbnormalContinueAfterWash;
@@ -2436,6 +2444,7 @@ void TestProjectProcess::processFinishedChannelTask()
 
         QString sampleName;
         int sampleId = 0;
+        const int channelBoundId = instance->channelBoundSampleId(task.index_Chn);
         if (task.CompleteSampleid > 0) {
             const DATASAMPLESTRUCT *ps = instance->rfindIdSample(task.CompleteSampleid);
             if (ps && ps->indexTestingChn == static_cast<int>(task.index_Chn)) {
@@ -2446,6 +2455,12 @@ void TestProjectProcess::processFinishedChannelTask()
                              << task.CompleteSampleid << "通道" << (task.index_Chn + 1);
                 continue;
             }
+            if (channelBoundId > 0 && channelBoundId != sampleId) {
+                QLOG_ERROR() << "完成队列样本" << sampleId << "与通道表绑定样本"
+                             << channelBoundId << "不一致，通道" << (task.index_Chn + 1)
+                             << "，丢弃该弃杯任务";
+                continue;
+            }
         }
         if (sampleId <= 0) {
             instance->rootTestChnGetSampleInfo(task.index_Chn, sampleName, sampleId);
@@ -2454,6 +2469,7 @@ void TestProjectProcess::processFinishedChannelTask()
             QLOG_ERROR() << "完成队列通道" << (task.index_Chn + 1) << "未找到样本，跳过弃杯";
             continue;
         }
+        instance->flushDeferredSampleDeletes();
 
         setupFocusSample(sampleId, task.index_reagent);
         sendControlCommands(task.index_Chn, sampleId, task.index_reagent);
@@ -2750,6 +2766,9 @@ void TestProjectProcess::equipment_err_continue()
     m_needHomeBeforeResume = false;
     m_pauseCommandQueue.clear();
     m_outstandingAcks = 0;
+    m_gripperRestartAwait = GripperRestartNone;
+    m_lastOutboundCommands.clear();
+    mdataAArry.clear();
     disarmAckWatchdog();
     cglobal::g_PauseTesting.store(false);
     emit requestPauseUiSync(false);
@@ -2768,6 +2787,7 @@ void TestProjectProcess::equipment_err_continue()
         guard->m_Errorresetsfirst = false;
         guard->mbackOriginnumList.clear();
         guard->m_outstandingAcks = 0;
+        guard->m_gripperRestartAwait = GripperRestartNone;
         guard->disarmAckWatchdog();
         if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
             guard->exceptionRetest(QString::fromUtf8("复位应答未齐强制续跑"));
@@ -2834,6 +2854,9 @@ void TestProjectProcess::slot_connectEquipmentagin()
     clearPendingConsumableDeducts();
     m_pauseCommandQueue.clear();
     m_outstandingAcks = 0;
+    m_gripperRestartAwait = GripperRestartNone;
+    m_lastOutboundCommands.clear();
+    mdataAArry.clear();
     disarmAckWatchdog();
     m_offlineWaitingReconnect = false;
     if (m_offlineVoided) {
@@ -2906,9 +2929,11 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
     //结构体删除样本前清掉它的弃杯记录，避免样本已删仍反复调度
     const int finishedSampleId = m_focus_sample_id;
     dropFinishTasksForSample(finishedSampleId);
-    instance->onetestend_del(finishedSampleId);
+    instance->clearSampleTestingChannelIndex(finishedSampleId);
+    instance->onetestend_del_safe(finishedSampleId, false);
     removeSampleFromSchedulerQueues(finishedSampleId);
     m_focus_sample_id = 0;
+    instance->flushDeferredSampleDeletes();
 
     const QString actionDesc = handError
             ? QString::fromUtf8("抓手异常取消测试样本")
@@ -4064,6 +4089,7 @@ void TestProjectProcess::releaseSampleChannel(int sampleId, bool flashAsError)
     instance->config_testChn_State(chn, CHN_STATUS_FREE);
     instance->config_testChn_test_SampleID(chn, 0);
     instance->_deleteOneSampleTesteddata(chn, sampleId);
+    instance->clearSampleTestingChannelIndex(sampleId);
     if (flashAsError) {
         emit giveupChannelFlash(false, chn);
     }
@@ -4743,14 +4769,43 @@ bool TestProjectProcess::restartGripperFocusAfterHome(quint8 indexActive, const 
     return false;
 }
 
+bool TestProjectProcess::restartSequenceContainsIndex(quint8 commandIndex) const
+{
+    StructInstance *instance = StructInstance::getInstance();
+    if (!instance || m_focus_sample_id <= 0) {
+        return false;
+    }
+    switch (m_gripperRestartAwait) {
+    case GripperRestartPppTray:
+        return instance->pppClipContainsCommandIndex(m_focus_sample_id, commandIndex);
+    case GripperRestartThrowChannel:
+        if (m_restartReagent == 0) {
+            return instance->throwPppContainsCommandIndex(m_focus_sample_id, commandIndex);
+        }
+        return instance->throwReagentContainsCommandIndex(
+                    m_focus_sample_id, m_restartReagent, commandIndex);
+    case GripperRestartPrpReagent:
+    case GripperRestartPrpTray:
+        return instance->prpClipContainsCommandIndex(
+                    m_focus_sample_id, m_restartReagent, commandIndex);
+    default:
+        return false;
+    }
+}
+
 bool TestProjectProcess::ignoreRestartLeftoverAck(int Action_motor, const QStringList &recvdata)
 {
     if (m_gripperRestartAwait == GripperRestartNone) {
         return false;
     }
+    const quint8 commandIndex = GlobalData::analyzeCommandIndex(recvdata);
+    // 重建序列里的抓手/双针 Z 复位必须推进，不能当「残留」丢掉（否则会卡在原点）。
     if (Action_motor != MOTOR_XY) {
+        if (restartSequenceContainsIndex(commandIndex)) {
+            return false;
+        }
         QLOG_WARN() << "复位后忽略残留轴应答 样本" << m_focus_sample_id
-                    << "电机" << Action_motor;
+                    << "电机" << Action_motor << "命令号" << commandIndex;
         return true;
     }
     const QPoint arrived = QUIUtils::coordinatePositionXYMotion(recvdata);
@@ -4774,7 +4829,8 @@ bool TestProjectProcess::ignoreRestartLeftoverAck(int Action_motor, const QStrin
     }
     if (!atTarget) {
         QLOG_WARN() << "复位后忽略非目标XY 样本" << m_focus_sample_id
-                    << "坐标" << arrived.x() << "," << arrived.y();
+                    << "坐标" << arrived.x() << "," << arrived.y()
+                    << "命令号" << commandIndex;
         return true;
     }
     m_gripperRestartAwait = GripperRestartNone;
@@ -4852,14 +4908,17 @@ void TestProjectProcess::exceptionRetest(QString tips){
                         break;
                     }
                 }
-                if (m_spitWashPending) {
+                // 定时器路径与复位续跑路径共用 m_spitOpenArmed，保证同一轮吐试剂只 emit 一次开测/清洗
+                if (m_spitOpenArmed) {
                     m_spitWashPending = false;
-                    ++m_spitOpenToken;
+                    m_spitOpenArmed = false;
+                    ++m_spitOpenToken; // 作废仍在路上的吐试剂后延时定时器
                     promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，继续清洗针"), false);
                     emit openTestChnTest(m_focus_sample_id, indexActive, reagent);
                 } else if (m_spitOpenToken != 0) {
-                    promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，清洗针即将开始"), false);
+                    promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，清洗针即将开始或已发出"), false);
                 } else {
+                    m_spitOpenArmed = false;
                     ++m_spitOpenToken;
                     promptsareDisplayed(TESTINGLOG, tr("吐试剂已完成，继续清洗针"), false);
                     emit openTestChnTest(m_focus_sample_id, indexActive, reagent);

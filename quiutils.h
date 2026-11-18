@@ -713,7 +713,7 @@ namespace QUIUtils
                                             int downMm,
                                             bool bRepeatGrabCup);
 
-    /** 主板联锁：任意抓手 XY 前须样本针/试剂针 Z 已复位。cmdIndexBase 避免和已有命令号重复。 */
+    /** 主板联锁：任意抓手 XY 前须抓手/样本针/试剂针 Z 已复位。cmdIndexBase 避免和已有命令号重复。 */
     void appendBloodReagentNeedleResetBeforeGripperXy(QVector<QByteArray> &outarry,
                                                       quint8 cmdIndexBase = 0);
 

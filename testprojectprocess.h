@@ -315,6 +315,7 @@ private:
     void schedulePrpBaselineRead(quint8 reagentIndex, quint8 focusActive, int delayMs);
     bool restartGripperFocusAfterHome(quint8 indexActive, const QString& tips);
     bool ignoreRestartLeftoverAck(int Action_motor, const QStringList &recvdata);
+    bool restartSequenceContainsIndex(quint8 commandIndex) const;
 
     void enqueueContinueReagent(int sampleId);
     bool startPendingContinueReagent();
@@ -527,6 +528,7 @@ private:
     bool m_prpPlacedForRead = false; //吸试剂并把杯子放到通道之后才允许判PRP
     int m_spitOpenToken = 0; //吐试剂完成后的洗针定时器代次，继续时作废旧定时器
     bool m_spitWashPending = false; //吐完试剂、洗针还没真正发出
+    bool m_spitOpenArmed = false; //本轮吐试剂后的开测/清洗尚未发出，防双路径重复 emit
     int m_prp0SpitToken = 0; //PRP0记下后、吐试剂前的延时代次
     bool m_prp0SpitDelayPending = false; //已记下PRP0，正在等延时再吐试剂
     bool m_abandonAfterThrowPpp = false;
