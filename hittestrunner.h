@@ -103,6 +103,7 @@ private:
         int waitAfterMs = 0;
         bool grabOpen = false;
         bool grabJudge = false;
+        bool throwRelease = false; // 弃杯关负压：与正常测试 spitCheck 同延时
     };
 
     void ensureWired();

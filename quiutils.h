@@ -825,7 +825,8 @@ namespace QUIUtils
      */
      void ThrowChannelCup(quint8 downsuck,const quint8 throwGipperHeigh,const QPoint channelAxis,const QPoint throwCupAxis, quint8 &throwSucknum,
                             quint8 &throwSplitnum,QByteArrayList &throwCupsList,
-                            bool forceRepeatGrab = false);
+                            bool forceRepeatGrab = false,
+                            quint8 *outThrowReleaseIndex = nullptr); // 弃杯关负压命令号(spitCheck)
 
 
     void _mapConsumablesName(quint8 index_, QString& out_);  //映射耗材名字

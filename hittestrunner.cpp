@@ -1648,6 +1648,18 @@ void HitTestRunner::onSerial(const QStringList &recv)
         });
         return;
     }
+    if (step.throwRelease) {
+        // 与正常测试 spitCheck 一致：关负压后等丢杯判定延时再抬 Z
+        m_phase = PhaseWait;
+        const int releasePos = m_pos;
+        const int waitMs = GlobalData::gripperThrowDelayMs();
+        QTimer::singleShot(waitMs, this, [this, releasePos]() {
+            if (!m_running || m_phase != PhaseWait || m_pos != releasePos)
+                return;
+            sendAt(releasePos + 1);
+        });
+        return;
+    }
     if (step.grabJudge) {
         bool suction = false;
         quint32 air = 0;
@@ -2900,8 +2912,11 @@ bool HitTestRunner::buildThrow(QString *err)
         m_batch[judgePos].grabJudge = true;
     if (judgePos > 0)
         m_batch[judgePos - 1].grabOpen = true;
+    // spitBack=split，关负压步=spitCheck=split-1
+    const int spitBackPos = findCommand(split);
+    if (spitBackPos > 0)
+        m_batch[spitBackPos - 1].throwRelease = true;
     m_grabDownMm = INI_File()._gethandsdownheiht(static_cast<quint8>(ch0));
-    Q_UNUSED(split);
     if (m_batch.isEmpty() && err)
         *err = u8("\xe5\x9d\x90\xe6\xa0\x87\xe6\x97\xa0\xe6\x95\x88");
     return !m_batch.isEmpty();

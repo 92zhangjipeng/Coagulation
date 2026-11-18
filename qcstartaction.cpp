@@ -109,6 +109,7 @@ QcStartAction::QcStartAction(QObject *parent)
     , m_expectIndex(0)
     , m_grabJudgeIndex(255)
     , m_grabOpenIndex(255)
+    , m_throwReleaseIndex(255)
     , m_grabLiftIndex(255)
     , m_grabDeepenTimes(0)
     , m_pickDownMm(0)
@@ -329,12 +330,22 @@ bool QcStartAction::buildGripLeg(const QPoint &target, int downMm, bool picking,
         m_grabJudgeIndex = static_cast<quint8>(steps.at(gripAt + 2).at(GET_COMMAND_INDEX));
         m_grabLiftIndex = endNo;
         m_grabOk = false;
+        m_throwReleaseIndex = 255;
     } else {
         m_grabJudgeIndex = 255;
         m_grabOpenIndex = 255;
         m_grabLiftIndex = 255;
         m_pickDownMm = 0;
+        const int releaseAt = steps.size();
         QUIUtils::appendGripperDescendThenVacuumRelease(steps, downMm, endNo, 0);
+        // releaseAt+0 下扎, +1 关负压, +2 抬Z
+        if (steps.size() >= releaseAt + 2
+                && steps.at(releaseAt + 1).size() > GET_COMMAND_INDEX) {
+            m_throwReleaseIndex = static_cast<quint8>(
+                        steps.at(releaseAt + 1).at(GET_COMMAND_INDEX));
+        } else {
+            m_throwReleaseIndex = 255;
+        }
     }
     for (int i = 0; i < steps.size(); ++i)
         out.append(steps.at(i));
@@ -785,6 +796,7 @@ bool QcStartAction::start(const QList<int> &levels, const QList<int> &channels,
     m_grabJudgeIndex = 255;
     m_grabOpenIndex = 255;
     m_grabLiftIndex = 255;
+    m_throwReleaseIndex = 255;
     m_pending.clear();
     m_abortCmds.clear();
     m_highLot = highLot.trimmed();
@@ -872,6 +884,7 @@ void QcStartAction::advance()
     m_grabOk = false;
     m_regrab = false;
     m_grabJudgeIndex = 255;
+    m_throwReleaseIndex = 255;
     ++m_jobIndex;
     if (m_jobIndex >= m_jobs.size())
         succeed();
@@ -891,6 +904,7 @@ void QcStartAction::fail(const QString &text)
     m_grabJudgeIndex = 255;
     m_grabOpenIndex = 255;
     m_grabLiftIndex = 255;
+    m_throwReleaseIndex = 255;
     for (int i = 0; i < m_channels.size(); ++i)
         setSpin(m_channels.at(i) - 1, false);
     m_phase = PhaseIdle;
@@ -1022,6 +1036,21 @@ void QcStartAction::onSerial(const QStringList &recv)
         QString stepErr;
         if (!GlobalData::commandStatus(runStatus, stepErr)) {
             fail(u8("\xe5\x8a\xa8\xe4\xbd\x9c\xe5\xbc\x82\xe5\xb8\xb8 ") + stepErr);
+            return;
+        }
+        // 放杯/弃杯关负压：与正常测试 spitCheck 同延时
+        if (m_placing && index == m_throwReleaseIndex) {
+            m_phase = PhaseIdle;
+            const int waitMs = GlobalData::gripperThrowDelayMs();
+            const int releasePos = m_pendingPos;
+            QLOG_INFO() << "QC throw release, wait" << waitMs;
+            QTimer::singleShot(waitMs, this, [this, releasePos]() {
+                if (!m_running || m_aborting || m_promptingRegrab || !m_stepwise)
+                    return;
+                if (m_pendingPos != releasePos)
+                    return;
+                sendPendingAt(releasePos + 1);
+            });
             return;
         }
         const JobKind kind = m_jobs.at(m_jobIndex).kind;

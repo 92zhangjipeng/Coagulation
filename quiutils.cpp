@@ -4783,12 +4783,16 @@ void QUIUtils::suckCupMoveChannelPut(const QPoint GrriperSuckHoleAxis,
 void QUIUtils::ThrowChannelCup(quint8 downsuck, const quint8 throwGipperHeigh,const QPoint channelAxis,
                                 const QPoint throwCupAxis, quint8 &throwSucknum,
                                 quint8 &throwSplitnum,QByteArrayList &throwCupsList,
-                                bool forceRepeatGrab){
+                                bool forceRepeatGrab,
+                                quint8 *outThrowReleaseIndex){
     throwCupsList.clear();
     throwCupsList.reserve(20);
     auto *pActive = Testing::getTaskDll();
     throwSucknum = 0;
     throwSplitnum = 0;
+    if (outThrowReleaseIndex) {
+        *outThrowReleaseIndex = 255;
+    }
     if (!pActive || downsuck == 0 || throwGipperHeigh == 0) {
         return;
     }
@@ -4825,7 +4829,14 @@ void QUIUtils::ThrowChannelCup(quint8 downsuck, const quint8 throwGipperHeigh,co
     idx = static_cast<quint8>(steps.size() % 255);
     steps.push_back(pActive->DLL_XYMoveSpecifiedPosition(throwCupAxis, 0, 0, idx));
     quint8 placeLift = 0;
+    const int releaseAt = steps.size();
     appendGripperDescendThenVacuumRelease(steps, throwGipperHeigh, placeLift, 0);
+    // releaseAt+0 下扎, +1 关负压(spitCheck), +2 抬Z
+    if (outThrowReleaseIndex
+            && steps.size() >= releaseAt + 2
+            && steps.at(releaseAt + 1).size() > GET_COMMAND_INDEX) {
+        *outThrowReleaseIndex = static_cast<quint8>(steps.at(releaseAt + 1).at(GET_COMMAND_INDEX));
+    }
     appendList(steps);
 }
 

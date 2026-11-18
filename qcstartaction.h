@@ -136,6 +136,7 @@ private:
     quint8 m_grabJudgeIndex;
     quint8 m_grabOpenIndex;
     quint8 m_grabLiftIndex;
+    quint8 m_throwReleaseIndex; // 放杯/弃杯关负压 spitCheck
     int m_grabDeepenTimes;
     int m_pickDownMm;
     bool m_grabOk;

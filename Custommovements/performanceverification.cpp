@@ -349,13 +349,16 @@ void Performanceverification::insetThrowTestingCup(PerformanceData &dataPE,
                                                     bool forceRepeatGrab){
     QByteArrayList throwCupsList;
     quint8 ksuck,ksplit;
+    quint8 throwRelease = 255;
     QUIUtils::ThrowChannelCup(gripperDown,throwGipperHeigh,
                               dataPE.handsChannelCoord,
                               throwCoord,
                               ksuck,
                               ksplit,
                               throwCupsList,
-                              forceRepeatGrab);
+                              forceRepeatGrab,
+                              &throwRelease);
+    m_peThrowReleaseIndex = throwRelease;
     dataPE.drainWater.enabled = false;
     dataPE.drainStandardsolutions.enabled = false;
     dataPE.drainBasicLiquid.enabled = false;
@@ -938,6 +941,7 @@ void Performanceverification::clearPeGrabDetection()
     m_peGrabOk = false;
     m_peGrabJudgeIndex = 255;
     m_peGrabLiftIndex = 255;
+    // m_peThrowReleaseIndex 由组包写入，抓杯武装时不要清掉，弃杯关负压还要用
     m_peGrabDeepenTimes = 0;
 }
 
@@ -1353,6 +1357,28 @@ void Performanceverification::handleSerialData(const QStringList& recvdataList){
                 return;
             }
             peSendFirstPending(QString::fromUtf8("PE抓杯等负压后读"));
+        });
+        return;
+    }
+
+    // 弃杯关负压：与正常测试 spitCheck 相同，等丢杯判定延时再抬 Z
+    const bool peThrowPhase =
+            mPE == activePE::ThrowWater
+            || mPE == activePE::ThrowStandardSolutions
+            || mPE == activePE::ThrowBasicLinque
+            || mPE == activePE::ThrowBasicLinqueM
+            || mPE == activePE::ThrowBasicLinqueL;
+    if (peThrowPhase
+            && m_peThrowReleaseIndex != 255
+            && commandIndex == m_peThrowReleaseIndex) {
+        markPeCommandCompleteOnly(commandIndex);
+        const int waitMs = GlobalData::gripperThrowDelayMs();
+        QLOG_INFO() << "[PE弃杯] 关负压完成，等" << waitMs << "ms再抬Z";
+        QTimer::singleShot(waitMs, this, [this]() {
+            if (!returnPerformanceTestFlag() || m_peAbortHoming || m_pePromptingRegrab) {
+                return;
+            }
+            peSendFirstPending(QString::fromUtf8("PE弃杯关负压后抬Z"));
         });
         return;
     }

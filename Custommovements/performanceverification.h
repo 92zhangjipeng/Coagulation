@@ -396,6 +396,7 @@ private:
     bool m_peRegrab = false;
     quint8 m_peGrabJudgeIndex = 255;
     quint8 m_peGrabLiftIndex = 255;
+    quint8 m_peThrowReleaseIndex = 255; // 弃杯关负压 spitCheck，与正常测试丢杯延时一致
     int m_peGrabDeepenTimes = 0;
     QPoint m_peThrowCoord;
     quint8 m_peGripperDown = 0;
