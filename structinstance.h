@@ -146,11 +146,12 @@ public:
 
     //删除一整个测试样本包括通道数据
     void onetestend_del(int indexSample);
-    /** 样本动作链表仍有未完成项时延后删除，避免清洗/丢杯应答 UAF；force=true 用于放弃样本 */
+    /** 样本动作链表仍有未完成项时延后删除，避免清洗/丢杯应答 UAF；force=true 用于放弃/整样本收尾 */
     bool onetestend_del_safe(int indexSample, bool force = false);
     /** 尝试删掉此前延后的样本；清洗/丢杯完成后调用 */
     void flushDeferredSampleDeletes();
     bool sampleHasPendingActionCommands(int sampleId) const;
+    bool isSampleDeferredDelete(int sampleId) const;
     /** 通道表登记的测试样本号，0 表示未绑定 */
     int channelBoundSampleId(quint8 indexChn) const;
 

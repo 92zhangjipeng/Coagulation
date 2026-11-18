@@ -929,11 +929,23 @@ bool StructInstance::sampleHasPendingActionCommands(int sampleId) const
     return false;
 }
 
+bool StructInstance::isSampleDeferredDelete(int sampleId) const
+{
+    std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
+    return m_deferredDeleteSampleIds.contains(sampleId);
+}
+
 bool StructInstance::onetestend_del_safe(int indexSample, bool force)
 {
     std::lock_guard<std::recursive_mutex> dataGuard(m_dataMutex);
     if (!force && sampleHasPendingActionCommands(indexSample)) {
         m_deferredDeleteSampleIds.insert(indexSample);
+        // 避免被 alreadyadded_wait_chn 再次当成待夹PPP
+        if (DATASAMPLESTRUCT *ps = wfindIdSample(indexSample)) {
+            ps->fcus_in = false;
+            ps->index_fcus_Active = 0;
+            ps->indexTestingChn = -1;
+        }
         QLOG_WARN() << "样本" << indexSample
                     << "仍有未完成动作指令，延后删除以免清洗/丢杯应答踩空";
         return false;
@@ -2722,14 +2734,33 @@ bool StructInstance::alreadyadded_wait_chn(int &wait_sampleid)
     while(it != m_BloodsampleInfo.end())
     {
        DATASAMPLESTRUCT *psampleId = (*it);
-       if(psampleId && psampleId->bcleanbloody_state && psampleId->bcleanDoublePin_state
-               && psampleId->indexTestingChn == -1)
-       {
-           wait_sampleid = psampleId->sample_num;
-           QLOG_DEBUG()<<"已加样等待通道样本号:"<<wait_sampleid<<endl;
-           return true;
+       if(!psampleId
+               || !psampleId->bcleanbloody_state
+               || !psampleId->bcleanDoublePin_state
+               || psampleId->indexTestingChn != -1) {
+           ++it;
+           continue;
        }
-       it++;
+       // 延后删除/已测完的样本不能再当「等通道夹PPP」，否则会卡住后续丢杯队列
+       if (m_deferredDeleteSampleIds.contains(psampleId->sample_num)
+               || psampleId->bgivesample) {
+           ++it;
+           continue;
+       }
+       bool hasUnfinishedReagent = false;
+       for (const TESTING_REAGENT *reag : psampleId->ptestReagent_active) {
+           if (reag && !reag->testfinished) {
+               hasUnfinishedReagent = true;
+               break;
+           }
+       }
+       if (!psampleId->ptestReagent_active.empty() && !hasUnfinishedReagent) {
+           ++it;
+           continue;
+       }
+       wait_sampleid = psampleId->sample_num;
+       QLOG_DEBUG()<<"已加样等待通道样本号:"<<wait_sampleid<<endl;
+       return true;
     }
     return false;
 }

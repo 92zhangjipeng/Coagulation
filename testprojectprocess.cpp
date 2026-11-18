@@ -2523,7 +2523,8 @@ bool TestProjectProcess::resumeDeferredClipIfNeeded()
     while (!m_deferClipSampleIds.isEmpty()) {
         const int clipId = m_deferClipSampleIds.first();
         const DATASAMPLESTRUCT *ps = instance->rfindIdSample(clipId);
-        if (!ps || ps->indexTestingChn >= 0) {
+        if (!ps || ps->indexTestingChn >= 0
+                || instance->isSampleDeferredDelete(clipId)) {
             m_deferClipSampleIds.removeFirst();
             continue;
         }
@@ -2926,11 +2927,12 @@ void TestProjectProcess::theTestChannelStopTesting(const bool handError)
 
     dismissFocusSample(m_focus_sample_id);
 
-    //结构体删除样本前清掉它的弃杯记录，避免样本已删仍反复调度
+    // 整样本收尾：焦点已卸、弃杯已做完，强制删除。
+    // 若仅延后删除，残留样本仍满足「已加样+针洗净+无通道」会被再次拉去夹PPP，堵住后续丢杯。
     const int finishedSampleId = m_focus_sample_id;
     dropFinishTasksForSample(finishedSampleId);
     instance->clearSampleTestingChannelIndex(finishedSampleId);
-    instance->onetestend_del_safe(finishedSampleId, false);
+    instance->onetestend_del_safe(finishedSampleId, true);
     removeSampleFromSchedulerQueues(finishedSampleId);
     m_focus_sample_id = 0;
     instance->flushDeferredSampleDeletes();
