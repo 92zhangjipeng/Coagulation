@@ -2102,17 +2102,18 @@ void MachineSetting::relayoutCurveModePage()
         QGridLayout *grid = new QGridLayout();
         grid->setHorizontalSpacing(10);
         grid->setVerticalSpacing(8);
-        QCheckBox *outputs[3] = {
+        QCheckBox *outputs[4] = {
             ui->checkBox_absorbance,
             ui->checkBoxExperimental,
+            ui->checkBoxBurnInMode,
             ui->checkBoxshowPrintAdhesion
         };
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 4; ++i) {
             if (!outputs[i]) {
                 continue;
             }
-            grid->addWidget(makeCurveOptionCard(ui->groupBox_6, outputs[i]), 0, i);
-            grid->setColumnStretch(i, 1);
+            grid->addWidget(makeCurveOptionCard(ui->groupBox_6, outputs[i]), i / 3, i % 3);
+            grid->setColumnStretch(i % 3, 1);
         }
         ui->verticalLayout_9->addLayout(grid);
     }

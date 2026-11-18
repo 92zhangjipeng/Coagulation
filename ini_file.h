@@ -13,6 +13,7 @@
 #define USINGASIDEREAGENTLOC   "UsingAsideRengentLoc"   //启用试剂预留位置
 #define FIRSTSUCKAIRS          "FirstSuckAirs"          //吸血样前先吸空气
 #define REPEATGRABCUP          "RepeattheGrabCup"       //抓手重抓
+#define BURNINMODE             "BurnInMode"             //烤机模式：跳过抓杯/弃杯负压成败判定
 
 
 #define MODULETEMPA            "ModuleTemperature1"   //模组温度设置
@@ -64,6 +65,10 @@ public:
     //实验模式
     void setexperimentalMode(const bool& experimenta);
     bool getexperimentalMode();
+
+    //烤机模式：正常测试流程继续跑，抓手不因抓杯/弃杯负压判定失败而停
+    void setBurnInMode(const bool& burnIn);
+    bool getBurnInMode();
 
     //滤波模式
     int  getFilteringMode();

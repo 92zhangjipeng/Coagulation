@@ -131,6 +131,18 @@ bool INI_File::getexperimentalMode(){
     return  m_psetting->value(keywrite).toBool();
 }
 
+void INI_File::setBurnInMode(const bool& burnIn)
+{
+    const QString keywrite = QString("%1/%2").arg(Instrument_parameters).arg(BURNINMODE);
+    m_psetting->setValue(keywrite, burnIn);
+}
+
+bool INI_File::getBurnInMode()
+{
+    const QString keywrite = QString("%1/%2").arg(Instrument_parameters).arg(BURNINMODE);
+    return m_psetting->value(keywrite).toBool();
+}
+
 
 int INI_File::getFilteringMode()
 {

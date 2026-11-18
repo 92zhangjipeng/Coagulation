@@ -4907,6 +4907,9 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
         return GripperAckAdvance;
     }
 
+    // 烤机模式：动作照常发，抓杯/弃杯负压成败一律当成功，流程不停
+    const bool burnInSkipJudge = INI_File().getBurnInMode();
+
     const quint32 grabTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERLESSTHANMAX).toInt());
     const quint32 spitTh = static_cast<quint32>(INI_File().rConfigPara(GRIPPERBIGTHANMIM).toInt());
     auto trace = [&](const QString &what, const QString &next) {
@@ -4941,12 +4944,14 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
 
     if (index == suckRead) {
         clearGripperVacuumPoll();
-        if (GlobalData::isHandsVacuumStillSealed(airvale)) {
+        if (burnInSkipJudge || GlobalData::isHandsVacuumStillSealed(airvale)) {
             m_handsFailedtimes = 0;
             m_gripperGrabReadPhase = GrabReadIdle;
             markAllActionIndexDone(list, suckRead);
-            trace(QString::fromUtf8("读负压判定:吸牢(负压%1，抓住线≤%2，丢掉线≥%3)")
-                  .arg(airvale).arg(grabTh).arg(spitTh),
+            trace(burnInSkipJudge
+                  ? QString::fromUtf8("烤机模式:跳过读负压吸牢判定(负压%1)").arg(airvale)
+                  : QString::fromUtf8("读负压判定:吸牢(负压%1，抓住线≤%2，丢掉线≥%3)")
+                    .arg(airvale).arg(grabTh).arg(spitTh),
                   QString::fromUtf8("下一步:抬Z，抬起后再确认"));
             return GripperAckAdvance;
         }
@@ -4969,7 +4974,7 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
     }
 
     if (index == suckBack) {
-        if (!GlobalData::isHandsLiftStillHolding(airvale, isSuctionBit)) {
+        if (!burnInSkipJudge && !GlobalData::isHandsLiftStillHolding(airvale, isSuctionBit)) {
             trace(QString::fromUtf8("抬Z确认:杯子掉了(负压%1，吸杯位%2)")
                   .arg(airvale).arg(isSuctionBit ? 1 : 0),
                   QString::fromUtf8("下一步:异常善后"));
@@ -4977,7 +4982,9 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
         }
         m_handsFailedtimes = 0;
         markAllActionIndexDone(list, suckBack);
-        trace(QString::fromUtf8("抬Z确认:仍然吸牢"),
+        trace(burnInSkipJudge
+              ? QString::fromUtf8("烤机模式:跳过抬Z吸牢确认(负压%1)").arg(airvale)
+              : QString::fromUtf8("抬Z确认:仍然吸牢"),
               QString::fromUtf8("下一步:继续去通道或后续动作"));
         return GripperAckAdvance;
     }
@@ -4994,6 +5001,20 @@ StructInstance::GripperAckOutcome StructInstance::applyGripperVacuumAck(
         markAllActionIndexDone(list, spitCheck);
         clearGripperVacuumPoll();
         const int waitMs = GlobalData::gripperThrowDelayMs();
+        if (burnInSkipJudge) {
+            m_throwAwaitingReleaseRead = false;
+            m_handsThrowFailedtimes = 0;
+            retryData = commandBytesForIndex(list, spitBack);
+            if (retryData.isEmpty()) {
+                trace(QString::fromUtf8("烤机模式:跳过放杯判定，但没有抬Z命令"),
+                      QString::fromUtf8("下一步:异常善后"));
+                return GripperAckFailed;
+            }
+            lateTimer = false;
+            trace(QString::fromUtf8("烤机模式:跳过放杯松开判定(负压%1)，直接抬Z").arg(airvale),
+                  QString::fromUtf8("下一步:现在抬Z"));
+            return GripperAckRetry;
+        }
         if (!m_throwAwaitingReleaseRead) {
             m_throwAwaitingReleaseRead = true;
             m_handsThrowFailedtimes = 0;

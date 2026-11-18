@@ -333,12 +333,14 @@ void MachineSetting::_initpara()
     ui->comboBox_CutNum->setView(listWidget);
     ui->checkBox_Avg_cutnum->setChecked(false);
     ui->checkBoxExperimental->setChecked(INI_File().getexperimentalMode());
+    ui->checkBoxBurnInMode->setChecked(INI_File().getBurnInMode());
 
     ui->checkBox_absorbance->setChecked(INI_File().rConfigPara("AbsorbanceAlgorithm").toBool());
 
     connect(ui->toolButton_SaveCutnum,&QToolButton::clicked,this,[=](){
         auto &ini = INI_File();
         ini.setexperimentalMode(ui->checkBoxExperimental->isChecked());
+        ini.setBurnInMode(ui->checkBoxBurnInMode->isChecked());
         QUIUtils::isDirExist(QUIUtils::getappload("ExperimentalMode"));
         ini.wConfigPara("AbsorbanceAlgorithm",ui->checkBox_absorbance->isChecked());
         int   curnum =  QString(ui->comboBox_CutNum->currentText()).toInt();
@@ -691,6 +693,7 @@ void MachineSetting::initSheet()
         }
     }
     GlobalData::QCheckboxSheet(ui->checkBoxExperimental,tr("实验模式"));
+    GlobalData::QCheckboxSheet(ui->checkBoxBurnInMode,tr("烤机模式"));
     GlobalData::QLineEditSheet(ui->lineEdit_showPath);
     GlobalData::QCommboxSheet(ui->comboBox_Category);
     GlobalData::QLineEditSheet(ui->lineEdit_Abbreviation);
@@ -2476,6 +2479,7 @@ void MachineSetting::HandsParaWriteBoard()
     INI_File().wBatchConfigPara(configs);
     auto &ini = INI_File();
     ini.setexperimentalMode(ui->checkBoxExperimental->isChecked());
+    ini.setBurnInMode(ui->checkBoxBurnInMode->isChecked());
     ini.wConfigPara("AbsorbanceAlgorithm", ui->checkBox_absorbance->isChecked());
 
     quint8 handsinierTray[4] ={0};
@@ -2635,6 +2639,7 @@ void MachineSetting::reloadMaintenanceParamsFromIni()
     ui->checkBox_Recapture->setChecked(ini.rConfigPara(REPEATGRABCUP).toBool());
     ui->spinBox_downthrowcups->setValue(ini._gethandsdownthrowcpus());
     ui->checkBoxExperimental->setChecked(ini.getexperimentalMode());
+    ui->checkBoxBurnInMode->setChecked(ini.getBurnInMode());
     ui->checkBox_absorbance->setChecked(ini.rConfigPara("AbsorbanceAlgorithm").toBool());
     for (int t = 0; t < 4; ++t) {
         QSpinBox *trayBox = nullptr;

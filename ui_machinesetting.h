@@ -420,6 +420,7 @@ public:
     QVBoxLayout *verticalLayout_9;
     QCheckBox *checkBox_absorbance;
     QCheckBox *checkBoxExperimental;
+    QCheckBox *checkBoxBurnInMode;
     QCheckBox *checkBoxshowPrintAdhesion;
     QWidget *widget;
     QGridLayout *gridLayout_15;
@@ -3751,6 +3752,13 @@ public:
 
         verticalLayout_9->addWidget(checkBoxExperimental);
 
+        checkBoxBurnInMode = new QCheckBox(groupBox_6);
+        checkBoxBurnInMode->setObjectName(QStringLiteral("checkBoxBurnInMode"));
+        checkBoxBurnInMode->setMinimumSize(QSize(0, 30));
+        checkBoxBurnInMode->setFont(font3);
+
+        verticalLayout_9->addWidget(checkBoxBurnInMode);
+
         checkBoxshowPrintAdhesion = new QCheckBox(groupBox_6);
         checkBoxshowPrintAdhesion->setObjectName(QStringLiteral("checkBoxshowPrintAdhesion"));
 
@@ -4153,6 +4161,7 @@ public:
         groupBox_6->setTitle(QApplication::translate("MachineSetting", "\350\276\223\345\207\272\346\250\241\345\274\217", nullptr));
         checkBox_absorbance->setText(QApplication::translate("MachineSetting", "\345\220\270\345\205\211\345\272\246\347\256\227\346\263\225", nullptr));
         checkBoxExperimental->setText(QApplication::translate("MachineSetting", "\345\256\236\351\252\214\346\250\241\345\274\217", nullptr));
+        checkBoxBurnInMode->setText(QApplication::translate("MachineSetting", "\347\203\244\346\234\272\346\250\241\345\274\217", nullptr));
         checkBoxshowPrintAdhesion->setText(QApplication::translate("MachineSetting", "\346\211\223\345\215\260\346\230\276\347\244\272\347\262\230\351\231\204\347\216\207", nullptr));
         pushButton_Adjustcoordinates->setText(QApplication::translate("MachineSetting", "\346\240\241\345\207\206\345\235\220\346\240\207", nullptr));
         toolButton_SaveCutnum->setText(QApplication::translate("MachineSetting", "\347\241\256\345\256\232", nullptr));
