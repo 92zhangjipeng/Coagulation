@@ -189,6 +189,9 @@ void TestProjectProcess::handleAckTimeout()
         QLOG_WARN() << QString::fromUtf8("全轴复位中忽略应答超时，等待复位完成或兜底续跑");
         return;
     }
+    if (m_outstandingAcks <= 0 && !m_waitingPppRead && !m_waitingPrpRead) {
+        return;
+    }
 
     const int acksBeforeTimeout = m_outstandingAcks;
     const bool gripperPollActive = StructInstance::getInstance()->isGripperVacuumPollActive();
@@ -304,6 +307,14 @@ void TestProjectProcess::resetRuntimeForSessionStart()
     disarmAckWatchdog();
     m_outstandingAcks = 0;
     m_Errorresetsfirst = false;
+    m_homePhase = 0;
+    m_homeZDone = 0;
+    m_homeZIndexZeroExtra = 0;
+    m_homeXyGot = 0;
+    m_homeXyNeed = 0;
+    m_homeRetry = 0;
+    ++m_homeEpoch;
+    m_homeDoneTip.clear();
     m_needHomeBeforeResume = false;
     m_pauseAwaitConsumable = false;
     m_continueAfterReagentHome = false;
@@ -1360,6 +1371,10 @@ void TestProjectProcess::recvEquipmentdata(const QStringList recvData)
     }
 
     if (m_Errorresetsfirst) {
+        if (m_homePhase != 0) {
+            handlePhasedHomeAck(slaveAddr, commandIndex, recvData);
+            return;
+        }
         noteAckReceived();
         if (!mbackOriginnumList.removeOne(commandIndex)) {
             QLOG_DEBUG() << QString::fromUtf8("复位期间忽略残留应答 命令号") << commandIndex;
@@ -2755,6 +2770,244 @@ void TestProjectProcess::throwCupFinish()
 
 
 
+void TestProjectProcess::startPhasedAxisHome(const QString &doneTip)
+{
+    m_homeDoneTip = doneTip;
+    m_homeRetry = 0;
+    sendHomeZPhase();
+}
+
+void TestProjectProcess::sendHomeZPhase()
+{
+    m_Errorresetsfirst = true;
+    m_homePhase = 1;
+    m_homeZDone = 0;
+    m_homeZIndexZeroExtra = 0;
+    m_homeXyGot = 0;
+    m_homeXyNeed = 0;
+    m_outstandingAcks = 0;
+    mbackOriginnumList.clear();
+    disarmAckWatchdog();
+
+    QByteArrayList zcmds;
+    QUIUtils::allZAxisBackOrigin(zcmds, 0);
+    if (zcmds.isEmpty()) {
+        giveUpPhasedHome(QString::fromUtf8("抬针指令没有生成。"));
+        return;
+    }
+    mbackOriginnumList = commandIndexListFromBytes(zcmds);
+    QLOG_INFO() << QString::fromUtf8("异常复位先抬三轴，条数") << zcmds.size();
+    publishWorkflowStatus(QString::fromUtf8("先抬样本针、试剂针和抓手，抬到位再回原点"));
+    sendInstructionsWithDelay(zcmds, DELAY_TIMENUM,
+                              QString::fromUtf8("动作异常先抬三轴"));
+    armPhasedHomeFallback();
+}
+
+void TestProjectProcess::sendHomeXyPhase()
+{
+    auto *dll = Testing::getTaskDll();
+    if (!dll) {
+        giveUpPhasedHome(QString::fromUtf8("回原点指令没有生成。"));
+        return;
+    }
+
+    m_Errorresetsfirst = true;
+    m_homePhase = 2;
+    m_homeXyGot = 0;
+    m_outstandingAcks = 0;
+    mbackOriginnumList.clear();
+    disarmAckWatchdog();
+
+    QPoint nativeOrigin(0, 0);
+    SingletonAxis::GetInstance()->originPos(READ_OPERRAT, nativeOrigin);
+    QByteArrayList xy;
+    quint8 index = 0;
+    const QByteArray toZero = dll->DLL_XYMoveSpecifiedPosition(QPoint(0, 0), 0, 0, index);
+    if (!toZero.isEmpty()) {
+        xy.push_back(toZero);
+    }
+    index = static_cast<quint8>(xy.size() % 255);
+    const QByteArray toOrigin = dll->DLL_XYMoveSpecifiedPosition(nativeOrigin, 0, 0, index);
+    if (!toOrigin.isEmpty()) {
+        xy.push_back(toOrigin);
+    }
+    if (xy.isEmpty()) {
+        giveUpPhasedHome(QString::fromUtf8("回原点指令没有生成。"));
+        return;
+    }
+    m_homeXyNeed = xy.size();
+    mbackOriginnumList = commandIndexListFromBytes(xy);
+    QLOG_INFO() << QString::fromUtf8("三轴已复位，开始回原点，条数") << xy.size();
+    publishWorkflowStatus(QString::fromUtf8("三轴已抬起，机械臂回原点"));
+    sendInstructionsWithDelay(xy, DELAY_TIMENUM,
+                              QString::fromUtf8("三轴已复位后回原点"));
+    armPhasedHomeFallback();
+}
+
+void TestProjectProcess::armPhasedHomeFallback()
+{
+    ++m_homeEpoch;
+    const int epoch = m_homeEpoch;
+    QPointer<TestProjectProcess> guard(this);
+    QTimer::singleShot(RESET_FALLBACK_MS, this, [guard, epoch]() {
+        if (!guard || !guard->m_Errorresetsfirst || guard->m_homeEpoch != epoch) {
+            return;
+        }
+        guard->retryPhasedHome(QString::fromUtf8("等待复位应答超时。"));
+    });
+}
+
+void TestProjectProcess::handlePhasedHomeAck(quint8 slaveAddr, quint8 commandIndex,
+                                             const QStringList &recvData)
+{
+    if (recvData.size() <= 4) {
+        QLOG_WARN() << QString::fromUtf8("复位应答长度不够，命令号") << commandIndex;
+        return;
+    }
+    int commandMode = 0;
+    int runStatus = 0;
+    int speedMode = 0;
+    int actionMotor = 0;
+    GlobalData::Parse4thBytecommandstatus(recvData, commandMode, runStatus,
+                                          speedMode, actionMotor);
+    if (runStatus == MOTOR_WAITING || runStatus == MOTOR_RUNNING) {
+        return;
+    }
+
+    noteAckReceived();
+    if (runStatus != MOTOR_FINISH) {
+        QLOG_WARN() << QString::fromUtf8("复位期间收到失败应答 命令号") << commandIndex
+                    << QString::fromUtf8("电机") << actionMotor
+                    << QString::fromUtf8("状态") << runStatus;
+        if (m_homePhase == 2 && actionMotor == MOTOR_XY) {
+            retryPhasedHome(QString::fromUtf8("回原点时针仍未复位。"));
+        }
+        return;
+    }
+
+    if (m_homePhase == 1) {
+        bool marked = false;
+        if (slaveAddr == Z_AXIS
+                && actionMotor >= MOTOR_HANDS_INDEX
+                && actionMotor <= MOTOR_BLOOD_INDEX) {
+            const int bit = 1 << actionMotor;
+            if ((m_homeZDone & bit) == 0) {
+                m_homeZDone |= bit;
+                marked = true;
+            }
+        }
+        if (!marked && commandIndex == 0 && m_homeZIndexZeroExtra < 3) {
+            ++m_homeZIndexZeroExtra;
+            QLOG_WARN() << QString::fromUtf8("Z复位应答命令号为0，按完成补计")
+                        << m_homeZIndexZeroExtra;
+        }
+        int zCount = m_homeZIndexZeroExtra;
+        for (int motor = MOTOR_HANDS_INDEX; motor <= MOTOR_BLOOD_INDEX; ++motor) {
+            if (m_homeZDone & (1 << motor)) {
+                ++zCount;
+            }
+        }
+        QLOG_INFO() << QString::fromUtf8("抬针应答 电机") << actionMotor
+                    << QString::fromUtf8("命令号") << commandIndex
+                    << QString::fromUtf8("已完成") << zCount;
+        if (zCount >= 3) {
+            sendHomeXyPhase();
+        }
+        return;
+    }
+
+    if (m_homePhase == 2 && actionMotor == MOTOR_XY) {
+        ++m_homeXyGot;
+        QLOG_INFO() << QString::fromUtf8("回原点应答") << m_homeXyGot << "/" << m_homeXyNeed
+                    << QString::fromUtf8("命令号") << commandIndex;
+        if (m_homeXyNeed > 0 && m_homeXyGot >= m_homeXyNeed) {
+            finishPhasedHome();
+        }
+        return;
+    }
+
+    QLOG_DEBUG() << QString::fromUtf8("复位期间忽略残留应答 命令号") << commandIndex
+                 << QString::fromUtf8("电机") << actionMotor;
+}
+
+void TestProjectProcess::retryPhasedHome(const QString &why)
+{
+    if (m_homeRetry >= 2) {
+        giveUpPhasedHome(why);
+        return;
+    }
+    ++m_homeRetry;
+    QLOG_WARN() << QString::fromUtf8("全轴复位未完成，重新抬针，不发XY。第")
+                << m_homeRetry << why;
+    publishWorkflowStatus(QString::fromUtf8("针还没全部复位，重新抬针，先不发XY"));
+    emit abortPendingEquipmentIo();
+    sendHomeZPhase();
+}
+
+void TestProjectProcess::giveUpPhasedHome(const QString &why)
+{
+    ++m_homeEpoch;
+    m_Errorresetsfirst = false;
+    m_homePhase = 0;
+    m_homeZDone = 0;
+    m_homeZIndexZeroExtra = 0;
+    m_homeXyGot = 0;
+    m_homeXyNeed = 0;
+    mbackOriginnumList.clear();
+    m_outstandingAcks = 0;
+    m_gripperRestartAwait = GripperRestartNone;
+    disarmAckWatchdog();
+    m_needHomeBeforeResume = true;
+    emit abortPendingEquipmentIo();
+    const QString tips = QString::fromUtf8("全轴复位没做完，没有继续发XY。%1请看样本针和试剂针是否卡住，再点继续。")
+                             .arg(why);
+    QLOG_WARN() << tips;
+    publishWorkflowStatus(tips);
+    promptsareDisplayed(TESTINGLOG, tips, true);
+    pauseForOperator();
+}
+
+void TestProjectProcess::finishPhasedHome()
+{
+    ++m_homeEpoch;
+    m_Errorresetsfirst = false;
+    m_homePhase = 0;
+    m_homeRetry = 0;
+    m_homeZDone = 0;
+    m_homeZIndexZeroExtra = 0;
+    m_homeXyGot = 0;
+    m_homeXyNeed = 0;
+    mbackOriginnumList.clear();
+    m_outstandingAcks = 0;
+    disarmAckWatchdog();
+    const QString tip = m_homeDoneTip.isEmpty()
+            ? QString::fromUtf8("全轴复位完成继续测试")
+            : m_homeDoneTip;
+    QLOG_INFO() << tip;
+    if (m_continueAfterReagentHome) {
+        m_continueAfterReagentHome = false;
+        m_pauseAwaitConsumable = false;
+        const bool hasFocus = StructInstance::getInstance()->sampleHadFocus();
+        resumeTestingAfterReagentPause(hasFocus);
+        return;
+    }
+    if (m_pauseAwaitConsumable) {
+        cglobal::g_PauseTesting.store(true);
+        emit requestPauseUiSync(true);
+        emit pauseTesting();
+        publishWorkflowStatus(tr("试剂不足，全轴已复位，请更换后点「继续」"));
+        promptsareDisplayed(TESTINGLOG,
+                            tr("试剂不足，全轴已复位，请更换试剂后点「继续」"),
+                            false);
+        return;
+    }
+    if (cglobal::g_PauseTesting.load()) {
+        publishWorkflowStatus(tr("复位已完成，点「继续」后接着测试"));
+        return;
+    }
+    exceptionRetest(tip);
+}
+
 /**
  * @brief TestProjectProcess::
  * 1.清洗完针该样本失去 焦点 遍历通道内 测试样本状态
@@ -2773,27 +3026,7 @@ void TestProjectProcess::equipment_err_continue()
     disarmAckWatchdog();
     cglobal::g_PauseTesting.store(false);
     emit requestPauseUiSync(false);
-    m_Errorresetsfirst = true;
-    mbackOriginnumList.clear();
-    QByteArrayList allAxisBackOrigin = GlobalData::letallAxisBackOrigin(mbackOriginnumList);
-    sendInstructionsWithDelay(allAxisBackOrigin, DELAY_TIMENUM,
-                              QString::fromUtf8("动作异常全轴复位"));
-
-    QPointer<TestProjectProcess> guard(this);
-    QTimer::singleShot(RESET_FALLBACK_MS, this, [guard]() {
-        if (!guard || !guard->m_Errorresetsfirst) {
-            return;
-        }
-        QLOG_WARN() << QString::fromUtf8("全轴复位应答未齐，强制继续调度");
-        guard->m_Errorresetsfirst = false;
-        guard->mbackOriginnumList.clear();
-        guard->m_outstandingAcks = 0;
-        guard->m_gripperRestartAwait = GripperRestartNone;
-        guard->disarmAckWatchdog();
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            guard->exceptionRetest(QString::fromUtf8("复位应答未齐强制续跑"));
-        }
-    });
+    startPhasedAxisHome(QString::fromUtf8("全轴复位完成继续测试"));
 }
 
 
@@ -2866,26 +3099,8 @@ void TestProjectProcess::slot_connectEquipmentagin()
         publishWorkflowStatus(tr("断线重连：全轴复位后按快照续跑"));
     }
 
-    // 先所有轴复位。掉线前的应答不会再来，名单和待应答数先清掉。
-    m_Errorresetsfirst = true;
-    mbackOriginnumList.clear();
-    QByteArrayList allAxisBackOrigin = GlobalData::letallAxisBackOrigin(mbackOriginnumList);
-    sendInstructionsWithDelay(allAxisBackOrigin,DELAY_TIMENUM, "重连继续遍历测试指令");
-
-    QPointer<TestProjectProcess> guard(this);
-    QTimer::singleShot(RESET_FALLBACK_MS, this, [guard]() {
-        if (!guard || !guard->m_Errorresetsfirst) {
-            return;
-        }
-        QLOG_WARN() << QString::fromUtf8("重连全轴复位应答未齐，强制继续调度");
-        guard->m_Errorresetsfirst = false;
-        guard->mbackOriginnumList.clear();
-        guard->m_outstandingAcks = 0;
-        guard->disarmAckWatchdog();
-        if (cglobal::g_StartTesting.load() && !cglobal::g_PauseTesting.load()) {
-            guard->exceptionRetest(QString::fromUtf8("重连复位应答未齐强制续跑"));
-        }
-    });
+    // 先抬三轴，抬齐再回原点。掉线前的应答不会再来。
+    startPhasedAxisHome(QString::fromUtf8("重连全轴复位完成继续测试"));
 }
 
 

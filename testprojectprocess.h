@@ -306,6 +306,15 @@ private:
 
     //异常重新测试
     void exceptionRetest(QString tips);
+    // 电机异常 / 重连：先抬三轴，抬齐再 XY 回原点，应答齐了才续跑
+    void startPhasedAxisHome(const QString &doneTip);
+    void sendHomeZPhase();
+    void sendHomeXyPhase();
+    void armPhasedHomeFallback();
+    void handlePhasedHomeAck(quint8 slaveAddr, quint8 commandIndex, const QStringList &recvData);
+    void retryPhasedHome(const QString &why);
+    void giveUpPhasedHome(const QString &why);
+    void finishPhasedHome();
     bool restartClipPppAfterHome(const QString& tips);
     bool restartThrowPppAfterHome(const QString& tips);
     bool restartThrowReagentAfterHome(quint8 reagent, const QString& tips);
@@ -547,6 +556,14 @@ private:
     quint8 m_totalChannel; //通道总数
     QList<quint8> mbackOriginnumList;
     bool m_Errorresetsfirst; //发生异常先所有轴复位
+    int m_homePhase = 0; // 1=等三轴抬起 2=等XY回原点
+    int m_homeZDone = 0; // bit0抓手 bit1试剂针 bit2样本针
+    int m_homeZIndexZeroExtra = 0; // 主板把多条Z复位都回成命令号0时，按条数补计
+    int m_homeXyGot = 0;
+    int m_homeXyNeed = 0;
+    int m_homeRetry = 0;
+    int m_homeEpoch = 0; // 作废过期的复位兜底定时器
+    QString m_homeDoneTip;
     bool m_needHomeBeforeResume = false; //电机异常后点「继续」须先全轴复位
     bool m_pauseAwaitConsumable = false; //缺试剂复位后不得自动续跑，等人换试剂再点继续
     bool m_continueAfterReagentHome = false; //回原点未完成时已点继续，原点应答到齐后再续跑
